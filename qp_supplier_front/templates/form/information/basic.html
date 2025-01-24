@@ -1,0 +1,56 @@
+<form class = "form-estandar"  id="form-basic" action="api/method/qp_supplier_front.resources.information.basic.update">
+    <div class="row row-line">
+
+        <div class="col-lg-4">
+            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold"
+                maxlength="140" data-fieldtype="Data" data-doctype="Issue" name="supplier_name" id="supplier_name"
+                placeholder="Nombre" value="{{supplier.supplier_name}}">
+        </div>
+
+        <div class="col-lg-4">
+
+            <select class="form-control" name="id_type_name" id="status" data-label="Status" data-fieldtype="Select">
+                <option value="0" selected="selected" class="custom-option">Tipo Documento
+                </option>
+                {% for document_type in document_types %}
+                <option value="{{document_type.name}}" {{document_type.selected}} class="custom-option">
+                    {{document_type.id_type_name}}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-4">
+            <input type="text" autocomplete="off" name="tax_id"
+                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
+                data-doctype="Issue" id="tax_id" value="{{supplier.tax_id}}" placeholder="Documento">
+        </div>
+    </div>
+    <div class="row row-line">
+
+        <div class="col-lg-4">
+            <input type="text" autocomplete="off" name="phone_number"
+                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
+                data-doctype="Issue" id="phone_number" value="{{party.phone_number}}" placeholder="Numero telefonico">
+        </div>
+        <div class="col-lg-4">
+
+            <select class="form-control" name="business_type_name" id="status" data-label="Status"
+                data-fieldtype="Select">
+                <option value="0" selected="selected" class="custom-option">Tipo empresa
+                </option>
+                {% for business_type in business_types %}
+                <option value="{{business_type.name}}" {{business_type.selected}} class="custom-option">
+                    {{business_type.business_type_name}}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+    </div>
+    <div class="row row-line">
+        <div class="col-lg-4">
+            <button class="btn btn-primary btn-sm primary-action" id="save">Guardar</button>
+        </div>
+    </div>
+
+</form>

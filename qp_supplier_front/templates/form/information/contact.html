@@ -1,0 +1,35 @@
+<div class="row row-line">
+    <div class="col-sm-12">
+        <button type="button" class="btn btn-primary btn-sm primary-action"
+            data-toggle="modal" data-target="#contact_modal">+New</button>
+    </div>
+</div>
+<form>
+    <div class="row row-line">
+        {% if contacts %}
+        <table class="table">
+            <thead>
+                <th>Codigo</th>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Teléfono</th>
+            </thead>
+            <tbody>
+                {% for contact in contacts %}
+
+                <tr>
+                    <td>{{contact.name}}</td>
+                    <td>{{contact.first_name}}</td>
+                    <td>{{contact.email_ids[0].email_id}}</td>
+                    <td>{{contact.phone_nos[0].phone}}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="col-lg-12">
+            <p>No hay contactos registradas</p>
+            {% endif %}
+        </div>
+
+</form>

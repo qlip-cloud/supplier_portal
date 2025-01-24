@@ -1,0 +1,82 @@
+{
+ "actions": [],
+ "creation": "2025-01-08 15:20:26.409585",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "fullname",
+  "nationality",
+  "have_resident_another_country",
+  "have_american_visa",
+  "id_type",
+  "tax_id",
+  "market_share",
+  "authorization_data_processing",
+  "supplier_code_conduct"
+ ],
+ "fields": [
+  {
+   "fieldname": "fullname",
+   "fieldtype": "Data",
+   "label": "fullname"
+  },
+  {
+   "fieldname": "nationality",
+   "fieldtype": "Data",
+   "label": "nationality"
+  },
+  {
+   "fieldname": "have_resident_another_country",
+   "fieldtype": "Select",
+   "label": "have_resident_another_country",
+   "options": "\nSI\nNO"
+  },
+  {
+   "fieldname": "have_american_visa",
+   "fieldtype": "Select",
+   "label": "have_american_visa",
+   "options": "\nSI\nNO"
+  },
+  {
+   "fieldname": "id_type",
+   "fieldtype": "Link",
+   "label": "id_type",
+   "options": "qp_CO_IdType"
+  },
+  {
+   "fieldname": "tax_id",
+   "fieldtype": "Int",
+   "label": "tax_id"
+  },
+  {
+   "fieldname": "market_share",
+   "fieldtype": "Float",
+   "label": "Market_share"
+  },
+  {
+   "fieldname": "authorization_data_processing",
+   "fieldtype": "Select",
+   "label": "authorization_data_processing",
+   "options": "\nSI\nNO"
+  },
+  {
+   "fieldname": "supplier_code_conduct",
+   "fieldtype": "Select",
+   "label": "  Supplier Code Conduct",
+   "options": "\nSI\nNO"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-01-08 18:07:24.939193",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_ShareHolder",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

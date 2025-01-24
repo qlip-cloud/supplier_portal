@@ -1,0 +1,106 @@
+{% extends "frappe/templates/web.html" %}
+
+{% block page_content %}
+
+<div class="container-fluid">
+    <div class="row">
+
+        <div class="col-lg-2" id="sidebar">
+            <div class="row">
+                <div class="col lg-12 sidebar-menu active">
+                    Información
+                </div>
+            </div>
+            <div class="row">
+                <div class="col lg-12 sidebar-menu">Facturas</div>
+            </div>
+            <div class="row">
+                <div class="col lg-12 sidebar-menu">Orden de Compra</div>
+            </div>
+            <div class="row">
+                <div class="col lg-12 sidebar-menu">Recibos</div>
+            </div>
+            <div class="row">
+                <div class="col lg-12 sidebar-menu">Reportes impuesto</div>
+            </div>
+            <div class="row">
+                <div class="col lg-12 sidebar-menu">Solicitud cotización</div>
+            </div>
+        </div>
+        <div class="col-lg-10" id="area">
+
+            <div class="row row-line">
+                <div class="col-lg-12">
+                    Solicitud de cotización / PUR-RFQ-2024-00006
+                </div>
+            </div>
+
+            <div class="row row-line">
+
+                <div class="col-lg-8">
+                    PUR-RFQ-2024-00006
+                </div>
+
+
+                <div class="col-lg-4">
+                    <button class="btn btn-primary btn-sm primary-action" id="save">Validar</button>
+
+                </div>
+
+                <div class="col-lg-8">
+
+                    Movistar
+                </div>
+                <div class="col-lg-4">
+
+                    16-08-2024
+                </div>
+
+            </div>
+            <div class="row row-line">
+                <table class="table">
+                    <thead>
+                        <th colspan="2" width="50%">Productos</th>
+                        <th>Cantidad</th>
+                        <th>Precio</th>
+                        <th>Importe</th>
+
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td rowspan="2">OC-6365145</td>
+                            <td>
+                                <p>1001</p>
+                                <p>LLantas</p>
+                            </td>
+                            <td>
+                                <p><input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold"
+                                    maxlength="140" data-fieldtype="Data" data-doctype="Issue" id="Nombre"></p>
+                                    <p>UOM:Nos</p>
+                            </td>
+                            <td><input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold"
+                                maxlength="140" data-fieldtype="Data" data-doctype="Issue" id="Nombre"></p></td>
+                                <td>
+                                    $0.00
+                                </td>
+                        </tr>
+
+                    </tbody>
+                </table>
+
+            </div>
+            <div class="row row-line">
+                <div class="col-lg-2">
+                    <Label>Notas: </Label>
+                    <textarea autocomplete="off" class="input-with-feedback form-control floating-input bold"
+                        maxlength="140" data-fieldtype="Data" data-doctype="Issue" id="Nombre"> </textarea>
+                </div>
+
+            </div>
+            
+        </div>
+
+
+    </div>
+</div>
+{% endblock %}

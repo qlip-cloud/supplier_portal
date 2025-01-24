@@ -1,0 +1,58 @@
+{% extends "frappe/templates/web.html" %}
+
+{% block page_content %}
+
+<div class="container-fluid">
+    <div class="row">
+
+       
+        <div class="col-lg-12" id="area">
+            <div class="row row-line">
+
+                <div class="col-lg-5">
+
+                    Mis Tickets
+                </div>
+
+            </div>
+
+
+            <div class="row row-line">
+                <div class="col-lg-2">
+
+                    <button class="btn btn-primary btn-sm primary-action" id="save">+ New</button>
+
+                </div>
+            </div>
+            <div class="row row-line">
+                <table class="table">
+                    <thead>
+                        <th>Codigo</th>
+                        <th>Asunto</th>
+                        <th>Estado</th>
+                        <th>Prioridad</th>
+                        <th>Fecha</th>
+                        
+
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>OC-6365145</td>
+                            <td>Por entregar</td>
+                            <td>23- 08-2022</td>
+                            <td></td>
+                        <th>Fecha</th>
+
+                        </tr>
+                       
+                    </tbody>
+                </table>
+
+            </div>
+
+        </div>
+
+
+    </div>
+</div>
+{% endblock %}

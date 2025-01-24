@@ -1,0 +1,78 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+.container {
+    width: 100vw;
+}
+
+/* Tabs structure */
+.tabs-container {
+    display: block;
+}
+
+.tabs {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.tab {
+    flex: 1;
+    padding: 10px;
+    cursor: pointer;
+    text-align: center;
+    background-color: #f1f1f1;
+    border: 1px solid #ccc;
+}
+
+.tab.active {
+    border-bottom: 3px solid #007BFF; /* Borde inferior para la tab activa */
+}
+
+.content {
+    margin: 0 auto;
+}
+
+.tab-content {
+    display: none;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-top: none;
+}
+
+.tab-content form {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Dropdown structure */
+.dropdown-menu {
+    display: none;
+    position: relative;
+    width: 100%;
+    margin-bottom: 5%;
+}
+
+.dropdown-menu select {
+    width: 100%;
+    padding: 10px;
+}
+
+.dropdown-menu .dropdown-item:hover {
+    background-color: #ddd;
+}
+
+/* Media query for screens smaller than 900px */
+@media (max-width: 900px) {
+    .tabs {
+        display: none;
+    }
+
+    .dropdown-menu {
+        display: block;
+    }
+}

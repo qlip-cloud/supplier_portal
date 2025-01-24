@@ -1,0 +1,103 @@
+<form  class = "form-estandar" id="form-tax" action="api/method/qp_supplier_front.resources.information.tax.update">
+    <div class="row row-line">
+
+        <div class="col-lg-4">
+            <label for="qp_vat_officer">Responsable de IVA</label>
+
+            <select class="form-control" name="qp_vat_officer" id="qp_vat_officer" data-label="qp_vat_officer"
+                data-fieldtype="Select">
+                <option value="" selected="selected" class="custom-option">Respuesta</option>
+                <option value="SI" class="custom-option"> SI </option>
+                <option value="NO" class="custom-option"> NO </option>
+            </select>
+        </div>
+
+        <div class="col-lg-4">
+            <label for="tax_regime">Régimen</label>
+
+            <select class="form-control" name="tax_regime" id="tax_regime" data-label="tax_regime"
+                data-fieldtype="Select">
+                <option value="0" selected="selected" class="custom-option">Régimen</option>
+                {% for regime in regimes %}
+                <option value="{{regime.name}}" {{regime.selected}} class="custom-option">
+                    {{regime.tax_regime_name}}
+                </option>
+                {% endfor %}
+
+            </select>
+        </div>
+        <div class="col-lg-4">
+            <label for="qp_industry_and_commerce_tax">Impuesto de Industria y Comercio</label>
+
+            <select class="form-control" name="qp_industry_and_commerce_tax" id="qp_industry_and_commerce_tax"
+                data-label="qp_industry_and_commerce_tax" data-fieldtype="Select">
+                <option value="" selected="selected" class="custom-option">Respuesta</option>
+                <option value="SI" class="custom-option"> SI </option>
+                <option value="NO" class="custom-option"> NO </option>
+            </select>
+        </div>
+
+        <div class="col-lg-4">
+            <label for="qp_industry_and_commerce_rate">Tarifa Industria y Comercio</label>
+            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold"
+                maxlength="140" data-fieldtype="Data" data-doctype="Issue" name="qp_industry_and_commerce_rate"
+                id="qp_industry_and_commerce_rate" placeholder="Tarifa Industria y Comercio"
+                value="{{supplier.qp_industry_and_commerce_rate  or ''}}">
+        </div>
+
+        <div class="col-lg-4">
+            <label for="qp_self_retaining">Autoretenedor</label>
+            <select class="form-control" name="qp_self_retaining" id="qp_self_retaining" data-label="qp_self_retaining"
+                data-fieldtype="Select">
+                <option value="" selected="selected" class="custom-option">Respuesta</option>
+                <option value="SI" class="custom-option"> SI </option>
+                <option value="NO" class="custom-option"> NO </option>
+            </select>
+        </div>
+        <div class="col-lg-4">
+            <label for="qp_major_contributor">Gran Contribuyente</label>
+            <select class="form-control" name="qp_major_contributor" id="qp_major_contributor"
+                data-label="qp_major_contributor" data-fieldtype="Select">
+                <option value="" selected="selected" class="custom-option">Respuesta</option>
+                <option value="SI" class="custom-option"> SI </option>
+                <option value="NO" class="custom-option"> NO </option>
+            </select>
+        </div>
+
+        <div class="col-lg-4">
+
+            <label for="qp_vat_withholding_agent">Retenedor de IVA</label>
+            <select class="form-control" name="qp_vat_withholding_agent" id="qp_vat_withholding_agent"
+                data-label="qp_vat_withholding_agent" data-fieldtype="Select">
+                <option value="" selected="selected" class="custom-option">Respuesta</option>
+                <option value="SI" class="custom-option"> SI </option>
+                <option value="NO" class="custom-option"> NO </option>
+            </select>
+        </div>
+        <div class="col-lg-4">
+            <label for="ciiu_id">Actividad Económica Principal (CIIU)</label>
+            <select class="form-control" name="ciiu_id" id="ciiu_id" data-label="ciiu_id" data-fieldtype="Select">
+                <option value="0" selected="selected" class="custom-option">Actividad Económica Principal</option>
+                {% for ciiu in ciius %}
+                <option value="{{ciiu.name}}" {{ciiu.selected}} class="custom-option">
+                    {{ciiu.ciiu_name}}
+                </option>
+                {% endfor %}
+
+            </select>
+        </div>
+        <div class="col-lg-4">
+            <label for="qp_resolution">Resolución</label>
+            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold"
+                maxlength="140" data-fieldtype="Data" data-doctype="Issue" name="qp_resolution" id="qp_resolution"
+                placeholder="Resolución" value="{{supplier.qp_resolution  or ''}}">
+        </div>
+    </div>
+
+    <div class="row row-line">
+        <div class="col-lg-4">
+            <button class="btn btn-primary btn-sm primary-action" id="save">Guardar</button>
+        </div>
+    </div>
+
+</form>

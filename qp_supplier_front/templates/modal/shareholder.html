@@ -1,0 +1,128 @@
+<div class="modal fade" id="shareholder_modal" tabindex="-1" aria-labelledby="shareholder_modal_label" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shareholder_modal_label">Agregar Accionista</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form class="form-estandar form-modal" id="form-shareholder"
+                    action="api/method/qp_supplier_front.resources.information.shareholder.update">
+                    <div class="row row-line">
+
+                        <div class="col-lg-6">
+                            <label for="fullname">Razón social o nombre completo</label>
+                            <input type="text" autocomplete="off"
+                                class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                data-fieldtype="Data" data-doctype="Issue" name="fullname" id="fullname"
+                                placeholder="Razón social o nombre completo" value="">
+                        </div>
+                    
+
+                        <div class="col-lg-6">
+                            <label for="nationality">Nacionalidad</label>
+                            <input type="text" autocomplete="off"
+                                class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                data-fieldtype="Data" data-doctype="Issue" name="nationality" id="nationality"
+                                placeholder="Nacionalidad" value="">
+                        </div>
+                    </div>
+                    <div class="row row-line">
+                        <div class="col-lg-6">
+
+                            <label for="have_resident_another_country">¿Tiene residencia en otro país?</label>
+                            <select class="form-control" name="have_resident_another_country"
+                                id="have_resident_another_country" data-label="have_resident_another_country"
+                                data-fieldtype="Select">
+                                <option value="" selected="selected" class="custom-option">Respuesta</option>
+                                <option value="SI" class="custom-option"> SI </option>
+                                <option value="NO" class="custom-option"> NO </option>
+                            </select>
+                        </div>
+                    
+                    
+                        <div class="col-lg-6">
+
+                            <label for="have_american_visa">Visa americana</label>
+                            <select class="form-control" name="have_american_visa" id="have_american_visa"
+                                data-label="have_american_visa" data-fieldtype="Select">
+                                <option value="" selected="selected" class="custom-option">Respuesta</option>
+                                <option value="SI" class="custom-option"> SI </option>
+                                <option value="NO" class="custom-option"> NO </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row row-line">  
+                        <div class="col-lg-6">
+
+                            <label for="id_type">Tipo de Identificación</label>
+                            <select class="form-control" name="id_type" id="id_type" data-label="id_type"
+                                data-fieldtype="Select">
+                                <option value="0" selected="selected" class="custom-option">Tipo Documento
+                                </option>
+                                {% for document_type in document_types %}
+                                <option value="{{document_type.name}}" {{document_type.selected}} class="custom-option">
+                                    {{document_type.id_type_name}}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                   
+                        <div class="col-lg-6">
+                            <label for="tax_id">Número</label>
+                            <input type="text" autocomplete="off"
+                                class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                data-fieldtype="Data" data-doctype="Issue" name="tax_id" id="tax_id"
+                                placeholder="Número" value="">
+                        </div>
+                    </div>
+                    <div class="row row-line">
+
+                        <div class="col-lg-6">
+                            <label for="market_share">% Participación</label>
+                            <input type="text" autocomplete="off"
+                                class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                data-fieldtype="Data" data-doctype="Issue" name="market_share" id="market_share"
+                                placeholder="% Participación" value="">
+                        </div>
+                   
+                        <div class="col-lg-6">
+
+                            <label for="authorization_data_processing">Autorización Tratamiento de datos personales -
+                                Proveedores</label>
+                            <select class="form-control" name="authorization_data_processing"
+                                id="authorization_data_processing" data-label="authorization_data_processing"
+                                data-fieldtype="Select">
+                                <option value="" selected="selected" class="custom-option">Respuesta</option>
+                                <option value="SI" class="custom-option"> SI </option>
+                                <option value="NO" class="custom-option"> NO </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row row-line">
+                        <div class="col-lg-6">
+
+                            <label for="supplier_code_conduct">Código de Conducta de Proveedores</label>
+                            <select class="form-control" name="supplier_code_conduct" id="supplier_code_conduct"
+                                data-label="supplier_code_conduct" data-fieldtype="Select">
+                                <option value="" selected="selected" class="custom-option">Respuesta</option>
+                                <option value="SI" class="custom-option"> SI </option>
+                                <option value="NO" class="custom-option"> NO </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row row-line">
+                        <div class="col-lg-6">
+                            <button class="btn btn-primary btn-sm primary-action" id="save">Guardar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

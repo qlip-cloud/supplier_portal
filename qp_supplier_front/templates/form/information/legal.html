@@ -1,0 +1,64 @@
+<form class = "form-estandar" id="form-legal" action="api/method/qp_supplier_front.resources.information.legal.update">
+    <div class="row row-line">
+        
+        <div class="col-lg-4">
+            <label for="qp_financial_assets">Nombre</label>
+
+            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold"
+                maxlength="140" data-fieldtype="Data" data-doctype="Issue" name="qp_legal_name" id="qp_legal_name"
+                placeholder="Nombre" value="{{supplier.qp_legal_name or ''}}">
+        </div>
+
+
+        <div class="col-lg-4">
+            <label for="qp_financial_assets">Tipo de Documento</label>
+
+            <select class="form-control" name="qp_legal_id_type" id="qp_legal_id_type" data-label="qp_legal_id_type"
+                data-fieldtype="Select">
+                <option value="0" selected="selected" class="custom-option">Tipo de
+                    Documento
+                </option>
+                {% for document_type in document_types %}
+                <option value="{{document_type.name}}" {{document_type.selected}} class="custom-option">
+                    {{document_type.id_type_name}}
+                </option>
+                {% endfor %}
+
+            </select>
+        </div>
+        <div class="col-lg-4">
+            <label for="qp_financial_assets">Número de Documento</label>
+
+            <input type="text" autocomplete="off" name="qp_legal_tax_id"
+                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
+                data-doctype="Issue" id="qp_legal_tax_id" value="{{supplier.qp_legal_tax_id or ''}}"
+                placeholder="Número de Documento">
+        </div>
+    </div>
+    <div class="row row-line">
+
+        <div class="col-lg-4">
+            <label for="qp_financial_assets">Lugar de Expedición</label>
+
+            <input type="text" autocomplete="off" name="qp_legal_place_expedition"
+                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
+                data-doctype="Issue" id="qp_legal_place_expedition" value="{{supplier.qp_legal_place_expedition or ''}}"
+                placeholder="Lugar de Expedición">
+        </div>
+        <div class="col-lg-4">
+            <label for="qp_financial_assets">Fecha de Expedición</label>
+
+            <input type="text" autocomplete="off" name="qp_legal_date_expedition"
+                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Date"
+                data-doctype="Issue" id="qp_legal_date_expedition" value="{{supplier.qp_legal_date_expedition or ''}}"
+                placeholder="Fecha de Expedición">
+        </div>
+
+    </div>
+    <div class="row row-line">
+        <div class="col-lg-4">
+            <button class="btn btn-primary btn-sm primary-action" id="save">Guardar</button>
+        </div>
+    </div>
+
+</form>

@@ -1,0 +1,129 @@
+{% extends "frappe/templates/web.html" %}
+
+{% block page_content %}
+
+<div class="container-fluid">
+    <div class="row">
+
+        <!--div class="col-lg-2" id="sidebar">
+            <div class="row">
+                <div class="col lg-12 sidebar-menu active">
+                    Información
+                </div>
+            </div>
+            <div class="row">
+                <div class="col lg-12 sidebar-menu">Facturas</div>
+            </div>
+            <div class="row">
+                <div class="col lg-12 sidebar-menu">Orden de Compra</div>
+            </div>
+            <div class="row">
+                <div class="col lg-12 sidebar-menu">Recibos</div>
+            </div>
+            <div class="row">
+                <div class="col lg-12 sidebar-menu">Reportes impuesto</div>
+            </div>
+        </div-->
+
+
+
+
+
+        <div class="col-lg-12" id="area">
+
+            <div class="container-tab">
+                <div class="tabs-container">
+                    <div class="tabs">
+                        <button class="tab" onclick="showTab('tab1')">Información Básica</button>
+                        <button class="tab" onclick="showTab('tab2')">Direcciones</button>
+                        <button class="tab" onclick="showTab('tab3')">Contactos</button>
+                        <button class="tab" onclick="showTab('tab4')">Legal</button>
+                        <button class="tab" onclick="showTab('tab5')">Cuentas Bancarias</button>
+                        <button class="tab" onclick="showTab('tab6')">Información Tributaria</button>
+                        <button class="tab" onclick="showTab('tab7')">Información Financiera</button>
+                        <button class="tab" onclick="showTab('tab8')">Operaciones Internacionales</button>
+                        <button class="tab" onclick="showTab('tab9')">Accionistas y Asociados</button>
+                        <button class="tab" onclick="showTab('tab10')">Documentos</button>
+                    </div>
+                    <div class="dropdown-menu">
+                        <select id="dropdown">
+                            <option value="tab1">Información Básica</option>
+                            <option value="tab2">Direcciones</option>
+                            <option value="tab3">Contactos</option>
+                            <option value="tab4">Legal</option>
+                            <option value="tab5">Cuentas Bancarias</option>
+                            <option value="tab6">Información Tributaria</option>
+                            <option value="tab7">Información Financiera</option>
+                            <option value="tab8">Operaciones Internacionales</option>
+                            <option value="tab9">Accionistas y Asociados</option>
+                            <option value="tab10">Documentos</option>
+                        </select>
+                    </div>
+                    <div class="content">
+                        <input type="hidden" id="supplier_id" value="{{supplier.name}}">
+                        <div id="tab1" class="tab-content">
+
+                            {% include "qp_supplier_front/templates/form/information/basic.html" %}
+
+                        </div>
+                        <div id="tab2" class="tab-content">
+                            {% include "qp_supplier_front/templates/form/information/address.html" %}
+                            
+                        </div>
+                        <div id="tab3" class="tab-content">
+                            {% include "qp_supplier_front/templates/form/information/contact.html" %}
+                        </div>
+                        <div id="tab4" class="tab-content">
+
+                            {% include "qp_supplier_front/templates/form/information/legal.html" %}
+
+                        </div>
+                        <div id="tab5" class="tab-content">
+
+                            {% include "qp_supplier_front/templates/form/information/bank_account.html" %}
+
+                        </div>
+                        <div id="tab6" class="tab-content">
+
+                            {% include "qp_supplier_front/templates/form/information/tax.html" %}
+
+                        </div>
+                        <div id="tab7" class="tab-content">
+
+                            {% include "qp_supplier_front/templates/form/information/financial.html" %}
+
+                        </div>
+                        <div id="tab8" class="tab-content">
+
+                            {% include "qp_supplier_front/templates/form/information/international.html" %}
+
+                        </div>
+                        <div id="tab9" class="tab-content">
+
+                            {% include "qp_supplier_front/templates/form/information/shareholder.html" %}
+
+                        </div>
+                        <div id="tab10" class="tab-content">
+
+                            {% include "qp_supplier_front/templates/form/information/document.html" %}
+
+                        </div>
+                        <!-- Más secciones del formulario -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+
+    </div>
+
+
+</div>
+{% include "qp_supplier_front/templates/modal/address.html" %}
+{% include "qp_supplier_front/templates/modal/contact.html" %}
+{% include "qp_supplier_front/templates/modal/bank_account.html" %}
+{% include "qp_supplier_front/templates/modal/shareholder.html" %}
+
+{% endblock %}
