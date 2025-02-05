@@ -2,7 +2,11 @@ import frappe
 from qp_supplier_front.services.get_data import get_party, get_supplier, get_document_types, get_business_types, get_dynamic_link,get_bank_accounts, get_regimes, get_ciius
 def get_context(context):
     
-    supplier = get_supplier("123")
+    query_params = frappe.request.args
+    
+    supplier_id = query_params.get("supplier")
+    
+    supplier = get_supplier(supplier_id)
     
     party = get_party(supplier)
     
@@ -17,6 +21,8 @@ def get_context(context):
     setup_regimes(context, party)
     
     setup_ciius(context, party)
+    
+    context.supplier_id = supplier_id
     
     context.countries = frappe.get_all("Country", fields = ["name", "country_name"])
     

@@ -11,7 +11,6 @@ def handler(supplier_id, country, city, state, address_line1):
     
     supplier = get_supplier(supplier_id)
     
-    
     address = create_address(supplier, doctype, country, city, state, address_line1)
     
     fields_to_validate = ['address_line1', 'city', 'country', 'state']
@@ -24,7 +23,7 @@ def handler(supplier_id, country, city, state, address_line1):
         "address": address.as_dict()
     }
 
-def  create_address(supplier, doctype, country, city, state, address_line1):
+def create_address(supplier, doctype, country, city, state, address_line1):
     
     address = frappe.new_doc(doctype)
     

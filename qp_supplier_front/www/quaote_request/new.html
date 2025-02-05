@@ -1,33 +1,12 @@
-{% extends "frappe/templates/web.html" %}
+{% extends "qp_supplier_front/templates/includes/container.html" %}
 
-{% block page_content %}
+{% block content_page %}
 
-<div class="container-fluid">
+
     <div class="row">
 
-        <div class="col-lg-2" id="sidebar">
-            <div class="row">
-                <div class="col lg-12 sidebar-menu active">
-                    Información
-                </div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Facturas</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Orden de Compra</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Recibos</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Reportes impuesto</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Solicitud cotización</div>
-            </div>
-        </div>
-        <div class="col-lg-10" id="area">
+
+        <div class="col-lg-12" id="area">
 
             <div class="row row-line">
                 <div class="col-lg-12">
@@ -102,5 +81,4 @@
 
 
     </div>
-</div>
 {% endblock %}

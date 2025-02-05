@@ -9,8 +9,7 @@ html {
     margin: 0;
 }
 
-#sidebar,
-area {
+#sidebar,#area {
     height: 100% !important;
 }
 
@@ -20,6 +19,8 @@ area {
 
 #area {
     padding-right: 5% !important;
+    z-index: 1;
+
 }
 
 .row-line {
@@ -114,3 +115,46 @@ textarea {
     border: 1px solid #ccc; /* Borde opcional */
     border-radius: 5px; /* Esquinas redondeadas opcionales */
 }
+
+
+
+
+
+.sidenav {
+    height: 100%;
+    width: 0;
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    background-color: #fff;
+    overflow-x: hidden;
+    transition: 0.5s;
+    padding-top: 60px;
+}
+
+.sidenav a {
+    padding: 8px 8px 8px 32px;
+    text-decoration: none;
+    display: block;
+    transition: 0.3s;
+}
+
+.sidenav .closebtn {
+    position: absolute;
+    top: 0;
+    right: 25px;
+    font-size: 36px;
+    margin-left: 50px;
+}
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: none;
+}
+

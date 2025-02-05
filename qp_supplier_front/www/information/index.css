@@ -30,7 +30,8 @@ body {
 }
 
 .tab.active {
-    border-bottom: 3px solid #007BFF; /* Borde inferior para la tab activa */
+    border-bottom: 3px solid #007BFF;
+    /* Borde inferior para la tab activa */
 }
 
 .content {
@@ -75,4 +76,10 @@ body {
     .dropdown-menu {
         display: block;
     }
+}
+
+.link_modal {
+    text-decoration: underline;
+    color: blue;
+    cursor: pointer;
 }

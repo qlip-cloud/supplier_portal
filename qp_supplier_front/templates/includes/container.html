@@ -1,34 +1,33 @@
 {% extends "frappe/templates/web.html" %}
+{% block content %}
+
+<link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=menu" />
+
+<div class="container-fluid">
+    <div id="mySidenav" class="sidenav">
+        <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+        <a href="/information?supplier={{supplier_id}}" class="sidebar-menu active">Información</a>
+        <a href="/sales_invoices?supplier={{supplier_id}}" class="sidebar-menu">Facturas</a>
+        <a href="/sales_order?supplier={{supplier_id}}" class="sidebar-menu">Orden de Compra</a>
+        <a href="/receipts?supplier={{supplier_id}}" class="sidebar-menu">Recibos</a>
+        <a href="/tax_report?supplier={{supplier_id}}" class="sidebar-menu">Reportes impuesto</a>
+    </div>
+
+    <div id="overlay" class="overlay" onclick="closeNav()"></div>
 
     <div class="row">
-
-        <div class="col-lg-2" id="sidebar">
-            <div class="row">
-                <div class="col lg-12 sidebar-menu active">
-                    Información
-                </div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Facturas</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Orden de Compra</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Recibos</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Reportes impuesto</div>
-            </div>
+        <div class="col-sm-12">
+            <span class="material-symbols-outlined" onclick="openNav()">
+                menu
+            </span>
         </div>
-        <div class="col-lg-10" id="area">
-
-            {% block page_content %}
-            {% endblock %}
-
-
-        </div>
-
-
     </div>
+
+
+    {% block content_page %}
+
     {% endblock %}
+</div>
+
+{% endblock %}

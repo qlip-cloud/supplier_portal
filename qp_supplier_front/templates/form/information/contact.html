@@ -1,6 +1,6 @@
 <div class="row row-line">
     <div class="col-sm-12">
-        <button type="button" class="btn btn-primary btn-sm primary-action"
+        <button type="button" class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }}"
             data-toggle="modal" data-target="#contact_modal">+New</button>
     </div>
 </div>
@@ -18,7 +18,7 @@
                 {% for contact in contacts %}
 
                 <tr>
-                    <td>{{contact.name}}</td>
+                    <td class="contact-id" data-id="{{contact.name}}"><span class="link_modal">{{contact.name}}</span></td>
                     <td>{{contact.first_name}}</td>
                     <td>{{contact.email_ids[0].email_id}}</td>
                     <td>{{contact.phone_nos[0].phone}}</td>

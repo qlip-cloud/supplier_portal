@@ -49,7 +49,7 @@ async function petition_get_data(args, method, callresponse = null){
     
 }
 
-function petition_send_data(formData, method, callback){
+function petition_send_data(formData, method, callback, request = "POST"){
 
     return new Promise((resolve, reject) => {
         let xhr = new XMLHttpRequest();
@@ -64,8 +64,9 @@ function petition_send_data(formData, method, callback){
                     frappe.msgprint(__(`Error: ${response.message.msg}`));
                 }
             }
-        }        
-        xhr.open('POST',method , true);
+        }
+        console.log(request, method)   
+        xhr.open(request,method , true);
         xhr.setRequestHeader('Accept', 'application/json');
         xhr.setRequestHeader('X-Frappe-CSRF-Token', frappe.csrf_token);
         xhr.send(formData);

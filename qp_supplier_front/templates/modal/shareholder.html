@@ -8,7 +8,7 @@
                 </button>
             </div>
             <div class="modal-body">
-                <form class="form-estandar form-modal" id="form-shareholder"
+                <form class="form-estandar form-modal" id="form-shareholder" method="POST"
                     action="api/method/qp_supplier_front.resources.information.shareholder.update">
                     <div class="row row-line">
 
@@ -118,6 +118,8 @@
                             <button class="btn btn-primary btn-sm primary-action" id="save">Guardar</button>
                         </div>
                     </div>
+                    <input type="hidden" name="doctype_id" value="">
+
                 </form>
             </div>
             <div class="modal-footer">

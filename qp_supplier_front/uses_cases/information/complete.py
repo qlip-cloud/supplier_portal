@@ -1,6 +1,6 @@
 def handler(supplier, method):
     
-    if supplier.qp_status in ("Rechazado", "En proceso"):
+    if supplier.qp_status is "En proceso":
     
         is_completed = True
         
@@ -12,6 +12,6 @@ def handler(supplier, method):
                 
                 break
             
-        if is_completed:
+        if is_completed and supplier.qp_status is not "Rechazado":
             
             supplier.qp_status = "En revisión"
