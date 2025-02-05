@@ -26,7 +26,7 @@
 
             <input type="text" autocomplete="off" name="tax_id"
                 class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
-                data-doctype="Issue" id="tax_id" value="{{supplier.tax_id}}" placeholder="Documento">
+                data-doctype="Issue" id="tax_id" value="{{supplier.tax_id or ''}}" placeholder="Documento">
         </div>
     </div>
     <div class="row row-line">
@@ -36,7 +36,7 @@
 
             <input type="text" autocomplete="off" name="phone_number"
                 class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
-                data-doctype="Issue" id="phone_number" value="{{party.phone_number}}" placeholder="Número Telefónico">
+                data-doctype="Issue" id="phone_number" value="{{party.phone_number or ''}}" placeholder="Número Telefónico">
         </div>
         <div class="col-lg-4">
             <label for="business_type_name">Tipo empresa</label>

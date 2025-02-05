@@ -62,8 +62,9 @@ def setup_document_settings(qp_documents):
 def setup_regimes(context, party):
     
     regimes = get_regimes()
+    if party:
     
-    set_selected_select(regimes, party.tax_regime)
+        set_selected_select(regimes, party.tax_regime)
             
     context.regimes = regimes
     
@@ -71,7 +72,9 @@ def setup_ciius(context, party):
     
     ciius = get_ciius()
     
-    set_selected_select(ciius, party.ciiu_id)
+    if party:
+    
+        set_selected_select(ciius, party.ciiu_id)
             
     context.ciius = ciius
     
@@ -79,7 +82,9 @@ def setup_document_types(context, party):
     
     document_types = get_document_types()
     
-    set_selected_select(document_types, party.id_type)
+    if party:
+        
+        set_selected_select(document_types, party.id_type)
             
     context.document_types = document_types
     
@@ -87,7 +92,9 @@ def setup_business_types(context, party):
     
     business_types = get_business_types()
     
-    set_selected_select(business_types, party.business_type)
+    if party:
+    
+        set_selected_select(business_types, party.business_type)
             
     context.business_types = business_types
     
