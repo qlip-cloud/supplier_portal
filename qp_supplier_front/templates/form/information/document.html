@@ -16,7 +16,7 @@
         <div class="col-lg-4">
             <label for="validity">Vigencia</label>
 
-            <input type="text" autocomplete="off" name="validity" data-document = {{document_setting.title}}
+            <input type="date" autocomplete="off" name="validity" data-document = {{document_setting.title}}
             class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Date"
             data-doctype="" id="validity" value="{{line.validity if line and line.validity  else ''}}" placeholder="Vigencia de {{document_setting.title}}">
 
