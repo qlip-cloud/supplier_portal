@@ -25,21 +25,21 @@
 
             <label for="file">Archivo</label>
             {% if not line_file %}
-            <div id="file_empty" style>
-                <a id="link" class="btn btn-primary btn-sm primary-action" data-setting-id="{{document_setting.title}}">Subir archivo</a>
+            <div id="file_empty-{{document_setting.title}}" style>
+                <a id="link" class="btn btn-primary btn-sm primary-action open_folder" data-setting-id="{{document_setting.title}}">Subir archivo</a>
                 <input type="file" class="supplier_file" data-document = "{{document_setting.title}}" id="file-{{document_setting.title}}" data-setting-id="{{document_setting.title}}"
                     style="display: none;">
 
                    
             </div>
-            <div id="file_loading" style="display: none;">
+            <div id="file_loading-{{document_setting.title}}" style="display: none;">
                 Cargando
             </div>
             {% endif %}
             <input type="hidden" class="" data-document = "{{document_setting.title}}" id="file1-{{document_setting.title}}" name="file" value="{{line.file if line else ''}}">
 
             <div id="file_full-{{document_setting.title}}" class="label-input" style="{{'display: none;' if not line_file else ''}}" >
-                    <a href="{{line.file if line_file  else ''}}" class=" link"> {{line.file if line_file  else ''}}</a>
+                    <a href="{{line.file if line_file  else ''}}" target="_blank" class=" link"> {{line.file if line_file  else ''}}</a>
             </div>
 
         </div>

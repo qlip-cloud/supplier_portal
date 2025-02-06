@@ -12,6 +12,6 @@ def handler(supplier, method):
                 
                 break
             
-        if is_completed and supplier.qp_status is not "Rechazado":
+        if supplier.qp_field_validations and is_completed and supplier.qp_status is not "Rechazado":
             
             supplier.qp_status = "En revisión"

@@ -89,7 +89,8 @@ $(document).ready(function () {
     });
 
 
-    $("#link").on("click", function () {
+    $(".open_folder").on("click", function () {
+        console.log("open_folder")
         setting_id = $(this).data("setting-id");
         document.getElementById(`file-${setting_id}`).click()
     })
@@ -324,12 +325,15 @@ $(document).ready(function () {
 
     $(".supplier_file").on("change", function () {
 
-        $("#file_empty").hide()
-
-        $("#file_loading").show()
+        
 
         supplier_id = $("#supplier_id").val();
+        
         setting_id = $(this).data("setting-id");
+
+        $(`#file_empty-${setting_id}`).hide()
+
+        $(`#file_loading-${setting_id}`).show()
 
         fileToUpload = $(this).prop('files');
 
@@ -351,7 +355,7 @@ $(document).ready(function () {
 
             if (status == 200) {
 
-                $("#file_loading").hide()
+                $(`#file_loading-${setting_id}`).hide()
                 $(`#file_full-${setting_id} a`).attr('href', data.file_url);
                 $(`#file_full-${setting_id} a`).html(data.file_name)
                 $(`#file1-${setting_id}`).val(data.file_url)
@@ -359,8 +363,8 @@ $(document).ready(function () {
 
 
             } else {
-                $("#file_empty").show()
-                $("#file_loading").hide()
+                $(`#file_empty-${setting_id}`).show()
+                $(`#file_loading-${setting_id}`).hide()
             }
 
         }
