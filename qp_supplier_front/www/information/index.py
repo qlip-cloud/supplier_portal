@@ -42,7 +42,16 @@ def get_context(context):
     
     context.bank_accounts = get_bank_accounts(supplier, "Bank Account")
             
-    context.responses = ["SI", "NO"]
+    context.responses = [{
+        "name":"",
+        "value": "Respuesta"
+        },{
+        "name":"SI",
+        "value": "SI"
+        },{ 
+        "name":"NO",
+        "value": "NO"
+        }]
     
     document_settings = setup_document_settings(supplier.qp_documents)
     
@@ -110,4 +119,4 @@ def set_selected_select(select_list, code):
             selected = "selected"
         
         select.setdefault("selected", selected)
-    
+

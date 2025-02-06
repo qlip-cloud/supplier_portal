@@ -1,6 +1,6 @@
 def handler(supplier, method):
     
-    if supplier.qp_status is "En proceso":
+    if supplier.qp_status == "En proceso":
     
         is_completed = True
         

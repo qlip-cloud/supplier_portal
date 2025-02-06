@@ -4,18 +4,27 @@
             <label for="qp_public_resource_management">¿Por su cargo o actividad maneja o maneja recursos públicos? (Sí/No)</label>
             <select class="form-control" name="qp_public_resource_management" id="qp_public_resource_management" data-label="qp_public_resource_management"
                 data-fieldtype="Select">
-                <option value="" selected="selected" class="custom-option">Respuesta</option>
-                <option value="SI" class="custom-option"> SI </option>
-                <option value="NO" class="custom-option"> NO </option>
+                {% for response in responses %}
+                {% set selected = "selected" if supplier.qp_public_resource_management == response.name %}
+
+                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                    {{response.value}}
+                </option>
+                {% endfor %}
             </select>
         </div>
         <div class="col-lg-4">
+
             <label for="qp_public_activity">¿Por su cargo o actividad es o ejerce alguna figura de poder público? (Sí/No)</label>
             <select class="form-control" name="qp_public_activity" id="qp_public_activity" data-label="qp_public_activity"
                 data-fieldtype="Select">
-                <option value="" selected="selected" class="custom-option">Respuesta</option>
-                <option value="SI" class="custom-option"> SI </option>
-                <option value="NO" class="custom-option"> NO </option>
+                {% for response in responses %}
+                {% set selected = "selected" if supplier.qp_public_activity == response.name %}
+
+                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                    {{response.value}}
+                </option>
+                {% endfor %}
             </select>
         </div>
         <div class="col-lg-4">
@@ -23,9 +32,13 @@
                 (Sí/No)</label>
             <select class="form-control" name="qp_public_recognition" id="qp_public_recognition" data-label="qp_public_recognition"
                 data-fieldtype="Select">
-                <option value="" selected="selected" class="custom-option">Respuesta</option>
-                <option value="SI" class="custom-option"> SI </option>
-                <option value="NO" class="custom-option"> NO </option>
+                {% for response in responses %}
+                {% set selected = "selected" if supplier.qp_public_recognition == response.name %}
+
+                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                    {{response.value}}
+                </option>
+                {% endfor %}
             </select>
         </div>
     </div>
@@ -35,9 +48,13 @@
                 (Sí/No)</label>
             <select class="form-control" name="qp_link_politically_exposed" id="qp_link_politically_exposed" data-label="qp_link_politically_exposed"
                 data-fieldtype="Select">
-                <option value="" selected="selected" class="custom-option">Respuesta</option>
-                <option value="SI" class="custom-option"> SI </option>
-                <option value="NO" class="custom-option"> NO </option>
+                {% for response in responses %}
+                {% set selected = "selected" if supplier.qp_link_politically_exposed == response.name %}
+
+                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                    {{response.value}}
+                </option>
+                {% endfor %}
             </select>
         </div>
         <div class="col-lg-8">

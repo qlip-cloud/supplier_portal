@@ -6,9 +6,13 @@
 
             <select class="form-control" name="qp_vat_officer" id="qp_vat_officer" data-label="qp_vat_officer"
                 data-fieldtype="Select">
-                <option value="" selected="selected" class="custom-option">Respuesta</option>
-                <option value="SI" class="custom-option"> SI </option>
-                <option value="NO" class="custom-option"> NO </option>
+                {% for response in responses %}
+                {% set selected = "selected" if supplier.qp_vat_officer == response.name %}
+
+                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                    {{response.value}}
+                </option>
+                {% endfor %}
             </select>
         </div>
 
@@ -31,9 +35,13 @@
 
             <select class="form-control" name="qp_industry_and_commerce_tax" id="qp_industry_and_commerce_tax"
                 data-label="qp_industry_and_commerce_tax" data-fieldtype="Select">
-                <option value="" selected="selected" class="custom-option">Respuesta</option>
-                <option value="SI" class="custom-option"> SI </option>
-                <option value="NO" class="custom-option"> NO </option>
+                {% for response in responses %}
+                {% set selected = "selected" if supplier.qp_industry_and_commerce_tax == response.name %}
+
+                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                    {{response.value}}
+                </option>
+                {% endfor %}
             </select>
         </div>
 
@@ -49,18 +57,26 @@
             <label for="qp_self_retaining">Autoretenedor</label>
             <select class="form-control" name="qp_self_retaining" id="qp_self_retaining" data-label="qp_self_retaining"
                 data-fieldtype="Select">
-                <option value="" selected="selected" class="custom-option">Respuesta</option>
-                <option value="SI" class="custom-option"> SI </option>
-                <option value="NO" class="custom-option"> NO </option>
+                {% for response in responses %}
+                {% set selected = "selected" if supplier.qp_self_retaining == response.name %}
+
+                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                    {{response.value}}
+                </option>
+                {% endfor %}
             </select>
         </div>
         <div class="col-lg-4">
             <label for="qp_major_contributor">Gran Contribuyente</label>
             <select class="form-control" name="qp_major_contributor" id="qp_major_contributor"
                 data-label="qp_major_contributor" data-fieldtype="Select">
-                <option value="" selected="selected" class="custom-option">Respuesta</option>
-                <option value="SI" class="custom-option"> SI </option>
-                <option value="NO" class="custom-option"> NO </option>
+                {% for response in responses %}
+                {% set selected = "selected" if supplier.qp_major_contributor == response.name %}
+
+                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                    {{response.value}}
+                </option>
+                {% endfor %}
             </select>
         </div>
 
@@ -69,9 +85,13 @@
             <label for="qp_vat_withholding_agent">Retenedor de IVA</label>
             <select class="form-control" name="qp_vat_withholding_agent" id="qp_vat_withholding_agent"
                 data-label="qp_vat_withholding_agent" data-fieldtype="Select">
-                <option value="" selected="selected" class="custom-option">Respuesta</option>
-                <option value="SI" class="custom-option"> SI </option>
-                <option value="NO" class="custom-option"> NO </option>
+                {% for response in responses %}
+                {% set selected = "selected" if supplier.qp_vat_withholding_agent == response.name %}
+
+                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                    {{response.value}}
+                </option>
+                {% endfor %}
             </select>
         </div>
         <div class="col-lg-4">
