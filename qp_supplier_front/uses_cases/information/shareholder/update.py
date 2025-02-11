@@ -18,7 +18,7 @@ def handler(supplier_id, doctype_id, fullname, nationality, have_resident_anothe
     supplier.save()
     
     return {
-        "supplier": supplier.as_dict()
+        "supplier": supplier
     }
     
 def  update_shareholder(doctype_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, authorization_data_processing, supplier_code_conduct):

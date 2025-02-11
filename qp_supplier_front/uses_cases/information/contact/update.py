@@ -15,7 +15,7 @@ def handler(supplier_id, doctype_id, first_name, email_id, phone):
     
     tables = {
         "email_ids": ["email_id"],
-        "phone_nos": ["phone"]
+        "phone_nos": ["phone"],
     }
     
     fields_to_validate = ['first_name']
@@ -25,7 +25,8 @@ def handler(supplier_id, doctype_id, first_name, email_id, phone):
     supplier.save()
     
     return {
-        "contact": contact.as_dict()
+        "contact": contact.as_dict(),
+        "supplier": supplier
     }
     
 def  update_contact(doctype_id, doctype, first_name, email_id, phone):

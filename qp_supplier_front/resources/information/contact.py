@@ -3,6 +3,7 @@ from qp_supplier_front.uses_cases.information.contact.save import handler as sav
 from qp_supplier_front.uses_cases.information.contact.update import handler as update_contact   
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.uses_cases.information.contact.get import get_contact
+from qp_supplier_front.services.get_data import get_dynamic_link
 
 
 @frappe.whitelist()
@@ -20,6 +21,15 @@ def save(supplier_id, first_name, email_id, phone, doctype_id = None):
             
             result = update_contact(supplier_id, doctype_id, first_name, email_id, phone)
             
+        contacts = get_dynamic_link(result.get("supplier"), "Contact")
+        
+        list = frappe.render_template("qp_supplier_front/templates/list/information/contacts.html", {
+            "contacts": contacts
+        })
+        
+        result.setdefault("render", {"list": list, "container": "contact_list"})
+            
+        
         response(200,  msg, result)
         
     except Exception as error:

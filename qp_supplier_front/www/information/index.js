@@ -33,6 +33,7 @@ $(document).ready(function () {
     $('.form-estandar').on('submit', function (event) {
 
         event.preventDefault(); // Evita el envío del formulario
+
         var formData = new FormData(this);
 
         supplier_id = $("#supplier_id").val();
@@ -41,15 +42,33 @@ $(document).ready(function () {
 
         callresponse = (response) => {
 
+            data = response.data
+
             frappe.msgprint(response.msg)
+
+            if (data.redirect_to) {
+                window.location.href = data.redirect_to
+            }
+
             if ($(this).hasClass("form-modal")) {
+
                 $('.modal').modal('hide')
 
             }
-            $(this).attr('method', 'POST');
+
+            $(this).attr('method', $(this).data("method-default"));
+
+            if (data.render) {
+
+                render = data.render
+
+                $(`#${render.container}`).html(render.list)
+            }
+            console.log(data)
+
+            setup_button(data.supplier)
 
         }
-
 
         petition_send_data(formData, $(this).attr('action'), callresponse, $(this).attr('method'))
 
@@ -77,11 +96,13 @@ $(document).ready(function () {
 
         data["supplier_id"] = supplier_id;
 
-
         callresponse = (response) => {
 
             frappe.msgprint(response.msg)
 
+            data = response.data
+            console.log(data)
+            setup_button(data.supplier)
         }
 
         petition_get_data(data, $(this).attr('action'), callresponse)
@@ -153,7 +174,7 @@ $(document).ready(function () {
 
         callresponse = (response) => {
             data = response.data
-            
+
             cities_list = data.cities
 
             setOptionCities(cities_list)
@@ -184,8 +205,8 @@ $(document).ready(function () {
 
     })
 
-    $(".addres-id").on("click", function () {
-        
+    $("#address_list").on("click", ".addres-id", function () {
+
         address_id = $(this).data("id");
 
         url = "qp_supplier_front.resources.information.address.search_address";
@@ -201,19 +222,19 @@ $(document).ready(function () {
             const $selectState = $("#state");
             const $selectAddress_line1 = $("#address_line1");
 
-            
+
             setOptionCities(cities)
-            
+
             setOptionStates(states)
 
             $doctype_id.val(address_id);
 
             $selectCountry.val(address.country);
-            
+
             $selectCity.val(address.city);
-            
+
             $selectState.val(address.state);
-            
+
             $selectAddress_line1.val(address.address_line1);
 
             $("#form-address").attr('method', 'PUT');
@@ -223,37 +244,38 @@ $(document).ready(function () {
         petition_get_data({ address_id }, url, callresponse)
     })
 
-    $(".contact-id").on("click", function () {
-        
+    $("#contact_list").on("click", ".contact-id", function () {
+
         contact_id = $(this).data("id");
 
         url = "qp_supplier_front.resources.information.contact.search_contact";
 
         callresponse = (response) => {
+
             const data = response.data
             const contact = data.contact
-            console.log(contact)
             const $doctype_id = $("#form-contact [name='doctype_id']");
             const $dataFirstName = $("#first_name");
             const $dataEmailId = $("#email_id");
-            const $dataPhone= $("#phone");
-                    
+            const $dataPhone = $("#phone");
+
             $doctype_id.val(contact_id);
 
             $dataFirstName.val(contact.first_name);
-            
+
             $dataEmailId.val(contact.email_ids[0].email_id);
-            
+
             $dataPhone.val(contact.phone_nos[0].phone);
-            
+
             $("#form-contact").attr('method', 'PUT');
             $('#contact_modal').modal('show')
         }
 
         petition_get_data({ contact_id }, url, callresponse)
     })
-    $(".bank_account-id").on("click", function () {
-        
+
+    $("#bank_account_list").on("click", ".bank_account-id", function () {
+
         bank_account_id = $(this).data("id");
 
         url = "qp_supplier_front.resources.information.bank_account.search_bank_account";
@@ -262,20 +284,20 @@ $(document).ready(function () {
             const data = response.data
             const bank_account = data.bank_account
             console.log(bank_account)
-            const $doctype_id = $("#form-bank_account [name='doctype_id']");
+            const $doctype_id = $("#form-bank-account [name='doctype_id']");
 
             const $selectBank = $("#bank");
             const $selectAccountType = $("#account_type");
-            const $dataBankAccount_no= $("#bank_account_no");
-                    
+            const $dataBankAccount_no = $("#bank_account_no");
+
             $doctype_id.val(bank_account_id);
 
             $selectBank.val(bank_account.bank);
-            
+
             $selectAccountType.val(bank_account.account_type);
-            
+
             $dataBankAccount_no.val(bank_account.bank_account_no);
-            
+
             $("#form-bank-account").attr('method', 'PUT');
             $('#bank_account_modal').modal('show')
         }
@@ -283,8 +305,8 @@ $(document).ready(function () {
         petition_get_data({ bank_account_id }, url, callresponse)
     })
 
-    $(".shareholder-id").on("click", function () {
-        
+    $("#shareholder_list").on("click", ".shareholder-id", function () {
+
         shareholder_id = $(this).data("id");
 
         url = "qp_supplier_front.resources.information.shareholder.search_shareholder";
@@ -302,10 +324,10 @@ $(document).ready(function () {
             const $dataMarketShare = $("#market_share");
             const $selectAuthorizationDataProcessing = $("#authorization_data_processing");
             const $selectSupplierCodeConduct = $("#supplier_code_conduct");
-            
-                    
+
+
             $doctype_id.val(shareholder_id);
-            
+
             $dataFulname.val(shareholder.fullname);
             $dataNationality.val(shareholder.nationality);
             $selectHaveResidentAnotherCountry.val(shareholder.have_resident_another_country);
@@ -315,7 +337,7 @@ $(document).ready(function () {
             $dataMarketShare.val(shareholder.market_share);
             $selectAuthorizationDataProcessing.val(shareholder.authorization_data_processing);
             $selectSupplierCodeConduct.val(shareholder.supplier_code_conduct);
-            
+
             $("#form-shareholder").attr('method', 'PUT');
             $('#shareholder_modal').modal('show')
         }
@@ -325,10 +347,8 @@ $(document).ready(function () {
 
     $(".supplier_file").on("change", function () {
 
-        
-
         supplier_id = $("#supplier_id").val();
-        
+
         setting_id = $(this).data("setting-id");
 
         $(`#file_empty-${setting_id}`).hide()
@@ -375,6 +395,30 @@ $(document).ready(function () {
     })
 });
 
+function setup_button(supplier) {
+
+    const alert_estatus = {"En proceso": "alert-info", "Aprobado": "alert-success", "En revisión": "alert-warning", "Rechazado": "alert-danger" };
+
+    if (["Aprobado", "En revisión"].includes(supplier.qp_status)) {
+
+        $(".button-save").hide()
+
+        var $alertStatus = $("#alert-status");
+
+        var classes = $alertStatus.attr("class").split(" ");
+
+        if (classes.length > 1) {
+            $alertStatus.removeClass(classes[1]);
+        }
+
+        $alertStatus.addClass(alert_estatus[supplier.qp_status]);
+
+        $(".form-control").prop("disabled", true);
+        $("#qp-status").html(supplier.qp_status);
+    }
+
+}
+
 function setOptionCities(cities_list) {
     const $selectElement = $("#city");
 
@@ -389,7 +433,7 @@ function setOptionStates(states_list) {
     const $selectElement = $("#state");
 
     $selectElement.find('option').not('[value="0"]').remove();
-    
+
     $.each(states_list, function (index, state) {
         const optionText = `${state.name} (${state.municipality_name})`;
         $selectElement.append(new Option(optionText, state.name));

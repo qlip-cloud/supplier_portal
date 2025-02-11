@@ -22,7 +22,9 @@ def handler(supplier_id, doctype_id, bank, account_type, bank_account_no):
     supplier.save()
     
     return {
-        "bank_account": bank_account.as_dict()
+        "bank_account": bank_account.as_dict(),
+        "supplier": supplier
+        
     }
     
 def update_bank_account(doctype_id, bank, account_type, bank_account_no):

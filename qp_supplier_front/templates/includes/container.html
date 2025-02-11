@@ -5,25 +5,29 @@
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=menu" />
 
 <div class="container-fluid">
-    <div id="mySidenav" class="sidenav">
-        <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
-        <a href="/information?supplier={{supplier_id}}" class="sidebar-menu active">Información</a>
-        <a href="/sales_invoices?supplier={{supplier_id}}" class="sidebar-menu">Facturas</a>
-        <a href="/sales_order?supplier={{supplier_id}}" class="sidebar-menu">Orden de Compra</a>
-        <a href="/receipts?supplier={{supplier_id}}" class="sidebar-menu">Recibos</a>
-        <a href="/tax_report?supplier={{supplier_id}}" class="sidebar-menu">Reportes impuesto</a>
-    </div>
 
-    <div id="overlay" class="overlay" onclick="closeNav()"></div>
+    {% if supplier_id %}
 
-    <div class="row">
-        <div class="col-sm-12">
-            <span class="material-symbols-outlined" onclick="openNav()">
-                menu
-            </span>
+        <div id="mySidenav" class="sidenav">
+            <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+            <a href="/information?supplier={{supplier_id}}" class="sidebar-menu active">Información</a>
+            <a href="/sales_invoices?supplier={{supplier_id}}" class="sidebar-menu">Facturas</a>
+            <a href="/sales_order?supplier={{supplier_id}}" class="sidebar-menu">Orden de Compra</a>
+            <a href="/receipts?supplier={{supplier_id}}" class="sidebar-menu">Recibos</a>
+            <a href="/tax_report?supplier={{supplier_id}}" class="sidebar-menu">Reportes impuesto</a>
         </div>
-    </div>
 
+        <div id="overlay" class="overlay" onclick="closeNav()"></div>
+
+        <div class="row">
+            <div class="col-sm-12">
+                <span class="material-symbols-outlined" onclick="openNav()">
+                    menu
+                </span>
+            </div>
+        </div>
+        
+    {% endif %}
 
     {% block content_page %}
 

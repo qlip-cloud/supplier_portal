@@ -1,0 +1,27 @@
+<div class="row row-line">
+    {% if contacts %}
+    <table class="table">
+        <thead>
+            <th>Codigo</th>
+            <th>Nombre</th>
+            <th>Correo</th>
+            <th>Teléfono</th>
+        </thead>
+        <tbody>
+            {% for contact in contacts %}
+
+            <tr>
+                <td class="contact-id" data-id="{{contact.name}}"><span class="link_modal">{{contact.name}}</span></td>
+                <td>{{contact.first_name}}</td>
+                <td>{{contact.email_ids[0].email_id}}</td>
+                <td>{{contact.phone_nos[0].phone}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="col-lg-12">
+        <p>No hay contactos registradas</p>
+    </div>
+    {% endif %}
+</div>

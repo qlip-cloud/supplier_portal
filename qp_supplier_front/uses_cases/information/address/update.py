@@ -20,7 +20,8 @@ def handler(supplier_id, address_id, country, city, state, address_line1):
     supplier.save()
     
     return {
-        "address": address.as_dict()
+        "address": address.as_dict(),
+        "supplier": supplier
     }
 
 def  update_address(doctype, address_id, country, city, state, address_line1):

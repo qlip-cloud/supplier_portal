@@ -3,6 +3,7 @@ from qp_supplier_front.uses_cases.information.address.save import handler as sav
 from qp_supplier_front.uses_cases.information.address.update import handler as update_address   
 from qp_supplier_front.uses_cases.information.address.get import get_cities, get_states, get_address
 from qp_supplier_front.resources.response import handler as response
+from qp_supplier_front.services.get_data import get_dynamic_link
 
 
 @frappe.whitelist()
@@ -20,6 +21,14 @@ def save(supplier_id, country, city, state, address_line1, doctype_id = None):
         elif method == "PUT":
             
             result = update_address(supplier_id, doctype_id, country, city, state, address_line1)
+            
+        addresses = get_dynamic_link(result.get("supplier"), "Address")
+        
+        list = frappe.render_template("qp_supplier_front/templates/list/information/addresses.html", {
+            "addresses": addresses
+        })
+        
+        result.setdefault("render", {"list": list, "container": "address_list"})
             
         response(200,  msg, result)
         

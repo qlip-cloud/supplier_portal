@@ -1,4 +1,4 @@
-<form id="form-document" action="qp_supplier_front.resources.information.document.update">
+<form id="form-document" method="POST" data-method-default = "POST" action="qp_supplier_front.resources.information.document.update">
 
     {% for document_setting in document_settings %}
     {% set line = document_setting.line %}
@@ -9,7 +9,7 @@
             <label for="document_setting">{{document_setting.title}}</label>
 
             <input type="text" autocomplete="off" name="value" data-document = {{document_setting.title}}
-            class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
+            class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
             data-doctype="" id="value" value="{{line.value if line and line.value else ''}}" placeholder="{{document_setting.title}}">
         </div>
 
@@ -17,7 +17,7 @@
             <label for="validity">Vigencia</label>
 
             <input type="date" autocomplete="off" name="validity" data-document = {{document_setting.title}}
-            class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Date"
+            class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Date"
             data-doctype="" id="validity" value="{{line.validity if line and line.validity  else ''}}" placeholder="Vigencia de {{document_setting.title}}">
 
         </div>
@@ -49,7 +49,7 @@
 
     <div class="row row-line">
         <div class="col-lg-4">
-            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }}" id="save">Guardar</button>
+            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" id="save">Guardar</button>
         </div>
     </div>
 

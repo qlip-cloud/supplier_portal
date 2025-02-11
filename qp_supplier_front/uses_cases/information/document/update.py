@@ -19,7 +19,7 @@ def handler(supplier_id, documents):
     supplier.save()
 
     return {
-        "document": supplier.as_dict()
+        "supplier": supplier
     }
     
 def  set_document(supplier, documents):

@@ -1,39 +1,11 @@
 <div class="row row-line">
     <div class="col-sm-12">
         <button type="button"
-            class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }}"
+            class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save"
             data-toggle="modal" data-target="#addres_modal">+New</button>
     </div>
 </div>
-<form>
-    <div class="row row-line">
-        {% if addresses %}
-        <table class="table">
-            <thead>
-                <th>Codigo</th>
-                <th>País</th>
-                <th>Departamento</th>
-                <th>Municipio</th>
-                <th>Dirección</th>
-            </thead>
-            <tbody>
-                {% for address in addresses %}
-
-                <tr>
-                    <td class="addres-id" data-id="{{address.name}}"><span class="link_modal">{{address.name}}</span>
-                    </td>
-                    <td>{{address.country}}</td>
-                    <td>{{address.city}}</td>
-                    <td>{{address.state}}</td>
-                    <th>{{address.address_line1}}</th>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="col-lg-12">
-            <p>No hay direcciones registradas</p>
-        </div>
-        {% endif %}
-    </div>
-</form>
+<div id = "address_list">
+    {% include "qp_supplier_front/templates/list/information/addresses.html" %}
+   
+</div>

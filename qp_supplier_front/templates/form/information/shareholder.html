@@ -1,36 +1,12 @@
 <div class="row row-line">
     <div class="col-sm-12">
-        <button type="button" class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }}" data-toggle="modal"
-            data-target="#shareholder_modal">+New</button>
+        <button type="button"
+            class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save"
+            data-toggle="modal" data-target="#shareholder_modal">+New</button>
     </div>
 </div>
-<form>
-    <div class="row row-line">
-        {% if supplier.qp_shareholders %}
-        <table class="table">
-            <thead>
-                <th>Razón social o nombre completo</th>
-                <th>Tipo de Identificación</th>
-                <th>Número</th>
-                <th>% Participación</th>
-            </thead>
-            <tbody>
-                {% for shareholder in supplier.qp_shareholders %}
 
-                    <tr>
-                        <td class="shareholder-id" data-id="{{shareholder.name}}"><span class="link_modal">{{shareholder.fullname}}</span></td>
-                        <td>{{shareholder.id_type}}</td>
-                        <td>{{shareholder.tax_id}}</td>
-                        <td>{{shareholder.market_share}}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="col-lg-12">
-            <p>No hay accionistas registrados</p>
-        </div>
-        {% endif %}
-    </div>
-
-</form>
+<div id = "shareholder_list">
+    {% include "qp_supplier_front/templates/list/information/shareholders.html" %}
+   
+</div>

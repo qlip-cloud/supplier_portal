@@ -9,7 +9,7 @@
                 </button>
             </div>
             <div class="modal-body">
-                <form class="form-estandar form-modal" id="form-bank-account" method = "POST" 
+                <form class="form-estandar form-modal" id="form-bank-account" method="POST" data-method-default = "POST"
                     action="api/method/qp_supplier_front.resources.information.bank_account.save">
                     <div class="row row-line">
                         <div class="col-lg-12">
@@ -51,7 +51,7 @@
                     </div>
                     <div class="row row-line">
                         <div class="col-lg-12">
-                            <button class="btn btn-primary btn-sm primary-action" id="save">Guardar</button>
+                            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" id="save">Guardar</button>
                         </div>
                     </div>
                     <input type="hidden" name="doctype_id" value="">

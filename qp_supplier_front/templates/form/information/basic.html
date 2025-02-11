@@ -1,17 +1,17 @@
-<form class = "form-estandar"  id="form-basic" action="api/method/qp_supplier_front.resources.information.basic.update">
+<form class = "form-estandar"  id="form-basic" method="{{'PUT' if supplier_id else 'POST'}}" data-method-default = "PUT" action="api/method/qp_supplier_front.resources.information.basic.update">
     <div class="row row-line">
 
         <div class="col-lg-4">
             <label for="supplier_name">Nombre</label>
-            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold"
+            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}}
                 maxlength="140" data-fieldtype="Data" data-doctype="Issue" name="supplier_name" id="supplier_name"
-                placeholder="Nombre" value="{{supplier.supplier_name}}">
+                placeholder="Nombre" value="{{supplier.supplier_name or ''}}">
         </div>
 
         <div class="col-lg-4">
             <label for="id_type_name">Tipo Documento</label>
 
-            <select class="form-control" name="id_type_name" id="status" data-label="Status" data-fieldtype="Select">
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'"}} name="id_type_name" id="status" data-label="Status" data-fieldtype="Select">
                 <option value="0" selected="selected" class="custom-option">Tipo Documento
                 </option>
                 {% for document_type in document_types %}
@@ -25,7 +25,7 @@
             <label for="tax_id">Documento</label>
 
             <input type="text" autocomplete="off" name="tax_id"
-                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
+                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" id="tax_id" value="{{supplier.tax_id or ''}}" placeholder="Documento">
         </div>
     </div>
@@ -35,13 +35,13 @@
             <label for="phone_number">Número Telefónico</label>
 
             <input type="text" autocomplete="off" name="phone_number"
-                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
+                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" id="phone_number" value="{{party.phone_number or ''}}" placeholder="Número Telefónico">
         </div>
         <div class="col-lg-4">
             <label for="business_type_name">Tipo empresa</label>
 
-            <select class="form-control" name="business_type_name" id="status" data-label="Status"
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'"}} name="business_type_name" id="status" data-label="Status"
                 data-fieldtype="Select">
                 <option value="0" selected="selected" class="custom-option">Tipo empresa
                 </option>
@@ -56,7 +56,7 @@
     </div>
     <div class="row row-line">
         <div class="col-lg-4">
-            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }}" id="save">Guardar</button>
+            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" id="save">Guardar</button>
         </div>
     </div>
 

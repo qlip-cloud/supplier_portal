@@ -19,6 +19,14 @@ def update(supplier_id, fullname, nationality, have_resident_another_country, ha
         elif method == "PUT":
             
             result = update_shareholder(supplier_id, doctype_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, authorization_data_processing, supplier_code_conduct)
+        
+        
+        list = frappe.render_template("qp_supplier_front/templates/list/information/shareholders.html", {
+            "supplier": result.get("supplier")
+        })
+        
+        result.setdefault("render", {"list": list, "container": "shareholder_list"})
+        
         response(200,  msg, result)
         
     except Exception as error:

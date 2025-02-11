@@ -1,5 +1,7 @@
 import frappe
 from qp_supplier_front.services.get_data import get_party, get_supplier
+from qp_supplier_front.services.create_data import create_party, set_party
+
 from qp_supplier_front.services.field_validate import handler as validate_field
 
 
@@ -37,48 +39,3 @@ def save_or_create_party(supplier, id_type_name, phone_number, business_type_nam
     party.save()
     
     return party
-    
-def create_party(supplier, id_type_name, phone_number, business_type_name, tax_id):
-    
-    party = frappe.new_doc("qp_CO_ThirdParty")
-    
-    set_party(party, supplier, id_type_name, phone_number, business_type_name, tax_id)
-    
-    party.insert()
-    
-    create_doctype_link(supplier, party)
-    
-    return party
-        
-def create_doctype_link(supplier, party):
-    
-    doctype = "DocType Link"
-    
-    doctype_link = frappe.new_doc(doctype)
-    
-    doctype_link.link_fieldname = supplier.name
-    doctype_link.link_doctype = supplier.doctype
-    doctype_link.parenttype = party.doctype
-    doctype_link.parent = party.name
-    
-    doctype_link.insert()
-    
-    party.append(doctype, doctype_link)
-    
-    return doctype_link
-    
-def set_party(party, supplier, id_type_name, phone_number, business_type_name, tax_id):
-    
-    if not party.naming:
-        
-        party.naming = supplier.tax_id
-    
-        party.tax_id = supplier.tax_id
-        
-    party.first_name = supplier.supplier_name
-    
-    party.id_type = id_type_name
-    
-    party.phone_number = phone_number
-    
-    party.business_type = business_type_name

@@ -4,21 +4,33 @@ from qp_supplier_front.uses_cases.information.bank_account.save_complement impor
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.uses_cases.information.bank_account.update import handler as update_bank_account   
 from qp_supplier_front.uses_cases.information.bank_account.get import get_bank_account
+from qp_supplier_front.services.get_data import get_bank_accounts
 
 
 @frappe.whitelist()
 def save(supplier_id, bank, account_type, bank_account_no, doctype_id = None):
+    
     method = frappe.local.request.method
     
     try:
         
         msg = "Los datos han sido actualizados correctamente"
+        
         if method == "POST":
         
             result = save_bank_account(supplier_id, bank, account_type, bank_account_no)
+            
         elif method == "PUT":
             
             result = update_bank_account(supplier_id, doctype_id, bank, account_type, bank_account_no)
+            
+        bank_accounts = get_bank_accounts(result.get("supplier"), "Bank Account")
+        
+        list = frappe.render_template("qp_supplier_front/templates/list/information/bank_accounts.html", {
+            "bank_accounts": bank_accounts
+        })
+        
+        result.setdefault("render", {"list": list, "container": "bank_account_list"})    
         response(200,  msg, result)
         
     except Exception as error:

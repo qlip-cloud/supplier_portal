@@ -1,18 +1,42 @@
 import frappe
 from qp_supplier_front.services.get_data import get_party, get_supplier, get_document_types, get_business_types, get_dynamic_link,get_bank_accounts, get_regimes, get_ciius
+
 def get_context(context):
     context.no_cache = 1
+    
+    party = None
+    
+    supplier = None
+    
+    supplier_id = None
+    
     query_params = frappe.request.args
     
     supplier_id = query_params.get("supplier")
     
-    supplier = get_supplier(supplier_id)
+    if supplier_id:
+        
+        supplier = get_supplier(supplier_id)
     
-    party = get_party(supplier)
+        party = get_party(supplier)
+        
+        context.addresses = get_dynamic_link(supplier, "Address")
     
-    context.supplier = supplier
+        contacts = get_dynamic_link(supplier, "Contact")
+        
+        context.contacts =contacts
+        
+        context.bank_accounts = get_bank_accounts(supplier, "Bank Account")
+        
+        document_settings = setup_document_settings(supplier.qp_documents)
     
-    context.party = party
+        context.document_settings = document_settings
+        
+        user = frappe.session.user
+        
+        user_roles = frappe.get_roles(user)
+    
+        context.is_alpla_admin = "Alpla Administrator" in user_roles
     
     setup_document_types(context, party)
     
@@ -22,25 +46,15 @@ def get_context(context):
     
     setup_ciius(context, party)
     
-    context.supplier_id = supplier_id
-    
     context.countries = frappe.get_all("Country", fields = ["name", "country_name"])
     
     context.cities = frappe.get_all("qp_CO_State", fields = ["name", "state_name"])
     
     context.states = frappe.get_all("qp_CO_Municipality", fields = ["name", "municipality_name"])
-    
-    context.addresses = get_dynamic_link(supplier, "Address")
-    
-    contacts = get_dynamic_link(supplier, "Contact")
-    
-    context.contacts =contacts
-    
+        
     context.banks = frappe.get_all("Bank", fields = ["name", "bank_name"])
     
     context.bank_account_types = frappe.get_all("Bank Account Type", fields = ["name", "account_type"])
-    
-    context.bank_accounts = get_bank_accounts(supplier, "Bank Account")
             
     context.responses = [{
         "name":"",
@@ -53,10 +67,12 @@ def get_context(context):
         "value": "NO"
         }]
     
-    document_settings = setup_document_settings(supplier.qp_documents)
+    context.supplier = supplier
     
-    context.document_settings = document_settings
-            
+    context.party = party
+    
+    context.supplier_id = supplier_id
+  
 def setup_document_settings(qp_documents):
     
     document_settings = frappe.get_list("qp_SP_DocumentSetting", filters = {"is_active": 1}, fields = ["name", "title", "is_required", "is_active"])
@@ -68,9 +84,11 @@ def setup_document_settings(qp_documents):
         document_setting.setdefault("line", values[0] if values else None)
         
     return document_settings
+
 def setup_regimes(context, party):
     
     regimes = get_regimes()
+    
     if party:
     
         set_selected_select(regimes, party.tax_regime)

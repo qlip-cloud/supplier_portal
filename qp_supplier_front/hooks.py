@@ -17,6 +17,7 @@ app_license = "MIT"
 # app_include_js = "/assets/qp_supplier_front/js/qp_supplier_front.js"
 
 # include js, css files in header of web template
+
 web_include_css = "/assets/qp_supplier_front/css/qp_supplier_front.css"
 web_include_js = ["/assets/qp_supplier_front/js/qp_supplier_front.js", "/assets/qp_supplier_front/js/api_connection.js"]
 
@@ -97,11 +98,14 @@ web_include_js = ["/assets/qp_supplier_front/js/qp_supplier_front.js", "/assets/
 #	}
 # }
 
+
 doc_events = {
  	"Supplier": {
  		"before_save": "qp_supplier_front.uses_cases.information.complete.handler",
 	}
 }
+
+get_website_user_home_page = "qp_supplier_front.redirect.login.get_home_page"
 
 # Scheduled Tasks
 # ---------------

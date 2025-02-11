@@ -1,0 +1,28 @@
+<div class="row row-line">
+    {% if supplier.qp_shareholders %}
+    <table class="table">
+        <thead>
+            <th>Razón social o nombre completo</th>
+            <th>Tipo de Identificación</th>
+            <th>Número</th>
+            <th>% Participación</th>
+        </thead>
+        <tbody>
+            {% for shareholder in supplier.qp_shareholders %}
+
+            <tr>
+                <td class="shareholder-id" data-id="{{shareholder.name}}"><span
+                        class="link_modal">{{shareholder.fullname}}</span></td>
+                <td>{{shareholder.id_type}}</td>
+                <td>{{shareholder.tax_id}}</td>
+                <td>{{shareholder.market_share}}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="col-lg-12">
+        <p>No hay accionistas registrados</p>
+    </div>
+    {% endif %}
+</div>
