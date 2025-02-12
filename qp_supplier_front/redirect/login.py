@@ -1,7 +1,11 @@
 import frappe
 
 def get_home_page(user):    
+    
+    if user == "Guest":
         
+        return "/login"
+    
     user_roles = frappe.get_roles(user)
     
     if user == "Administrator" or "Alpla Administrator" in user_roles:
