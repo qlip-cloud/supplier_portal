@@ -46,7 +46,7 @@ def set_party(party, supplier, id_type_name, phone_number, business_type_name, t
     
     party.business_type = business_type_name
     
-def  create_contact(supplier, doctype, first_name, email_id, phone, user = None):
+def  create_contact(supplier, doctype, first_name, email_id, phone = None, user = None):
     
     
     contact = frappe.new_doc(doctype)
@@ -59,9 +59,10 @@ def  create_contact(supplier, doctype, first_name, email_id, phone, user = None)
         "email_id": email_id
     })
     
-    contact.append("phone_nos", {
-        "phone": phone
-    })
+    if (phone):
+        contact.append("phone_nos", {
+            "phone": phone
+        })
     
     contact.append("links", {
 		"link_doctype": supplier.doctype,

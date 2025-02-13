@@ -9,7 +9,7 @@ def handler(supplier_name, id_type_name, tax_id, phone_number, business_type_nam
     
     party = create_party(supplier, id_type_name, phone_number, business_type_name, tax_id)
     
-    create_first_contact(supplier, phone_number)
+    create_first_contact(supplier)
     
     validate_field(supplier, "basic" , 0, None, supplier_name, id_type_name, tax_id, phone_number, business_type_name)
     
@@ -33,13 +33,13 @@ def create_supplier(supplier_name, tax_id):
     
     return supplier
 
-def create_first_contact(supplier, phone_number):
+def create_first_contact(supplier):
     
     doctype = "Contact"
     
     user = frappe.session.user
     
-    contact = create_contact(supplier, doctype, supplier.supplier_name, user, phone_number , user)
+    contact = create_contact(supplier, doctype, supplier.supplier_name, user, user = user)
     
     return contact
      

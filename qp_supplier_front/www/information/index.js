@@ -311,7 +311,7 @@ $(document).ready(function () {
 
             $dataEmailId.val(contact.email_ids[0].email_id);
 
-            $dataPhone.val(contact.phone_nos[0].phone);
+            $dataPhone.val(contact.phone_nos.length ? contact.phone_nos[0].phone : "");
 
             $("#form-contact").attr('method', 'PUT');
             $('#contact_modal').modal('show')
