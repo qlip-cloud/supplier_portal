@@ -9,10 +9,14 @@
         </thead>
         <tbody>
             {% for contact in contacts %}
-
+            {%set info = "Requiere completar datos" if not contact.first_name or not contact.email_ids or not contact.email_ids[0].email_id or not contact.phone_nos or not contact.phone_nos[0].phone else False}
             <tr>
                 <td class="contact-id" data-id="{{contact.name}}"><span class="link_modal">{{contact.name}}</span></td>
-                <td>{{contact.first_name}}</td>
+                <td>{{contact.first_name}}
+                    {% if info %}
+                        ({{info}})
+                    {%endif %}
+                </td>
                 <td>{{contact.email_ids[0].email_id}}</td>
                 <td>{{contact.phone_nos[0].phone}}</td>
             </tr>
