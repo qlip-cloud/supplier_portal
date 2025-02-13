@@ -11,5 +11,5 @@ def handler(supplier_id):
 
 
     return {
-        "supplier": supplier.as_dict()
+        "supplier": supplier
     }

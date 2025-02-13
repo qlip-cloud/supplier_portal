@@ -99,11 +99,11 @@ web_include_js = ["/assets/qp_supplier_front/js/qp_supplier_front.js", "/assets/
 # }
 
 
-doc_events = {
- 	"Supplier": {
- 		"before_save": "qp_supplier_front.uses_cases.information.complete.handler",
-	}
-}
+#doc_events = {
+# 	"Supplier": {
+# 		"before_save": "qp_supplier_front.uses_cases.information.complete.handler",
+#	}
+#}
 
 get_website_user_home_page = "qp_supplier_front.redirect.login.get_home_page"
 

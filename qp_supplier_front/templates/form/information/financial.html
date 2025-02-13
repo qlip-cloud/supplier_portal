@@ -4,7 +4,7 @@
         <div class="col-lg-4">
             <label for="qp_financial_assets">Activos</label>
 
-            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}}
+            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable else "disabled = 'true'"}}
                 maxlength="140" data-fieldtype="Data" data-doctype="Issue" name="qp_financial_assets"
                 id="qp_financial_assets" placeholder="Activos" value="{{supplier.qp_financial_assets  or ''}}">
         </div>
@@ -12,14 +12,14 @@
         <div class="col-lg-4">
             <label for="qp_financial_liabilities">Pasivos</label>
             <input type="text" autocomplete="off" name="qp_financial_liabilities"
-                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
+                class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" id="qp_financial_liabilities" value="{{supplier.qp_financial_liabilities  or ''}}"
                 placeholder="Pasivos">
         </div>
         <div class="col-lg-4">
             <label for="qp_financial_equity">Patrimonio</label>
             <input type="text" autocomplete="off" name="qp_financial_equity"
-                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
+                class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" id="qp_financial_equity " value="{{supplier.qp_financial_equity or ''}}"
                 placeholder="Patrimonio">
         </div>
@@ -28,7 +28,7 @@
 
         <div class="col-lg-4">
             <label for="qp_financial_details_income">Detalle de los otros ingresos</label>
-            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}}
+            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable else "disabled = 'true'"}}
                 maxlength="140" data-fieldtype="Data" data-doctype="Issue" name="qp_financial_details_income"
                 id="qp_financial_details_income" placeholder="Detalle de los otros ingresos"
                 value="{{supplier.qp_financial_details_income  or ''}}">
@@ -37,14 +37,14 @@
         <div class="col-lg-4">
             <label for="qp_financial_monthly_income">Ingresos Mensuales</label>
             <input type="text" autocomplete="off" name="qp_financial_monthly_income"
-                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
+                class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" id="qp_financial_monthly_income"
                 value="{{supplier.qp_financial_monthly_income  or ''}}" placeholder="Ingresos Mensuales">
         </div>
         <div class="col-lg-4">
             <label for="qp_financial_monthly_expenses">Egresos Mensuales</label>
             <input type="text" autocomplete="off" name="qp_financial_monthly_expenses"
-                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
+                class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" id="qp_financial_monthly_expenses"
                 value="{{supplier.qp_financial_monthly_expenses or ''}}" placeholder="Egresos Mensuales">
         </div>
@@ -54,15 +54,18 @@
 
             <label for="qp_financial_other_income">Otros Ingresos</label>
             <input type="text" autocomplete="off" name="qp_financial_other_income"
-                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
+                class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" id="qp_financial_other_income" value="{{supplier.qp_financial_other_income or ''}}"
                 placeholder="Otros Ingresos">
         </div>
     </div>
 
-    <div class="row row-line">
-        <div class="col-lg-4">
-            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" id="save">Guardar</button>
+    <div class="row row-line justify-content-between">
+        <div class="col-4 text-left">
+            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab6"  id="save">< Información Tributaria</button>
+        </div>
+        <div class="col-4 text-right">
+            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab8" id="save">Continuar ></button>
         </div>
     </div>
 

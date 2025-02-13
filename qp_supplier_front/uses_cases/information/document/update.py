@@ -2,7 +2,7 @@
 import frappe
 from qp_supplier_front.services.get_data import get_supplier
 from qp_supplier_front.services.field_validate import setup_validate_field_list
-
+from qp_supplier_front.uses_cases.information.complete import handler as complete
 def handler(supplier_id, documents):
     doctype = "qp_SP_DocumentParty"
     
@@ -12,12 +12,14 @@ def handler(supplier_id, documents):
     
     set_document(supplier, documents)
     
-    fields_to_validate = ['validity', 'value', 'file']
+    fields_to_validate = ['validity', 'file']
 
     setup_validate_field_list(supplier, supplier.qp_documents, valid_code, fields_to_validate)
     
     supplier.save()
-
+    
+    complete(supplier)
+    
     return {
         "supplier": supplier
     }
@@ -31,6 +33,6 @@ def  set_document(supplier, documents):
         supplier.append("qp_documents", {
             "documento_setting": key,
             "validity": document["validity"],
-            "value": document["value"],
+            "value": "",
             "file": document["file"]
         })

@@ -32,6 +32,7 @@ $(document).ready(function () {
 
     $('.form-estandar').on('submit', function (event) {
 
+
         event.preventDefault(); // Evita el envío del formulario
 
         var formData = new FormData(this);
@@ -40,38 +41,49 @@ $(document).ready(function () {
 
         formData.append("supplier_id", supplier_id);
 
-        callresponse = (response) => {
+        const submitter = $(document.activeElement);
+        if (submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal")) {
 
-            data = response.data
+            overlay.style.display = 'block';
 
-            frappe.msgprint(response.msg)
+            callresponse = (response) => {
 
-            if (data.redirect_to) {
-                window.location.href = data.redirect_to
+                data = response.data
+                //frappe.msgprint(response.msg)
+
+                if (data.redirect_to) {
+                    window.location.href = data.redirect_to
+                }
+
+                if ($(this).hasClass("form-modal")) {
+
+                    $('.modal').modal('hide')
+
+                    if (data.render) {
+
+                        render = data.render
+    
+                        $(`#${render.container}`).html(render.list)
+                    }
+
+                }else{
+                    if (!$(this).hasClass("form-modal")){
+
+                        showTab(submitter.data("control"))
+                    }
+                }
+
+                $(this).attr('method', $(this).data("method-default"));               
+
+                overlay.style.display = 'none';
+
             }
 
-            if ($(this).hasClass("form-modal")) {
-
-                $('.modal').modal('hide')
-
-            }
-
-            $(this).attr('method', $(this).data("method-default"));
-
-            if (data.render) {
-
-                render = data.render
-
-                $(`#${render.container}`).html(render.list)
-            }
-            console.log(data)
-
-            setup_button(data.supplier)
+            petition_send_data(formData, $(this).attr('action'), callresponse, $(this).attr('method'))
+        } else {
+            showTab(submitter.data("control"))
 
         }
-
-        petition_send_data(formData, $(this).attr('action'), callresponse, $(this).attr('method'))
-
     });
 
     $('#form-document').on('submit', function (event) {
@@ -95,24 +107,37 @@ $(document).ready(function () {
         var supplier_id = $("#supplier_id").val();
 
         data["supplier_id"] = supplier_id;
+        const submitter = $(document.activeElement);
+        if (submitter.hasClass('is_estatus_editable') || submitter.hasClass('finish')) {
 
-        callresponse = (response) => {
+            overlay.style.display = 'block';
 
-            frappe.msgprint(response.msg)
+            callresponse = (response) => {
 
-            data = response.data
-            console.log(data)
-            setup_button(data.supplier)
+                frappe.msgprint(response.msg)
+
+                data = response.data
+                if (submitter.hasClass("finish")) {
+                    setup_button(data.supplier)
+                }
+
+                overlay.style.display = 'none';
+
+            }
+
+            petition_get_data(data, $(this).attr('action'), callresponse)
+        } else {
+            showTab(submitter.data("control"))
+
         }
-
-        petition_get_data(data, $(this).attr('action'), callresponse)
 
     });
 
 
     $(".open_folder").on("click", function () {
-        console.log("open_folder")
+
         setting_id = $(this).data("setting-id");
+
         document.getElementById(`file-${setting_id}`).click()
     })
 
@@ -122,13 +147,18 @@ $(document).ready(function () {
             function () {
 
                 supplier_id = $("#supplier_id").val();
+
                 url = "qp_supplier_front.resources.supplier.supplier.approve";
 
                 callresponse = (response) => {
 
                     frappe.msgprint(response.msg)
 
+                    data = response.data
 
+                    setup_button(data.supplier)
+                    
+                    $(".approve-row").remove()
                 }
 
 
@@ -137,6 +167,7 @@ $(document).ready(function () {
 
             }, function () { })
     })
+
     $('#qp_reject_observation').on('input', function () {
         if ($(this).val().trim() !== '') {
             $('#reject').prop('disabled', false);
@@ -158,6 +189,11 @@ $(document).ready(function () {
             frappe.msgprint(response.msg)
 
             $('.modal').modal('hide')
+
+            data = response.data
+            console.log(data.supplier)
+            setup_button(data.supplier)
+            $(".approve-row").remove()
 
         }
 
@@ -377,7 +413,7 @@ $(document).ready(function () {
 
                 $(`#file_loading-${setting_id}`).hide()
                 $(`#file_full-${setting_id} a`).attr('href', data.file_url);
-                $(`#file_full-${setting_id} a`).html(data.file_name)
+                $(`#file_full-${setting_id} a`).html("Ver archivo")
                 $(`#file1-${setting_id}`).val(data.file_url)
                 $(`#file_full-${setting_id}`).show()
 
@@ -397,25 +433,49 @@ $(document).ready(function () {
 
 function setup_button(supplier) {
 
-    const alert_estatus = {"En proceso": "alert-info", "Aprobado": "alert-success", "En revisión": "alert-warning", "Rechazado": "alert-danger" };
+    const alert_estatus = {
+        "En proceso": {
+            "class": "alert-info",
+            "message": "El proceso de registro esta en estatus: <strong>En proceso</strong>. Por favor llenar todos los datos."
+        },
+        "Aprobado": {
+            "class": "alert-success",
+            "message": "El proceso de registro esta en estatus: <strong>Aprobado</strong>."
+        },
+        "En revisión": {
+            "class": "alert-warning",
+            "message": "El proceso de registro esta en estatus: <strong>En revisión</strong>. Esperando aprobación de los datos"
+        },
+        "Rechazado": {
+            "class": "alert-danger",
+            "message": "El proceso de registro esta en estatus: <strong>Rechazado</strong>. Puede ver el motivo del rechazo en el siguiente enlace. <a class='link_modal' data-toggle='modal' data-target='#reject_motive'> Ver motivos</a>"
+        }
+    };
 
     if (["Aprobado", "En revisión"].includes(supplier.qp_status)) {
+        $(".button-new").hide()
 
-        $(".button-save").hide()
-
-        var $alertStatus = $("#alert-status");
-
-        var classes = $alertStatus.attr("class").split(" ");
-
-        if (classes.length > 1) {
-            $alertStatus.removeClass(classes[1]);
-        }
-
-        $alertStatus.addClass(alert_estatus[supplier.qp_status]);
-
+        $(".button-save").removeClass("is_estatus_editable")
+        
+        $('.finish').remove();  
+        
         $(".form-control").prop("disabled", true);
-        $("#qp-status").html(supplier.qp_status);
+
+
     }
+
+    var $alertStatus = $("#alert-status");
+
+    var classes = $alertStatus.attr("class").split(" ");
+
+    if (classes.length > 1) {
+        $alertStatus.removeClass(classes[1]);
+    }
+
+    $alertStatus.addClass(alert_estatus[supplier.qp_status].class);
+
+
+    $alertStatus.html(alert_estatus[supplier.qp_status].message);
 
 }
 

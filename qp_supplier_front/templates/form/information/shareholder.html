@@ -10,3 +10,12 @@
     {% include "qp_supplier_front/templates/list/information/shareholders.html" %}
    
 </div>
+
+<div class="row row-line justify-content-between">
+    <div class="col-4 text-left">
+        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab8')" id="save">< Operaciones Internacionales</button>
+    </div>
+    <div class="col-4 text-right">
+        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab10')" id="save">Continuar ></button>
+    </div>
+</div>

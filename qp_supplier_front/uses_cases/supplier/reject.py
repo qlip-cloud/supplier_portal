@@ -12,5 +12,5 @@ def handler(supplier_id, qp_reject_observation):
     supplier.save()
 
     return {
-        "supplier": supplier.as_dict()
+        "supplier": supplier
     }

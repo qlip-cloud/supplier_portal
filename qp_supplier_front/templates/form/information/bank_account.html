@@ -1,3 +1,16 @@
+<div class="row row-line">
+
+
+    <div class="col-sm-4">
+        <button type="button" class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new" data-toggle="modal"
+            data-target="#bank_account_modal">+New</button>
+    </div>
+
+</div>
+<div id = "bank_account_list">
+    {% include "qp_supplier_front/templates/list/information/bank_accounts.html" %}
+</div>
+<hr>
 <form class = "form-estandar" id="form-bank-account-complemet" method="PUT" data-method-default = "PUT" action="api/method/qp_supplier_front.resources.information.bank_account.save_complement">
     <div class="row row-line">
         <div class="col-lg-4">
@@ -65,21 +78,14 @@
                 data-doctype="Issue" id="qp_detail_politically_exposed" value="{{supplier.qp_detail_politically_exposed or ''}}" placeholder="Respuesta">
         </div>
     </div>
-    <div class="row row-line">
-        <div class="col-sm-4">
-            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" id="save">Guardar</button>
+    <div class="row row-line justify-content-between">
+        <div class="col-4 text-left">
+            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab4"  id="save">< Representante Legal</button>
+        </div>
+        <div class="col-4 text-right">
+            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab6" id="save">Continuar ></button>
         </div>
     </div>
 </form>
-<div class="row row-line">
 
 
-    <div class="col-sm-4">
-        <button type="button" class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" data-toggle="modal"
-            data-target="#bank_account_modal">+New</button>
-    </div>
-
-</div>
-<div id = "bank_account_list">
-    {% include "qp_supplier_front/templates/list/information/bank_accounts.html" %}
-</div>

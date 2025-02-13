@@ -98,7 +98,7 @@
             <label for="qp_financial_amount">Monto</label>
 
             <input type="text" autocomplete="off" name="qp_financial_amount"
-                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
+                class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" id="qp_financial_amount" value="{{supplier.qp_financial_amount or ''}}"
                 placeholder="Monto">
         </div>
@@ -132,9 +132,12 @@
 
     </div>
     
-    <div class="row row-line">
-        <div class="col-lg-4">
-            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" id="save">Guardar</button>
+    <div class="row row-line justify-content-between">
+        <div class="col-4 text-left">
+            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab7" id="save">< Información Financiera</button>
+        </div>
+        <div class="col-4 text-right">
+            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab9" id="save">Continuar ></button>
         </div>
     </div>
 

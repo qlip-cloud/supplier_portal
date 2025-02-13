@@ -1,56 +1,58 @@
 <form id="form-document" method="POST" data-method-default = "POST" action="qp_supplier_front.resources.information.document.update">
 
     {% for document_setting in document_settings %}
-    {% set line = document_setting.line %}
-    {% set line_file = line and line.file %}
-    <div class="row row-line">
 
-        <div class="col-lg-4">
-            <label for="document_setting">{{document_setting.title}}</label>
+        {% set line = document_setting.line %}
+        {% set line_file = line and line.file %}
+        <div class="row row-line">
+            <div class="col-12">
 
-            <input type="text" autocomplete="off" name="value" data-document = {{document_setting.title}}
-            class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
-            data-doctype="" id="value" value="{{line.value if line and line.value else ''}}" placeholder="{{document_setting.title}}">
-        </div>
-
-        <div class="col-lg-4">
-            <label for="validity">Vigencia</label>
-
-            <input type="date" autocomplete="off" name="validity" data-document = {{document_setting.title}}
-            class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Date"
-            data-doctype="" id="validity" value="{{line.validity if line and line.validity  else ''}}" placeholder="Vigencia de {{document_setting.title}}">
-
-        </div>
-        <div class="col-lg-4" style="align-content: end;">
-
-            <label for="file">Archivo</label>
-            {% if not line_file %}
-            <div id="file_empty-{{document_setting.title}}" style>
-                <a id="link" class="btn btn-primary btn-sm primary-action open_folder" data-setting-id="{{document_setting.title}}">Subir archivo</a>
-                <input type="file" class="supplier_file" data-document = "{{document_setting.title}}" id="file-{{document_setting.title}}" data-setting-id="{{document_setting.title}}"
-                    style="display: none;">
-
-                   
-            </div>
-            <div id="file_loading-{{document_setting.title}}" style="display: none;">
-                Cargando
-            </div>
-            {% endif %}
-            <input type="hidden" class="" data-document = "{{document_setting.title}}" id="file1-{{document_setting.title}}" name="file" value="{{line.file if line else ''}}">
-
-            <div id="file_full-{{document_setting.title}}" class="label-input" style="{{'display: none;' if not line_file else ''}}" >
-                    <a href="{{line.file if line_file  else ''}}" target="_blank" class=" link"> {{line.file if line_file  else ''}}</a>
+                {{document_setting.title}}
+                <hr>
             </div>
 
+            
+
+            <div class="col-lg-4">
+                <label for="validity">Vigencia</label>
+
+                <input type="date" autocomplete="off" name="validity" data-document = {{document_setting.title}}
+                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Date"
+                data-doctype="" id="validity" value="{{line.validity if line and line.validity  else ''}}" placeholder="Vigencia de {{document_setting.title}}">
+
+            </div>
+            <div class="col-lg-4" style="align-content: end;">
+
+                <label for="file">Archivo</label>
+                {% if not line_file %}
+                <div id="file_empty-{{document_setting.title}}" style>
+                    <a id="link" class="btn btn-primary btn-sm primary-action open_folder" data-setting-id="{{document_setting.title}}">Subir archivo</a>
+                    <input type="file" class="supplier_file" data-document = "{{document_setting.title}}" id="file-{{document_setting.title}}" data-setting-id="{{document_setting.title}}"
+                        style="display: none;">
+
+                    
+                </div>
+                <div id="file_loading-{{document_setting.title}}" style="display: none;">
+                    Cargando
+                </div>
+                {% endif %}
+                <input type="hidden" class="" data-document = "{{document_setting.title}}" id="file1-{{document_setting.title}}" name="file" value="{{line.file if line else ''}}">
+
+                <div id="file_full-{{document_setting.title}}" class="label-input" style="{{'display: none;' if not line_file else ''}}" >
+                        <a href="{{line.file if line_file  else ''}}" target="_blank" class=" link"> {{"Ver archivo" if line_file  else ''}}</a>
+                </div>
+
+            </div>
         </div>
-    </div>
 
     {% endfor %}
 
-    <div class="row row-line">
-        <div class="col-lg-4">
-            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" id="save">Guardar</button>
+    <div class="row row-line justify-content-between">
+        <div class="col-4 text-left">
+            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab9"  id="save">< Accionistas y Asociados</button>
+        </div>
+        <div class="col-4 text-right">
+            <button class="btn btn-primary btn-sm primary-action finish {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" id="save">Finalizar</button>
         </div>
     </div>
-
 </form>

@@ -29,6 +29,7 @@ def create_supplier(supplier_name, tax_id):
     
     supplier.supplier_group = "Todos los grupos de proveedores"
     
+
     supplier.insert()
     
     return supplier

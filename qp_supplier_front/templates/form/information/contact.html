@@ -1,10 +1,18 @@
 <div class="row row-line">
     <div class="col-sm-12">
-        <button type="button" class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save"
+        <button type="button" class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new"
             data-toggle="modal" data-target="#contact_modal">+New</button>
     </div>
 </div>
 <div id = "contact_list">
     {% include "qp_supplier_front/templates/list/information/contacts.html" %}
    
+</div>
+<div class="row row-line justify-content-between">
+    <div class="col-4 text-left">
+        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab2')" id="save">< Direcciones</button>
+    </div>
+    <div class="col-4 text-right">
+        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab4')" id="save">Continuar ></button>
+    </div>
 </div>

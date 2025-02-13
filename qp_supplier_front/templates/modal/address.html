@@ -12,6 +12,8 @@
                     <div class="row row-line">
 
                         <div class="col-lg-12">
+                            <label for="business_type_name">País</label>
+
                             <select class="form-control" name="country" id="country" data-label="País"
                                 data-fieldtype="Select">
                                 <option value="0" selected="selected" class="custom-option">País
@@ -27,6 +29,8 @@
                     <div class="row row-line">
 
                         <div class="col-lg-12">
+                            <label for="business_type_name">Departamento</label>
+
                             <select class="form-control" name="city" id="city" data-label="Departamento"
                                 data-fieldtype="Select">
                                 <option value="0" selected="selected" class="custom-option">Departamento
@@ -42,6 +46,8 @@
                     <div class="row row-line">
 
                         <div class="col-lg-12">
+                            <label for="business_type_name">Municipio</label>
+
                             <select class="form-control" name="state" id="state" data-label="Municipio"
                                 data-fieldtype="Select">
                                 <option value="0" selected="selected" class="custom-option">Municipio
@@ -57,12 +63,14 @@
 
                     <div class="row row-line">
                         <div class="col-lg-12">
+                            <label for="business_type_name">Dirección</label>
+
                             <textarea name="address_line1" id="address_line1"></textarea>
                         </div>
                     </div>
                     <div class="row row-line">
                         <div class="col-lg-4">
-                            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" id="save">Guardar</button>
+                            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new" id="save">Guardar</button>
                         </div>
                     </div>
                     <input type="hidden" name="doctype_id" value="">

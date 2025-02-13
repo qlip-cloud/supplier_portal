@@ -114,9 +114,12 @@
         </div>
     </div>
 
-    <div class="row row-line">
-        <div class="col-lg-4">
-            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" id="save">Guardar</button>
+    <div class="row row-line justify-content-between">
+        <div class="col-4 text-left">
+            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab5" id="save">< Cuentas Bancarias</button>
+        </div>
+        <div class="col-4 text-right">
+            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab7" id="save">Continuar ></button>
         </div>
     </div>
 

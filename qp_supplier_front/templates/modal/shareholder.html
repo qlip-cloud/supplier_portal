@@ -83,7 +83,7 @@
                         <div class="col-lg-6">
                             <label for="market_share">% Participación</label>
                             <input type="text" autocomplete="off"
-                                class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                class="input-with-feedback form-control floating-input bold number" maxlength="140"
                                 data-fieldtype="Data" data-doctype="Issue" name="market_share" id="market_share"
                                 placeholder="% Participación" value="">
                         </div>
@@ -115,7 +115,7 @@
                     </div>
                     <div class="row row-line">
                         <div class="col-lg-6">
-                            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" id="save">Guardar</button>
+                            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new" id="save">Guardar</button>
                         </div>
                     </div>
                     <input type="hidden" name="doctype_id" value="">
