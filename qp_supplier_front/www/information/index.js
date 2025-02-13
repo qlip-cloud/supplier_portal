@@ -107,20 +107,30 @@ $(document).ready(function () {
         var supplier_id = $("#supplier_id").val();
 
         data["supplier_id"] = supplier_id;
+
+        
         const submitter = $(document.activeElement);
+        data["is_estatus_editable"] = submitter.hasClass('is_estatus_editable');
+
         if (submitter.hasClass('is_estatus_editable') || submitter.hasClass('finish')) {
 
             overlay.style.display = 'block';
 
             callresponse = (response) => {
 
-                frappe.msgprint(response.msg)
-
                 data = response.data
-                if (submitter.hasClass("finish")) {
-                    setup_button(data.supplier)
-                }
 
+                if (submitter.hasClass("finish")) {
+
+                    frappe.msgprint(response.msg)
+
+                    setup_button(data.supplier)
+
+                }
+                if (submitter.hasClass('is_estatus_editable') ){
+
+                    showTab(submitter.data("control"))
+                }
                 overlay.style.display = 'none';
 
             }
@@ -458,7 +468,7 @@ function setup_button(supplier) {
         $(".button-save").removeClass("is_estatus_editable")
         
         $('.finish').remove();  
-        
+
         $(".form-control").prop("disabled", true);
 
 

@@ -3,7 +3,7 @@ import frappe
 from qp_supplier_front.services.get_data import get_supplier
 from qp_supplier_front.services.field_validate import setup_validate_field_list
 from qp_supplier_front.uses_cases.information.complete import handler as complete
-def handler(supplier_id, documents):
+def handler(supplier_id, documents, is_estatus_editable):
     doctype = "qp_SP_DocumentParty"
     
     valid_code = "document"
@@ -18,7 +18,9 @@ def handler(supplier_id, documents):
     
     supplier.save()
     
-    complete(supplier)
+    if (is_estatus_editable != "true"):
+        
+        complete(supplier)
     
     return {
         "supplier": supplier
