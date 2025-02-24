@@ -82,6 +82,18 @@ label {
     color: #6D6D6D !important;
 }
 
+.inner-table {
+    /* Aquí puedes definir los estilos específicos para la tabla interna */
+    width: 100%;
+}
+
+.inner-table th, .inner-table td {
+    /* Estilos específicos para las celdas de la tabla interna */
+    background: none;
+    text-align: left;
+    font: normal normal 500 14px Montserrat;
+    color: #000000;
+}
 input[type="date"]::before {
     content: attr(data-placeholder);
     color: #999;
@@ -124,13 +136,14 @@ textarea {
     height: 100%;
     width: 0;
     position: fixed;
-    z-index: 1000;
+    z-index: 100000;
     top: 0;
     left: 0;
     background-color: #fff;
     overflow-x: hidden;
     transition: 0.5s;
     padding-top: 60px;
+
 }
 
 .sidenav a {
@@ -173,4 +186,8 @@ textarea {
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
     z-index: 1000;
+}
+
+.material-symbols-outlined{
+    cursor: pointer;
 }
