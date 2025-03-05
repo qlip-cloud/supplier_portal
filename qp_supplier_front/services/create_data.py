@@ -1,11 +1,11 @@
 import frappe
 from qp_supplier_front.services.get_data import get_dynamic_link
 
-def create_party(supplier, id_type_name, phone_number, business_type_name, tax_id):
+def create_party(supplier, id_type_name, phone_number, business_type_name, tax_id, email = None):
     
     party = frappe.new_doc("qp_CO_ThirdParty")
     
-    set_party(party, supplier, id_type_name, phone_number, business_type_name, tax_id)
+    set_party(party, supplier, id_type_name, phone_number, business_type_name, tax_id, email)
     
     party.insert()
     
@@ -30,7 +30,7 @@ def create_doctype_link(supplier, party):
     
     return doctype_link
     
-def set_party(party, supplier, id_type_name, phone_number, business_type_name, tax_id):
+def set_party(party, supplier, id_type_name, phone_number, business_type_name, tax_id, email = None):
     
     if not party.naming:
         
@@ -44,10 +44,11 @@ def set_party(party, supplier, id_type_name, phone_number, business_type_name, t
     
     party.phone_number = phone_number
     
+    party.email = email
+    
     party.business_type = business_type_name
     
 def  create_contact(supplier, doctype, first_name, email_id, phone = None, user = None):
-    
     
     contact = frappe.new_doc(doctype)
     

@@ -1,0 +1,42 @@
+{% if withholdings %}
+    <div class="row" style="margin-top: 20px;">
+    <table class="table table-bordered tabla" style="width: 100%; ">
+        <tr style="background-color: antiquewhite;" align = "center" class="center">
+            <td   >
+                Concepto de operación
+                
+            </td>
+            <td>
+                Valor Base
+            </td>
+
+            <td>
+                Tarifa Aplicada <br> “% retención”
+
+            </td>
+            <td>
+                Monto de la retención
+            </td>
+        </tr>
+        {% for withholding in withholdings%}
+        <tr>        
+            <td>
+                {{withholding.description}}
+                
+            </td>
+            <td align = "right">
+                {{ withholding.base_amount}}
+                
+            </td >
+            <td align = "right">
+                {{withholding.porcentage }} %
+            </td>
+            <td align = "right">
+                {{withholding.tax_amount }}
+            </td>
+        </tr>
+
+        {% endfor   %}
+    </table>
+</div>
+{% endif %}

@@ -92,24 +92,26 @@ $(document).ready(function () {
 
         var data = { "documents": {} };
 
-        $('#form-document input[data-document]').each(function () {
-            var docType = $(this).data('document');
-            var name = $(this).attr('name');
-            var value = $(this).val();
+        $('#form-document .file-link').each(function () {
+            if ($(this).data('updated') == "1") {
+                var docType = $(this).data('document');
+                var name = $(this).attr('name');
+                var value = $(this).val();
 
-            if (!data["documents"][docType]) {
-                data["documents"][docType] = {};
+                if (!data["documents"][docType]) {
+                    data["documents"][docType] = {};
+                }
+
+                data["documents"][docType][name] = value;
             }
-
-            data["documents"][docType][name] = value;
         });
 
         var supplier_id = $("#supplier_id").val();
 
         data["supplier_id"] = supplier_id;
-
         
         const submitter = $(document.activeElement);
+
         data["is_estatus_editable"] = submitter.hasClass('is_estatus_editable');
 
         if (submitter.hasClass('is_estatus_editable') || submitter.hasClass('finish')) {
@@ -392,7 +394,6 @@ $(document).ready(function () {
     })
 
     $(".supplier_file").on("change", function () {
-
         supplier_id = $("#supplier_id").val();
 
         setting_id = $(this).data("setting-id");
@@ -420,13 +421,14 @@ $(document).ready(function () {
         callback = (status, data) => {
 
             if (status == 200) {
-
+                
                 $(`#file_loading-${setting_id}`).hide()
                 $(`#file_full-${setting_id} a`).attr('href', data.file_url);
                 $(`#file_full-${setting_id} a`).html("Ver archivo")
-                $(`#file1-${setting_id}`).val(data.file_url)
+                $(`#link-${setting_id}`).val(data.file_url)
+                $(`#link-${setting_id}`).attr("data-updated", "1")
                 $(`#file_full-${setting_id}`).show()
-
+                $(`#file_full-${setting_id}`).show()
 
             } else {
                 $(`#file_empty-${setting_id}`).show()

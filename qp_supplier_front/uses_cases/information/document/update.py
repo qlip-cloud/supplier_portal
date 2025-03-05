@@ -3,7 +3,11 @@ import frappe
 from qp_supplier_front.services.get_data import get_supplier
 from qp_supplier_front.services.field_validate import setup_validate_field_list
 from qp_supplier_front.uses_cases.information.complete import handler as complete
+from frappe.utils import add_to_date
+from datetime import datetime
+
 def handler(supplier_id, documents, is_estatus_editable):
+    
     doctype = "qp_SP_DocumentParty"
     
     valid_code = "document"
@@ -12,9 +16,11 @@ def handler(supplier_id, documents, is_estatus_editable):
     
     set_document(supplier, documents)
     
-    fields_to_validate = ['validity', 'file']
+    fields_to_validate = ['file']
 
     setup_validate_field_list(supplier, supplier.qp_documents, valid_code, fields_to_validate)
+    
+    validate_document_expirate(supplier)
     
     supplier.save()
     
@@ -28,13 +34,21 @@ def handler(supplier_id, documents, is_estatus_editable):
     
 def  set_document(supplier, documents):
     
-    supplier.qp_documents = []
-    
     for key, document in documents.items():
+        
+        document_setting = frappe.get_doc("qp_SP_DocumentSetting", key)
+    
+        validity = add_to_date(datetime.now(), days=document_setting.expire_day)
         
         supplier.append("qp_documents", {
             "documento_setting": key,
-            "validity": document["validity"],
-            "value": "",
+            "validity": validity,
+            "is_valid": True,
             "file": document["file"]
         })
+        
+def validate_document_expirate(supplier):
+    
+    qp_has_document_expired = any(document for document in supplier.qp_documents if document.is_valid == False)
+    
+    supplier.qp_has_document_expired = qp_has_document_expired
