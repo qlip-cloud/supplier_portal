@@ -28,7 +28,7 @@ def get_context(context):
     
         save_to_redis(invoices, key)
     
-        sales_invoices = get_paginated(1, key)
+        sales_invoices = invoices
         
     context.sales_invoices = sales_invoices
     
