@@ -81,7 +81,7 @@ $(document).ready(function () {
         const submitter = $(document.activeElement);
         if (submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal")) {
 
-            overlay.style.display = 'block';
+            document.getElementById("overlay").style.display = 'block';
 
             callresponse = (response) => {
 
@@ -112,7 +112,7 @@ $(document).ready(function () {
 
                 $(this).attr('method', $(this).data("method-default"));               
 
-                overlay.style.display = 'none';
+                document.getElementById("overlay").style.display = 'none';
 
             }
 
@@ -153,7 +153,7 @@ $(document).ready(function () {
 
         if (submitter.hasClass('is_estatus_editable') || submitter.hasClass('finish')) {
 
-            overlay.style.display = 'block';
+            document.getElementById("overlay").style.display = 'block';
 
             callresponse = (response) => {
 
@@ -170,7 +170,7 @@ $(document).ready(function () {
 
                     showTab(submitter.data("control"))
                 }
-                overlay.style.display = 'none';
+                document.getElementById("overlay").style.display = 'none';
 
             }
 
