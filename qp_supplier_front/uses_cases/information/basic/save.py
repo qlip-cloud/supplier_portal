@@ -1,5 +1,5 @@
 import frappe
-from qp_supplier_front.services.create_data import create_party, create_contact
+from qp_supplier_front.services.create_data import create_party, create_first_contact
 from qp_supplier_front.services.field_validate import handler as validate_field
 
 
@@ -29,19 +29,10 @@ def create_supplier(supplier_name, tax_id, gp_vendor_id = None):
     
     supplier.gp_vendor_id = gp_vendor_id
     
+    supplier.qp_asigned = True
+    
     supplier.supplier_group = "Todos los grupos de proveedores"
     
     supplier.insert()
     
-    return supplier
-
-def create_first_contact(supplier, email = None):
-    
-    doctype = "Contact"
-    
-    user = email if email else frappe.session.user
-    
-    contact = create_contact(supplier, doctype, supplier.supplier_name, user, user = user)
-    
-    return contact
-     
+    return supplier     

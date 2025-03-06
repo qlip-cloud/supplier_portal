@@ -18,7 +18,7 @@ def handler(supplier_id, report_type, fiscal_year, bimester):
     
     certificates = get_gp_certificate(supplier, report_type, fiscal_year, bimester)
     
-    withholding_id = REPORT_TYPES[int(report_type) + 1]
+    withholding_id = REPORT_TYPES[int(report_type) - 1]
     
     pdf = generate_pdf(certificates, withholding_id)
 
@@ -37,56 +37,59 @@ def get_gp_certificate(supplier, report_type, fiscal_year, bimester):
         
         error = result["description"] if "description" in result else "Hubo un error obteniendo los datos"
         
-        raise Exception(error)
+        return []
     
     return result["certificates"]
 
 def generate_pdf(certificates, withholding_id):
-    
-    company = {
-        "name": certificates[0].get("companyName"),
-        "tax_id":certificates[0].get("nit"),
-        "address": certificates[0].get("address")
-    }
-    
-    supplier = {
-        "city": certificates[0].get("city"),
-        "name": certificates[0].get("vendorName"),
-        "tax_id":certificates[0].get("vendorId")
-    }
-    withholdings = []
-    
-    total_amount = 0
-    
-    for certificate in certificates:
+    context = {}
+    if certificates:
         
-        total_amount += certificate.get("tax")
+        company = {
+            "name": certificates[0].get("companyName"),
+            "tax_id":certificates[0].get("nit"),
+            "address": certificates[0].get("address")
+        }
         
-        withholdings.append({
-            "description": certificate.get("taxDescription"),
-            "base_amount": format_currency(certificate.get("base"), 'COP', u'#,##0.00', locale='es_CO'),
-            "porcentage": format_currency(certificate.get("percentageTax"), 'COP', u'#,##0.00', locale='es_CO'),
-            "tax_amount": format_currency(certificate.get("tax"), 'COP', u'#,##0.00', locale='es_CO')
-        })
-    
-    dt = datetime.now()    
-    ts = datetime.timestamp(dt)
-    
-    download_control = {
-        "withholding_id": withholding_id,
-        "name": ts,
-        "shipping_date": datetime.now().strftime('%d-%m-%Y %H:%m:%S'),
-        "fiscal_year": certificates[0].get("year"),
-        "period": certificates[0].get("bimester"),
-        "table_withholding": frappe.render_template("templates/pdf/table_withholding.html", {"withholdings":withholdings}),
-        "total_amount": format_currency(total_amount, 'COP', u'#,##0.00', locale='es_CO'),
-        "total_str": nl.Numero("{:.2f}".format(total_amount)).a_letras
-    }
-    context = {
-        "company": company,
-        "supplier": supplier,
-        "download_control": download_control,
-        "periocity_translate": "Anual" if certificates[0].get("bimester") == 0 else "BIMESTRAL"
-    }
+        supplier = {
+            "city": certificates[0].get("city"),
+            "name": certificates[0].get("vendorName"),
+            "tax_id":certificates[0].get("vendorId")
+        }
+        withholdings = []
+        
+        total_amount = 0
+        
+        for certificate in certificates:
+            
+            total_amount += certificate.get("tax")
+            
+            withholdings.append({
+                "description": certificate.get("taxDescription"),
+                "base_amount": format_currency(certificate.get("base"), 'COP', u'#,##0.00', locale='es_CO'),
+                "porcentage": format_currency(certificate.get("percentageTax"), 'COP', u'#,##0.00', locale='es_CO'),
+                "tax_amount": format_currency(certificate.get("tax"), 'COP', u'#,##0.00', locale='es_CO')
+            })
+        
+        dt = datetime.now()    
+        ts = datetime.timestamp(dt)
+        
+        download_control = {
+            "withholding_id": withholding_id,
+            "name": ts,
+            "shipping_date": datetime.now().strftime('%d-%m-%Y %H:%m:%S'),
+            "fiscal_year": certificates[0].get("year"),
+            "period": certificates[0].get("bimester"),
+            "table_withholding": frappe.render_template("templates/pdf/table_withholding.html", {"withholdings":withholdings}),
+            "total_amount": format_currency(total_amount, 'COP', u'#,##0.00', locale='es_CO'),
+            "total_str": nl.Numero("{:.2f}".format(total_amount)).a_letras
+        }
+        
+        context = {
+            "company": company,
+            "supplier": supplier,
+            "download_control": download_control,
+            "periocity_translate": "Anual" if certificates[0].get("bimester") == 0 else "BIMESTRAL"
+        }
     
     return get_pdf(frappe.render_template("templates/pdf/report.html", context))

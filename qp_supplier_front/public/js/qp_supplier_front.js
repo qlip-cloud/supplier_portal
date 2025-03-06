@@ -10,6 +10,10 @@ function closeNav() {
 
 
 $(document).ready(function () {
+    if ($("#page-rfq").length) {
+        $("#page-rfq .sidebar-column.col-sm-2, #page-rfq .page-breadcrumbs").remove();
+    }
+
     $('.number').on('input', function () {
         let value = $(this).val().replace(/\D/g, ''); // Eliminar cualquier carácter que no sea un número
         if (value.length > 0) {

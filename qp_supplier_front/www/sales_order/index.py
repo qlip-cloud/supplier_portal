@@ -1,7 +1,7 @@
 import frappe
 import json
 from qp_authorization.use_case.bearer.authorize import send_request
-from qp_supplier_front.constant.endpoint import ORDER_ALL
+from qp_supplier_front.constant.endpoint import ORDER_SUPPLIER_ID
 from qp_supplier_front.services.pagination import save_to_redis, get_paginated
 
 def get_context(context):
@@ -12,15 +12,23 @@ def get_context(context):
     
     context.supplier_id = supplier_id
     
-    result = send_request(ORDER_ALL)
+    param = supplier_id
     
-    orders = result.get("orders", [])
+    result = send_request(ORDER_SUPPLIER_ID, param = param)
     
-    key = "sales_order"
+    key = f"sales_order:{supplier_id}"
     
-    save_to_redis(orders, key)
+    sales_order = []
     
-    context.sales_order = get_paginated(1, key)
+    if "status" in result and result.get("status") == 200:
+        
+        orders = result.get("orders", [])
+        
+        save_to_redis(orders, key)
+        
+        sales_order = get_paginated(1, key)
+    
+    context.sales_order = sales_order
     
     context.key = key
     

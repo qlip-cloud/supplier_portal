@@ -1,3 +1,4 @@
+{% if payment %}
 {% for payment in receipts %}
 <tr class="card-header" id="heading-{{ payment.vchrnmbr }}">
     <td>{{payment.vchrnmbr}}</td>
@@ -41,3 +42,9 @@
 </tr>
 {% endif %}
 {% endfor %}
+{% else%}
+    <tr >
+        <td colspan="4">No hay resultados</td>
+    </tr>
+
+    {% endif %}

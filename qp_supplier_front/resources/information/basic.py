@@ -12,16 +12,26 @@ def update(supplier_id, supplier_name, id_type_name, tax_id, phone_number, busin
     try:
         
         msg = "Los datos han sido creados correctamente"
+        msg_redirect = " <br> Sera redireccionado para completar la informacion de proveedor"
+        is_exist = frappe.db.exists("Supplier", {"tax_id": tax_id, "qp_asigned": False})
         
-        if method == "POST":
-        
-            msg += " <br> Sera redireccionado para completar la informacion de proveedor"
-            result = save_basic(supplier_name, id_type_name, tax_id, phone_number, business_type_name)
-        
-        elif method == "PUT":
+        if method == "PUT" or is_exist:
             
+            if (is_exist):
             
+                msg += msg_redirect
+                
+                supplier_id = tax_id
+                
             result = update_basic(supplier_id, supplier_name, id_type_name, tax_id, phone_number, business_type_name)
+            
+            
+                
+        elif method == "POST":
+            
+            msg += msg_redirect
+            
+            result = save_basic(supplier_name, id_type_name, tax_id, phone_number, business_type_name)
         
         response(200,  msg, result)
         

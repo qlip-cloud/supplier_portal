@@ -30,6 +30,43 @@ document.addEventListener('DOMContentLoaded', function () {
 $(document).ready(function () {
     showTab('tab1');
 
+    $("#tax_id").on("blur", function(){
+
+    
+        tax_id = $(this).val()
+
+        url = "qp_supplier_front.resources.supplier.supplier.find";
+
+        callresponse = (response) => {
+            
+            supplier = response.data
+            if (supplier){
+                if (supplier.qp_asigned){
+                    frappe.msgprint("Ya este proveedor esta registrado en el sistema")
+                    $("#save").hide();
+                    $("#supplier_name").val()
+                    $(this).val()
+
+                }else{
+
+                    $("#supplier_name").val(supplier.supplier_name)
+                }
+            }else{
+                $("#supplier_name").val()
+
+                $("#save").show()
+
+            }
+            
+
+
+        }
+
+
+        petition_get_data({ tax_id }, url, callresponse)
+    
+    })
+
     $('.form-estandar').on('submit', function (event) {
 
 
@@ -144,7 +181,7 @@ $(document).ready(function () {
         }
 
     });
-
+    
 
     $(".open_folder").on("click", function () {
 

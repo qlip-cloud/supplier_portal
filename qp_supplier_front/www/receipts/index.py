@@ -1,10 +1,11 @@
 import frappe
 import json
 from qp_authorization.use_case.bearer.authorize import send_request
-from qp_supplier_front.constant.endpoint import PAYMENT_ALL
+from qp_supplier_front.constant.endpoint import PAYMENT_SUPPLIER_ID
 from qp_supplier_front.services.pagination import save_to_redis, get_paginated
 
 def get_context(context):
+    context.no_cache = True
     
     query_params = frappe.request.args
     
@@ -12,15 +13,23 @@ def get_context(context):
     
     context.supplier_id = supplier_id
     
-    result = send_request(PAYMENT_ALL)
+    param = supplier_id
     
-    payments = result.get("payments", [])
+    result = send_request(PAYMENT_SUPPLIER_ID, param = param)
     
-    key = "receipts"
+    receipts = []
     
-    save_to_redis(payments, key)
+    key = f"receipts:{supplier_id}"
     
-    context.receipts = get_paginated(1, key)
+    if "status" in result and result.get("status") == 200:
+        
+        payments = result.get("payments", [])
+    
+        save_to_redis(payments, key)
+        
+        receipts = get_paginated(1, key)
+    
+    context.receipts = receipts
     
     context.key = key
     

@@ -191,3 +191,10 @@ textarea {
 .material-symbols-outlined{
     cursor: pointer;
 }
+
+#page-rfq .sidebar-column.col-sm-2,
+#page-rfq .page-breadcrumbs {
+  display: none;
+}
+
+

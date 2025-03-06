@@ -77,3 +77,13 @@ def  create_contact(supplier, doctype, first_name, email_id, phone = None, user 
     contact.insert()
     
     return contact
+
+def create_first_contact(supplier, email = None):
+    
+    doctype = "Contact"
+    
+    user = email if email else frappe.session.user
+    
+    contact = create_contact(supplier, doctype, supplier.supplier_name, user, user = user)
+    
+    return contact

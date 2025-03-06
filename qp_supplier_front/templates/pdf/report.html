@@ -7,6 +7,7 @@
 </style>
 {% set timezone = 'America/Colombia' %}
 <div class="container" style="font-size: 10;">
+    {% if download_control %}
 
     <div class="row">
         <div class = "col-sm-12" style="font-size: 12;">
@@ -102,4 +103,7 @@ ARTICULO 10 DECRETO REGLAMENTARIO 836/91.
             </tr>
         </table>
     </div>
+    {% else %}
+    No hay datos disponibles
+{% endif %}
 </div>

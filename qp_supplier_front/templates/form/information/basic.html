@@ -1,12 +1,7 @@
 <form class = "form-estandar"  id="form-basic" method="{{'PUT' if supplier_id else 'POST'}}" data-method-default = "PUT" action="api/method/qp_supplier_front.resources.information.basic.update">
     <div class="row row-line">
 
-        <div class="col-lg-4">
-            <label for="supplier_name">Nombre</label>
-            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}}
-                maxlength="140" data-fieldtype="Data" data-doctype="Issue" name="supplier_name" id="supplier_name"
-                placeholder="Nombre" value="{{supplier.supplier_name or ''}}">
-        </div>
+        
 
         <div class="col-lg-4">
             <label for="id_type_name">Tipo Documento</label>
@@ -27,6 +22,12 @@
             <input type="text" autocomplete="off" name="tax_id"
                 class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" id="tax_id" value="{{supplier.tax_id or ''}}" placeholder="Documento">
+        </div>
+        <div class="col-lg-4">
+            <label for="supplier_name">Nombre</label>
+            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}}
+                maxlength="140" data-fieldtype="Data" data-doctype="Issue" name="supplier_name" id="supplier_name"
+                placeholder="Nombre" value="{{supplier.supplier_name or ''}}">
         </div>
     </div>
     <div class="row row-line">
