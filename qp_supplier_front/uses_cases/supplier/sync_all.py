@@ -47,7 +47,7 @@ def handler():
                 name = supplier_response['name']
                 mail = supplier_response.get('mail', '')
 
-                suppliers.append((vendor_id, name, vendor_id, "Todos los grupos de proveedores", current_time, current_time, owner, owner))
+                suppliers.append((vendor_id, name, vendor_id, "Todos los grupos de proveedores", "SUP-.YYYY.-", current_time, current_time, owner, owner))
                 
                 
                 if mail and mail.strip():
@@ -81,7 +81,7 @@ def handler():
 
     if suppliers:
         frappe.db.sql("""
-            INSERT INTO `tabSupplier` (name, supplier_name, tax_id, supplier_group, creation, modified, owner, modified_by)
+            INSERT INTO `tabSupplier` (name, supplier_name, tax_id, supplier_group, naming_series, creation, modified, owner, modified_by)
             VALUES {values}
         """.format(values=', '.join(str(supplier) for supplier in suppliers)))
 
