@@ -35,7 +35,7 @@ def save_party(supplier, tax_regime, ciiu_id):
     
         party.tax_regime = tax_regime
         
-    if tax_regime and tax_regime.strip() not in ["", "0"]:
+    if ciiu_id and ciiu_id.strip() not in ["", "0"]:
     
         party.ciiu_id = ciiu_id
         

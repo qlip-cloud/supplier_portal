@@ -1,9 +1,9 @@
 {% if sales_order %}
 {% for order in sales_order %}
 <tr class="card-header" id="heading-{{ order.orderId }}">
-    <td>{{order.orderId}}</td>
-    <td>Por entregar</td>
-    <td>{{order.docDate}}</td>
+    <td>{{ order.orderId }}</td>
+    <td>{{ order.status }}</td>
+    <td>{{ order.docDate }}</td>
     <td>
         <span class="material-symbols-outlined" data-toggle="collapse" data-target="#collapse-{{ order.orderId }}"
             aria-expanded="true" aria-controls="collapse-{{ order.orderId }}">
