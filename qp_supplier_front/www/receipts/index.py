@@ -5,6 +5,7 @@ from qp_supplier_front.constant.endpoint import PAYMENT_SUPPLIER_ID
 from qp_supplier_front.services.pagination import save_to_redis, get_paginated
 
 def get_context(context):
+    
     context.no_cache = True
     
     query_params = frappe.request.args
