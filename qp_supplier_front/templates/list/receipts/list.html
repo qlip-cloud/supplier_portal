@@ -1,0 +1,28 @@
+{% if receipts %}
+    {% for payment in receipts %}
+        <tr class="card-header" id="heading-{{ payment.qp_receipt_id }}">
+            <td>{{payment.qp_receipt_id}}</td>
+            <td>{{payment.qp_create_date}}</td>
+            <td>{{payment.qp_amount}}</td>
+            <td>
+                <span class="material-symbols-outlined detail-row empty-data" id="action-{{payment.name}}"
+                    data-toggle="collapse" data-target="#collapse-{{ payment.qp_receipt_id }}" aria-expanded="true"
+                    aria-controls="collapse-{{ payment.qp_receipt_id }}" data-name="{{payment.name}}" data-key="{{key}}"
+                    data-doctype="{{doctype_detail}}" data-search="1">
+                    inventory_2
+                </span>
+            </td>
+        </tr>
+        <tr id="collapse-{{ payment.qp_receipt_id }}" class="collapse" aria-labelledby="heading-{{ payment.qp_receipt_id }}"
+            data-parent="#accordion" data-sync="0">
+            <td colspan="4">
+                Buscando informacion...
+            </td>
+        </tr>
+    {% endfor %}
+{% else%}
+<tr>
+    <td colspan="4">No hay resultados</td>
+</tr>
+
+{% endif %}

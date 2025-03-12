@@ -1,0 +1,55 @@
+{
+ "actions": [],
+ "creation": "2025-03-12 11:03:24.218354",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "qp_aptovcnm",
+  "qp_seq",
+  "qp_appldamt",
+  "qp_aptodcnm"
+ ],
+ "fields": [
+  {
+   "fieldname": "qp_aptovcnm",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "qp_aptovcnm"
+  },
+  {
+   "fieldname": "qp_seq",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "qp_seq"
+  },
+  {
+   "fieldname": "qp_appldamt",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "qp_appldamt"
+  },
+  {
+   "fieldname": "qp_aptodcnm",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "qp_aptodcnm"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-03-12 11:03:24.218354",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_PurchaseReceiptItem",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

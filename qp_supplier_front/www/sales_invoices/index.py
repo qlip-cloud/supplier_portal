@@ -1,8 +1,7 @@
 import frappe
 import json
-from qp_authorization.use_case.bearer.authorize import send_request
-from qp_supplier_front.constant.endpoint import INVOICE_SUPPLIER_ID
-from qp_supplier_front.services.pagination import save_to_redis, get_paginated
+from qp_supplier_front.uses_cases.invoice.sync_by_supplier import handler as sync_by_supplier
+from qp_supplier_front.services.pagination import get_paginated
 
 def get_context(context):
     
@@ -14,24 +13,20 @@ def get_context(context):
     
     context.supplier_id = supplier_id
     
-    param = supplier_id
+    sync_by_supplier(supplier_id)
     
-    result = send_request(INVOICE_SUPPLIER_ID, param=param)
+    key = "sales_invoices"
     
-    sales_invoices = []
+    doctype = "Purchase Invoice"
     
-    key = f"sales_invoices:{supplier_id}"
+    doctype_detail = "Purchase Invoice Item"
     
-    if "status" in result and result.get("status") == 200:
-        
-        invoices = result.get('invoices', [])
+    context.supplier_id = supplier_id
     
-        save_to_redis(invoices, key)
-    
-        sales_invoices = invoices
-        
-    context.sales_invoices = sales_invoices
-    
+    context.sales_invoices = get_paginated(0, doctype, supplier_id)
+                       
     context.key = key
     
+    context.doctype = doctype
     
+    context.doctype_detail = doctype_detail

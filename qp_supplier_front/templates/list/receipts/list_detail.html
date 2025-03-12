@@ -1,0 +1,32 @@
+<td colspan="4">
+    <div class="row">
+        <div class="col-lg-12">
+            <table class="table">
+                <thead>
+    
+                    <th>Referencia</th>
+                    <th>Documento</th>
+                    <th>Secuencia</th>
+                    <th>Monto</th>
+    
+                </thead>
+                <tbody>
+                    {% for reference in list_detail %}
+    
+                    <tr>
+                        <td>{{reference.qp_aptovcnm}}</td>
+                        <td>{{reference.qp_aptodcnm}}</td>
+                        <td>{{reference.qp_seq}}</td>
+                        <td>{{reference.qp_appldamt}}</td>
+    
+                    </tr>
+                    {% endfor %}
+    
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% include "qp_supplier_front/templates/paginator/control.html" %}
+
+</td>

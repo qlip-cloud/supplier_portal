@@ -1,0 +1,35 @@
+<div class="row">
+
+    <div class="col-lg-4">
+        Total: {{total_items}}
+    </div>
+    <div class="col-lg-4 text-center">
+        Pagina {{page + 1}} de {{total_pages}}
+    </div>
+
+    <div class="col-lg-4 text-right">
+        {% if total_pages > 1 %}
+        <nav aria-label="Page navigation" data-reference="#action-{{list_detail[0].parent}}">
+            <ul class="pagination justify-content-end">
+                {% if page > 0 %}
+                <li class="page-item {% if page == 0 %}disabled{% endif %}">
+                    <a class="page-link" data-page="{{ page - 1 }}">
+                        < </a>
+                </li>
+                {% endif %}
+                {% for p in range(1, total_pages + 1) %}
+                <li class="page-item {% if page + 1 == p %}active{% endif %}">
+                    <a class="page-link" data-page="{{ p - 1}}">{{ p }}</a>
+                </li>
+                {% endfor %}
+                {% if page + 1 < total_pages %} <li
+                    class="page-item {% if page + 1 == total_pages %}disabled{% endif %}">
+                    <a class="page-link" data-page="{{ page + 1 }}">></a>
+                    </li>
+                    {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+
+</div>

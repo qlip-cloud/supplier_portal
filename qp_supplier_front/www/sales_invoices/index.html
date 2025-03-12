@@ -11,20 +11,21 @@
         <div class="row row-line">
 
             <div class="col-lg-3">
-                <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold"
-                    maxlength="140" data-fieldtype="Data" data-doctype="Issue" id="Nombre" placeholder="Factura">
+                <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold filter-list"
+                    maxlength="140" data-fieldtype="Data" data-doctype="Issue" id="qp_invoice_id" placeholder="Factura">
             </div>
 
 
             <div class="col-lg-3">
-                <input type="date" autocomplete="off" class="input-with-feedback form-control bold" id="filing_date"
+                <input type="date" autocomplete="off" class="input-with-feedback form-control bold filter-list date" id="qp_create_date"
                     data-placeholder="Fecha de radicación">
             </div>
 
             <div class="col-lg-3">
 
-                <select class="form-control" name="status" id="status" data-label="Status" data-fieldtype="Select">
+                <select class="form-control filter-list" name="status" id="qp_status" data-label="Status" data-fieldtype="Select">
                     <option value="0" selected="selected" class="custom-option">Estado</option>
+                    <option value="Abierto" >Abierto</option>
                 </select>
             </div>
 
@@ -37,15 +38,17 @@
                         <th>Factura</th>
                         <th>Estado</th>
                         <th>Fecha de Radicación</th>
-                        <th>Neto a pagar</th>
-                        <th>Sado a pagar</th>
                         <th>Fecha programación pago</th>
+                        <th>Moneda</th>
+                        <th>Neto a pagar</th>
+                        <th>Impuesto a pagar</th>
+                        <th>Sado a pagar</th>
                         <th>Detalle</th>
                     </tr>
                 </thead>
-                <tbody id="accordion" data-key="{{key}}">
+                <tbody id="accordion" data-key="{{key}}" data-doctype="{{doctype}}" data-doctype_detail="{{doctype_detail}}">
 
-                    {% include "qp_supplier_front/templates/form/sales_invoices/list.html" %}
+                    {% include "qp_supplier_front/templates/list/sales_invoices/list.html" %}
 
 
                 </tbody>
