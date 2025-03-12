@@ -68,7 +68,7 @@ def create_items(items_result):
                 INSERT INTO `tabItem` (name, item_code, item_name, item_group, qp_location, qp_qty, qp_info, qp_data, qp_type, qp_class, stock_uom, creation, modified, owner, modified_by)
                 VALUES {values}
             """.format(values=', '.join(str(item) for item in items)))
-            
+        frappe.db.commit()
 def create_uoms(items_result):
     
     uom_codes = frappe.db.get_list('UOM', filters={'uom_name': ["in", [item_result.get('unitOfMeasurePlan') for item_result in items_result]]}, pluck='uom_name')
