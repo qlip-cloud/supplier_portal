@@ -38,6 +38,7 @@ def handler(supplier_id):
                     #doc.currency = invoice.get("currency")
                     doc.supplier = invoice.get("vendor")
                     doc.qp_status = invoice.get("status")
+                    doc.naming_series = "ACC-PINV-.YYYY.-"
                     
                     for item in invoice.get("products"):
                         
