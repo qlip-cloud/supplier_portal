@@ -1,6 +1,6 @@
 import frappe
 import json
-from qp_supplier_front.uses_cases.invoice.sync_by_supplier import handler as sync_by_supplier
+from qp_supplier_front.uses_cases.sales_invoices.sync_by_supplier import handler as sync_by_supplier
 from qp_supplier_front.services.pagination import get_paginated
 
 def get_context(context):

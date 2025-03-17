@@ -1,9 +1,10 @@
 import frappe
 import json
 from qp_supplier_front.services.pagination import get_paginated
-from qp_supplier_front.uses_cases.receipt.sync_by_supplier import handler as sync_by_supplier
+from qp_supplier_front.uses_cases.receipts.sync_by_supplier import handler as sync_by_supplier
 
 def get_context(context):
+    
     context.no_cache = True
     
     query_params = frappe.request.args

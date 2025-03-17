@@ -28,7 +28,6 @@ $(document).ready(function () {
     $("#accordion").on("click",".page-link", function(){
 
         var nav =  $(this).closest('nav');
-        console.log(nav)
         action = $(nav.data("reference"));
         console.log(action)
 
@@ -40,6 +39,7 @@ $(document).ready(function () {
 
             data = {
                 "key": $(action).data("key"),
+                "parent_doctype": $(action).data("parent-doctype"),
                 "doctype": $(action).data("doctype"),
                 "name": $(action).data("name"),
                 page
@@ -75,15 +75,15 @@ $(document).ready(function () {
     })
     
     $("#accordion").on("click", ".detail-row", function(){
-
+        console.log($(this))
         if ($(this).hasClass("empty-data")){
 
             target = $(this).data("target")
 
             url = `qp_supplier_front.resources.utils.pagination.render_detail`;
-
             data = {
                 "key": $(this).data("key"),
+                "parent_doctype": $(this).data("parent-doctype"),
                 "doctype": $(this).data("doctype"),
                 "name": $(this).data("name")
             }
@@ -94,10 +94,13 @@ $(document).ready(function () {
 
                     return;
                 }
+
                 $(this).removeClass("empty-data")
 
+
                 $(target).html(response.data);
-                
+
+
             }
 
 

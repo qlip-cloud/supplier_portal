@@ -14,9 +14,11 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, filters =
         pagination = get_paginated(int(page), doctype, supplier_id, filters)
         
         template = frappe.render_template(f"qp_supplier_front/templates/list/{key}/list.html", {
-                    key: pagination, "doctype_detail":doctype_detail, "key": key
+                    key: pagination, "doctype_detail":doctype_detail, "key": key, "doctype": doctype
                 })
-            
+        
+        frappe.enqueue(f"qp_supplier_front.uses_cases.{key}.sync_by_supplier.handler", supplier_id=supplier_id, queue='long', is_async=False, timeout=14400, job_name=f"send sync {doctype} {supplier_id}")
+        
         response(200,  msg, template)
         
     except Exception as error:
@@ -26,13 +28,13 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, filters =
         response(500,  msg)
         
 @frappe.whitelist()
-def render_detail(key, doctype, name, page = 0):
+def render_detail(key, parent_doctype, doctype, name, page = 0):
     
     try:
         
         msg = "Los datos han sido creados correctamente"
         
-        detail = get_detail(doctype, name, int(page))
+        detail = get_detail(parent_doctype, doctype, name, int(page))
         
         template = frappe.render_template(f"qp_supplier_front/templates/list/{key}/list_detail.html", detail)
             

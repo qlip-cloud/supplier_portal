@@ -16,7 +16,23 @@ def handler(supplier_id):
         
         purchases_id = frappe.get_list("Purchase Invoice", filters = {"qp_invoice_id": ["in", invoices_id]}, pluck = "qp_invoice_id")
         
-        invoices_new = [invoice for invoice in result["invoices"] if invoice.get("invoiceId") not in purchases_id]
+        items_code = frappe.get_list("Item", pluck = "item_code")
+        
+        invoices_new = []
+        
+        count = 0
+        
+        for invoice in result["invoices"]:
+            
+            if invoice.get("invoiceId") not in purchases_id:
+                
+                invoices_new.append(invoice)
+                
+                count += 1
+                
+                if count == 45:
+                    
+                    break
         
         if invoices_new:
             
@@ -40,25 +56,40 @@ def handler(supplier_id):
                     doc.qp_status = invoice.get("status")
                     doc.naming_series = "ACC-PINV-.YYYY.-"
                     
-                    for item in invoice.get("products"):
+                    for item in invoice.get("products")[:30]:
                         
-                        doc.append("items", {
-                            "item_code": item.get("itemnmbr"),
-                            "qp_tax": item.get("taxItem"),
-                            "qp_qty": item.get("quantity"),
-                            "qty": 1,
-                            "qp_unit_cost": item.get("unitCost"),
-                            "rate": 1,
-                            "qp_extd_cost": item.get("extdCost"),
-                            "conversion_factor": 1
-                        })
+                        doc.append("items", set_item(item))
+                        
+                    doc.qp_item_sync = len(invoice.get("products"))
+                    
+                    doc.qp_item_count = len(doc.items)
+                    
+                    doc.qp_is_item_sync = doc.qp_item_sync == doc.qp_item_count
                     
                     doc.insert(ignore_permissions=True, # ignore write permissions during insert
                                 ignore_links=True, # ignore Link validation in the document
                                 ignore_if_duplicate=True, # dont insert if DuplicateEntryError is thrown
                                 ignore_mandatory=True)
                     
+                    if not doc.qp_is_item_sync:
+                        
+                        frappe.enqueue(f"qp_supplier_front.services.background.set_item.handler", doc = doc, products=invoice.get("products")[30:], items_valid = items_code, key_item =  "items", key_id = "itemnmbr", set_item = set_item, queue='long', is_async=True, timeout=14400, job_name=f"send sync invoice doc {doc.name}")
+                    
                 except Exception as e:
+                    
                     pass
                 
             frappe.db.commit()
+            
+            
+def set_item(item):
+    return {
+        "item_code": item.get("itemnmbr"),
+        "qp_tax": item.get("taxItem"),
+        "qp_qty": item.get("quantity"),
+        "qty": 1,
+        "qp_unit_cost": item.get("unitCost"),
+        "rate": 1,
+        "qp_extd_cost": item.get("extdCost"),
+        "conversion_factor": 1
+    }
