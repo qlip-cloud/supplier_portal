@@ -26,9 +26,9 @@ def handler(supplier_id, report_type, fiscal_year, bimester):
 
 def get_gp_certificate(supplier, report_type, fiscal_year, bimester):
     
-    param = f"{report_type}/{fiscal_year}/{bimester}/805011877"
+    #param = f"{report_type}/{fiscal_year}/{bimester}/{supplier.name}"
     
-    #param = f"/{report_type}/{fiscal_year}/{bimester}/{supplier.gp_vendor_id or "805011877"}"
+    param = f"/{report_type}/{fiscal_year}/{bimester}/{supplier.name}"
     
     result = send_request(GET_TAX_REPORT_SUPPLIER, param = param)
     

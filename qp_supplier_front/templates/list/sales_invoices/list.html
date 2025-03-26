@@ -20,12 +20,12 @@
 <tr id="collapse-{{ invoice.qp_invoice_id }}" class="collapse" aria-labelledby="heading-{{ invoice.qp_invoice_id }}"
     data-parent="#accordion" data-sync = "0">
     <td colspan="9">
-        Buscando informacion...
+        Buscando información...
     </td>
 </tr>
 
 {% endfor %}
-{% else%}
+{% elif show_result %}
     <tr >
         <td colspan="9">No hay resultados</td>
     </tr>

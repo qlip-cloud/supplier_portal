@@ -12,6 +12,7 @@ function closeNav() {
 $(document).ready(function () {
     let currentPage = 0;
     let loading = false;
+    let no_more = false;
     var debounceTimer;
 
     if ($("#page-rfq").length) {
@@ -25,39 +26,49 @@ $(document).ready(function () {
         }
         $(this).val(value);
     });
+
     $("#accordion").on("click",".page-link", function(){
 
-        var nav =  $(this).closest('nav');
-        action = $(nav.data("reference"));
-        console.log(action)
+        if (loading == false){
+            loading = true
+            var nav =  $(this).closest('nav');
 
-        page = $(this).data("page")
+            nav.find('.page-link').prop('disabled', true);
 
-        target = $(action).data("target")
+            action = $(nav.data("reference"));
 
-        url = `qp_supplier_front.resources.utils.pagination.render_detail`;
+            console.log(action)
 
-            data = {
-                "key": $(action).data("key"),
-                "parent_doctype": $(action).data("parent-doctype"),
-                "doctype": $(action).data("doctype"),
-                "name": $(action).data("name"),
-                page
-            }
+            page = $(this).data("page")
 
-            callresponse = (response) => {
-                
-                if (response.data.trim() === "") {
+            target = $(action).data("target")
 
-                    return;
+            url = `qp_supplier_front.resources.utils.pagination.render_detail`;
+
+                data = {
+                    "key": $(action).data("key"),
+                    "parent_doctype": $(action).data("parent-doctype"),
+                    "doctype": $(action).data("doctype"),
+                    "name": $(action).data("name"),
+                    page
                 }
 
-                $(target).html(response.data);
-                
+                callresponse = (response) => {
+                    
+                    loading = false
+                    
+                    if (response.data.trim() === "") {
+
+                        return;
+                    }
+
+                    $(target).html(response.data);
+                    
+                }
+
+
+                petition_get_data(data, url, callresponse)
             }
-
-
-            petition_get_data(data, url, callresponse)
     });
 
     $(".filter-list").on("input", function(){
@@ -75,36 +86,39 @@ $(document).ready(function () {
     })
     
     $("#accordion").on("click", ".detail-row", function(){
-        console.log($(this))
-        if ($(this).hasClass("empty-data")){
 
-            target = $(this).data("target")
+        if (loading == false){
+            loading = true;
+            if ($(this).hasClass("empty-data")){
 
-            url = `qp_supplier_front.resources.utils.pagination.render_detail`;
-            data = {
-                "key": $(this).data("key"),
-                "parent_doctype": $(this).data("parent-doctype"),
-                "doctype": $(this).data("doctype"),
-                "name": $(this).data("name")
-            }
+                target = $(this).data("target")
 
-            callresponse = (response) => {
-                
-                if (response.data.trim() === "") {
-
-                    return;
+                url = `qp_supplier_front.resources.utils.pagination.render_detail`;
+                data = {
+                    "key": $(this).data("key"),
+                    "parent_doctype": $(this).data("parent-doctype"),
+                    "doctype": $(this).data("doctype"),
+                    "name": $(this).data("name")
                 }
 
-                $(this).removeClass("empty-data")
+                callresponse = (response) => {
+                    loading = false;
+                    
+                    if (response.data.trim() === "") {
+
+                        return;
+                    }
+
+                    $(this).removeClass("empty-data")
 
 
-                $(target).html(response.data);
+                    $(target).html(response.data);
 
 
+                }
+
+                petition_get_data(data, url, callresponse)
             }
-
-
-            petition_get_data(data, url, callresponse)
         }
     })
 
@@ -118,35 +132,45 @@ $(document).ready(function () {
     function loadMoreInvoices() {
 
         currentPage++;
+        
+        if (loading == false || no_more == false){
+            loading = true;
 
+            $("#loading").show()
+            accordion = $("#accordion");
 
+            supplier_id = $("#supplier_id").val();
 
-        accordion = $("#accordion");
-
-        supplier_id = $("#supplier_id").val();
-
-        url = `qp_supplier_front.resources.utils.pagination.render_pagination`;
-        filters = getValidInputs();
-        data = {
-            'page': currentPage,
-            "key": accordion.data("key"),
-            "doctype": accordion.data("doctype"),
-            "doctype_detail": accordion.data("doctype_detail"),
-            supplier_id,
-            filters
-        }
-
-        callresponse = (response) => {
-            if (response.data.trim() === "") {
-                // No more data to load
-                $(window).off('scroll');
-                return;
+            url = `qp_supplier_front.resources.utils.pagination.render_pagination`;
+            filters = getValidInputs();
+            data = {
+                'page': currentPage,
+                "key": accordion.data("key"),
+                "doctype": accordion.data("doctype"),
+                "doctype_detail": accordion.data("doctype_detail"),
+                supplier_id,
+                filters
             }
-            accordion.append(response.data);
-            loading = false;
+
+            callresponse = (response) => {
+                if (response.data.trim() === "") {
+                    // No more data to load
+                    $(window).off('scroll');
+                    no_more = true;
+                    $("#no-more").show()
+
+                    return;
+                }
+                accordion.append(response.data);
+                loading = false;
+                $("#loading").hide  ()
+
+            }
+
+            petition_get_data(data, url, callresponse)
+
         }
 
-        petition_get_data(data, url, callresponse)
 
     }
 });
