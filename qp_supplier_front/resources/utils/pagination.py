@@ -17,7 +17,7 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, filters =
                     key: pagination, "doctype_detail":doctype_detail, "key": key, "doctype": doctype
                 })
         
-        frappe.enqueue(f"qp_supplier_front.uses_cases.{key}.sync_by_supplier.handler", supplier_id=supplier_id, queue='long', is_async=False, timeout=14400, job_name=f"send sync {doctype} {supplier_id}")
+        frappe.enqueue(f"qp_supplier_front.uses_cases.{key}.sync_by_supplier.handler", supplier_id=supplier_id, queue='long', is_async=True, timeout=14400, job_name=f"send sync {doctype} {supplier_id}")
         
         response(200,  msg, template)
         
