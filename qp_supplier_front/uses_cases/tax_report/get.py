@@ -32,11 +32,7 @@ def get_gp_certificate(supplier, report_type, fiscal_year, bimester):
     
     #param = f"{report_type}/{fiscal_year}/{bimester}/{supplier.name}"
     
-<<<<<<< HEAD
-    param = f"/{report_type}/{fiscal_year}/{bimester}/{supplier.name}"
-=======
     param = f"{report_type}/{fiscal_year}/{bimester}/{supplier.name}"
->>>>>>> develop
     
     result = send_request(GET_TAX_REPORT_SUPPLIER, param = param)
     
