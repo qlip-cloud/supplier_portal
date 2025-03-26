@@ -17,6 +17,7 @@ def get_detail(parent_doctype, doctype, name, page = 0):
          
     return {
         "list_detail": list_detail,
+        "parent": doc,
         "total_items": doc.qp_item_sync,
         "total_items_sync": doc.qp_item_count,
         "total_pages": total_pages,

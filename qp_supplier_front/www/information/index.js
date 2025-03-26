@@ -28,7 +28,9 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 $(document).ready(function () {
+
     showTab('tab1');
+
     $('.modal-content-scroll').on('scroll', function() {
         console.log('aqui');
 
@@ -39,12 +41,14 @@ $(document).ready(function () {
         }
     });
 
-    conduct_modal = $("#conductCodeModal")
-    autorization_modal = $("#autorizationModal")
 
-    if (autorization_modal.data("accept") === 0){
+    conduct_modal = $("#conductCodeModal")
+
+    autorization_modal = $("#autorizationModal")
+    console.log(conduct_modal.data("view"))
+    if (autorization_modal.data("accept") === 0 && autorization_modal.data("view") != "True"){
         $('#autorizationModal').modal('show');
-    }else if (conduct_modal.data("accept") === 0){
+    }else if (conduct_modal.data("accept") === 0 && conduct_modal.data("view") != "True"){
         
         $('#conductCodeModal').modal('show');
     }

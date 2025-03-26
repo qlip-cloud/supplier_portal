@@ -2,9 +2,9 @@
     {% for payment in receipts %}
         <tr class="card-header" id="heading-{{ payment.qp_receipt_id }}">
             <td>{{payment.qp_receipt_id}}</td>
-            <td>{{payment.qp_create_date}}</td>
-            <td>{{payment.qp_amount}}</td>
-            <td>
+            <td class="text-center">{{frappe.format_date(payment.qp_create_date, "dd/MM/yyyy")}}</td>
+            <td class="text-right">{{frappe.format_value(payment.qp_amount, "Currency")}}</td>
+            <td class="text-center">
                 <span class="material-symbols-outlined detail-row empty-data" id="action-{{payment.name}}"
                     data-toggle="collapse" data-target="#collapse-{{ payment.qp_receipt_id }}" aria-expanded="true"
                     aria-controls="collapse-{{ payment.qp_receipt_id }}" data-name="{{payment.name}}" data-key="{{key}}"

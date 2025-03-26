@@ -11,8 +11,8 @@
         <div id="mySidenav" class="sidenav">
             <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
             <a href="/information?supplier={{supplier_id}}" class="sidebar-menu active">Información</a>
-            <a href="/sales_invoices?supplier={{supplier_id}}" class="sidebar-menu">Facturas</a>
-            <a href="/sales_order?supplier={{supplier_id}}" class="sidebar-menu">Orden de Compra</a>
+            <a href="/purchase_invoices?supplier={{supplier_id}}" class="sidebar-menu">Facturas de Compra</a>
+            <a href="/purchase_order?supplier={{supplier_id}}" class="sidebar-menu">Ordenes de Compra</a>
             <a href="/receipts?supplier={{supplier_id}}" class="sidebar-menu">Recibos</a>
             <a href="/tax_report?supplier={{supplier_id}}" class="sidebar-menu">Reportes impuesto</a>
             <a href="/request_quotation?supplier={{supplier_id}}" class="sidebar-menu">Solicitud de cotización</a>
@@ -35,5 +35,7 @@
 
     {% endblock %}
 </div>
+<div id="popup-sync">Existe una petición en curso.</div>
+{% include "qp_supplier_front/templates/modal/loading.html" %}
 
 {% endblock %}

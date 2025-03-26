@@ -1,60 +1,80 @@
-<form id="form-document" method="POST" data-method-default = "POST" action="qp_supplier_front.resources.information.document.update">
-    <div class="row row-line">
+<form id="form-document" method="POST" data-method-default="POST"
+    action="qp_supplier_front.resources.information.document.update">
 
-    {% for document_setting in document_settings %}
-
-        
-            <div class="col-lg-3">
-
-                {{document_setting.title}}
-                <hr>
-            </div>
-    {% endfor %}
-</div>
+    {% set chunk_size = 3 %}
+    
+    {% for i in range(0, document_settings|length, chunk_size) %}
 
     <div class="row row-line">
 
-    {% for document_setting in document_settings %}
-    {% set line = document_setting.line %}
-    {% set line_file = line and line.file %}
-            <div class="col-lg-3" style="align-content: end;">
+        {% for document_setting in document_settings[i:i + chunk_size] %}
 
-                <label for="file">Archivo</label>
-                {% if not line_file %}
-                <div id="file_empty-{{document_setting.title | replace(' ', '-')}}" style>
-                    <a id="link" class="btn btn-primary btn-sm primary-action open_folder" data-setting-id="{{document_setting.title | replace(' ', '-')}}">Subir archivo</a>
-                    <input type="file" class="supplier_file"  data-document = "{{document_setting.title | replace(' ', '-')}}" id="file-{{document_setting.title | replace(' ', '-')}}" data-setting-id="{{document_setting.title | replace(' ', '-')}}"
-                        style="display: none;">
 
-                    
-                </div>
-                <div id="file_loading-{{document_setting.title | replace(' ', '-')}}" style="display: none;">
-                    Cargando
-                </div>
-                {% endif %}
-                <input type="hidden" class="file-link" data-updated = "{{'0' if line else '1'}}" data-document = "{{document_setting.title | replace(' ', '-')}}" id="link-{{document_setting.title | replace(' ', '-')}}" name="file" value="{{line.file if line else ''}}">
+        <div class="col-lg-3">
 
-                <div id="file_full-{{document_setting.title | replace(' ', '-')}}" class="label-input" style="{{'display: none;' if not line_file else ''}}" >
-                        <a href="{{line.file if line_file  else ''}}" target="_blank" class=" link"> {{"Ver archivo" if line_file  else ''}}</a>
-                </div>
+            {{document_setting.title}}
+            <hr>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="row row-line">
+
+        {% for document_setting in document_settings[i:i + chunk_size] %}
+        {% set line = document_setting.line %}
+        {% set line_file = line and line.file %}
+        <div class="col-lg-3" style="align-content: end;">
+
+            <label for="file">Archivo</label>
+            {% if not line_file %}
+            <div id="file_empty-{{document_setting.title | replace(' ', '-')}}" style>
+                <a id="link" class="btn btn-primary btn-sm primary-action open_folder"
+                    data-setting-id="{{document_setting.title | replace(' ', '-')}}">Subir archivo</a>
+                <input type="file" class="supplier_file" data-document="{{document_setting.title | replace(' ', '-')}}"
+                    id="file-{{document_setting.title | replace(' ', '-')}}"
+                    data-setting-id="{{document_setting.title | replace(' ', '-')}}" style="display: none;">
+
 
             </div>
+            <div id="file_loading-{{document_setting.title | replace(' ', '-')}}" style="display: none;">
+                Cargando
+            </div>
+            {% endif %}
+            <input type="hidden" class="file-link" data-updated="{{'0' if line else '1'}}"
+                data-document="{{document_setting.title | replace(' ', '-')}}"
+                id="link-{{document_setting.title | replace(' ', '-')}}" name="file"
+                value="{{line.file if line else ''}}">
 
-    {% endfor %}
-</div>
-<div class="row row-line">
-    <div class="col-lg-12">
+            <div id="file_full-{{document_setting.title | replace(' ', '-')}}" class="label-input"
+                style="{{'display: none;' if not line_file else ''}}">
+                <a href="{{line.file if line_file  else ''}}" target="_blank" class=" link"> {{"Ver archivo" if
+                    line_file else ''}}</a>
+            </div>
 
-<hr>
-</div>
-</div>
+        </div>
+
+        {% endfor %}
+        {% endfor %}
+
+    </div>
+    <div class="row row-line">
+        <div class="col-lg-12">
+
+            <hr>
+        </div>
+    </div>
 
     <div class="row row-line justify-content-between">
         <div class="col-4 text-left">
-            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab9"  id="save">< Accionistas y Asociados</button>
+            <button
+                class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save"
+                data-control="tab9" id="save">
+                < Accionistas y Asociados</button>
         </div>
         <div class="col-4 text-right">
-            <button class="btn btn-primary btn-sm primary-action finish {{ '' if is_estatus_editable else 'hidden disabled' }} button-save" id="save">Finalizar</button>
+            <button
+                class="btn btn-primary btn-sm primary-action finish {{ '' if is_estatus_editable else 'hidden disabled' }} button-save"
+                id="save">Finalizar</button>
         </div>
     </div>
 </form>
