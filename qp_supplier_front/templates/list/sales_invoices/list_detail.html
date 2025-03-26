@@ -4,21 +4,21 @@
             <table class="table">
                 <thead>
 
-                    <th>Producto</th>
-                    <th>Cantidad</th>
-                    <th>Impuesto</th>
-                    <th>Costo unitatio</th>
-                    <th>Subtotal</th>
+                    <th class="text-center">Producto</th>
+                    <th class="text-center">Cantidad</th>
+                    <th class="text-center">Impuesto</th>
+                    <th class="text-center">Costo unitatio</th>
+                    <th class="text-center">Subtotal</th>
 
                 </thead>
                 <tbody>
                     {% for item in list_detail %}
                     <tr>
                         <td>{{item.item_code}}</td>
-                        <td>{{item.qp_qty}}</td>
-                        <td>{{item.qp_unit_cost}}</td>
-                        <td>{{item.qp_tax}}</td>
-                        <td>{{item.qp_extd_cost}}</td>
+                        <td class="text-center">{{item.qp_qty}}</td>
+                        <td class = "text-right">{{frappe.format_value(item.qp_unit_cost, "Currency", currency = parent.currency)}}</td>
+                        <td class = "text-right">{{frappe.format_value(item.qp_tax, "Currency", currency = parent.currency)}}</td>
+                        <td class = "text-right">{{frappe.format_value(item.qp_extd_cost, "Currency", currency = parent.currency)}}</td>
 
                     </tr>
                     {% endfor %}

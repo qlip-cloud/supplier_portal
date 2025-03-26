@@ -20,17 +20,20 @@
                     <a class="page-link" data-page="{{ page - 1 }}"> < </a>
                 </li>
                 {% endif %}
-                <li class="page-item active">
-                    <a class="page-link" data-page="{{ page }}">{{ page + 1 }}</a>
+                {% set start_page = page - 1 if page - 1 > 0 else 0 %}
+                {% set end_page = page + 2 if page + 2 < total_pages else total_pages %}
+                {% for p in range(start_page, end_page) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" data-page="{{ p }}">{{ p + 1 }}</a>
                 </li>
+                {% endfor %}
                 {% if page + 1 < total_pages %}
                 <li class="page-item">
-                    <a class="page-link" data-page="{{ page + 1 }}">></a>
+                    <a class="page-link" data-page="{{ page + 1 }}"> > </a>
                 </li>
                 {% endif %}
             </ul>
         </nav>
         {% endif %}
     </div>
-
 </div>

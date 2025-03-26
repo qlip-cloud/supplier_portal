@@ -67,6 +67,18 @@ body {
     background-color: #ddd;
 }
 
+.accept-button {
+    width: 100%;
+}
+
+.accept-terms.modal .modal-content{
+    position: relative;
+}
+
+.accept-terms.modal .modal-header .modal-title{
+    max-width: 100%;
+}
+
 /* Media query for screens smaller than 900px */
 @media (max-width: 900px) {
     .tabs {

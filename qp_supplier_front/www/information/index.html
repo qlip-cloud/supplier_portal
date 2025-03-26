@@ -39,17 +39,17 @@
         <div class="container-tab">
             <div class="tabs-container">
                 <div class="tabs">
-                    <button class="tab" onclick="showTab('tab1')">Información Básica</button>
+                    <button class="tab basic" onclick="showTab('tab1')">Información Básica</button>
                     {% if supplier_id %}
-                        <button class="tab" onclick="showTab('tab2')">Direcciones</button>
-                        <button class="tab" onclick="showTab('tab3')">Contactos</button>
-                        <button class="tab" onclick="showTab('tab4')">Representante Legal</button>
-                        <button class="tab" onclick="showTab('tab5')">Cuentas Bancarias</button>
-                        <button class="tab" onclick="showTab('tab6')">Información Tributaria</button>
-                        <button class="tab" onclick="showTab('tab7')">Información Financiera</button>
-                        <button class="tab" onclick="showTab('tab8')">Operaciones Internacionales</button>
-                        <button class="tab" onclick="showTab('tab9')">Accionistas y Asociados</button>
-                        <button class="tab" onclick="showTab('tab10')">Documentos</button>
+                        <button class="tab address" onclick="showTab('tab2')">Direcciones</button>
+                        <button class="tab contact" onclick="showTab('tab3')">Contactos</button>
+                        <button class="tab legal" onclick="showTab('tab4')">Representante Legal</button>
+                        <button class="tab bank_account bank_account_complement" onclick="showTab('tab5')">Cuentas Bancarias</button>
+                        <button class="tab tax" onclick="showTab('tab6')" >Información Tributaria</button>
+                        <button class="tab financial" onclick="showTab('tab7')" >Información Financiera</button>
+                        <button class="tab international" onclick="showTab('tab8')" >Operaciones Internacionales</button>
+                        <button class="tab shareholder" onclick="showTab('tab9')" >Accionistas y Asociados</button>
+                        <button class="tab document" onclick="showTab('tab10')" id="document">Documentos</button>
                     {% endif %}
                 </div>
                 <div class="dropdown-menu">
@@ -148,7 +148,11 @@
     {% include "qp_supplier_front/templates/modal/bank_account.html" %}
     {% include "qp_supplier_front/templates/modal/shareholder.html" %}
     {% include "qp_supplier_front/templates/modal/motivo.html" %}
+    {% include "qp_supplier_front/templates/modal/authorization_processing.html" %}
+    {% include "qp_supplier_front/templates/modal/conduct_code.html" %}
     
 {% endif %}
+
+
 
 {% endblock %}

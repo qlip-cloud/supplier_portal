@@ -28,8 +28,70 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 $(document).ready(function () {
+
     showTab('tab1');
 
+    $('.modal-content-scroll').on('scroll', function() {
+        console.log('aqui');
+
+        var $modalContent = $(this);
+        if ($modalContent.scrollTop() + $modalContent.innerHeight() >= $modalContent[0].scrollHeight) {
+            console.log('end reached');
+            $modalContent.closest('.modal-content').find('.accept-button').prop('disabled', false);
+        }
+    });
+
+
+    conduct_modal = $("#conductCodeModal")
+
+    autorization_modal = $("#autorizationModal")
+    console.log(conduct_modal.data("view"))
+    if (autorization_modal.data("accept") === 0 && autorization_modal.data("view") != "True"){
+        $('#autorizationModal').modal('show');
+    }else if (conduct_modal.data("accept") === 0 && conduct_modal.data("view") != "True"){
+        
+        $('#conductCodeModal').modal('show');
+    }
+
+    $(".accept-button").on("click", function () {
+
+        url = "qp_supplier_front.resources.information.term.accept";
+
+        supplier_id = $("#supplier_id").val();
+
+        accept_type = $(this).data("accept-type");
+
+        callresponse = (response) => {
+            
+            supplier = response.data
+
+            if (accept_type == "qp_accept_autorization_processing"){
+
+                $('#autorizationModal').modal('hide');
+
+                if (!supplier.qp_accept_conduct_code){
+
+                    $('#conductCodeModal').modal('show');
+                }
+            }
+
+            if (accept_type == "qp_accept_conduct"){
+                
+                $('#conductCodeModal').modal('hide');
+                
+                if (!supplier.qp_accept_autorization_processing){
+
+                    $('#autorizationModal').modal('show');
+                }
+            }
+
+             
+        }
+
+        petition_get_data({supplier_id, accept_type}, url, callresponse)
+
+    })
+    
     $("#tax_id").on("blur", function(){
 
     
@@ -130,6 +192,7 @@ $(document).ready(function () {
         var data = { "documents": {} };
 
         $('#form-document .file-link').each(function () {
+
             if ($(this).data('updated') == "1") {
                 var docType = $(this).data('document');
                 var name = $(this).attr('name');
@@ -160,16 +223,34 @@ $(document).ready(function () {
                 data = response.data
 
                 if (submitter.hasClass("finish")) {
+                    supplier = data.supplier
+                    
+                    
+                    $('.tab').css('color', 'black');
+                    has_incompleted = false
+                    // Suponiendo que jsqp_field_validations es tu array
+                    $.each(supplier.qp_field_validations, function(index, validation) {
+                        
+                        if (validation.is_completed === 0) {
+                            has_incompleted = true
+                            
+                            $(`.tab.${validation.field_section}`).css('color', 'red');
+                        }
+                    });
+                    msg_error = has_incompleted ? "<p>Hay secciones sin completar, las cuales se indican en rojo. Para continuar con el proceso de validación, debe completar todos los campos.</p>" : "";
 
-                    frappe.msgprint(response.msg)
+                    msg = `<p>${response.msg}</p> ${msg_error}`;
+                    
+                    frappe.msgprint(msg);
 
-                    setup_button(data.supplier)
+                    setup_button(supplier);
 
                 }
                 if (submitter.hasClass('is_estatus_editable') ){
 
                     showTab(submitter.data("control"))
                 }
+
                 document.getElementById("overlay").style.display = 'none';
 
             }
@@ -227,6 +308,7 @@ $(document).ready(function () {
 
 
     $("#reject").on("click", function () {
+
         supplier_id = $("#supplier_id").val();
 
         qp_reject_observation = $("#qp_reject_observation").val();
@@ -368,7 +450,8 @@ $(document).ready(function () {
         callresponse = (response) => {
             const data = response.data
             const bank_account = data.bank_account
-            console.log(bank_account)
+
+
             const $doctype_id = $("#form-bank-account [name='doctype_id']");
 
             const $selectBank = $("#bank");
@@ -431,6 +514,7 @@ $(document).ready(function () {
     })
 
     $(".supplier_file").on("change", function () {
+
         supplier_id = $("#supplier_id").val();
 
         setting_id = $(this).data("setting-id");
@@ -603,3 +687,6 @@ function closeNav() {
     document.getElementById("mySidenav").style.width = "0";
     document.getElementById("overlay").style.display = "none";
 }
+
+
+

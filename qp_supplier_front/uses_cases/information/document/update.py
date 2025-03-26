@@ -36,12 +36,14 @@ def  set_document(supplier, documents):
     
     for key, document in documents.items():
         
-        document_setting = frappe.get_doc("qp_SP_DocumentSetting", key)
+        setting_id = key.replace("-", " ")
+        
+        document_setting = frappe.get_doc("qp_SP_DocumentSetting", setting_id)
     
         validity = add_to_date(datetime.now(), days=document_setting.expire_day)
         
         supplier.append("qp_documents", {
-            "documento_setting": key,
+            "documento_setting": setting_id,
             "validity": validity,
             "is_valid": True,
             "file": document["file"]

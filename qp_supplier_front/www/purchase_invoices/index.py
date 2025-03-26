@@ -13,7 +13,12 @@ def get_context(context):
     
     context.supplier_id = supplier_id
     
-    sync_by_supplier(supplier_id)
+    try:
+        sync_by_supplier(supplier_id)
+        
+    except Exception as e:
+        
+        frappe.log_error(message=frappe.get_traceback(), title=f"Error sync purchase invoice: {supplier_id}")
     
     key = "sales_invoices"
     
@@ -30,3 +35,6 @@ def get_context(context):
     context.doctype = doctype
     
     context.doctype_detail = doctype_detail
+    
+    context.show_result = True
+    

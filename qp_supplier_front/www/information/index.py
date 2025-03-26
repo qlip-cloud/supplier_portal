@@ -2,6 +2,7 @@ import frappe
 from qp_supplier_front.services.get_data import get_party, get_supplier, get_document_types, get_business_types, get_dynamic_link,get_bank_accounts, get_regimes, get_ciius
 
 def get_context(context):
+    
     context.no_cache = 1
     
     party = None
