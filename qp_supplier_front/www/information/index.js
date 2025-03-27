@@ -45,7 +45,7 @@ $(document).ready(function () {
     conduct_modal = $("#conductCodeModal")
 
     autorization_modal = $("#autorizationModal")
-    console.log(conduct_modal.data("view"))
+
     if (autorization_modal.data("accept") === 0 && autorization_modal.data("view") != "True"){
         $('#autorizationModal').modal('show');
     }else if (conduct_modal.data("accept") === 0 && conduct_modal.data("view") != "True"){
