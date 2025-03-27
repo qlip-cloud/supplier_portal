@@ -32,11 +32,12 @@ $(document).ready(function () {
     showTab('tab1');
 
     $('.modal-content-scroll').on('scroll', function() {
-        console.log('aqui');
-
         var $modalContent = $(this);
-        if ($modalContent.scrollTop() + $modalContent.innerHeight() >= $modalContent[0].scrollHeight) {
-            console.log('end reached');
+        var scrollHeight = $modalContent[0].scrollHeight;
+        var scrollTop = $modalContent.scrollTop();
+        var innerHeight = $modalContent.innerHeight();
+        
+        if (scrollTop + innerHeight >= scrollHeight - 1) { 
             $modalContent.closest('.modal-content').find('.accept-button').prop('disabled', false);
         }
     });
