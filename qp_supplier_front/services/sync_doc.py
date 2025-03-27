@@ -8,6 +8,7 @@ def setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_k
     message = None
     title = f"Error sync {doctype}"
     items_code = None
+    result = None
     try:
         
         result = get_result(endpoint, supplier_id)
