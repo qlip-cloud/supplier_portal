@@ -56,7 +56,8 @@ def get_context(context):
     context.banks = frappe.get_all("Bank", fields = ["name", "bank_name"])
     
     context.bank_account_types = frappe.get_all("Bank Account Type", fields = ["name", "account_type"])
-            
+    
+    context.currencies = frappe.get_all("Currency", fields = ["name", "currency_name"])
     context.responses = [{
         "name":"",
         "value": "Respuesta"

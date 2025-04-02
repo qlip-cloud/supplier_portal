@@ -2,11 +2,11 @@
 import frappe
 from qp_supplier_front.services.get_data import get_supplier
 from qp_supplier_front.services.field_validate import handler as validate_field
-def handler(supplier_id, qp_financial_currency_foreigner, qp_financial_which_currency_foreigner, qp_financial_other_operations, qp_financial_item_foreigner, qp_financial_account_currency_foreigner, qp_financial_item_type, qp_financial_item_number, qp_financial_entity, qp_financial_amount, qp_financial_city, qp_financial_country,qp_financial_currency):
+def handler(supplier_id, qp_financial_currency_foreigner, qp_financial_which_currency_foreigner, qp_financial_other_operations, qp_financial_item_foreigner, qp_financial_account_currency_foreigner, qp_financial_item_type, qp_financial_item_number, qp_financial_entity, qp_financial_amount, qp_financial_city, qp_financial_country,qp_financial_currency, qp_is_foreigner_supplier):
     
     supplier = get_supplier(supplier_id)
     
-    set_financial(supplier, qp_financial_currency_foreigner, qp_financial_which_currency_foreigner, qp_financial_other_operations, qp_financial_item_foreigner, qp_financial_account_currency_foreigner, qp_financial_item_type, qp_financial_item_number, qp_financial_entity, qp_financial_amount, qp_financial_city, qp_financial_country,qp_financial_currency)
+    set_financial(supplier, qp_financial_currency_foreigner, qp_financial_which_currency_foreigner, qp_financial_other_operations, qp_financial_item_foreigner, qp_financial_account_currency_foreigner, qp_financial_item_type, qp_financial_item_number, qp_financial_entity, qp_financial_amount, qp_financial_city, qp_financial_country,qp_financial_currency, qp_is_foreigner_supplier)
     
     validate_field(supplier, "international" , 0, None, qp_financial_currency_foreigner, qp_financial_which_currency_foreigner, qp_financial_other_operations, qp_financial_item_foreigner, qp_financial_account_currency_foreigner, qp_financial_item_type, qp_financial_item_number, qp_financial_entity, qp_financial_amount, qp_financial_city, qp_financial_country,qp_financial_currency)
         
@@ -14,7 +14,7 @@ def handler(supplier_id, qp_financial_currency_foreigner, qp_financial_which_cur
         "supplier": supplier.as_dict()
     }
     
-def  set_financial(supplier, qp_financial_currency_foreigner, qp_financial_which_currency_foreigner, qp_financial_other_operations, qp_financial_item_foreigner, qp_financial_account_currency_foreigner, qp_financial_item_type, qp_financial_item_number, qp_financial_entity, qp_financial_amount, qp_financial_city, qp_financial_country,qp_financial_currency):
+def  set_financial(supplier, qp_financial_currency_foreigner, qp_financial_which_currency_foreigner, qp_financial_other_operations, qp_financial_item_foreigner, qp_financial_account_currency_foreigner, qp_financial_item_type, qp_financial_item_number, qp_financial_entity, qp_financial_amount, qp_financial_city, qp_financial_country,qp_financial_currency, qp_is_foreigner_supplier):
     
     supplier.qp_financial_currency_foreigner = qp_financial_currency_foreigner
     supplier.qp_financial_which_currency_foreigner = qp_financial_which_currency_foreigner
@@ -28,4 +28,5 @@ def  set_financial(supplier, qp_financial_currency_foreigner, qp_financial_which
     supplier.qp_financial_city = qp_financial_city
     supplier.qp_financial_country = qp_financial_country
     supplier.qp_financial_currency = qp_financial_currency  
+    supplier.qp_is_foreigner_supplier = qp_is_foreigner_supplier
     

@@ -18,10 +18,12 @@
         </div>
         <div class="col-lg-4">
             <label for="tax_id">Documento</label>
-
             <input type="text" autocomplete="off" name="tax_id"
                 class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" id="tax_id" value="{{supplier.tax_id or ''}}" placeholder="Documento">
+                <div class="text-muted" style="font-size: 12px;">
+                    <i>Si el tipo de documento es NIT, ingrese el número sin dígito de verificación.</i>
+                </div>
         </div>
         <div class="col-lg-4">
             <label for="supplier_name">Nombre</label>
@@ -40,11 +42,11 @@
                 data-doctype="Issue" id="phone_number" value="{{party.phone_number or ''}}" placeholder="Número Telefónico">
         </div>
         <div class="col-lg-4">
-            <label for="business_type_name">Tipo empresa</label>
+            <label for="business_type_name">Tipo de Persona</label>
 
             <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'"}} name="business_type_name" id="status" data-label="Status"
                 data-fieldtype="Select">
-                <option value="0" selected="selected" class="custom-option">Tipo empresa
+                <option value="0" selected="selected" class="custom-option">Tipo de Persona
                 </option>
                 {% for business_type in business_types %}
                 <option value="{{business_type.name}}" {{business_type.selected}} class="custom-option">

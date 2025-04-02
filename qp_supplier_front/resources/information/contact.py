@@ -7,19 +7,20 @@ from qp_supplier_front.services.get_data import get_dynamic_link
 
 
 @frappe.whitelist()
-def save(supplier_id, first_name, email_id, phone, doctype_id = None):
+def save(supplier_id, first_name,  qp_contact_type, email_id,country_code,phone, doctype_id = None):
     
     method = frappe.local.request.method
     try:
         
         msg = "Los datos han sido creados correctamente"
+        full_phone = f"{country_code or ''} {phone or ''}".strip()
         if method == "POST":
         
-            result = save_contact(supplier_id, first_name, email_id, phone)
+            result = save_contact(supplier_id, first_name,email_id, qp_contact_type , full_phone)
             
         elif method == "PUT":
             
-            result = update_contact(supplier_id, doctype_id, first_name, email_id, phone)
+            result = update_contact(supplier_id, doctype_id, first_name,email_id, qp_contact_type , full_phone)
             
         contacts = get_dynamic_link(result.get("supplier"), "Contact")
         

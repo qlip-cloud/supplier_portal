@@ -4,7 +4,7 @@ from qp_supplier_front.services.get_data import get_supplier
 from qp_supplier_front.services.field_validate import validate_field_list_with_table
 from qp_supplier_front.services.create_data import create_contact
 
-def handler(supplier_id, first_name, email_id, phone):
+def handler(supplier_id, first_name,email_id, qp_contact_type,phone):
     
     doctype = "Contact"
     
@@ -12,7 +12,7 @@ def handler(supplier_id, first_name, email_id, phone):
     
     supplier = get_supplier(supplier_id)
     
-    contact = create_contact(supplier, doctype, first_name, email_id, phone)
+    contact = create_contact(supplier, doctype, first_name,email_id, qp_contact_type,phone)
     
     tables = {
         "email_ids": ["email_id"],

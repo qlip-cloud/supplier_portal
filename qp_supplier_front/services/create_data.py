@@ -48,14 +48,14 @@ def set_party(party, supplier, id_type_name, phone_number, business_type_name, t
     
     party.business_type = business_type_name
     
-def  create_contact(supplier, doctype, first_name, email_id, phone = None, user = None):
+def  create_contact(supplier, doctype, first_name,email_id, qp_contact_type=None,phone = None, user = None):
     
     contact = frappe.new_doc(doctype)
     
     contact.first_name = first_name
     
     contact.user = user
-    
+    contact.qp_contact_type = qp_contact_type
     contact.append("email_ids", {
         "email_id": email_id
     })
@@ -83,7 +83,8 @@ def create_first_contact(supplier, email = None):
     doctype = "Contact"
     
     user = email if email else frappe.session.user
+
     
-    contact = create_contact(supplier, doctype, supplier.supplier_name, user, user = user)
+    contact = create_contact(supplier, doctype, supplier.supplier_name, user, qp_contact_type=None,user = user)
     
     return contact
