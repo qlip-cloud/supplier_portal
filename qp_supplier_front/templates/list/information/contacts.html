@@ -4,6 +4,7 @@
         <thead>
             <th>Codigo</th>
             <th>Nombre</th>
+            <th>Tipo de contacto</th>
             <th>Correo</th>
             <th>Teléfono</th>
         </thead>
@@ -17,6 +18,7 @@
                 <td>{{contact.first_name}}
                    
                 </td>
+                <td>{{contact.qp_contact_type}}</td>
                 <td>{{contact.email_ids[0].email_id}}</td>
                 <td>{{contact.phone_nos[0].phone if contact.phone_nos else "" }}</td>
             </tr>

@@ -1,0 +1,28 @@
+{% if sales_order %}
+    {% for order in sales_order %}
+    <tr class="card-header" id="heading-{{ order.qp_order_id }}">
+        <td>{{ order.qp_order_id }}</td>
+        <!--td>{# order.status #}</td-->
+        <td>{{ frappe.format_date(order.qp_create_date, "dd/MM/yyyy") }}</td>
+        <td>
+            <span class="material-symbols-outlined detail-row empty-data" id = "action-{{order.name}}" data-target="#collapse-{{ order.qp_order_id }}"
+                data-name = "{{order.name}}" data-key="{{key}}" data-doctype="{{doctype_detail}}" data-parent-doctype="{{doctype}}" data-search = "1">
+                inventory_2
+            </span>
+        </td>
+    </tr>
+    {# if order.products #}
+    <tr id="collapse-{{ order.qp_order_id }}" class="collapse" aria-labelledby="heading-{{ order.qp_order_id }}"
+        data-parent="#accordion" data-sync = "0">
+        
+        <td colspan="4">
+            Buscando información...
+        </td>
+    </tr>
+    {# endif #}
+    {% endfor %}
+{% elif show_result %}
+<tr>
+    <td colspan="4">No hay resultados</td>
+</tr>
+{% endif %}

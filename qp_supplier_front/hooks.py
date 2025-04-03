@@ -105,15 +105,19 @@ web_include_js = ["/assets/qp_supplier_front/js/qp_supplier_front.js", "/assets/
 #	}
 #}
 
+
+
 get_website_user_home_page = "qp_supplier_front.redirect.login.get_home_page"
 
 # Scheduled Tasks
 # ---------------
 
 scheduler_events = {
-# 	"all": [
-# 		"qp_supplier_front.tasks.all"
-# 	],
+ 	"cron": {
+		"20 12 * * *": [
+			"qp_supplier_front.taks.sync.all"
+		]
+    },
  	"daily": [
     	"qp_supplier_front.uses_cases.information.tasks.daily"
  		#"qp_supplier_front.tasks.daily"
@@ -156,26 +160,26 @@ scheduler_events = {
 # User Data Protection
 # --------------------
 
-user_data_fields = [
-	{
-		"doctype": "{doctype_1}",
-		"filter_by": "{filter_by}",
-		"redact_fields": ["{field_1}", "{field_2}"],
-		"partial": 1,
-	},
-	{
-		"doctype": "{doctype_2}",
-		"filter_by": "{filter_by}",
-		"partial": 1,
-	},
-	{
-		"doctype": "{doctype_3}",
-		"strict": False,
-	},
-	{
-		"doctype": "{doctype_4}"
-	}
-]
+#user_data_fields = [
+#	{
+#		"doctype": "{doctype_1}",
+#		"filter_by": "{filter_by}",
+#		"redact_fields": ["{field_1}", "{field_2}"],
+#		"partial": 1,
+#	},
+#	{
+#		"doctype": "{doctype_2}",
+#		"filter_by": "{filter_by}",
+#		"partial": 1,
+#	},
+#	{
+#		"doctype": "{doctype_3}",
+#		"strict": False,
+#	},
+#	{
+#		"doctype": "{doctype_4}"
+#	}
+#]
 
 # Authentication and authorization
 # --------------------------------

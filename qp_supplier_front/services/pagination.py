@@ -1,23 +1,34 @@
 import frappe
 import json
+PAGE_LENGTH = 15
 
-def save_to_redis(data_list, key):
+def get_detail(parent_doctype, doctype, name, page = 0):
     
-    cache = frappe.cache()
+    page_length = 10
     
-    cache.set(key, json.dumps(data_list))
+    start = page * page_length
+    
+    doc = frappe.get_doc(parent_doctype, name)
+    
+    list_detail = frappe.get_list(doctype, filters = {"parent": name}, fields = ["*"], start=start,
+    page_length=page_length)
+    
+    total_pages = (doc.qp_item_sync + page_length - 1) // page_length   
+         
+    return {
+        "list_detail": list_detail,
+        "parent": doc,
+        "total_items": doc.qp_item_sync,
+        "total_items_sync": doc.qp_item_count,
+        "total_pages": total_pages,
+        "page": page
+    }
+    
 
-def get_paginated(page, key):
+def get_paginated(page, doctype, supplier_id, filters = {}):
     
-    page_size = 50
+    filters.update({"supplier": supplier_id})
     
-    cache = frappe.cache()
+    start = page * PAGE_LENGTH
     
-    invoices = json.loads(cache.get(key))
-    
-    start = (page - 1) * page_size
-    
-    end = start + page_size
-    
-    return invoices[start:end]
-
+    return frappe.get_list(doctype, filters = filters, fields = ["*"], start=start, page_length=PAGE_LENGTH)

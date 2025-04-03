@@ -1,8 +1,7 @@
 import frappe
 import json
-from qp_authorization.use_case.bearer.authorize import send_request
-from qp_supplier_front.constant.endpoint import PAYMENT_SUPPLIER_ID
-from qp_supplier_front.services.pagination import save_to_redis, get_paginated
+from qp_supplier_front.services.pagination import get_paginated
+from qp_supplier_front.uses_cases.receipts.sync_by_supplier import handler as sync_by_supplier
 
 def get_context(context):
     
@@ -12,25 +11,27 @@ def get_context(context):
     
     supplier_id = query_params.get("supplier")
     
+    try:
+        sync_by_supplier(supplier_id)
+        
+    except Exception as e:
+        
+        frappe.log_error(message=frappe.get_traceback(), title=f"Error sync purchase receipts: {supplier_id}")    
+        
+    key = "receipts"
+    
+    doctype = "Purchase Receipt"
+    
+    doctype_detail = "qp_SP_PurchaseReceiptItem"
+    
     context.supplier_id = supplier_id
     
-    param = supplier_id
-    
-    result = send_request(PAYMENT_SUPPLIER_ID, param = param)
-    
-    receipts = []
-    
-    key = f"receipts:{supplier_id}"
-    
-    if "status" in result and result.get("status") == 200:
-        
-        payments = result.get("payments", [])
-    
-        save_to_redis(payments, key)
-        
-        receipts = get_paginated(1, key)
-    
-    context.receipts = receipts
-    
+    context.receipts = get_paginated(0, doctype, supplier_id)
+                       
     context.key = key
     
+    context.doctype = doctype
+    
+    context.doctype_detail = doctype_detail
+    
+    context.show_result = True
