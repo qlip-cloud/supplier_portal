@@ -1,73 +1,49 @@
-{% extends "frappe/templates/web.html" %}
+{% extends "qp_supplier_front/templates/includes/container.html" %}
 
-{% block page_content %}
+{% block content_page %}
 
-<div class="container-fluid">
     <div class="row">
 
-        <div class="col-lg-2" id="sidebar">
-            <div class="row">
-                <div class="col lg-12 sidebar-menu active">
-                    Información
-                </div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Facturas</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Orden de Compra</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Recibos</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Reportes impuesto</div>
-            </div>
-        </div>
-        <div class="col-lg-10" id="area">
 
 
-            <div class="row row-line">
+                <div class="col-lg-3">
 
-                <div class="col-lg-5">
-
-                    <select class="form-control" name="status" id="status" data-label="Status" data-fieldtype="Select">
-                        <option value="0" selected="selected" class="custom-option">Estado</option>
+                    <select class="form-control" name="report_type" id="report_type" data-label="report_type" data-fieldtype="Select">
+                        <option value="0" selected="selected" class="custom-option">Tipo</option>
+                        <option value="1"  class="custom-option">Retenciones en la fuente</option>
+                        <option value="2"  class="custom-option">Retenciones IVA</option>
+                        <option value="3"  class="custom-option">Retenciones ICA</option>
                     </select>
                 </div>
 
-            </div>
-            <div class="row row-line">
 
-                <div class="col-lg-5">
+                <div class="col-lg-3">
 
-                    <select class="form-control" name="status" id="status" data-label="Status" data-fieldtype="Select">
-                        <option value="0" selected="selected" class="custom-option">Estado</option>
+                    <select class="form-control" name="year" id="year" data-label="year" data-fieldtype="Select" data-init_fiscal_year="{{init_fiscal_year}}">
+                        <option value="0" selected="selected" class="custom-option">{{_("Fiscal Year")}}</option>
+                    </select>
+                </div>
+                <div class="col-lg-3">
+
+                    <select class="form-control" name="bimester" id="bimester" data-label="bimester" data-fieldtype="Select">
+                        <option value="" selected="selected" class="custom-option">Rango</option>
+                        <option value="0" class="custom-option">Anual</option>
+                        <option value="1" class="custom-option">Primer bimestre</option>
+                        <option value="2" class="custom-option">Segundo bimestre</option>
+                        <option value="3" class="custom-option">Tercer bimestre</option>
+                        <option value="4" class="custom-option">Cuarto bimestre</option>
+                        <option value="5" class="custom-option">Quinto bimestre</option>
+                        <option value="6" class="custom-option">Sexto bimestre</option>
                     </select>
                 </div>
 
-            </div>
-            <div class="row row-line">
-
-                <div class="col-lg-5">
-
-                    <select class="form-control" name="status" id="status" data-label="Status" data-fieldtype="Select">
-                        <option value="0" selected="selected" class="custom-option">Estado</option>
-                    </select>
-                </div>
-
-            </div>
-            <div class="row row-line">
-                <div class="col-lg-2">
+                <div class="col-lg-3">
 
                     <button class="btn btn-primary btn-sm primary-action" id="save">Generar</button>
 
                 </div>
-            </div>
 
-        </div>
 
 
     </div>
-</div>
 {% endblock %}

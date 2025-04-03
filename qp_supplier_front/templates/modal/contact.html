@@ -8,10 +8,13 @@
                 </button>
             </div>
             <div class="modal-body">
-                <form class="form-estandar form-modal" id="form-contact" action="api/method/qp_supplier_front.resources.information.contact.save">
+                <form class="form-estandar form-modal" method="POST" data-method-default="POST" id="form-contact"
+                    action="api/method/qp_supplier_front.resources.information.contact.save">
                     <div class="row row-line">
 
                         <div class="col-lg-12">
+                            <label for="business_type_name">Nombre de contacto</label>
+
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control floating-input bold" maxlength="140"
                                 data-fieldtype="Data" data-doctype="Issue" name="first_name" id="first_name"
@@ -19,8 +22,25 @@
                         </div>
                     </div>
                     <div class="row row-line">
+                        <div class="col-lg-12">
+                            <label for="qp_contact_type">Tipo de Contacto</label>
+                            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }}
+                                name="qp_contact_type" id="qp_contact_type" data-label="qp_contact_type" data-fieldtype="Select">
+                                {% set contact_types = ['Comercial', 'Compras', 'Finanzas', 'Cartera'] %}
+                                {% for type in contact_types %}
+                                {% set selected = "selected" if supplier.qp_contact_type == type %}
+                                <option value="{{type}}" class="custom-option" {{selected}}>
+                                    {{type}}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row row-line">
 
                         <div class="col-lg-12">
+                            <label for="business_type_name">Correo electronico</label>
+
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control floating-input bold" maxlength="140"
                                 data-fieldtype="Data" data-doctype="Issue" name="email_id" id="email_id"
@@ -28,26 +48,36 @@
                         </div>
                     </div>
                     <div class="row row-line">
-
-                        <div class="col-lg-12">
+                        <div class="col-lg-4">
+                            <label for="country_code">Indicativo</label>
+                            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold"
+                                maxlength="10" data-fieldtype="Data" data-doctype="Issue" name="country_code"
+                                id="country_code" placeholder="Ej: +57">
+                        </div>
+                        <div class="col-lg-8">
+                            <label for="phone">Teléfono</label>
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control floating-input bold" maxlength="140"
                                 data-fieldtype="Data" data-doctype="Issue" name="phone" id="phone"
                                 placeholder="Teléfono" value="">
                         </div>
                     </div>
-            
 
-            <div class="row row-line">
-                <div class="col-lg-12">
-                    <button class="btn btn-primary btn-sm primary-action" id="save">Guardar</button>
-                </div>
+
+                    <div class="row row-line">
+                        <div class="col-lg-12">
+                            <button
+                                class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new"
+                                id="save">Guardar</button>
+                        </div>
+                    </div>
+                    <input type="hidden" name="doctype_id" value="">
+
+                </form>
             </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
         </div>
     </div>
-</div>
 </div>

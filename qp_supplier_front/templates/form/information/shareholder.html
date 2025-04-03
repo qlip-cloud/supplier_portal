@@ -1,36 +1,27 @@
 <div class="row row-line">
     <div class="col-sm-12">
-        <button type="button" class="btn btn-primary btn-sm primary-action" data-toggle="modal"
-            data-target="#shareholder_modal">+New</button>
+        <button type="button"
+            class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-save"
+            data-toggle="modal" data-target="#shareholder_modal">+New</button>
     </div>
 </div>
-<form>
-    <div class="row row-line">
-        {% if supplier.qp_shareholders %}
-        <table class="table">
-            <thead>
-                <th>Razón social o nombre completo</th>
-                <th>Tipo de Identificación</th>
-                <th>Número</th>
-                <th>% Participación</th>
-            </thead>
-            <tbody>
-                {% for shareholder in supplier.qp_shareholders %}
 
-                    <tr>
-                        <td>{{shareholder.fullname}}</td>
-                        <td>{{shareholder.id_type}}</td>
-                        <td>{{shareholder.tax_id}}</td>
-                        <td>{{shareholder.market_share}}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="col-lg-12">
-            <p>No hay accionistas registrados</p>
-            {% endif %}
-        </div>
+<div id = "shareholder_list">
+    {% include "qp_supplier_front/templates/list/information/shareholders.html" %}
+   
+</div>
+
+<div class="row row-line justify-content-between">
+    {% if not supplier.qp_is_foreigner_supplier %}
+    <div class="col-4 text-left">
+        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab8')" id="save">< Operaciones Internacionales</button>
     </div>
-
-</form>
+    {% else %}
+    <div class="col-4 text-left">
+        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab7')" id="save">< Información Financiera</button>
+    </div>
+    {% endif %}
+    <div class="col-4 text-right">
+        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab10')" id="save">Continuar ></button>
+    </div>
+</div>

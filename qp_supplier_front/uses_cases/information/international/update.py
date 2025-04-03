@@ -9,9 +9,7 @@ def handler(supplier_id, qp_financial_currency_foreigner, qp_financial_which_cur
     set_financial(supplier, qp_financial_currency_foreigner, qp_financial_which_currency_foreigner, qp_financial_other_operations, qp_financial_item_foreigner, qp_financial_account_currency_foreigner, qp_financial_item_type, qp_financial_item_number, qp_financial_entity, qp_financial_amount, qp_financial_city, qp_financial_country,qp_financial_currency)
     
     validate_field(supplier, "international" , 0, None, qp_financial_currency_foreigner, qp_financial_which_currency_foreigner, qp_financial_other_operations, qp_financial_item_foreigner, qp_financial_account_currency_foreigner, qp_financial_item_type, qp_financial_item_number, qp_financial_entity, qp_financial_amount, qp_financial_city, qp_financial_country,qp_financial_currency)
-    
-    supplier.save()
-    
+        
     return {
         "supplier": supplier.as_dict()
     }
@@ -29,5 +27,5 @@ def  set_financial(supplier, qp_financial_currency_foreigner, qp_financial_which
     supplier.qp_financial_amount = qp_financial_amount
     supplier.qp_financial_city = qp_financial_city
     supplier.qp_financial_country = qp_financial_country
-    supplier.qp_financial_currency = qp_financial_currency  
+    supplier.qp_financial_currency = qp_financial_currency
     

@@ -1,15 +1,17 @@
-<form class = "form-estandar"  id="form-international" action="api/method/qp_supplier_front.resources.information.international.update">
+<form class="form-estandar" method="PUT" data-method-default="PUT" id="form-international"
+    action="api/method/qp_supplier_front.resources.information.international.update">
     <div class="row row-line">
-        
         <div class="col-lg-4">
             <label for="qp_financial_currency_foreigner">¿Realiza transacciones en moneda extranjera? (Sí/No)</label>
 
-            <select class="form-control" name="qp_financial_currency_foreigner" id="qp_financial_currency_foreigner" data-label="qp_financial_currency_foreigner"
-                data-fieldtype="Select">
-                <option value="" selected="selected" class="custom-option">Respuesta</option>
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }}
+                name="qp_financial_currency_foreigner" id="qp_financial_currency_foreigner"
+                data-label="qp_financial_currency_foreigner" data-fieldtype="Select">
                 {% for response in responses %}
-                <option value="{{response}}"  class="custom-option">
-                    {{response}}
+                {% set selected = "selected" if supplier.qp_financial_currency_foreigner == response.name %}
+
+                <option value="{{response.name}}" class="custom-option" {{selected}}>
+                    {{response.value}}
                 </option>
                 {% endfor %}
 
@@ -17,49 +19,60 @@
         </div>
 
         <div class="col-lg-4">
-            <label for="qp_financial_currency_foreigner">¿Cuál?</label>
+            <label for="qp_financial_currency_foreigner">¿Cuál? (Opcional)</label>
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }}
+                name="qp_financial_currency_foreigner" id="qp_financial_currency_foreigner"
+                data-label="qp_financial_currency_foreigner" data-fieldtype="Select">
+                <option value="" {% if not supplier.qp_financial_currency_foreigner %}selected{% endif %}
+                    class="custom-option">¿Cuál?</option>
+                {% for currency in currencies %}
+                <option value="{{ currency.name }}" {% if supplier.qp_financial_currency_foreigner==currency.name
+                    %}selected{% endif %} class="custom-option">
+                    {{ currency.currency_name }}
+                </option>
+                {% endfor %}
+            </select>
 
-            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold"
-                maxlength="140" data-fieldtype="Data" data-doctype="Issue" name="qp_financial_which_currency_foreigner" id="qp_financial_which_currency_foreigner"
-                placeholder="¿Cuál?" value="{{supplier.qp_financial_which_currency_foreigner or ''}}">
         </div>
-
-
-        
         <div class="col-lg-4">
             <label for="qp_financial_currency_foreigner">Indique otras operaciones</label>
 
             <input type="text" autocomplete="off" name="qp_financial_other_operations"
-                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
-                data-doctype="Issue" id="qp_financial_other_operations" value="{{supplier.qp_financial_other_operations or ''}}"
+                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
+                else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
+                id="qp_financial_other_operations" value="{{supplier.qp_financial_other_operations or ''}}"
                 placeholder="Indique otras operaciones">
         </div>
     </div>
+
     <div class="row row-line">
 
         <div class="col-lg-4">
             <label for="qp_financial_item_foreigner">¿Posee productos financieros en el exterior? (Sí/No)</label>
 
-            <select class="form-control" name="qp_financial_item_foreigner" id="qp_financial_item_foreigner" data-label="qp_financial_item_foreigner"
-                data-fieldtype="Select">
-                <option value="" selected="selected" class="custom-option">Respuesta</option>
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }}
+                name="qp_financial_item_foreigner" id="qp_financial_item_foreigner"
+                data-label="qp_financial_item_foreigner" data-fieldtype="Select">
                 {% for response in responses %}
-                <option value="{{response}}"  class="custom-option">
-                    {{response}}
+                {% set selected = "selected" if supplier.qp_financial_item_foreigner == response.name %}
+
+                <option value="{{response.name}}" class="custom-option" {{selected}}>
+                    {{response.value}}
                 </option>
                 {% endfor %}
-
             </select>
         </div>
         <div class="col-lg-4">
             <label for="qp_financial_account_currency_foreigner">¿Posee cuentas en moneda extranjera? (Sí/No)</label>
 
-            <select class="form-control" name="qp_financial_account_currency_foreigner" id="qp_financial_account_currency_foreigner" data-label="qp_financial_account_currency_foreigner"
-                data-fieldtype="Select">
-                <option value="" selected="selected" class="custom-option">Respuesta</option>
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }}
+                name="qp_financial_account_currency_foreigner" id="qp_financial_account_currency_foreigner"
+                data-label="qp_financial_account_currency_foreigner" data-fieldtype="Select">
                 {% for response in responses %}
-                <option value="{{response}}"  class="custom-option">
-                    {{response}}
+                {% set selected = "selected" if supplier.qp_financial_account_currency_foreigner == response.name %}
+
+                <option value="{{response.name}}" class="custom-option" {{selected}}>
+                    {{response.value}}
                 </option>
                 {% endfor %}
 
@@ -69,70 +82,93 @@
             <label for="qp_financial_item_type">Tipo de Producto</label>
 
             <input type="text" autocomplete="off" name="qp_financial_item_type"
-                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
-                data-doctype="Issue" id="qp_financial_item_type" value="{{supplier.qp_financial_item_type or ''}}"
+                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
+                else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
+                id="qp_financial_item_type" value="{{supplier.qp_financial_item_type or ''}}"
                 placeholder="Tipo de Producto">
+            <div class="text-muted" style="font-size: 12px;">
+                <i>Opcional para moneda extranjera</i>
+            </div>
         </div>
-
     </div>
     <div class="row row-line">
         <div class="col-lg-4">
             <label for="qp_financial_item_number">Identificación número del Producto</label>
 
             <input type="text" autocomplete="off" name="qp_financial_item_number"
-                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
-                data-doctype="Issue" id="qp_financial_item_number" value="{{supplier.qp_financial_item_number or ''}}"
+                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
+                else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
+                id="qp_financial_item_number" value="{{supplier.qp_financial_item_number or ''}}"
                 placeholder="Identificación número del Producto">
+            <div class="text-muted" style="font-size: 12px;">
+                <i>Opcional para moneda extranjera</i>
+            </div>
         </div>
         <div class="col-lg-4">
             <label for="qp_financial_entity">Entidad</label>
 
             <input type="text" autocomplete="off" name="qp_financial_entity"
-                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
-                data-doctype="Issue" id="qp_financial_entity" value="{{supplier.qp_financial_entity or ''}}"
-                placeholder="Entidad">
+                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
+                else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
+                id="qp_financial_entity" value="{{supplier.qp_financial_entity or ''}}" placeholder="Entidad">
+            <div class="text-muted" style="font-size: 12px;">
+                <i>Opcional para moneda extranjera</i>
+            </div>
         </div>
         <div class="col-lg-4">
-            <label for="qp_financial_amount">Monto</label>
+            <label for="qp_financial_amount">Monto Anual</label>
 
             <input type="text" autocomplete="off" name="qp_financial_amount"
-                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
-                data-doctype="Issue" id="qp_financial_amount" value="{{supplier.qp_financial_amount or ''}}"
-                placeholder="Monto">
+                class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable
+                else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
+                id="qp_financial_amount" value="{{supplier.qp_financial_amount or ''}}" placeholder="Monto Anual">
         </div>
-
     </div>
     <div class="row row-line">
         <div class="col-lg-4">
             <label for="qp_financial_city">Ciudad</label>
 
             <input type="text" autocomplete="off" name="qp_financial_city"
-                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
-                data-doctype="Issue" id="qp_financial_city" value="{{supplier.qp_financial_city or ''}}"
-                placeholder="Ciudad">
+                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
+                else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
+                id="qp_financial_city" value="{{supplier.qp_financial_city or ''}}" placeholder="Ciudad">
         </div>
         <div class="col-lg-4">
             <label for="qp_financial_country">País</label>
 
             <input type="text" autocomplete="off" name="qp_financial_country"
-                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
-                data-doctype="Issue" id="qp_financial_country" value="{{supplier.qp_financial_country or ''}}"
-                placeholder="País">
+                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
+                else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
+                id="qp_financial_country" value="{{supplier.qp_financial_country or ''}}" placeholder="País">
         </div>
+
         <div class="col-lg-4">
             <label for="qp_financial_currency">Moneda</label>
-
-            <input type="text" autocomplete="off" name="qp_financial_currency"
-                class="input-with-feedback form-control floating-input bold" maxlength="140" data-fieldtype="Data"
-                data-doctype="Issue" id="qp_financial_currency" value="{{supplier.qp_financial_currency or ''}}"
-                placeholder="Moneda">
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }}
+                name="qp_financial_currency" id="qp_financial_currency" data-label="Moneda" data-fieldtype="Select">
+                <option value="" {% if not supplier.qp_financial_currency %}selected{% endif %} class="custom-option">
+                    Seleccione una moneda</option>
+                {% for currency in currencies %}
+                <option value="{{ currency.name }}" {% if supplier.qp_financial_currency==currency.name %}selected{%
+                    endif %} class="custom-option">
+                    {{ currency.currency_name }}
+                </option>
+                {% endfor %}
+            </select>
         </div>
-
     </div>
-    
-    <div class="row row-line">
-        <div class="col-lg-4">
-            <button class="btn btn-primary btn-sm primary-action" id="save">Guardar</button>
+
+    <div class="row row-line justify-content-between">
+        <div class="col-4 text-left">
+            <button
+                class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save"
+                data-control="tab7" id="save">
+                < Información Financiera</button>
+        </div>
+        <div class="col-4 text-right">
+            <button
+                class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save"
+                data-control="tab9" id="save">Continuar ></button>
         </div>
     </div>
 

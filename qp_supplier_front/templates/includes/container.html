@@ -1,34 +1,41 @@
 {% extends "frappe/templates/web.html" %}
+{% block content %}
 
-    <div class="row">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" /> 
 
-        <div class="col-lg-2" id="sidebar">
-            <div class="row">
-                <div class="col lg-12 sidebar-menu active">
-                    Información
-                </div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Facturas</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Orden de Compra</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Recibos</div>
-            </div>
-            <div class="row">
-                <div class="col lg-12 sidebar-menu">Reportes impuesto</div>
-            </div>
-        </div>
-        <div class="col-lg-10" id="area">
+<div class="container-fluid">
+    <input type="hidden" id="supplier_id" value="{{supplier_id or ''}}">
 
-            {% block page_content %}
-            {% endblock %}
+    {% if supplier_id %}
 
-
+        <div id="mySidenav" class="sidenav">
+            <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+            <a href="/information?supplier={{supplier_id}}" class="sidebar-menu active">Información</a>
+            <a href="/purchase_invoices?supplier={{supplier_id}}" class="sidebar-menu">Facturas de Compra</a>
+            <a href="/purchase_order?supplier={{supplier_id}}" class="sidebar-menu">Ordenes de Compra</a>
+            <a href="/receipts?supplier={{supplier_id}}" class="sidebar-menu">Recibos</a>
+            <a href="/tax_report?supplier={{supplier_id}}" class="sidebar-menu">Reportes impuesto</a>
+            <a href="/request_quotation?supplier={{supplier_id}}" class="sidebar-menu">Solicitud de cotización</a>
+            <!--a href="/quotations?supplier={{supplier_id}}" class="sidebar-menu">Cotizaciones</a-->
         </div>
 
+        <div id="overlay" class="overlay" onclick="closeNav()"></div>
 
-    </div>
+        <div class="row">
+            <div class="col-sm-12">
+                <span class="material-symbols-outlined" onclick="openNav()">
+                    menu
+                </span>
+            </div>
+        </div>
+        
+    {% endif %}
+
+    {% block content_page %}
+
     {% endblock %}
+</div>
+<div id="popup-sync">Existe una petición en curso.</div>
+{% include "qp_supplier_front/templates/modal/loading.html" %}
+
+{% endblock %}

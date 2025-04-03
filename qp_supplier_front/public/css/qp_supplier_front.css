@@ -9,8 +9,7 @@ html {
     margin: 0;
 }
 
-#sidebar,
-area {
+#sidebar,#area {
     height: 100% !important;
 }
 
@@ -20,6 +19,8 @@ area {
 
 #area {
     padding-right: 5% !important;
+    z-index: 1;
+
 }
 
 .row-line {
@@ -81,6 +82,18 @@ label {
     color: #6D6D6D !important;
 }
 
+.inner-table {
+    /* Aquí puedes definir los estilos específicos para la tabla interna */
+    width: 100%;
+}
+
+.inner-table th, .inner-table td {
+    /* Estilos específicos para las celdas de la tabla interna */
+    background: none;
+    text-align: left;
+    font: normal normal 500 14px Montserrat;
+    color: #000000;
+}
 input[type="date"]::before {
     content: attr(data-placeholder);
     color: #999;
@@ -114,3 +127,93 @@ textarea {
     border: 1px solid #ccc; /* Borde opcional */
     border-radius: 5px; /* Esquinas redondeadas opcionales */
 }
+
+
+
+
+
+.sidenav {
+    height: 100%;
+    width: 0;
+    position: fixed;
+    z-index: 100000;
+    top: 0;
+    left: 0;
+    background-color: #fff;
+    overflow-x: hidden;
+    transition: 0.5s;
+    padding-top: 60px;
+
+}
+
+.sidenav a {
+    padding: 8px 8px 8px 32px;
+    text-decoration: none;
+    display: block;
+    transition: 0.3s;
+}
+
+.sidenav .closebtn {
+    position: absolute;
+    top: 0;
+    right: 25px;
+    font-size: 36px;
+    margin-left: 50px;
+}
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: none;
+}
+
+.link_modal {
+    text-decoration: underline !important;
+    color: blue !important;
+    cursor: pointer !important;
+}
+
+#overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+}
+
+.material-symbols-outlined{
+    cursor: pointer;
+}
+
+#page-rfq .sidebar-column.col-sm-2,
+#page-rfq .page-breadcrumbs {
+  display: none;
+}
+
+.page-link{
+    cursor: pointer;
+}
+
+#popup-sync {
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #000;
+    color: #fff;
+    padding: 10px;
+    border: 1px solid #f5c6cb;
+    border-radius: 5px;
+    display: none;
+    z-index: 1000;
+}
+
+
+

@@ -25,12 +25,13 @@ body {
     padding: 10px;
     cursor: pointer;
     text-align: center;
-    background-color: #f1f1f1;
+    background-color: #fff;
     border: 1px solid #ccc;
 }
 
 .tab.active {
-    border-bottom: 3px solid #007BFF; /* Borde inferior para la tab activa */
+    border-bottom: 3px solid #007BFF;
+    /* Borde inferior para la tab activa */
 }
 
 .content {
@@ -66,6 +67,18 @@ body {
     background-color: #ddd;
 }
 
+.accept-button {
+    width: 100%;
+}
+
+.accept-terms.modal .modal-content{
+    position: relative;
+}
+
+.accept-terms.modal .modal-header .modal-title{
+    max-width: 100%;
+}
+
 /* Media query for screens smaller than 900px */
 @media (max-width: 900px) {
     .tabs {
@@ -76,3 +89,4 @@ body {
         display: block;
     }
 }
+

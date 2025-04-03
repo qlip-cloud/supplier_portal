@@ -20,7 +20,8 @@ def handler(supplier_id, bank, account_type, bank_account_no):
     setup_validate_field_list(supplier, bank_accounts, valid_code, fields_to_validate)
     supplier.save()
     return {
-        "bank_account": bank_account.as_dict()
+        "bank_account": bank_account.as_dict(),
+        "supplier": supplier
     }
     
 def create_bank_account(supplier, bank, account_type, bank_account_no):

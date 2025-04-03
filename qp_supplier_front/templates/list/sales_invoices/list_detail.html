@@ -1,0 +1,33 @@
+<td colspan="9">
+    <div class="row">
+        <div class="col-lg-12">
+            <table class="table">
+                <thead>
+
+                    <th class="text-center">Producto</th>
+                    <th class="text-center">Cantidad</th>
+                    <th class="text-center">Impuesto</th>
+                    <th class="text-center">Costo unitatio</th>
+                    <th class="text-center">Subtotal</th>
+
+                </thead>
+                <tbody>
+                    {% for item in list_detail %}
+                    <tr>
+                        <td>{{item.item_code}}</td>
+                        <td class="text-center">{{item.qp_qty}}</td>
+                        <td class = "text-right">{{frappe.format_value(item.qp_unit_cost, "Currency", currency = parent.currency)}}</td>
+                        <td class = "text-right">{{frappe.format_value(item.qp_tax, "Currency", currency = parent.currency)}}</td>
+                        <td class = "text-right">{{frappe.format_value(item.qp_extd_cost, "Currency", currency = parent.currency)}}</td>
+
+                    </tr>
+                    {% endfor %}
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% include "qp_supplier_front/templates/paginator/control.html" %}
+
+</td>

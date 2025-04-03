@@ -5,7 +5,7 @@ from qp_supplier_front.uses_cases.information.document.update import handler as 
 
 
 @frappe.whitelist()
-def update(supplier_id, documents):
+def update(supplier_id, documents, is_estatus_editable):
     
     try:
         
@@ -13,7 +13,7 @@ def update(supplier_id, documents):
         
         documents = json.loads(documents)
         
-        result = update_document(supplier_id, documents)
+        result = update_document(supplier_id, documents, is_estatus_editable)
         
         response(200,  msg, result)
         

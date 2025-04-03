@@ -1,9 +1,10 @@
 
 import frappe
-from qp_supplier_front.services.get_data import get_supplier, get_dynamic_link
+from qp_supplier_front.services.get_data import get_supplier
 from qp_supplier_front.services.field_validate import validate_field_list_with_table
+from qp_supplier_front.services.create_data import create_contact
 
-def handler(supplier_id, first_name, email_id, phone):
+def handler(supplier_id, first_name,email_id, qp_contact_type,phone):
     
     doctype = "Contact"
     
@@ -11,7 +12,7 @@ def handler(supplier_id, first_name, email_id, phone):
     
     supplier = get_supplier(supplier_id)
     
-    contact = create_contact(supplier, doctype, first_name, email_id, phone)
+    contact = create_contact(supplier, doctype, first_name,email_id, qp_contact_type,phone)
     
     tables = {
         "email_ids": ["email_id"],
@@ -25,34 +26,11 @@ def handler(supplier_id, first_name, email_id, phone):
     supplier.save()
     
     return {
-        "contact": contact.as_dict()
+        "contact": contact.as_dict(),
+        "supplier": supplier
+
     }
     
-def  create_contact(supplier, doctype, first_name, email_id, phone):
-    
-    
-    contact = frappe.new_doc(doctype)
-    
-    contact.first_name = first_name
-    
-    contact.append("email_ids", {
-        "email_id": email_id
-    })
-    
-    contact.append("phone_nos", {
-        "phone": phone
-    })
-    
-    contact.append("links", {
-		"link_doctype": supplier.doctype,
-		"link_name": supplier.name
-	})
-    if not get_dynamic_link(supplier, doctype):
-        
-        contact.is_primary_contact = 1
-    
-    contact.insert()
-    
-    return contact
+
     
          

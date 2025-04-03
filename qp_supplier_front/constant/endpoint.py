@@ -1,0 +1,12 @@
+INVOICE_ALL = 'invoice_all'
+ORDER_ALL = "order_all"
+PAYMENT_ALL = "payment_all"
+SUPPLIER_ALL = "supplier_all"
+SUPPLIER_ALL_DATETIME = "supplier_all_datetime"
+SUPPLIER_INSERT = "supplier_insert"
+GET_TAX_REPORT_SUPPLIER = "get_tax_report_supplier"
+INVOICE_SUPPLIER_ID = "invoice_supplier_id"
+INVOICE_DOC_ID = "invoice_doc_id"
+ORDER_SUPPLIER_ID = "order_supplier_id"
+PAYMENT_SUPPLIER_ID = "payment_supplier_id"
+ITEM_ALL = "item_all"
