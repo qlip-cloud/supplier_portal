@@ -12,9 +12,15 @@
 </div>
 
 <div class="row row-line justify-content-between">
+    {% if not supplier.qp_is_foreigner_supplier %}
     <div class="col-4 text-left">
         <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab8')" id="save">< Operaciones Internacionales</button>
     </div>
+    {% else %}
+    <div class="col-4 text-left">
+        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab7')" id="save">< Información Financiera</button>
+    </div>
+    {% endif %}
     <div class="col-4 text-right">
         <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab10')" id="save">Continuar ></button>
     </div>

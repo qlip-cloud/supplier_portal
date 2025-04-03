@@ -47,7 +47,9 @@
                         <button class="tab bank_account bank_account_complement" onclick="showTab('tab5')">Cuentas Bancarias</button>
                         <button class="tab tax" onclick="showTab('tab6')" >Información Tributaria</button>
                         <button class="tab financial" onclick="showTab('tab7')" >Información Financiera</button>
+                        {% if not supplier.qp_is_foreigner_supplier %}
                         <button class="tab international" onclick="showTab('tab8')" >Operaciones Internacionales</button>
+                        {% endif %}
                         <button class="tab shareholder" onclick="showTab('tab9')" >Accionistas y Asociados</button>
                         <button class="tab document" onclick="showTab('tab10')" id="document">Documentos</button>
                     {% endif %}
@@ -63,7 +65,9 @@
                         <option value="tab5">Cuentas Bancarias</option>
                         <option value="tab6">Información Tributaria</option>
                         <option value="tab7">Información Financiera</option>
+                        {% if not supplier.qp_is_foreigner_supplier %}
                         <option value="tab8">Operaciones Internacionales</option>
+                        {% endif %}
                         <option value="tab9">Accionistas y Asociados</option>
                         <option value="tab10">Documentos</option>
                         {% endif %}
@@ -105,11 +109,13 @@
                             {% include "qp_supplier_front/templates/form/information/financial.html" %}
 
                         </div>
+                        {% if not supplier.qp_is_foreigner_supplier %}
                         <div id="tab8" class="tab-content">
 
                             {% include "qp_supplier_front/templates/form/information/international.html" %}
 
                         </div>
+                        {% endif %}
                         <div id="tab9" class="tab-content">
 
                             {% include "qp_supplier_front/templates/form/information/shareholder.html" %}

@@ -5,7 +5,7 @@ from qp_supplier_front.resources.response import handler as response
 
 
 @frappe.whitelist()
-def update(supplier_id, supplier_name, id_type_name, tax_id, phone_number, business_type_name):
+def update(supplier_id, supplier_name, id_type_name, tax_id, phone_number, business_type_name, qp_is_foreigner_supplier):
     
     method = frappe.local.request.method
     
@@ -23,7 +23,7 @@ def update(supplier_id, supplier_name, id_type_name, tax_id, phone_number, busin
                 
                 supplier_id = tax_id
                 
-            result = update_basic(supplier_id, supplier_name, id_type_name, tax_id, phone_number, business_type_name)
+            result = update_basic(supplier_id, supplier_name, id_type_name, tax_id, phone_number, business_type_name, qp_is_foreigner_supplier)
             
             
                 
@@ -31,7 +31,7 @@ def update(supplier_id, supplier_name, id_type_name, tax_id, phone_number, busin
             
             msg += msg_redirect
             
-            result = save_basic(supplier_name, id_type_name, tax_id, phone_number, business_type_name)
+            result = save_basic(supplier_name, id_type_name, tax_id, phone_number, business_type_name, qp_is_foreigner_supplier)
         
         response(200,  msg, result)
         

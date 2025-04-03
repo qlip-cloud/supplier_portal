@@ -27,5 +27,5 @@ def  set_financial(supplier, qp_financial_currency_foreigner, qp_financial_which
     supplier.qp_financial_amount = qp_financial_amount
     supplier.qp_financial_city = qp_financial_city
     supplier.qp_financial_country = qp_financial_country
-    supplier.qp_financial_currency = qp_financial_currency  
+    supplier.qp_financial_currency = qp_financial_currency
     

@@ -3,7 +3,7 @@ import frappe
 from qp_supplier_front.services.get_data import get_supplier, get_dynamic_link
 from qp_supplier_front.services.field_validate import validate_field_list_with_table
 
-def handler(supplier_id, doctype_id, first_name, email_id, phone):
+def handler(supplier_id, doctype_id, first_name,email_id, qp_contact_type,phone):
     
     doctype = "Contact"
     
@@ -11,7 +11,7 @@ def handler(supplier_id, doctype_id, first_name, email_id, phone):
     
     supplier = get_supplier(supplier_id)
     
-    contact = update_contact(doctype_id, doctype, first_name, email_id, phone)
+    contact = update_contact(doctype_id, doctype, first_name,email_id, qp_contact_type ,phone)
     
     tables = {
         "email_ids": ["email_id"],
@@ -29,12 +29,13 @@ def handler(supplier_id, doctype_id, first_name, email_id, phone):
         "supplier": supplier
     }
     
-def  update_contact(doctype_id, doctype, first_name, email_id, phone):
+def  update_contact(doctype_id, doctype, first_name, email_id, qp_contact_type ,phone):
     
     
     contact = frappe.get_doc(doctype, doctype_id)
     
     contact.first_name = first_name
+    contact.qp_contact_type = qp_contact_type
     contact.email_ids = []
     contact.phone_nos = []
     
