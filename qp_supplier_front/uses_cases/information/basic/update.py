@@ -6,13 +6,13 @@ from qp_supplier_front.services.create_data import create_party, create_first_co
 from qp_supplier_front.services.field_validate import handler as validate_field
 
 
-def handler(supplier_id, supplier_name, id_type_name, tax_id, phone_number, business_type_name):
+def handler(supplier_id, supplier_name, id_type_name, tax_id, phone_number, business_type_name, qp_is_foreigner_supplier):
     
     supplier = get_supplier(supplier_id)
     
     is_asigned = supplier.qp_asigned
     
-    update_supplier(supplier, supplier_name, tax_id)
+    update_supplier(supplier, supplier_name, tax_id, qp_is_foreigner_supplier)
     
     if (not is_asigned):
     
@@ -33,7 +33,7 @@ def handler(supplier_id, supplier_name, id_type_name, tax_id, phone_number, busi
         
     return  data
     
-def update_supplier(supplier, supplier_name, tax_id):
+def update_supplier(supplier, supplier_name, tax_id, qp_is_foreigner_supplier):
     
     supplier.supplier_name = supplier_name
     
@@ -42,6 +42,8 @@ def update_supplier(supplier, supplier_name, tax_id):
     supplier.supplier_group = "Todos los grupos de proveedores"
     
     supplier.qp_asigned = True
+
+    supplier.qp_is_foreigner_supplier = qp_is_foreigner_supplier
         
 def save_or_create_party(supplier, id_type_name, phone_number, business_type_name, tax_id):
     

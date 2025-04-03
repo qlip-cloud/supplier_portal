@@ -73,11 +73,19 @@
                 data-control="tab6" id="save">
                 < Información Tributaria</button>
         </div>
+        {% if not supplier.qp_is_foreigner_supplier %}
         <div class="col-4 text-right">
             <button
                 class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save"
                 data-control="tab8" id="save">Continuar ></button>
         </div>
+        {% else %}
+        <div class="col-4 text-right">
+            <button
+                class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save"
+                data-control="tab9" id="save">Continuar ></button>
+        </div>
+        {% endif %}
     </div>
 
 </form>
