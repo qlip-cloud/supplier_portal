@@ -9,12 +9,13 @@
                 </button>
             </div>
             <div class="modal-body">
-                <form class="form-estandar form-modal" id="form-bank-account" method="POST" data-method-default = "POST"
+                <form class="form-estandar form-modal" id="form-bank-account" method="POST" data-method-default="POST"
                     action="api/method/qp_supplier_front.resources.information.bank_account.save">
                     <div class="row row-line">
                         <div class="col-lg-12">
                             <label for="business_type_name">Banco</label>
 
+                            {% if not supplier.qp_is_foreigner_supplier %}
                             <select class="form-control" name="bank" id="bank" data-label="bank"
                                 data-fieldtype="Select">
                                 <option value="0" selected="selected" class="custom-option">Banco
@@ -25,8 +26,34 @@
                                 </option>
                                 {% endfor %}
                             </select>
+                            {% else %}
+                            <input type="text" autocomplete="off"
+                                class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                data-fieldtype="Data" data-doctype="Issue" name="bank" id="bank"
+                                placeholder="Nombre del Banco" value="">
+                            {% endif %}
                         </div>
                     </div>
+                    {% if supplier.qp_is_foreigner_supplier %}
+                    <div class="row row-line">
+                        <div class="col-lg-12">
+                            <label for="swift_number">Código SWIFT</label>
+                            <input type="text" autocomplete="off"
+                                class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                data-fieldtype="Data" data-doctype="Issue" name="swift_number" id="swift_number"
+                                placeholder="DEUTDEFFXXX" value="">
+                        </div>
+                    </div>
+                    <div class="row row-line">
+                        <div class="col-lg-12">
+                            <label for="qp_aba_number">Código ABA</label>
+                            <input type="text" autocomplete="off"
+                                class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                data-fieldtype="Data" data-doctype="Issue" name="qp_aba_number" id="qp_aba_number"
+                                placeholder="021000021" value="">
+                        </div>
+                    </div>
+                    {% endif %}
                     <div class="row row-line">
 
                         <div class="col-lg-12">
@@ -54,9 +81,22 @@
                                 placeholder="Número de cuenta bancaria" value="">
                         </div>
                     </div>
+                    {% if supplier.qp_is_foreigner_supplier %}
                     <div class="row row-line">
                         <div class="col-lg-12">
-                            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new" id="save">Guardar</button>
+                            <label for="iban">Código IBAN</label>
+                            <input type="text" autocomplete="off"
+                                class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                data-fieldtype="Data" data-doctype="Issue" name="iban" id="iban"
+                                placeholder="DE89 3704 0044 0532 0130 00" value="">
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="row row-line">
+                        <div class="col-lg-12">
+                            <button
+                                class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new"
+                                id="save">Guardar</button>
                         </div>
                     </div>
                     <input type="hidden" name="doctype_id" value="">

@@ -6,7 +6,7 @@ from qp_supplier_front.uses_cases.information.shareholder.get import get_shareho
 
 
 @frappe.whitelist()
-def update(supplier_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, authorization_data_processing, supplier_code_conduct, doctype_id = None):
+def update(supplier_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, doctype_id = None):
     method = frappe.local.request.method
     
     try:
@@ -14,11 +14,11 @@ def update(supplier_id, fullname, nationality, have_resident_another_country, ha
         msg = "Los datos han sido actualizados correctamente"
         if method == "POST":
         
-            result = save_shareholder(supplier_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, authorization_data_processing, supplier_code_conduct)
+            result = save_shareholder(supplier_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share)
             
         elif method == "PUT":
             
-            result = update_shareholder(supplier_id, doctype_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, authorization_data_processing, supplier_code_conduct)
+            result = update_shareholder(supplier_id, doctype_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share)
         
         
         list = frappe.render_template("qp_supplier_front/templates/list/information/shareholders.html", {
