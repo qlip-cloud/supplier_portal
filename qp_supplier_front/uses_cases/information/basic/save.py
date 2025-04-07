@@ -33,7 +33,7 @@ def create_supplier(supplier_name, tax_id, qp_is_foreigner_supplier,gp_vendor_id
     
     supplier.supplier_group = "Todos los grupos de proveedores"
 
-    supplier.qp_is_foreigner_supplier = qp_is_foreigner_supplier
+    supplier.qp_is_foreigner_supplier =  True if qp_is_foreigner_supplier else False
     
     supplier.insert()
     

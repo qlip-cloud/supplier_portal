@@ -8,7 +8,7 @@ from qp_supplier_front.services.get_data import get_bank_accounts
 
 
 @frappe.whitelist()
-def save(supplier_id, bank, account_type, bank_account_no, doctype_id = None):
+def save(supplier_id, bank, account_type, bank_account_no, doctype_id = None, swift_number = None, qp_aba_number=None ,iban=None):
     
     method = frappe.local.request.method
     
@@ -18,11 +18,11 @@ def save(supplier_id, bank, account_type, bank_account_no, doctype_id = None):
         
         if method == "POST":
         
-            result = save_bank_account(supplier_id, bank, account_type, bank_account_no)
+            result = save_bank_account(supplier_id, bank, account_type, bank_account_no, swift_number, qp_aba_number, iban)
             
         elif method == "PUT":
             
-            result = update_bank_account(supplier_id, doctype_id, bank, account_type, bank_account_no)
+            result = update_bank_account(supplier_id, doctype_id, bank, account_type, bank_account_no, swift_number, qp_aba_number, iban)
             
         bank_accounts = get_bank_accounts(result.get("supplier"), "Bank Account")
         
