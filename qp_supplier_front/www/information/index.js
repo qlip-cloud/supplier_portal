@@ -31,13 +31,13 @@ $(document).ready(function () {
 
     showTab('tab1');
 
-    $('.modal-content-scroll').on('scroll', function() {
+    $('.modal-content-scroll').on('scroll', function () {
         var $modalContent = $(this);
         var scrollHeight = $modalContent[0].scrollHeight;
         var scrollTop = $modalContent.scrollTop();
         var innerHeight = $modalContent.innerHeight();
-        
-        if (scrollTop + innerHeight >= scrollHeight - 1) { 
+
+        if (scrollTop + innerHeight >= scrollHeight - 1) {
             $modalContent.closest('.modal-content').find('.accept-button').prop('disabled', false);
         }
     });
@@ -47,10 +47,10 @@ $(document).ready(function () {
 
     autorization_modal = $("#autorizationModal")
 
-    if (autorization_modal.data("accept") === 0 && autorization_modal.data("view") != "True"){
+    if (autorization_modal.data("accept") === 0 && autorization_modal.data("view") != "True") {
         $('#autorizationModal').modal('show');
-    }else if (conduct_modal.data("accept") === 0 && conduct_modal.data("view") != "True"){
-        
+    } else if (conduct_modal.data("accept") === 0 && conduct_modal.data("view") != "True") {
+
         $('#conductCodeModal').modal('show');
     }
 
@@ -63,71 +63,71 @@ $(document).ready(function () {
         accept_type = $(this).data("accept-type");
 
         callresponse = (response) => {
-            
+
             supplier = response.data
 
-            if (accept_type == "qp_accept_autorization_processing"){
+            if (accept_type == "qp_accept_autorization_processing") {
 
                 $('#autorizationModal').modal('hide');
 
-                if (!supplier.qp_accept_conduct_code){
+                if (!supplier.qp_accept_conduct_code) {
 
                     $('#conductCodeModal').modal('show');
                 }
             }
 
-            if (accept_type == "qp_accept_conduct"){
-                
+            if (accept_type == "qp_accept_conduct") {
+
                 $('#conductCodeModal').modal('hide');
-                
-                if (!supplier.qp_accept_autorization_processing){
+
+                if (!supplier.qp_accept_autorization_processing) {
 
                     $('#autorizationModal').modal('show');
                 }
             }
 
-             
+
         }
 
-        petition_get_data({supplier_id, accept_type}, url, callresponse)
+        petition_get_data({ supplier_id, accept_type }, url, callresponse)
 
     })
-    
-    $("#tax_id").on("blur", function(){
 
-    
+    $("#tax_id").on("blur", function () {
+
+
         tax_id = $(this).val()
 
         url = "qp_supplier_front.resources.supplier.supplier.find";
 
         callresponse = (response) => {
-            
+
             supplier = response.data
-            if (supplier){
-                if (supplier.qp_asigned){
+            if (supplier) {
+                if (supplier.qp_asigned) {
                     frappe.msgprint("Ya este proveedor esta registrado en el sistema")
                     $("#save").hide();
                     $("#supplier_name").val()
                     $(this).val()
 
-                }else{
+                } else {
 
                     $("#supplier_name").val(supplier.supplier_name)
                 }
-            }else{
+            } else {
                 $("#supplier_name").val()
 
                 $("#save").show()
 
             }
-            
+
 
 
         }
 
 
         petition_get_data({ tax_id }, url, callresponse)
-    
+
     })
 
     $('.form-estandar').on('submit', function (event) {
@@ -162,18 +162,18 @@ $(document).ready(function () {
                     if (data.render) {
 
                         render = data.render
-    
+
                         $(`#${render.container}`).html(render.list)
                     }
 
-                }else{
-                    if (!$(this).hasClass("form-modal")){
+                } else {
+                    if (!$(this).hasClass("form-modal")) {
 
                         showTab(submitter.data("control"))
                     }
                 }
 
-                $(this).attr('method', $(this).data("method-default"));               
+                $(this).attr('method', $(this).data("method-default"));
 
                 document.getElementById("overlay").style.display = 'none';
 
@@ -210,7 +210,7 @@ $(document).ready(function () {
         var supplier_id = $("#supplier_id").val();
 
         data["supplier_id"] = supplier_id;
-        
+
         const submitter = $(document.activeElement);
 
         data["is_estatus_editable"] = submitter.hasClass('is_estatus_editable');
@@ -225,29 +225,29 @@ $(document).ready(function () {
 
                 if (submitter.hasClass("finish")) {
                     supplier = data.supplier
-                    
-                    
+
+
                     $('.tab').css('color', 'black');
                     has_incompleted = false
                     // Suponiendo que jsqp_field_validations es tu array
-                    $.each(supplier.qp_field_validations, function(index, validation) {
-                        
+                    $.each(supplier.qp_field_validations, function (index, validation) {
+
                         if (validation.is_completed === 0) {
                             has_incompleted = true
-                            
+
                             $(`.tab.${validation.field_section}`).css('color', 'red');
                         }
                     });
                     msg_error = has_incompleted ? "<p>Hay secciones sin completar, las cuales se indican en rojo. Para continuar con el proceso de validación, debe completar todos los campos.</p>" : "";
 
                     msg = `<p>${response.msg}</p> ${msg_error}`;
-                    
+
                     frappe.msgprint(msg);
 
                     setup_button(supplier);
 
                 }
-                if (submitter.hasClass('is_estatus_editable') ){
+                if (submitter.hasClass('is_estatus_editable')) {
 
                     showTab(submitter.data("control"))
                 }
@@ -263,7 +263,7 @@ $(document).ready(function () {
         }
 
     });
-    
+
 
     $(".open_folder").on("click", function () {
 
@@ -288,7 +288,7 @@ $(document).ready(function () {
                     data = response.data
 
                     setup_button(data.supplier)
-                    
+
                     $(".approve-row").remove()
                 }
 
@@ -298,6 +298,33 @@ $(document).ready(function () {
 
             }, function () { })
     })
+
+
+    $('#qp_resolution_self_retaining').closest('.col-lg-4')[
+        $('#qp_self_retaining').val() === 'SI' ? 'show' : 'hide'
+    ]();
+
+    $('#qp_resolution').closest('.col-lg-4')[
+        $('#qp_major_contributor').val() === 'SI' ? 'show' : 'hide'
+    ]();
+
+
+    $('#qp_self_retaining').on('change', function () {
+        if ($(this).val() === 'SI') {
+            $('#qp_resolution_self_retaining').closest('.col-lg-4').show();
+        } else {
+            $('#qp_resolution_self_retaining').closest('.col-lg-4').hide();
+        }
+    });
+
+    $('#qp_major_contributor').on('change', function () {
+        if ($(this).val() === 'SI') {
+            $('#qp_resolution').closest('.col-lg-4').show();
+        } else {
+            $('#qp_resolution').closest('.col-lg-4').hide();
+        }
+    });
+
 
     $('#qp_reject_observation').on('input', function () {
         if ($(this).val().trim() !== '') {
@@ -426,6 +453,8 @@ $(document).ready(function () {
             const $dataFirstName = $("#first_name");
             const $dataEmailId = $("#email_id");
             const $dataPhone = $("#phone");
+            const $dataCountryCode = $("#country_code");
+            const $contactType = $("#qp_contact_type");
 
             $doctype_id.val(contact_id);
 
@@ -433,7 +462,21 @@ $(document).ready(function () {
 
             $dataEmailId.val(contact.email_ids[0].email_id);
 
-            $dataPhone.val(contact.phone_nos.length ? contact.phone_nos[0].phone : "");
+            let phone = contact.phone_nos.length ? contact.phone_nos[0].phone : "";
+            let country_code = "";
+            let phone_number = "";
+
+            if (phone.includes(" ")) {
+                const parts = phone.split(" ");
+                country_code = parts[0];
+                phone_number = parts.slice(1).join(" ");
+            } else {
+                phone_number = phone;
+            }
+
+            $dataCountryCode.val(country_code);
+            $dataPhone.val(phone_number);
+            $contactType.val(contact.qp_contact_type);
 
             $("#form-contact").attr('method', 'PUT');
             $('#contact_modal').modal('show')
@@ -514,6 +557,22 @@ $(document).ready(function () {
         petition_get_data({ shareholder_id }, url, callresponse)
     })
 
+    $("#request-edit-btn").on("click", function () {
+        const supplier_id = $("#supplier_id").val();
+    
+        const url = "qp_supplier_front.resources.information.basic.request_edit"; 
+    
+        const callresponse = (response) => {
+            frappe.msgprint("Solicitud de edición enviada correctamente.");
+    
+            $("#request-edit-btn").replaceWith(`
+                <span class="badge bg-secondary text-white ms-auto">Solicitud de edición enviada</span>
+            `);
+        };
+    
+        petition_get_data({ supplier_id }, url, callresponse);
+    });
+    
     $(".supplier_file").on("change", function () {
 
         supplier_id = $("#supplier_id").val();
@@ -543,7 +602,7 @@ $(document).ready(function () {
         callback = (status, data) => {
 
             if (status == 200) {
-                
+
                 $(`#file_loading-${setting_id}`).hide()
                 $(`#file_full-${setting_id} a`).attr('href', data.file_url);
                 $(`#file_full-${setting_id} a`).html("Ver archivo")
@@ -590,8 +649,8 @@ function setup_button(supplier) {
         $(".button-new").hide()
 
         $(".button-save").removeClass("is_estatus_editable")
-        
-        $('.finish').remove();  
+
+        $('.finish').remove();
 
         $(".form-control").prop("disabled", true);
 

@@ -41,3 +41,14 @@ def update(supplier_id, supplier_name, id_type_name, tax_id, phone_number, busin
         
         response(500,  msg)
         
+@frappe.whitelist()
+def request_edit(supplier_id):
+    try:
+        supplier = frappe.get_doc("Supplier", supplier_id)
+        supplier.qp_request_edit = True
+        supplier.save()
+        msg = "Se ha enviado la solicitud de edición correctamente"
+        response(200, msg)
+    except Exception as error:
+        msg = f"Error al enviar la solicitud de edición: {str(error)}"
+        response(500, msg)
