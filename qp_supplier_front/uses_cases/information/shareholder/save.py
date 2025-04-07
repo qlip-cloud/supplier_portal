@@ -2,15 +2,15 @@
 import frappe
 from qp_supplier_front.services.get_data import get_supplier
 from qp_supplier_front.services.field_validate import setup_validate_field_list
-def handler(supplier_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, authorization_data_processing, supplier_code_conduct):
+def handler(supplier_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share):
     
     valid_code = "shareholder"
     
     supplier = get_supplier(supplier_id)
     
-    set_shareholder(supplier, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, authorization_data_processing, supplier_code_conduct)
+    set_shareholder(supplier, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share)
     
-    fields_to_validate = ["fullname", "nationality", "have_resident_another_country", "have_american_visa", "id_type", "tax_id", "market_share", "authorization_data_processing", "supplier_code_conduct"]
+    fields_to_validate = ["fullname", "nationality", "have_resident_another_country", "have_american_visa", "id_type", "tax_id", "market_share"]
     
     setup_validate_field_list(supplier, supplier.qp_shareholders, valid_code, fields_to_validate)
     
@@ -20,7 +20,7 @@ def handler(supplier_id, fullname, nationality, have_resident_another_country, h
         "supplier": supplier
     }
     
-def  set_shareholder(supplier, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, authorization_data_processing, supplier_code_conduct):
+def  set_shareholder(supplier, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share):
     
     supplier.append("qp_shareholders", {
         "fullname" : fullname,
@@ -30,8 +30,6 @@ def  set_shareholder(supplier, fullname, nationality, have_resident_another_coun
         "id_type" : id_type,
         "tax_id" : tax_id,
         "market_share" : market_share,
-        "authorization_data_processing" : authorization_data_processing,
-        "supplier_code_conduct" : supplier_code_conduct
     })
     
     supplier.save()

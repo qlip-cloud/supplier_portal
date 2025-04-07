@@ -2,14 +2,14 @@
 import frappe
 from qp_supplier_front.services.get_data import get_supplier
 from qp_supplier_front.services.field_validate import setup_validate_field_list
-def handler(supplier_id, doctype_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, authorization_data_processing, supplier_code_conduct):
+def handler(supplier_id, doctype_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share):
     
     valid_code = "shareholder"
     
     
-    update_shareholder(doctype_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, authorization_data_processing, supplier_code_conduct)
+    update_shareholder(doctype_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share)
     
-    fields_to_validate = ["fullname", "nationality", "have_resident_another_country", "have_american_visa", "id_type", "tax_id", "market_share", "authorization_data_processing", "supplier_code_conduct"]
+    fields_to_validate = ["fullname", "nationality", "have_resident_another_country", "have_american_visa", "id_type", "tax_id", "market_share"]
     
     supplier = get_supplier(supplier_id)
     
@@ -21,7 +21,7 @@ def handler(supplier_id, doctype_id, fullname, nationality, have_resident_anothe
         "supplier": supplier
     }
     
-def  update_shareholder(doctype_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, authorization_data_processing, supplier_code_conduct):
+def  update_shareholder(doctype_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share):
     
     shareholder = frappe.get_doc("qp_SP_ShareHolder",doctype_id)
     
@@ -32,8 +32,6 @@ def  update_shareholder(doctype_id, fullname, nationality, have_resident_another
     shareholder.id_type = id_type
     shareholder.tax_id = tax_id
     shareholder.market_share = market_share
-    shareholder.authorization_data_processing = authorization_data_processing
-    shareholder.supplier_code_conduct = supplier_code_conduct
 
     
     shareholder.save()

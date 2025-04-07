@@ -43,7 +43,7 @@ def update_supplier(supplier, supplier_name, tax_id, qp_is_foreigner_supplier):
     
     supplier.qp_asigned = True
 
-    supplier.qp_is_foreigner_supplier = qp_is_foreigner_supplier
+    supplier.qp_is_foreigner_supplier = True if qp_is_foreigner_supplier else False
         
 def save_or_create_party(supplier, id_type_name, phone_number, business_type_name, tax_id):
     
