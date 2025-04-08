@@ -12,8 +12,19 @@ def handler(supplier_id, qp_public_resource_management, qp_public_activity, qp_p
     update_complement_bank_account(supplier, qp_public_resource_management, qp_public_activity, qp_public_recognition, qp_link_politically_exposed, qp_detail_politically_exposed)
     
     dual_field = [[qp_link_politically_exposed,qp_detail_politically_exposed]]
+
     
-    validate_field(supplier, valid_code, 0, dual_field, qp_public_resource_management, qp_public_activity, qp_public_recognition)
+    fields = [qp_public_resource_management, qp_public_activity, qp_public_recognition]
+
+
+    validate_field(
+        supplier,
+        valid_code,
+        0,
+        dual_field,
+        *fields
+    )
+
     
     return {
         "supplier": supplier.as_dict()

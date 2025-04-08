@@ -19,14 +19,14 @@
         </div>
 
         <div class="col-lg-4">
-            <label for="qp_financial_currency_foreigner">¿Cuál? (Opcional)</label>
+            <label for="qp_financial_which_currency_foreigner">¿Cuál? (Opcional)</label>
             <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }}
-                name="qp_financial_currency_foreigner" id="qp_financial_currency_foreigner"
-                data-label="qp_financial_currency_foreigner" data-fieldtype="Select">
-                <option value="" {% if not supplier.qp_financial_currency_foreigner %}selected{% endif %}
+                name="qp_financial_which_currency_foreigner" id="qp_financial_which_currency_foreigner"
+                data-label="qp_financial_which_currency_foreigner" data-fieldtype="Select">
+                <option value="" {% if not supplier.qp_financial_which_currency_foreigner %}selected{% endif %}
                     class="custom-option">¿Cuál?</option>
                 {% for currency in currencies %}
-                <option value="{{ currency.name }}" {% if supplier.qp_financial_currency_foreigner==currency.name
+                <option value="{{ currency.name }}" {% if supplier.qp_financial_which_currency_foreigner==currency.name
                     %}selected{% endif %} class="custom-option">
                     {{ currency.currency_name }}
                 </option>
