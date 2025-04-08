@@ -10,7 +10,23 @@ def handler(supplier_id, qp_vat_officer, tax_regime, qp_industry_and_commerce_ta
     
     save_party(supplier, tax_regime, ciiu_id)
     
-    validate_field(supplier, "tax" , 0, None,qp_vat_officer, tax_regime, qp_industry_and_commerce_tax, qp_industry_and_commerce_rate, qp_self_retaining, qp_major_contributor, qp_vat_withholding_agent, ciiu_id, qp_resolution, qp_resolution_self_retaining)
+    dual_fields = [
+        [qp_self_retaining, qp_resolution_self_retaining],
+        [qp_major_contributor, qp_resolution]
+    ]
+
+    validate_field(
+        supplier,
+        "tax",
+        0,
+        dual_fields,
+        qp_vat_officer,
+        tax_regime,
+        qp_industry_and_commerce_tax,
+        qp_industry_and_commerce_rate,
+        qp_vat_withholding_agent,
+        ciiu_id
+    )
         
     return {
         "supplier": supplier.as_dict()

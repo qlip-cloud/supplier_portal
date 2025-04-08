@@ -501,6 +501,9 @@ $(document).ready(function () {
             const $selectBank = $("#bank");
             const $selectAccountType = $("#account_type");
             const $dataBankAccount_no = $("#bank_account_no");
+            const $swiftNumber = $("#swift_number");
+            const $abaNumber = $("#qp_aba_number");
+            const $ibanNumber = $("#iban");
 
             $doctype_id.val(bank_account_id);
 
@@ -509,6 +512,10 @@ $(document).ready(function () {
             $selectAccountType.val(bank_account.account_type);
 
             $dataBankAccount_no.val(bank_account.bank_account_no);
+
+            $swiftNumber.val(bank_account.bank.qp_swift_number || "");
+            $abaNumber.val(bank_account.bank.qp_aba_number || "");
+            $ibanNumber.val(bank_account.qp_iban_number || "");
 
             $("#form-bank-account").attr('method', 'PUT');
             $('#bank_account_modal').modal('show')
@@ -534,8 +541,6 @@ $(document).ready(function () {
             const $selectIdType = $("#id_type");
             const $dataTaxId = $("#tax_id");
             const $dataMarketShare = $("#market_share");
-            const $selectAuthorizationDataProcessing = $("#authorization_data_processing");
-            const $selectSupplierCodeConduct = $("#supplier_code_conduct");
 
 
             $doctype_id.val(shareholder_id);
@@ -547,8 +552,6 @@ $(document).ready(function () {
             $selectIdType.val(shareholder.id_type);
             $dataTaxId.val(shareholder.tax_id);
             $dataMarketShare.val(shareholder.market_share);
-            $selectAuthorizationDataProcessing.val(shareholder.authorization_data_processing);
-            $selectSupplierCodeConduct.val(shareholder.supplier_code_conduct);
 
             $("#form-shareholder").attr('method', 'PUT');
             $('#shareholder_modal').modal('show')
@@ -559,20 +562,20 @@ $(document).ready(function () {
 
     $("#request-edit-btn").on("click", function () {
         const supplier_id = $("#supplier_id").val();
-    
-        const url = "qp_supplier_front.resources.information.basic.request_edit"; 
-    
+
+        const url = "qp_supplier_front.resources.information.basic.request_edit";
+
         const callresponse = (response) => {
             frappe.msgprint("Solicitud de edición enviada correctamente.");
-    
+
             $("#request-edit-btn").replaceWith(`
                 <span class="badge bg-secondary text-white ms-auto">Solicitud de edición enviada</span>
             `);
         };
-    
+
         petition_get_data({ supplier_id }, url, callresponse);
     });
-    
+
     $(".supplier_file").on("change", function () {
 
         supplier_id = $("#supplier_id").val();
