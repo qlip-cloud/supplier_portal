@@ -35,8 +35,6 @@ def set_field_validations(supplier, valid_code, count):
             field_validation.number = count
             
             field_validation.is_completed = count == int(field_validation.field_number)
-            
-            print(f"[Validación] Sección: {valid_code} | Completado: {count} | Requerido: {field_validation.field_number}")
 
             return field_validation
             
