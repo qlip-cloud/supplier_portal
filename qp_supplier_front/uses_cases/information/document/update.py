@@ -3,7 +3,8 @@ import frappe
 from qp_supplier_front.services.get_data import get_supplier
 from qp_supplier_front.services.field_validate import setup_validate_field_list
 from qp_supplier_front.uses_cases.information.complete import handler as complete
-from frappe.utils import add_to_date
+from qp_supplier_front.services.field_validate import handler as validate_field
+from frappe.utils import add_to_date # type: ignore
 from datetime import datetime
 
 def handler(supplier_id, documents, is_estatus_editable):
@@ -24,6 +25,10 @@ def handler(supplier_id, documents, is_estatus_editable):
     
     supplier.save()
     
+    if supplier.qp_is_foreigner_supplier:
+        validate_field(supplier, "international", 0)
+
+
     if (is_estatus_editable != "true"):
         
         complete(supplier)
