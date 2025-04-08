@@ -35,8 +35,8 @@
                 {{alert_estatus[supplier.qp_status].message}}
             </div>
     
-            {% if supplier.qp_status in ("En revisión", "Aprobado") and not supplier.qp_request_edit %}
-            <button class="btn btn-warning btn-sm ms-auto" id="request-edit-btn">
+            {% if supplier.qp_status in ("Aprobado") and not supplier.qp_request_edit %}
+            <button class="btn btn-secondary btn-sm ms-auto" id="request-edit-btn">
                 Solicitar edición de datos
             </button>
             {% elif supplier.qp_request_edit %}

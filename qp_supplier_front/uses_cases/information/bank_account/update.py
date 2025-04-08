@@ -40,7 +40,7 @@ def update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_n
         new_bank = frappe.new_doc("Bank")
         new_bank.bank_name = bank_name
         if swift_number:
-            new_bank.swift_number = swift_number
+            new_bank.qp_swift_number = swift_number
         if qp_aba_number:
             new_bank.qp_aba_number = qp_aba_number
         new_bank.insert(ignore_permissions=True)
@@ -50,7 +50,7 @@ def update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_n
     bank_account.bank_account_no = bank_account_no
 
     if iban:
-        bank_account.iban = iban
+        bank_account.qp_iban_number = iban
     
     bank_account.save()
     
