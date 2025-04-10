@@ -16,6 +16,7 @@
                             <label for="fullname">Razón social o nombre completo</label>
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-fieldtype="Data" data-doctype="Issue" name="fullname" id="fullname"
                                 placeholder="Razón social o nombre completo" value="">
                         </div>
@@ -25,6 +26,7 @@
                             <label for="nationality">Nacionalidad</label>
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-fieldtype="Data" data-doctype="Issue" name="nationality" id="nationality"
                                 placeholder="Nacionalidad" value="">
                         </div>
@@ -34,6 +36,7 @@
 
                             <label for="have_resident_another_country">¿Tiene residencia en otro país?</label>
                             <select class="form-control" name="have_resident_another_country"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 id="have_resident_another_country" data-label="have_resident_another_country"
                                 data-fieldtype="Select">
                                 <option value="" selected="selected" class="custom-option">Respuesta</option>
@@ -47,6 +50,7 @@
 
                             <label for="have_american_visa">Visa americana</label>
                             <select class="form-control" name="have_american_visa" id="have_american_visa"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-label="have_american_visa" data-fieldtype="Select">
                                 <option value="" selected="selected" class="custom-option">Respuesta</option>
                                 <option value="SI" class="custom-option"> SI </option>
@@ -59,6 +63,7 @@
 
                             <label for="id_type">Tipo de Identificación</label>
                             <select class="form-control" name="id_type" id="id_type" data-label="id_type"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-fieldtype="Select">
                                 <option value="0" selected="selected" class="custom-option">Tipo Documento
                                 </option>
@@ -74,6 +79,7 @@
                             <label for="tax_id">Número</label>
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-fieldtype="Data" data-doctype="Issue" name="tax_id" id="tax_id"
                                 placeholder="Número" value="">
                         </div>
@@ -84,6 +90,7 @@
                             <label for="market_share">% Participación</label>
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control floating-input bold number" maxlength="140"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-fieldtype="Data" data-doctype="Issue" name="market_share" id="market_share"
                                 placeholder="% Participación" value="">
                             <i class="text-muted" style="font-size: 12px;">Accionistas con participación mayor al 5%</i>

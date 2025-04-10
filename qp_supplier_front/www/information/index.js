@@ -233,9 +233,11 @@ $(document).ready(function () {
                     $.each(supplier.qp_field_validations, function (index, validation) {
 
                         if (validation.is_completed === 0) {
-                            has_incompleted = true
-
-                            $(`.tab.${validation.field_section}`).css('color', 'red');
+                            has_incompleted = true 
+                            const $tab = $(`.tab.${validation.field_section}`);
+                            $tab.css('color', 'red');
+                            $tab.find('span').css('color', 'red');
+                            $tab.addClass('incomplete-tab');
                         }
                     });
                     msg_error = has_incompleted ? "<p>Hay secciones sin completar, las cuales se indican en rojo. Para continuar con el proceso de validación, debe completar todos los campos.</p>" : "";
@@ -439,6 +441,11 @@ $(document).ready(function () {
         petition_get_data({ address_id }, url, callresponse)
     })
 
+    $("#new-address").on("click", function () {
+        $("#form-address")[0].reset();
+        $("#form-address").find("input[type='text'], select").val("").trigger('change');
+        $("#form-address").attr('method', 'POST');  
+    });
     $("#contact_list").on("click", ".contact-id", function () {
 
         contact_id = $(this).data("id");
@@ -485,6 +492,13 @@ $(document).ready(function () {
         petition_get_data({ contact_id }, url, callresponse)
     })
 
+    
+    $("#new-contact").on("click", function () {
+        $("#form-contact")[0].reset();
+        $("#form-contact").find("input[type='text'], select").val("").trigger('change');
+        $("#form-contact").attr('method', 'POST');  
+    });
+
     $("#bank_account_list").on("click", ".bank_account-id", function () {
 
         bank_account_id = $(this).data("id");
@@ -524,6 +538,11 @@ $(document).ready(function () {
         petition_get_data({ bank_account_id }, url, callresponse)
     })
 
+    $("#new-bank-account").on("click", function () {
+        $("#form-bank-account")[0].reset();
+        $("#form-bank-account").find("input[type='text'], select").val("").trigger('change');
+        $("#form-bank-account").attr('method', 'POST');
+    });
     $("#shareholder_list").on("click", ".shareholder-id", function () {
 
         shareholder_id = $(this).data("id");
@@ -559,7 +578,12 @@ $(document).ready(function () {
 
         petition_get_data({ shareholder_id }, url, callresponse)
     })
-
+    $("#new-shareholder").on("click", function () {
+        $("#form-shareholder")[0].reset();
+        $("#form-shareholder").find("input[type='text'], select").val("").trigger('change');
+        $("#form-shareholder").attr('method', 'POST');  
+    });
+    
     $("#request-edit-btn").on("click", function () {
         const supplier_id = $("#supplier_id").val();
 
@@ -602,6 +626,8 @@ $(document).ready(function () {
 
         formData.append("fieldname", fileToUpload[0].name);
 
+        $(`#status-${setting_id}`).text("Cargando archivo...");
+
         callback = (status, data) => {
 
             if (status == 200) {
@@ -614,9 +640,18 @@ $(document).ready(function () {
                 $(`#file_full-${setting_id}`).show()
                 $(`#file_full-${setting_id}`).show()
 
+                $(`#status-${setting_id}`).text("Archivo cargado");
+
+                $(`#link-${setting_id}`).val(data.file_url);
+                $(`#link-${setting_id}`).attr("data-updated", "1");
+
+                const viewBtn = `<a href="${data.file_url}" target="_blank" class="view-btn">Ver archivo</a>`;
+                $(`#file-${setting_id}`).parent().replaceWith(viewBtn);
+
             } else {
                 $(`#file_empty-${setting_id}`).show()
                 $(`#file_loading-${setting_id}`).hide()
+                $(`#status-${setting_id}`).text("Error al cargar el archivo, intente nuevamente");
             }
 
         }

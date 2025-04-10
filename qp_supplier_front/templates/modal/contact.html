@@ -16,7 +16,8 @@
                             <label for="business_type_name">Nombre de contacto</label>
 
                             <input type="text" autocomplete="off"
-                                class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                class="input-with-feedback form-control floating-input bold" 
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }} maxlength="140"
                                 data-fieldtype="Data" data-doctype="Issue" name="first_name" id="first_name"
                                 placeholder="Nombre de contacto" value="">
                         </div>
@@ -42,7 +43,8 @@
                             <label for="business_type_name">Correo electronico</label>
 
                             <input type="text" autocomplete="off"
-                                class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                class="input-with-feedback form-control floating-input bold"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }} maxlength="140"
                                 data-fieldtype="Data" data-doctype="Issue" name="email_id" id="email_id"
                                 placeholder="Correo electronico" value="">
                         </div>
@@ -52,13 +54,15 @@
                         <div class="col-lg-4">
                             <label for="country_code">Indicativo</label>
                             <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 maxlength="10" data-fieldtype="Data" data-doctype="Issue" name="country_code"
                                 id="country_code" placeholder="Ej: +57">
                         </div>
                         <div class="col-lg-8">
                             <label for="phone">Teléfono</label>
                             <input type="text" autocomplete="off"
-                                class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                class="input-with-feedback form-control floating-input bold"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }} maxlength="140"
                                 data-fieldtype="Data" data-doctype="Issue" name="phone" id="phone"
                                 placeholder="Teléfono" value="">
                         </div>

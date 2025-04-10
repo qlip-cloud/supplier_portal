@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
 main {
     max-width: 100% !important;
     padding: 0 !important;
@@ -18,10 +19,13 @@ html {
 }
 
 #area {
+    /* 
     padding-right: 5% !important;
+    */
     z-index: 1;
 
 }
+
 
 .row-line {
     margin: 0 0 2% 0;
@@ -29,25 +33,26 @@ html {
 
 .subtitle {
     text-align: left;
-    font: normal normal bold 17px Montserrat;
+    font: normal normal bold 17px Open Sans;
     letter-spacing: 0px;
     color: #646874;
 }
 
 label {
     text-align: left;
-    font: normal normal 500 12px Montserrat;
+    font: normal normal 500 16px Open Sans;
     letter-spacing: 0px;
     color: #666A65;
 }
 
 .btn-primary {
     background: #004D90 0% 0% no-repeat padding-box !important;
+    border-radius: 5px !important;
 }
 
 .sidebar-menu {
     text-align: left;
-    font: normal normal bold 17px/39px Montserrat;
+    font: normal normal bold 17px/39px Open Sans;
     letter-spacing: 0px;
     color: #666A65;
     cursor: pointer;
@@ -70,7 +75,7 @@ label {
 .table-list>thead>tr>th {
     background: #004D90 0% 0% no-repeat padding-box;
     text-align: left;
-    font: normal normal bold 15px/29px Montserrat;
+    font: normal normal bold 15px/29px Open Sans;
     letter-spacing: 0px;
     color: #FFFFFF;
 }
@@ -78,7 +83,7 @@ label {
 .table-list>tbody>tr>td {
 
     text-align: left;
-    font: normal normal 500 14px Montserrat !important;
+    font: normal normal 500 14px Open Sans !important;
     color: #6D6D6D !important;
 }
 
@@ -91,7 +96,7 @@ label {
     /* Estilos específicos para las celdas de la tabla interna */
     background: none;
     text-align: left;
-    font: normal normal 500 14px Montserrat;
+    font: normal normal 500 14px Open Sans;
     color: #000000;
 }
 input[type="date"]::before {
@@ -106,7 +111,7 @@ input[type="date"]:valid::before {
 
 input::placeholder {
 
-    font: normal normal 500 14px Montserrat !important;
+    font: normal normal 500 14px Open Sans !important;
     color: #004D90 !important;
     opacity: 1;
 }
@@ -173,8 +178,9 @@ textarea {
 
 .link_modal {
     text-decoration: underline !important;
-    color: blue !important;
+    color: #004D90 !important;
     cursor: pointer !important;
+    font-weight: 700;
 }
 
 #overlay {
