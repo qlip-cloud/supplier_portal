@@ -3,7 +3,12 @@
 
     <div class="col-sm-4">
         <button type="button" class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new" data-toggle="modal"
-            data-target="#bank_account_modal">+New</button>
+            data-target="#bank_account_modal">
+            <span class="material-symbols-outlined" style="font-size: 16px; margin-left: 2px;">
+                add
+            </span>
+            New
+        </button>
     </div>
 
 </div>
@@ -80,10 +85,19 @@
     </div>
     <div class="row row-line justify-content-between">
         <div class="col-4 text-left">
-            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab4"  id="save">< Representante Legal</button>
+            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab4"  id="save">
+                <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 2px;">
+                    arrow_back_ios
+                </span>
+                Representante Legal</button>
         </div>
         <div class="col-4 text-right">
-            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab6" id="save">Continuar ></button>
+            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab6" id="save">
+                Continuar
+                <span class="material-symbols-outlined" style="font-size: 14px; margin-left: 2px;">
+                    arrow_forward_ios
+                </span>
+            </button>
         </div>
     </div>
 </form>
