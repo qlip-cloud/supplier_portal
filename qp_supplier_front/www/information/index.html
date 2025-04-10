@@ -9,19 +9,19 @@
 {% set alert_estatus = {
         "En proceso": {
             "class": "alert-info",
-            "message": "El proceso de registro esta en estatus: <strong>En proceso</strong>. Por favor llenar todos los datos "
+            "message": "El proceso de registro está en estatus: <strong>En proceso</strong>. Por favor llenar todos los datos "
         },
         "Aprobado": {
             "class":"alert-success", 
-            "message": "El proceso de registro esta en estatus: <strong>Aprobado</strong>."
+            "message": "El proceso de registro está en estatus: <strong>Aprobado</strong>."
         },
         "En revisión": {
             "class":"alert-warning", 
-            "message": "El proceso de registro esta en estatus: <strong>En revisión</strong>. Esperando aprobación de los datos"
+            "message": "El proceso de registro está en estatus: <strong>En revisión</strong>. Esperando aprobación de los datos"
         },
         "Rechazado": {
             "class":"alert-danger", 
-            "message": "El proceso de registro esta en estatus: <strong>Rechazado</strong>. Puede ver el motivo del rechazo en el siguiente enlace. <a class='link_modal' data-toggle='modal' data-target='#reject_motive'>Ver motivos</a>"
+            "message": "El proceso de registro está en estatus: <strong>Rechazado</strong>. Puede ver el motivo del rechazo en el siguiente enlace. <a class='link_modal' data-toggle='modal' data-target='#reject_motive'>Ver motivos</a>"
         }
     } %}
 
@@ -36,11 +36,11 @@
             </div>
     
             {% if supplier.qp_status in ("Aprobado") and not supplier.qp_request_edit %}
-            <button class="btn btn-secondary btn-sm ms-auto" id="request-edit-btn">
+            <button class="btn btn-outline-secondary btn-sm ms-auto rounded" id="request-edit-btn">
                 Solicitar edición de datos
             </button>
             {% elif supplier.qp_request_edit %}
-            <span class="badge bg-secondary text-white ms-auto">Solicitud de edición enviada</span>
+            <span class="badge bg-secondary text-white ms-auto fs-6 py-2 px-3">Solicitud de edición enviada</span>
             {% endif %}
         </div>
     </div>
@@ -50,22 +50,42 @@
 
         <div class="container-tab">
             <div class="tabs-container">
-                <div class="tabs">
-                    <button class="tab basic" onclick="showTab('tab1')">Información Básica</button>
+                <div class="tabs wizard-tabs">
+                    <button class="tab basic active" data-step="01" onclick="showTab('tab1')">
+                        <span>Información Básica</span>
+                    </button>
                     {% if supplier_id %}
-                        <button class="tab address" onclick="showTab('tab2')">Direcciones</button>
-                        <button class="tab contact" onclick="showTab('tab3')">Contactos</button>
-                        <button class="tab legal" onclick="showTab('tab4')">Representante Legal</button>
-                        <button class="tab bank_account bank_account_complement" onclick="showTab('tab5')">Cuentas Bancarias</button>
-                        <button class="tab tax" onclick="showTab('tab6')" >Información Tributaria</button>
-                        <button class="tab financial" onclick="showTab('tab7')" >Información Financiera</button>
+                        <button class="tab address" data-step="02" onclick="showTab('tab2')">
+                            <span>Direcciones</span>
+                        </button>
+                        <button class="tab contact" data-step="03" onclick="showTab('tab3')">
+                            <span>Contactos</span>
+                        </button>
+                        <button class="tab legal" data-step="04" onclick="showTab('tab4')">
+                            <span>Representante Legal</span>
+                        </button>
+                        <button class="tab bank_account bank_account_complement" data-step="05" onclick="showTab('tab5')">
+                            <span>Cuentas Bancarias</span>
+                        </button>
+                        <button class="tab tax" data-step="06" onclick="showTab('tab6')">
+                            <span>Información Tributaria</span>
+                        </button>
+                        <button class="tab financial" data-step="07" onclick="showTab('tab7')">
+                            <span>Información Financiera</span>
+                        </button>
                         {% if not supplier.qp_is_foreigner_supplier %}
-                        <button class="tab international" onclick="showTab('tab8')" >Operaciones Internacionales</button>
+                            <button class="tab international" data-step="08" onclick="showTab('tab8')">
+                                <span>Operaciones Internacionales</span>
+                            </button>
                         {% endif %}
-                        <button class="tab shareholder" onclick="showTab('tab9')" >Accionistas y Asociados</button>
-                        <button class="tab document" onclick="showTab('tab10')" id="document">Documentos</button>
+                        <button class="tab shareholder" data-step="09" onclick="showTab('tab9')">
+                            <span>Accionistas y Asociados</span>
+                        </button>
+                        <button class="tab document" data-step="10" onclick="showTab('tab10')" id="document">
+                            <span>Documentos</span>
+                        </button>
                     {% endif %}
-                </div>
+                </div>                
                 <div class="dropdown-menu">
                     <select id="dropdown">
                         <option value="tab1">Información Básica</option>
@@ -149,12 +169,12 @@
 </div>
 
 {% if supplier and supplier.qp_status == "En revisión" and is_alpla_admin %}
-<div class="row approve-row" style="margin-top: 15px;margin-bottom: 15px;">
-    <div class="col-lg-1">
-        <input type="button" class="btn btn-success" id="approve" value="Aprobar">
+<div class="row approve-row justify-content-end" style="margin-top: 15px;margin-bottom: 15px;">
+    <div class="col-lg-1 mr-4">
+        <input type="button" class="btn btn-success rounded" id="approve" value="Aprobar">
     </div>
-    <div class="col-lg-1">
-        <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#reject_motive">Rechazar </button>
+    <div class="col-lg-1 mr-8">
+        <button type="button" class="btn btn-danger rounded" data-toggle="modal" data-target="#reject_motive">Rechazar</button>
     </div>
 </div>
 {% endif %}
