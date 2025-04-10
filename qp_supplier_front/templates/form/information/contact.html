@@ -1,7 +1,12 @@
 <div class="row row-line">
     <div class="col-sm-12">
         <button type="button" class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new"
-            data-toggle="modal" data-target="#contact_modal">+New</button>
+            data-toggle="modal" data-target="#contact_modal">
+            <span class="material-symbols-outlined" style="font-size: 16px; margin-left: 2px;">
+                add
+            </span>
+            New
+        </button>
     </div>
 </div>
 <div id = "contact_list">
@@ -10,9 +15,18 @@
 </div>
 <div class="row row-line justify-content-between">
     <div class="col-4 text-left">
-        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab2')" id="save">< Direcciones</button>
+        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab2')" id="save">
+            <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 2px;">
+                arrow_back_ios
+            </span>
+            Direcciones</button>
     </div>
     <div class="col-4 text-right">
-        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab4')" id="save">Continuar ></button>
+        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab4')" id="save">
+            Continuar
+            <span class="material-symbols-outlined" style="font-size: 14px; margin-left: 2px;">
+                arrow_forward_ios
+            </span>
+        </button>
     </div>
 </div>

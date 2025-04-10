@@ -233,9 +233,11 @@ $(document).ready(function () {
                     $.each(supplier.qp_field_validations, function (index, validation) {
 
                         if (validation.is_completed === 0) {
-                            has_incompleted = true
-
-                            $(`.tab.${validation.field_section}`).css('color', 'red');
+                            has_incompleted = true 
+                            const $tab = $(`.tab.${validation.field_section}`);
+                            $tab.css('color', 'red');
+                            $tab.find('span').css('color', 'red');
+                            $tab.addClass('incomplete-tab');
                         }
                     });
                     msg_error = has_incompleted ? "<p>Hay secciones sin completar, las cuales se indican en rojo. Para continuar con el proceso de validación, debe completar todos los campos.</p>" : "";
@@ -602,6 +604,8 @@ $(document).ready(function () {
 
         formData.append("fieldname", fileToUpload[0].name);
 
+        $(`#status-${setting_id}`).text("Cargando archivo...");
+
         callback = (status, data) => {
 
             if (status == 200) {
@@ -614,9 +618,18 @@ $(document).ready(function () {
                 $(`#file_full-${setting_id}`).show()
                 $(`#file_full-${setting_id}`).show()
 
+                $(`#status-${setting_id}`).text("Archivo cargado");
+
+                $(`#link-${setting_id}`).val(data.file_url);
+                $(`#link-${setting_id}`).attr("data-updated", "1");
+
+                const viewBtn = `<a href="${data.file_url}" target="_blank" class="view-btn">Ver archivo</a>`;
+                $(`#file-${setting_id}`).parent().replaceWith(viewBtn);
+
             } else {
                 $(`#file_empty-${setting_id}`).show()
                 $(`#file_loading-${setting_id}`).hide()
+                $(`#status-${setting_id}`).text("Error al cargar el archivo, intente nuevamente");
             }
 
         }

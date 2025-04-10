@@ -17,6 +17,7 @@
 
                             {% if not supplier.qp_is_foreigner_supplier %}
                             <select class="form-control" name="bank" id="bank" data-label="bank"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-fieldtype="Select">
                                 <option value="0" selected="selected" class="custom-option">Banco
                                 </option>
@@ -29,6 +30,7 @@
                             {% else %}
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-fieldtype="Data" data-doctype="Issue" name="bank" id="bank"
                                 placeholder="Nombre del Banco" value="">
                             {% endif %}
@@ -40,6 +42,7 @@
                             <label for="swift_number">Código SWIFT</label>
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-fieldtype="Data" data-doctype="Issue" name="swift_number" id="swift_number"
                                 placeholder="DEUTDEFFXXX" value="">
                         </div>
@@ -49,6 +52,7 @@
                             <label for="qp_aba_number">Código ABA</label>
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-fieldtype="Data" data-doctype="Issue" name="qp_aba_number" id="qp_aba_number"
                                 placeholder="021000021" value="">
                         </div>
@@ -60,6 +64,7 @@
                             <label for="business_type_name">Tipo de Cuenta</label>
 
                             <select class="form-control" name="account_type" id="account_type" data-label="País"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-fieldtype="Select">
                                 <option value="0" selected="selected" class="custom-option">Tipo de Cuenta
                                 </option>
@@ -77,6 +82,7 @@
 
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-fieldtype="Data" data-doctype="Issue" name="bank_account_no" id="bank_account_no"
                                 placeholder="Número de cuenta bancaria" value="">
                         </div>
@@ -87,6 +93,7 @@
                             <label for="iban">Código IBAN</label>
                             <input type="text" autocomplete="off"
                                 class="input-with-feedback form-control floating-input bold" maxlength="140"
+                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
                                 data-fieldtype="Data" data-doctype="Issue" name="iban" id="iban"
                                 placeholder="DE89 3704 0044 0532 0130 00" value="">
                         </div>

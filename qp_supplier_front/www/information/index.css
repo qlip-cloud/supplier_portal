@@ -1,5 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Open Sans', sans-serif;
     margin: 0;
     padding: 0;
     overflow-x: hidden;
@@ -7,6 +8,13 @@ body {
 
 .container {
     width: 100vw;
+}
+
+.container-tab {
+    background-color: #F4F5FC;
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px auto;
 }
 
 /* Tabs structure */
@@ -26,7 +34,6 @@ body {
     cursor: pointer;
     text-align: center;
     background-color: #fff;
-    border: 1px solid #ccc;
 }
 
 .tab.active {
@@ -36,12 +43,13 @@ body {
 
 .content {
     margin: 0 auto;
+    background-color: #FFF;
+    border-radius: 25px;
 }
 
 .tab-content {
     display: none;
     padding: 20px;
-    border: 1px solid #ccc;
     border-top: none;
 }
 
@@ -49,6 +57,87 @@ body {
     display: flex;
     flex-direction: column;
 }
+
+.tabs.wizard-tabs {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    margin: 40px 0;
+    counter-reset: step;
+}
+
+.tabs.wizard-tabs .tab {
+    position: relative;
+    flex: 1;
+    text-align: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding-top: 30px;
+    color: #999;
+    font-size: 14px;
+    counter-increment: step;
+}
+
+.tabs.wizard-tabs .tab::before {
+    content: counter(step);
+    width: 32px;
+    height: 32px;
+    background-color: #e0e0e0;
+    border-radius: 50%;
+    display: inline-block;
+    line-height: 32px;
+    font-weight: bold;
+    color: #999;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+    transition: all 0.3s ease;
+}
+
+.tabs.wizard-tabs .tab:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.tabs.wizard-tabs .tab.active::before {
+    background-color: #2b7bff;
+    color: #fff;
+}
+
+.tabs.wizard-tabs .tab span {
+    display: block;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.tabs.wizard-tabs .tab.active span{
+    color: #2b7bff;
+}
+
+
+.tabs.wizard-tabs .tab:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    width: 100%;
+    height: 2px;
+    background-color: #e0e0e0;
+    z-index: 0;
+}
+
+.tabs.wizard-tabs .tab:last-child::after {
+    display: none;
+}
+
+.tabs.wizard-tabs .tab.incomplete-tab::before {
+    color: white !important;
+    background-color: #cd2b2b !important;
+}
+
 
 /* Dropdown structure */
 .dropdown-menu {
@@ -71,22 +160,87 @@ body {
     width: 100%;
 }
 
-.accept-terms.modal .modal-content{
+.accept-terms.modal .modal-content {
     position: relative;
 }
 
-.accept-terms.modal .modal-header .modal-title{
+.accept-terms.modal .modal-header .modal-title {
     max-width: 100%;
 }
 
+
+/* CSS for document uploads */
+.doc-upload-option {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 12px;
+    padding: 15px 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+.doc-upload-option:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.doc-icon {
+    font-size: 30px;
+    color: #007bff;
+    margin-right: 15px;
+}
+
+.doc-info {
+    flex-grow: 1;
+}
+
+.doc-title {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.doc-subtext {
+    color: #666;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.doc-action {
+    margin-left: 20px;
+}
+
+.upload-btn,
+.view-btn {
+    background: #f0f0f0;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+    color: #333;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.upload-btn:hover,
+.view-btn:hover {
+    background: #e0e0e0;
+}
+
+.upload-btn input {
+    display: none;
+}
+
 /* Media query for screens smaller than 900px */
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
     .tabs {
         display: none;
     }
-
+    .tabs.wizard-tabs {
+        display: none;
+    }
     .dropdown-menu {
         display: block;
     }
 }
-
