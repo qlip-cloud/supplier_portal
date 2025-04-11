@@ -170,10 +170,10 @@
 
 {% if supplier and supplier.qp_status == "En revisión" and is_alpla_admin %}
 <div class="row approve-row justify-content-end" style="margin-top: 15px;margin-bottom: 15px;">
-    <div class="col-lg-1">
-        <input type="button" class="btn btn-success rounded mr-4" id="approve" value="Aprobar">
+    <div class="col-lg-1 mr-4">
+        <input type="button" class="btn btn-success rounded" id="approve" value="Aprobar">
     </div>
-    <div class="col-lg-1">
+    <div class="col-lg-1 mr-8">
         <button type="button" class="btn btn-danger rounded" data-toggle="modal" data-target="#reject_motive">Rechazar</button>
     </div>
 </div>

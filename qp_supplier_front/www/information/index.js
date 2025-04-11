@@ -441,6 +441,11 @@ $(document).ready(function () {
         petition_get_data({ address_id }, url, callresponse)
     })
 
+    $("#new-address").on("click", function () {
+        $("#form-address")[0].reset();
+        $("#form-address").find("input[type='text'], select").val("").trigger('change');
+        $("#form-address").attr('method', 'POST');  
+    });
     $("#contact_list").on("click", ".contact-id", function () {
 
         contact_id = $(this).data("id");
@@ -487,6 +492,13 @@ $(document).ready(function () {
         petition_get_data({ contact_id }, url, callresponse)
     })
 
+    
+    $("#new-contact").on("click", function () {
+        $("#form-contact")[0].reset();
+        $("#form-contact").find("input[type='text'], select").val("").trigger('change');
+        $("#form-contact").attr('method', 'POST');  
+    });
+
     $("#bank_account_list").on("click", ".bank_account-id", function () {
 
         bank_account_id = $(this).data("id");
@@ -526,6 +538,11 @@ $(document).ready(function () {
         petition_get_data({ bank_account_id }, url, callresponse)
     })
 
+    $("#new-bank-account").on("click", function () {
+        $("#form-bank-account")[0].reset();
+        $("#form-bank-account").find("input[type='text'], select").val("").trigger('change');
+        $("#form-bank-account").attr('method', 'POST');
+    });
     $("#shareholder_list").on("click", ".shareholder-id", function () {
 
         shareholder_id = $(this).data("id");
@@ -561,7 +578,12 @@ $(document).ready(function () {
 
         petition_get_data({ shareholder_id }, url, callresponse)
     })
-
+    $("#new-shareholder").on("click", function () {
+        $("#form-shareholder")[0].reset();
+        $("#form-shareholder").find("input[type='text'], select").val("").trigger('change');
+        $("#form-shareholder").attr('method', 'POST');  
+    });
+    
     $("#request-edit-btn").on("click", function () {
         const supplier_id = $("#supplier_id").val();
 
