@@ -29,6 +29,7 @@
             </div>
         </div>
         <div class="col-lg-4" style="display: flex; justify-content: flex-start; align-items: center;">
+            <input type="hidden" name="qp_is_foreigner_supplier" value="false">
             <input type="checkbox" name="qp_is_foreigner_supplier" id="qp_is_foreigner_supplier"
                 data-label="qp_is_foreigner_supplier" data-fieldtype="Checkbox" value="true" {% if
                 supplier.qp_is_foreigner_supplier %}checked{% endif %} {{ "" if is_estatus_editable else "disabled" }}>
