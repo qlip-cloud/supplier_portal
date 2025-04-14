@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
 main {
     max-width: 100% !important;
     padding: 0 !important;
@@ -10,7 +11,8 @@ html {
     margin: 0;
 }
 
-#sidebar,#area {
+#sidebar,
+#area {
     height: 100% !important;
 }
 
@@ -30,7 +32,11 @@ html {
 .row-line {
     margin: 0 0 2% 0;
 }
-
+.custom-title{
+    font-family: 'Open Sans';
+    font-weight: 600;
+    color: #003666;
+}
 .subtitle {
     text-align: left;
     font: normal normal bold 17px Open Sans;
@@ -68,36 +74,135 @@ label {
     padding-top: 2.5% !important;
 }
 
+/* Tabla principal */
 .table-list {
     width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 12px;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    background-color: transparent;
+    border: none;
 }
 
+/* Encabezados de tabla */
 .table-list>thead>tr>th {
-    background: #004D90 0% 0% no-repeat padding-box;
+    color: #004D90;
+    background-color: #d1d1d1;
     text-align: left;
-    font: normal normal bold 15px/29px Open Sans;
-    letter-spacing: 0px;
-    color: #FFFFFF;
+    font-weight: bold;
+    font-size: 15px;
+    line-height: 29px;
+    padding: 10px 6px;
+    border: none;
 }
 
-.table-list>tbody>tr>td {
+.table-list>thead>tr>th:first-child {
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
 
+.table-list>thead>tr>th:last-child {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+
+/* Filas del cuerpo */
+.table-list>tbody>tr {
+    background-color: #ffffff;
+    box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all 0.2s ease-in-out;
+}
+
+/* Celdas del cuerpo */
+.table-list>tbody>tr>td {
     text-align: left;
-    font: normal normal 500 14px Open Sans !important;
-    color: #6D6D6D !important;
+    font-size: 14px;
+    color: #6D6D6D;
+    padding: 10px 6px;
+    background-color: transparent;
+    border: none;
+}
+
+.table-list>tbody>tr>td:first-child {
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
+
+.table-list>tbody>tr>td:last-child {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+
+/* Efecto al pasar el mouse */
+.table-list>tbody>tr:hover {
+    box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* Badges de estado */
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: bold;
+    border-radius: 999px;
+    text-transform: uppercase;
+}
+
+/* Colores personalizados */
+.status-open {
+    border: 2px solid #3b82f6;
+    color: #3b82f6;
+}
+
+.status-paid {
+    border: 2px solid #22c55e;
+    color: #22c55e;
+}
+
+.status-cancelled {
+    border: 2px solid #ef4444;
+    color: #ef4444;
+}
+
+.status-default {
+    border: 2px solid #d1d5db;
+    color: #d1d5db;
 }
 
 .inner-table {
-    /* Aquí puedes definir los estilos específicos para la tabla interna */
     width: 100%;
+    border-collapse: collapse;
 }
 
-.inner-table th, .inner-table td {
-    /* Estilos específicos para las celdas de la tabla interna */
+.inner-table th,
+.inner-table td {
     background: none;
     text-align: left;
     font: normal normal 500 14px Open Sans;
-    color: #000000;
+    color: #666A65;
+    padding: 8px;
+    border: none;
+}
+
+.inner-table th {
+    background-color: #f5f5f5;
+    color: #004D90;
+    font-weight: bold;
+}
+.inner-table th:first-child {
+    border-top-left-radius: 8px;
+}       
+.inner-table th:last-child {
+    border-top-right-radius: 8px;
+}
+.inner-table td {
+    background-color: #FFF;
+    color: #666A65;
+    border-bottom: .5px solid #c8cdc7;
 }
 input[type="date"]::before {
     content: attr(data-placeholder);
@@ -127,10 +232,14 @@ select {
 
 textarea {
     width: 100%;
-    height: 150px; /* Puedes ajustar la altura según tus necesidades */
-    margin-bottom: 20px; /* Espacio inferior opcional */
-    border: 1px solid #ccc; /* Borde opcional */
-    border-radius: 5px; /* Esquinas redondeadas opcionales */
+    height: 150px;
+    /* Puedes ajustar la altura según tus necesidades */
+    margin-bottom: 20px;
+    /* Espacio inferior opcional */
+    border: 1px solid #ccc;
+    /* Borde opcional */
+    border-radius: 5px;
+    /* Esquinas redondeadas opcionales */
 }
 
 
@@ -165,6 +274,7 @@ textarea {
     font-size: 36px;
     margin-left: 50px;
 }
+
 .overlay {
     position: fixed;
     top: 0;
@@ -194,16 +304,16 @@ textarea {
     z-index: 1000;
 }
 
-.material-symbols-outlined{
+.material-symbols-outlined {
     cursor: pointer;
 }
 
 #page-rfq .sidebar-column.col-sm-2,
 #page-rfq .page-breadcrumbs {
-  display: none;
+    display: none;
 }
 
-.page-link{
+.page-link {
     cursor: pointer;
 }
 
@@ -220,6 +330,3 @@ textarea {
     display: none;
     z-index: 1000;
 }
-
-
-
