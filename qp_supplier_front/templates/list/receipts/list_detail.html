@@ -3,13 +3,13 @@
 
     <div class="row">
         <div class="col-lg-12">
-            <table class="table">
+            <table class="table inner-table">
                 <thead>
     
-                    <th class="text-center">Referencia</th>
-                    <th class="text-center">Documento</th>
-                    <th class="text-center">Secuencia</th>
-                    <th class="text-center">Monto</th>
+                    <th class="text-left">Referencia</th>
+                    <th class="text-left">Documento</th>
+                    <th class="text-left">Secuencia</th>
+                    <th class="text-left">Monto</th>
     
                 </thead>
                 <tbody>
@@ -17,9 +17,9 @@
     
                     <tr>
                         <td class="">{{reference.qp_aptovcnm}}</td>
-                        <td class="text-center">{{reference.qp_aptodcnm}}</td>
-                        <td class="text-center">{{reference.qp_seq}}</td>
-                        <td class="text-right">{{frappe.format_value(reference.qp_appldamt, "Currency") }}</td>
+                        <td class="text-left">{{reference.qp_aptodcnm}}</td>
+                        <td class="text-left">{{reference.qp_seq}}</td>
+                        <td class="text-left">{{frappe.format_value(reference.qp_appldamt, "Currency") }}</td>
     
                     </tr>
                     {% endfor %}
