@@ -75,6 +75,10 @@ def validate_field_list(supplier,doctype, valid_code, fields_to_validate):
     setup_validate_field_list(supplier, doctypes, valid_code, fields_to_validate)
     
 def validate_field_list_with_table(supplier,doctype, valid_code, fields_to_validate, tables = None):
+
+    if valid_code == "contact":
+        validate_complete_contacts_by_type(supplier, doctype, valid_code)
+        return
     
     doctypes = get_dynamic_link(supplier, doctype)
     
@@ -153,3 +157,22 @@ def should_skip_section(supplier, section_code):
         return True
     
     return False
+
+def validate_complete_contacts_by_type(supplier, doctype, valid_code):
+    required_types = {"Comercial", "Compras", "Finanzas", "Cartera"}
+    contacts = get_dynamic_link(supplier, doctype)
+
+    valid_types = set()
+
+    for contact in contacts:
+        contact_type = getattr(contact, "qp_contact_type", None)
+        if contact_type in required_types:
+            has_name = is_valid(getattr(contact, "first_name", None))
+            has_email = contact.email_ids and is_valid(contact.email_ids[0].email_id)
+            has_phone = contact.phone_nos and is_valid(contact.phone_nos[0].phone)
+
+            if has_name and has_email and has_phone:
+                valid_types.add(contact_type)
+
+    count = len(valid_types) 
+    add_field_validations(supplier, valid_code, count)
