@@ -198,6 +198,7 @@ fixtures = [
             "Bank-qp_aba_number",
             "Bank-qp_swift_number",
             "Bank Account-qp_iban_number",
+            "Bank Account-qp_routing_code",
             "Contact-qp_contact_type",
             "Supplier-qp_resolution_self_retaining"
         ]]]
