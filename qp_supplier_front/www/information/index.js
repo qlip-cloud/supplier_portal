@@ -518,6 +518,7 @@ $(document).ready(function () {
             const $swiftNumber = $("#swift_number");
             const $abaNumber = $("#qp_aba_number");
             const $ibanNumber = $("#iban");
+            const $qp_routing_code = $("#qp_routing_code");
 
             $doctype_id.val(bank_account_id);
 
@@ -530,6 +531,7 @@ $(document).ready(function () {
             $swiftNumber.val(bank_account.bank.qp_swift_number || "");
             $abaNumber.val(bank_account.bank.qp_aba_number || "");
             $ibanNumber.val(bank_account.qp_iban_number || "");
+            $qp_routing_code.val(bank_account.qp_routing_code || "");
 
             $("#form-bank-account").attr('method', 'PUT');
             $('#bank_account_modal').modal('show')

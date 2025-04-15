@@ -3,7 +3,7 @@ import frappe
 from qp_supplier_front.services.get_data import get_supplier, get_bank_accounts
 from qp_supplier_front.services.field_validate import setup_validate_field_list
 
-def handler(supplier_id, doctype_id, bank, account_type, bank_account_no, swift_number=None, qp_aba_number=None, iban=None):
+def handler(supplier_id, doctype_id, bank, account_type, bank_account_no, swift_number=None, qp_aba_number=None, iban=None, qp_routing_code=None):
     
     doctype = "Bank Account"
     
@@ -11,7 +11,7 @@ def handler(supplier_id, doctype_id, bank, account_type, bank_account_no, swift_
     
     supplier = get_supplier(supplier_id)
     
-    bank_account = update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_number, qp_aba_number, iban)
+    bank_account = update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_number, qp_aba_number, iban, qp_routing_code)
     
     fields_to_validate = ['bank', 'account_type', 'bank_account_no']
     
@@ -27,7 +27,7 @@ def handler(supplier_id, doctype_id, bank, account_type, bank_account_no, swift_
         
     }
     
-def update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_number=None, qp_aba_number=None, iban=None):
+def update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_number=None, qp_aba_number=None, iban=None, qp_routing_code=None):
     
     doctype = "Bank Account"
     
@@ -51,6 +51,9 @@ def update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_n
 
     if iban:
         bank_account.qp_iban_number = iban
+    
+    if qp_routing_code:
+        bank_account.qp_routing_code = qp_routing_code
     
     bank_account.save()
     
