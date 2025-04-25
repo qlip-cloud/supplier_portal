@@ -1,49 +1,45 @@
 {% extends "qp_supplier_front/templates/includes/container.html" %}
 
 {% block content_page %}
-
-    <div class="row">
-
-
-
-                <div class="col-lg-3">
-
-                    <select class="form-control" name="report_type" id="report_type" data-label="report_type" data-fieldtype="Select">
-                        <option value="0" selected="selected" class="custom-option">Tipo</option>
-                        <option value="1"  class="custom-option">Retenciones en la fuente</option>
-                        <option value="2"  class="custom-option">Retenciones IVA</option>
-                        <option value="3"  class="custom-option">Retenciones ICA</option>
-                    </select>
-                </div>
+<div class="row">
+    <div class="col-lg-3">
+        <select class="form-control" name="report_type" id="report_type" data-label="report_type"
+            data-fieldtype="Select">
+            <option value="0" selected="selected" class="custom-option">Tipo</option>
+            <option value="1" class="custom-option">Retenciones en la fuente</option>
+            <option value="2" class="custom-option">Retenciones IVA</option>
+            <option value="3" class="custom-option">Retenciones ICA</option>
+        </select>
+    </div>
 
 
-                <div class="col-lg-3">
+    <div class="col-lg-3">
+        <select class="form-control" name="year" id="year" data-label="year" data-fieldtype="Select"
+            data-init_fiscal_year="{{init_fiscal_year}}">
+            <option value="0" selected="selected" class="custom-option">{{_("Fiscal Year")}}</option>
+        </select>
+    </div>
+    <div class="col-lg-3">
 
-                    <select class="form-control" name="year" id="year" data-label="year" data-fieldtype="Select" data-init_fiscal_year="{{init_fiscal_year}}">
-                        <option value="0" selected="selected" class="custom-option">{{_("Fiscal Year")}}</option>
-                    </select>
-                </div>
-                <div class="col-lg-3">
+        <select class="form-control" name="bimester" id="bimester" data-label="bimester" data-fieldtype="Select">
+            <option value="" selected="selected" class="custom-option">Rango</option>
+            <option value="0" class="custom-option">Anual</option>
+            <option value="1" class="custom-option">Primer bimestre</option>
+            <option value="2" class="custom-option">Segundo bimestre</option>
+            <option value="3" class="custom-option">Tercer bimestre</option>
+            <option value="4" class="custom-option">Cuarto bimestre</option>
+            <option value="5" class="custom-option">Quinto bimestre</option>
+            <option value="6" class="custom-option">Sexto bimestre</option>
+        </select>
+    </div>
 
-                    <select class="form-control" name="bimester" id="bimester" data-label="bimester" data-fieldtype="Select">
-                        <option value="" selected="selected" class="custom-option">Rango</option>
-                        <option value="0" class="custom-option">Anual</option>
-                        <option value="1" class="custom-option">Primer bimestre</option>
-                        <option value="2" class="custom-option">Segundo bimestre</option>
-                        <option value="3" class="custom-option">Tercer bimestre</option>
-                        <option value="4" class="custom-option">Cuarto bimestre</option>
-                        <option value="5" class="custom-option">Quinto bimestre</option>
-                        <option value="6" class="custom-option">Sexto bimestre</option>
-                    </select>
-                </div>
+    <div class="col-lg-3">
 
-                <div class="col-lg-3">
-
-                    <button class="btn btn-primary btn-sm primary-action" id="save">Generar</button>
-
-                </div>
-
-
+        <button class="btn btn-primary btn-sm primary-action" id="save">Generar</button>
 
     </div>
+
+
+
+</div>
 {% endblock %}
