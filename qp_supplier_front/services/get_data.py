@@ -41,7 +41,9 @@ def get_supplier(supplier_id):
 
 def get_document_types():
     
-    return frappe.get_list("qp_CO_IdType", fields = ["name", "id_type_name"])
+    list_permited = ["11", "12", "13", "21", "22", "31", "41", "42", "43"]
+    
+    return frappe.get_list("qp_CO_IdType", filters = {"id_type_id":["in", list_permited]}, fields = ["name", "id_type_name"])
 
 def get_ciius():
     
