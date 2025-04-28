@@ -1,9 +1,9 @@
 from qp_supplier_front.services.get_data import get_supplier
 APPROVE = "Aprobado"
 from qp_supplier_front.constant.endpoint import SUPPLIER_INSERT
-from qp_supplier_front.services.get_data import get_party, get_dynamic_link
+from qp_supplier_front.services.get_data import get_party, get_dynamic_link, get_bank_accounts
 from qp_authorization.use_case.bearer.authorize import send_request
-
+import frappe
 def handler(supplier_id):
     
     supplier = get_supplier(supplier_id)
@@ -20,20 +20,34 @@ def handler(supplier_id):
     
 def sync_supplier(supplier):
     
+    busness_type = {
+        "1": "2",
+        "2": "1"
+    }
     party = get_party(supplier)
     
     addresses = get_dynamic_link(supplier, "Address")
     
+    bank_accounts = get_bank_accounts(supplier, "Bank Account")
+    
     contacts = get_dynamic_link(supplier, "Contact")
+    
+    ciiu = frappe.get_doc("qp_CO_CIIU", party.ciiu_id)
     
     payload ={
         "vendorId": supplier.name,
+        "firstName": "",
+        "middleName": "",
+        "firstSurname": "",
+        "secondSurname": "",
         "name": supplier.supplier_name,
+        "nit": supplier.tax_id,
         "documentType": party.id_type_id,
         "businessType": party.business_type,
         "phone": party.phone_number,
         "phone2": "",
         "phone3": "",
+        "landlinePhone": "",
         "address": {
             "country": addresses[0].country,
             "state": addresses[0].state,
@@ -42,8 +56,15 @@ def sync_supplier(supplier):
         },
         "mail": contacts[0].user,
         "regime": party.tax_regime,
-        "ciiu": party.ciiu_id
+        "nature": busness_type[party.business_type_id] if party.business_type_id else 0,
+        "ciiu": ciiu.ciiu_id,
+        "eftInformation": {
+            "bankName": bank_accounts[0].bank if bank_accounts else "",
+            "ibanCode": bank_accounts[0].iban if bank_accounts and bank_accounts[0].iban else "",
+            "swiftCode": "",
+            "abaCode": ""
+        }
     }
-    
     result = send_request(SUPPLIER_INSERT, payload = payload)
     
+    print(result)

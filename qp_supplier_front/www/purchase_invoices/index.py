@@ -22,10 +22,8 @@ def get_context(context):
     
     key = "sales_invoices"
     
-    doctype = "Purchase Invoice"
-    
-    doctype_detail = "Purchase Invoice Item"
-    
+    doctype = "qp_SP_PurchaseInvoice"
+        
     context.supplier_id = supplier_id
     
     context.sales_invoices = get_paginated(0, doctype, supplier_id)
@@ -33,8 +31,6 @@ def get_context(context):
     context.key = key
     
     context.doctype = doctype
-    
-    context.doctype_detail = doctype_detail
-    
+        
     context.show_result = True
     
