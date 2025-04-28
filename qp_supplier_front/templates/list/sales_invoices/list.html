@@ -5,12 +5,12 @@
     <td>{{ invoice.invoice_id }}</td>
     <td class="text-left">
         <span class="status-badge
-          {% if invoice.qp_status == 'Abierto' %} status-open
-          {% elif invoice.qp_status == 'Pagado' %} status-paid
-          {% elif invoice.qp_status == 'Cancelado' %} status-cancelled
+          {% if invoice.status == 'Abierto' %} status-open
+          {% elif invoice.status == 'Pagado' %} status-paid
+          {% elif invoice.status == 'Cancelado' %} status-cancelled
           {% else %} status-default
           {% endif %}">
-            {{ invoice.qp_status }}
+            {{ invoice.status }}
         </span>
     </td>
 
