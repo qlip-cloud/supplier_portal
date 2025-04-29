@@ -7,7 +7,7 @@ def get_context(context):
     
     context.no_cache = True
     
-    query_params = frappe.request.args
+    query_params = frappe.request.args 
     
     supplier_id = query_params.get("supplier")
     
@@ -26,7 +26,9 @@ def get_context(context):
     
     context.supplier_id = supplier_id
     
-    context.receipts = get_paginated(0, doctype, supplier_id)
+    order_by = "qp_create_date"
+    
+    context.receipts = get_paginated(0, doctype, supplier_id, order_by)
                        
     context.key = key
     
@@ -35,3 +37,7 @@ def get_context(context):
     context.doctype_detail = doctype_detail
     
     context.show_result = True
+    
+    context.order_by = order_by
+    
+    

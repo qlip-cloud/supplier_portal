@@ -162,6 +162,7 @@ $(document).ready(function () {
                 "key": accordion.data("key"),
                 "doctype": accordion.data("doctype"),
                 "doctype_detail": accordion.data("doctype_detail"),
+                "order_by": accordion.data("order_by"),
                 supplier_id,
                 filters
             }
@@ -174,6 +175,7 @@ $(document).ready(function () {
                     $(window).off('scroll');
                     no_more = true;
                     $("#no-more").show()
+                    $("#loading").hide()
 
                     return;
                 }
