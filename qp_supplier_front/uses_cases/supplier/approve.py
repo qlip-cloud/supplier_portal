@@ -4,6 +4,7 @@ from qp_supplier_front.constant.endpoint import SUPPLIER_INSERT
 from qp_supplier_front.services.get_data import get_party, get_dynamic_link, get_bank_accounts
 from qp_authorization.use_case.bearer.authorize import send_request
 import frappe
+import json
 def handler(supplier_id):
     
     supplier = get_supplier(supplier_id)
@@ -33,6 +34,10 @@ def sync_supplier(supplier):
     contacts = get_dynamic_link(supplier, "Contact")
     
     ciiu = frappe.get_doc("qp_CO_CIIU", party.ciiu_id)
+    state = frappe.db.get_value('qp_CO_State', party.state, 'state_id')
+    municipality = frappe.db.get_value('qp_CO_Municipality', party.municipality, 'municipality_id')
+    municipality_code = f"{state}{municipality}"
+    ciiu = frappe.get_doc("qp_CO_CIIU", party.ciiu_id)
     
     payload ={
         "vendorId": supplier.name,
@@ -49,22 +54,29 @@ def sync_supplier(supplier):
         "phone3": "",
         "landlinePhone": "",
         "address": {
-            "country": addresses[0].country,
-            "state": addresses[0].state,
-            "city": addresses[0].city,
-            "address": addresses[0].address_line1
+            "country": party.country,
+            "state": state,
+            "city": municipality_code,
+            "address": party.address
         },
         "mail": contacts[0].user,
         "regime": party.tax_regime,
         "nature": busness_type[party.business_type_id] if party.business_type_id else 0,
         "ciiu": ciiu.ciiu_id,
         "eftInformation": {
-            "bankName": bank_accounts[0].bank if bank_accounts else "",
+            "bankName": "890903938",
             "ibanCode": bank_accounts[0].iban if bank_accounts and bank_accounts[0].iban else "",
             "swiftCode": "",
             "abaCode": ""
         }
     }
+    print(json.dumps(payload))
+    
     result = send_request(SUPPLIER_INSERT, payload = payload)
     
-    print(result)
+    if result and result.get("statuscode") == 500:
+        print(json.dumps(result))
+        frappe.log_error(message=result.get("message"), title=f"Error sync supplier: {supplier.name}")
+        frappe.throw(result.get("statuscode"))
+    print(json.dumps(result))
+    

@@ -25,10 +25,10 @@ def get_detail(parent_doctype, doctype, name, page = 0):
     }
     
 
-def get_paginated(page, doctype, supplier_id, filters = {}):
+def get_paginated(page, doctype, supplier_id, order_by, filters = {}):
     
     filters.update({"supplier": supplier_id})
     
     start = page * PAGE_LENGTH
     
-    return frappe.get_list(doctype, filters = filters, fields = ["*"], start=start, page_length=PAGE_LENGTH)
+    return frappe.get_list(doctype, filters = filters, fields = ["*"], start=start, page_length=PAGE_LENGTH, order_by = f"{order_by} desc")

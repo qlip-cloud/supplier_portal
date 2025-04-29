@@ -24,9 +24,11 @@ def get_context(context):
     
     doctype_detail = "Purchase Order Item"
     
+    context.order_by = "qp_create_date"
+    
     context.supplier_id = supplier_id
     
-    context.sales_order = get_paginated(0, doctype, supplier_id)
+    context.sales_order = get_paginated(0, doctype, supplier_id, context.order_by)
                        
     context.key = key
     
@@ -35,3 +37,5 @@ def get_context(context):
     context.doctype_detail = doctype_detail
     
     context.show_result = True
+    
+    
