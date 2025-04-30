@@ -2,6 +2,7 @@ from qp_supplier_front.services.get_data import get_supplier
 APPROVE = "Aprobado"
 from qp_supplier_front.constant.endpoint import SUPPLIER_INSERT
 from qp_supplier_front.services.get_data import get_party, get_dynamic_link, get_bank_accounts
+from qp_supplier_front.services.utils import add_log
 from qp_authorization.use_case.bearer.authorize import send_request
 import frappe
 import json
@@ -27,7 +28,7 @@ def sync_supplier(supplier):
     }
     party = get_party(supplier)
     
-    addresses = get_dynamic_link(supplier, "Address")
+    #addresses = get_dynamic_link(supplier, "Address")
     
     bank_accounts = get_bank_accounts(supplier, "Bank Account")
     
@@ -37,7 +38,7 @@ def sync_supplier(supplier):
     state = frappe.db.get_value('qp_CO_State', party.state, 'state_id')
     municipality = frappe.db.get_value('qp_CO_Municipality', party.municipality, 'municipality_id')
     municipality_code = f"{state}{municipality}"
-    ciiu = frappe.get_doc("qp_CO_CIIU", party.ciiu_id)
+    
     
     payload ={
         "vendorId": supplier.name,
@@ -70,13 +71,15 @@ def sync_supplier(supplier):
             "abaCode": ""
         }
     }
-    print(json.dumps(payload))
     
     result = send_request(SUPPLIER_INSERT, payload = payload)
     
+    add_log("Create Supplier", payload, result, supplier.name)
+    
     if result and result.get("statuscode") == 500:
-        print(json.dumps(result))
+        
         frappe.log_error(message=result.get("message"), title=f"Error sync supplier: {supplier.name}")
+        
         frappe.throw(result.get("statuscode"))
-    print(json.dumps(result))
+        
     
