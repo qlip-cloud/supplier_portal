@@ -84,7 +84,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-29 16:28:15.658489",
+ "modified": "2025-05-02 15:32:39.809782",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_PurchaseInvoice",
@@ -110,8 +110,7 @@
    "print": 1,
    "read": 1,
    "report": 1,
-   "role": "All",
-   "select": 1,
+   "role": "Customer",
    "share": 1,
    "write": 1
   }

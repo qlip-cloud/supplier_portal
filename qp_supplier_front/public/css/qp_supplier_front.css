@@ -313,6 +313,16 @@ textarea {
     display: none;
 }
 
+#page-order .sidebar-column.col-sm-2,
+#page-order .page-breadcrumbs {
+    display: none;
+}
+
+#page-list .sidebar-column.col-sm-2,
+#page-list .page-breadcrumbs {
+    display: none;
+}
+
 .page-link {
     cursor: pointer;
 }

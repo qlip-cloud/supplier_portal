@@ -17,7 +17,7 @@ def handler(supplier_id, documents, is_estatus_editable):
     
     set_document(supplier, documents)
     
-    fields_to_validate = ['file']
+    fields_to_validate = ['file', "is_valid"]
 
     setup_validate_field_list(supplier, supplier.qp_documents, valid_code, fields_to_validate)
     
@@ -26,8 +26,8 @@ def handler(supplier_id, documents, is_estatus_editable):
     supplier.save()
     
     if supplier.qp_is_foreigner_supplier:
+        
         validate_field(supplier, "international", 0)
-
 
     if (is_estatus_editable != "true"):
         
