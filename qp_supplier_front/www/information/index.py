@@ -81,7 +81,7 @@ def setup_document_settings(qp_documents):
     
     for document_setting in document_settings:
         
-        values = [qp_document.as_dict() for qp_document in qp_documents if qp_document.documento_setting == document_setting.get("name")]
+        values = [qp_document.as_dict() for qp_document in qp_documents if qp_document.documento_setting == document_setting.get("name") and qp_document.get("is_valid")]
         
         document_setting.setdefault("line", values[0] if values else None)
         
