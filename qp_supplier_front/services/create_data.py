@@ -55,7 +55,39 @@ def  create_contact(supplier, doctype, first_name,email_id, qp_contact_type=None
     contact.first_name = first_name
     
     contact.user = user
+    
     contact.qp_contact_type = qp_contact_type
+    
+    set_contact(doctype, contact, supplier, email_id, phone)
+    
+    contact.insert()
+    
+    return contact
+
+def create_first_contact(supplier, email = None):
+    
+    doctype = "Contact"
+    
+    user = email if email else frappe.session.user
+    
+    contact_name = frappe.get_value(doctype, filters = {"user": user})
+    
+    if contact_name:
+    
+        contact = frappe.get_doc(doctype, contact_name)
+        
+        set_contact(doctype, contact, supplier, user)
+        
+        contact.save()
+        
+        return contact
+        
+    contact = create_contact(supplier, doctype, supplier.supplier_name, user, qp_contact_type=None,user = user)
+    
+    return contact
+
+def set_contact(doctype, contact, supplier, email_id, phone = None):
+    
     contact.append("email_ids", {
         "email_id": email_id
     })
@@ -73,18 +105,3 @@ def  create_contact(supplier, doctype, first_name,email_id, qp_contact_type=None
     if not get_dynamic_link(supplier, doctype):
         
         contact.is_primary_contact = 1
-    
-    contact.insert()
-    
-    return contact
-
-def create_first_contact(supplier, email = None):
-    
-    doctype = "Contact"
-    
-    user = email if email else frappe.session.user
-
-    
-    contact = create_contact(supplier, doctype, supplier.supplier_name, user, qp_contact_type=None,user = user)
-    
-    return contact
