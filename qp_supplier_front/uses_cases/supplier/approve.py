@@ -35,13 +35,19 @@ def sync_supplier(supplier):
     contacts = get_dynamic_link(supplier, "Contact")
     
     ciiu = frappe.get_doc("qp_CO_CIIU", party.ciiu_id)
-    state = frappe.db.get_value('qp_CO_State', party.state, 'state_id')
-    municipality = frappe.db.get_value('qp_CO_Municipality', party.municipality, 'municipality_id')
-    municipality_code = f"{state}{municipality}"
+    state = ""
+    municipality_code = ""
     
+    country = frappe.db.get_value('Country', party.country, 'gp_country')
+    
+    if country == "Colombia":
+        
+        state = frappe.db.get_value('qp_CO_State', party.state, 'state_id')
+        municipality = frappe.db.get_value('qp_CO_Municipality', party.municipality, 'municipality_id')
+        municipality_code = f"{state}{municipality}" if (state and state != "Otro") and (municipality and municipality) != "Otro" else ""
     
     payload ={
-        "vendorId": supplier.name,
+        "vendorId": supplier.tax_id,
         "firstName": "",
         "middleName": "",
         "firstSurname": "",
@@ -55,8 +61,8 @@ def sync_supplier(supplier):
         "phone3": "",
         "landlinePhone": "",
         "address": {
-            "country": party.country,
-            "state": state,
+            "country": country,
+            "state": state or "",
             "city": municipality_code,
             "address": party.address
         },
@@ -71,15 +77,17 @@ def sync_supplier(supplier):
             "abaCode": ""
         }
     }
-    
+
     result = send_request(SUPPLIER_INSERT, payload = payload)
     
     add_log("Create Supplier", payload, result, supplier.name)
     
-    if result and result.get("statuscode") == 500:
+    if ("status" in result and result.get("status") == 200):
         
-        frappe.log_error(message=result.get("message"), title=f"Error sync supplier: {supplier.name}")
+        frappe.log_error(message=result.get("errors"), title=f"Error sync supplier: {supplier.name}")    
         
-        frappe.throw(result.get("statuscode"))
+        frappe.throw(result.get("title"))
         
-    
+    if "result" in result and "statuscode" in result.get("result") and result.get("result").get("statuscode") != 200:
+       
+        frappe.log_error(message=result.get("result").get("description"), title=f"Error sync supplier: {supplier.name}")
