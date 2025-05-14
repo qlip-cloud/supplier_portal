@@ -701,8 +701,12 @@ function setup_button(supplier) {
 
     var classes = $alertStatus.attr("class").split(" ");
 
+
     if (classes.length > 1) {
-        $alertStatus.removeClass(classes[1]);
+
+        const result = classes.find(str => str.startsWith("alert-"));
+
+        $alertStatus.removeClass(result);
     }
 
     $alertStatus.addClass(alert_estatus[supplier.qp_status].class);

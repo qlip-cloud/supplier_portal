@@ -3,7 +3,7 @@ import frappe
 from qp_authorization.use_case.bearer.authorize import send_request
 from qp_supplier_front.exception.sync import ExceptionSyncResponseEmpty, ExceptionSyncNoNewRecords, ExceptionSyncProductNotFound, ExceptionSyncRequestNotList, ExceptionSyncDocNotList, ExceptionSyncResponse
 
-def setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list, doctype_list_key_id, is_validate_items, get_doc_base ,set_item = None):
+def setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list, doctype_list_key_id, is_validate_items, get_doc_base, set_item = None):
     
     message = None
     title = f"Error sync {doctype}"
