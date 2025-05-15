@@ -6,6 +6,8 @@ from qp_supplier_front.uses_cases.sales_order.sync_by_supplier import handler as
 @frappe.whitelist()
 def all():
     
+    
+    
     suppliers_id = frappe.get_list("Supplier", pluck = "name")
     
     for supplier_id in suppliers_id:

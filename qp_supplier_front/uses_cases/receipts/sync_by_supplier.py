@@ -1,6 +1,6 @@
 import frappe
 from qp_supplier_front.services.sync_doc import setup_doc
-from qp_supplier_front.constant.endpoint import PAYMENT_SUPPLIER_ID
+from qp_supplier_front.constant.endpoint import PAYMENT_SUPPLIER_ID, PAYMENT_SUPPLIER_DATE_RANGE
 
 def handler(supplier_id):
     
@@ -14,8 +14,14 @@ def handler(supplier_id):
     doctype_list = None
     doctype_list_key_id = None
     is_validate_items = False
+    order_by = "qp_create_date"
     
-    setup_doc(supplier_id, PAYMENT_SUPPLIER_ID, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list,doctype_list_key_id, is_validate_items, get_doc_base, set_item)
+    endpoint = {
+        "all": PAYMENT_SUPPLIER_ID,
+        "range": PAYMENT_SUPPLIER_DATE_RANGE
+    }
+    
+    setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list,doctype_list_key_id, is_validate_items, get_doc_base, order_by, set_item)
                 
 def get_doc_base(doctype, doc_new, request_key_id):
     

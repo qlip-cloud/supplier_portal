@@ -10,3 +10,7 @@ INVOICE_DOC_ID = "invoice_doc_id"
 ORDER_SUPPLIER_ID = "order_supplier_id"
 PAYMENT_SUPPLIER_ID = "payment_supplier_id"
 ITEM_ALL = "item_all"
+
+INVOICE_SUPPLIER_DATE_RANGE = "invoice_supplier_date_range"
+ORDER_SUPPLIER_DATE_RANGE = "payment_supplier_date_range"
+PAYMENT_SUPPLIER_DATE_RANGE = "order_supplier_date_range"
