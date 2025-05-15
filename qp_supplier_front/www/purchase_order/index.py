@@ -11,13 +11,7 @@ def get_context(context):
     
     supplier_id = query_params.get("supplier")
     
-    try:
-        sync_by_supplier(supplier_id)
-        
-    except Exception as e:
-        
-        frappe.log_error(message=frappe.get_traceback(), title=f"Error sync purchase order: {supplier_id}")
-            
+    
     key = "sales_order"
     
     doctype = "Purchase Order"

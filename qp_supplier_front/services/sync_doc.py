@@ -5,7 +5,7 @@ from qp_authorization.use_case.bearer.authorize import send_request
 from qp_supplier_front.exception.sync import ExceptionSyncResponseEmpty, ExceptionSyncNoNewRecords, ExceptionSyncProductNotFound, ExceptionSyncRequestNotList, ExceptionSyncDocNotList, ExceptionSyncResponse
 from qp_supplier_front.services.background.set_item import handler as set_sync_item
 
-def setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list, doctype_list_key_id, is_validate_items, get_doc_base, order_by, set_item = None):
+def setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list, doctype_list_key_id, is_validate_items, get_doc_base, order_by, set_item_default = None):
     
         
     message = None
@@ -24,7 +24,7 @@ def setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_k
         
         docs_new = get_docs_new(result, request_key, request_key_id, doctype_key, doctype)
         
-        set_doc(result, docs_new, request_key, request_key_id, request_list_key, doctype, items_code, doctype_list_key, request_list_key_id, is_validate_items, get_doc_base, set_item)       
+        set_doc(result, docs_new, request_key, request_key_id, request_list_key, doctype, items_code, doctype_list_key, request_list_key_id, is_validate_items, get_doc_base, set_item_default)       
         
     except ExceptionSyncResponse as e:
         
@@ -59,7 +59,7 @@ def get_last_creation(doctype, supplier_id, order_by):
             
     return latest_record[0] if latest_record else None
 
-def set_doc(result, docs_new, request_key, request_key_id ,request_list_key, doctype, items_code, doctype_list_key, request_list_key_id, is_validate_items, get_doc_base, set_item = None):    
+def set_doc(result, docs_new, request_key, request_key_id ,request_list_key, doctype, items_code, doctype_list_key, request_list_key_id, is_validate_items, get_doc_base, set_item_default = None):    
     
     assertRequestValid(result, request_key)
     
@@ -75,13 +75,13 @@ def set_doc(result, docs_new, request_key, request_key_id ,request_list_key, doc
             
             doc = get_doc_base(doctype, doc_new, request_key_id)
             
-            set_doc_list(doc, doc_new, doctype, request_list_key, items_code, request_list_key_id, doctype_list_key, request_key_id, is_validate_items, set_item)
+            set_doc_list(doc, doc_new, doctype, request_list_key, items_code, request_list_key_id, doctype_list_key, request_key_id, is_validate_items, set_item_default)
             
             set_doc_control(doc, doc_new, request_list_key, doctype_list_key)
             
             doc.insert(ignore_permissions=True, ignore_links=True, ignore_if_duplicate=True, ignore_mandatory=True)
             
-            sync_item(doc, doc_new, items_code, set_item, doctype, doctype_list_key, request_list_key_id, request_list_key)
+            #sync_item(doc, doc_new, items_code, set_item, doctype, doctype_list_key, request_list_key_id, request_list_key)
             
         except (ExceptionSyncDocNotList, ExceptionSyncRequestNotList) as e:
             
@@ -138,9 +138,9 @@ def set_doc_control(doc, doc_new, request_list_key, doctype_list_key):
         
         doc.qp_is_item_sync = doc.qp_item_sync == doc.qp_item_count       
                        
-def set_doc_list(doc, doc_new, doctype, request_list_key, items_code, request_list_key_id, doctype_list_key, request_key_id, is_validate_items, set_item = None):
+def set_doc_list(doc, doc_new, doctype, request_list_key, items_code, request_list_key_id, doctype_list_key, request_key_id, is_validate_items, set_item_default = None):
     
-    if set_item:
+    if set_item_default:
         
         count = 0
         
@@ -158,7 +158,7 @@ def set_doc_list(doc, doc_new, doctype, request_list_key, items_code, request_li
                 
                 assertProductExist(item.get(request_list_key_id), items_code, is_validate_items)
                 
-                doc.append(doctype_list_key, set_item(item))
+                doc.append(doctype_list_key, set_item_default(item))
             
             except ExceptionSyncProductNotFound as e:  
                 title = str(e)

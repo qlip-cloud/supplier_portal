@@ -36,15 +36,17 @@ def sync_supplier(supplier):
     
     ciiu = frappe.get_doc("qp_CO_CIIU", party.ciiu_id)
     state = ""
-    municipality_code = ""
+    municipality = ""
+    municipality_code = "00000"
     
     country = frappe.db.get_value('Country', party.country, 'gp_country')
     
     if country == "Colombia":
         
-        state = frappe.db.get_value('qp_CO_State', party.state, 'state_id')
-        municipality = frappe.db.get_value('qp_CO_Municipality', party.municipality, 'municipality_id')
-        municipality_code = f"{state}{municipality}" if (state and state != "Otro") and (municipality and municipality) != "Otro" else ""
+        state_id, state = frappe.db.get_value('qp_CO_State', party.state, ['state_id', "state_name"])
+        municipality_id, municipality = frappe.db.get_value('qp_CO_Municipality', party.municipality, ["municipality_id", 'municipality_name'])
+        
+        municipality_code = f"{state_id}{municipality_id}" if (state_id and state_id != "Otro") and (municipality_id and municipality_id) != "Otro" else ""
     
     payload ={
         "vendorId": supplier.tax_id,
@@ -63,8 +65,9 @@ def sync_supplier(supplier):
         "address": {
             "country": country,
             "state": state or "",
-            "city": municipality_code,
-            "address": party.address
+            "city": municipality,
+            "address": party.address,
+            "CoDCity": municipality_code
         },
         "mail": contacts[0].user,
         "regime": party.tax_regime,
