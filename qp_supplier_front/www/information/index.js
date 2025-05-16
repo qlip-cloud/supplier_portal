@@ -713,7 +713,7 @@ function setup_button(supplier) {
     $alertStatus.addClass(alert_estatus[supplier.qp_status].class);
 
 
-    $alertStatus.html(alert_estatus[supplier.qp_status].message);
+    $alertStatus.find("div:first").html(alert_estatus[supplier.qp_status].message);
 
 }
 
