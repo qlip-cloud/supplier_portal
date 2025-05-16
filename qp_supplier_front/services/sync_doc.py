@@ -229,7 +229,7 @@ def get_result(endpoint, supplier_id, latest_record = None):
     return result
 
 def assertResponse(result, endpoint):
-    
+    pass
     if "status" not in result or result["status"] != 200:
         
         raise ExceptionSyncResponse(endpoint)

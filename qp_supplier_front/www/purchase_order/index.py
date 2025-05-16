@@ -1,6 +1,6 @@
 import frappe
 import json
-from qp_supplier_front.uses_cases.sales_order.sync_by_supplier import handler as sync_by_supplier
+from qp_supplier_front.uses_cases.sales_order.sync_by_supplier import handler as sync_by_supplier_e
 from qp_supplier_front.services.pagination import get_paginated
 
 def get_context(context):
@@ -11,7 +11,13 @@ def get_context(context):
     
     supplier_id = query_params.get("supplier")
     
-    
+    try:
+        sync_by_supplier_e(supplier_id)
+        
+    except Exception as e:
+        
+        frappe.log_error(message=frappe.get_traceback(), title=f"Error sync purchase order: {supplier_id}")
+            
     key = "sales_order"
     
     doctype = "Purchase Order"
