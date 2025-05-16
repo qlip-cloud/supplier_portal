@@ -8,7 +8,10 @@ def handler(supplier_id, qp_financial_currency_foreigner, qp_financial_which_cur
     
     set_financial(supplier, qp_financial_currency_foreigner, qp_financial_which_currency_foreigner, qp_financial_other_operations, qp_financial_item_foreigner, qp_financial_account_currency_foreigner, qp_financial_item_type, qp_financial_item_number, qp_financial_entity, qp_financial_amount, qp_financial_city, qp_financial_country,qp_financial_currency)
     
-    validate_field(supplier, "international" , 0, None, qp_financial_currency_foreigner, qp_financial_other_operations, qp_financial_item_foreigner, qp_financial_account_currency_foreigner, qp_financial_amount, qp_financial_city, qp_financial_country,qp_financial_currency)
+    if qp_financial_currency_foreigner=="NO":
+        validate_field(supplier, "international" , 0, None, qp_financial_currency_foreigner, qp_financial_item_foreigner, qp_financial_account_currency_foreigner)
+    else:
+        validate_field(supplier, "international" , 0, None, qp_financial_currency_foreigner, qp_financial_item_foreigner, qp_financial_account_currency_foreigner, qp_financial_amount, qp_financial_city, qp_financial_country,qp_financial_currency)
         
     return {
         "supplier": supplier.as_dict()
