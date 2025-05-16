@@ -508,6 +508,7 @@ $(document).ready(function () {
         callresponse = (response) => {
             const data = response.data
             const bank_account = data.bank_account
+            const bank = data.bank
 
 
             const $doctype_id = $("#form-bank-account [name='doctype_id']");
@@ -528,8 +529,8 @@ $(document).ready(function () {
 
             $dataBankAccount_no.val(bank_account.bank_account_no);
 
-            $swiftNumber.val(bank_account.bank.qp_swift_number || "");
-            $abaNumber.val(bank_account.bank.qp_aba_number || "");
+            $swiftNumber.val(bank.qp_swift_number || "");
+            $abaNumber.val(bank.qp_aba_number || "");
             $ibanNumber.val(bank_account.qp_iban_number || "");
             $qp_routing_code.val(bank_account.qp_routing_code || "");
 

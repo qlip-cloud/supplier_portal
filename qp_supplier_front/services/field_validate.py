@@ -4,7 +4,7 @@ from qp_supplier_front.services.get_data import get_dynamic_link
 def handler(supplier, valid_code, count, dual_field = None, *args):
     if should_skip_section(supplier, valid_code):
         sections = frappe.get_list("qp_SP_FieldSection", filters={"code": valid_code}, fields=["number_valid"])
-        required = sections[0].number_valid if sections else 0
+        required = int(sections[0].number_valid) if sections else 0
 
         add_field_validations(supplier, valid_code, count=required)
         supplier.save()
@@ -29,9 +29,9 @@ def add_field_validations(supplier,valid_code, count):
 def set_field_validations(supplier, valid_code, count):
     
     for field_validation in supplier.qp_field_validations:
-        
+
         if field_validation.field_section == valid_code:
-            
+
             field_validation.number = count
 
             if field_validation.field_section == "international":
