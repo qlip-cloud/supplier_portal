@@ -37,6 +37,8 @@ def set_field_validations(supplier, valid_code, count):
             if field_validation.field_section == "international":
                 if supplier.qp_financial_currency_foreigner == "NO":
                     field_validation.is_completed = count == 3
+                else:
+                    field_validation.is_completed = count == int(field_validation.field_number)   
             else:
                 field_validation.is_completed = count == int(field_validation.field_number)
 
