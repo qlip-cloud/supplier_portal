@@ -124,8 +124,8 @@ def get_eft_information(supplier):
     bank_accounts = get_bank_accounts(supplier, "Bank Account")
     
     account_type_dict = {
-        "Ahorro": 1,
-        "Corriente": 2,
+        "Corriente": 1,
+        "Ahorro": 2
     }
     
     qp_iban_number = ""
