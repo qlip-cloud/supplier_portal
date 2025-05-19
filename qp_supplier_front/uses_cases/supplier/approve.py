@@ -1,6 +1,6 @@
 from qp_supplier_front.services.get_data import get_supplier
 APPROVE = "Aprobado"
-from qp_supplier_front.constant.endpoint import SUPPLIER_INSERT
+from qp_supplier_front.constant.endpoint import SUPPLIER_INSERT, SUPPLIER_UPDATE, SUPPLIER_FIND
 from qp_supplier_front.services.get_data import get_party, get_dynamic_link, get_bank_accounts
 from qp_supplier_front.services.utils import add_log
 from qp_authorization.use_case.bearer.authorize import send_request
@@ -24,7 +24,11 @@ def sync_supplier(supplier):
     
     payload = get_payload(supplier)
     
-    result = send_request(SUPPLIER_INSERT, payload = payload)
+    is_gp_supplier = get_is_gp_supplier(supplier)
+    
+    endpoint = SUPPLIER_UPDATE if is_gp_supplier else SUPPLIER_INSERT
+    
+    result = send_request(endpoint, payload = payload)
     
     add_log("Create Supplier", payload, result, supplier.name)
     
@@ -37,7 +41,13 @@ def sync_supplier(supplier):
     if "result" in result and "statuscode" in result.get("result") and result.get("result").get("statuscode") != 200:
        
         frappe.log_error(message=result.get("result").get("description"), title=f"Error sync supplier: {supplier.name}")
-        
+
+def get_is_gp_supplier(supplier):
+    
+    result = send_request(SUPPLIER_FIND, param = f"{supplier.tax_id}")
+    
+    return result and "status" in result and result.get("status") == 200
+         
 def get_payload(supplier):
     
     busness_type = {
@@ -72,7 +82,7 @@ def get_payload(supplier):
             "country": address.get("country"),
             "state": address.get("state", ""),
             "city": address.get("municipality",""),
-            "address": party.address,
+            "address": party.address or "",
             "CoDCity": address.get("municipality_code", "")
         },
         "mail": contact.user,
@@ -99,22 +109,43 @@ def get_contact(supplier):
     
 def get_address(party):
     
-    state = ""
-    municipality = ""
+    state_name = ""
+    
+    municipality_name = ""
+    
     municipality_code = "00000"
     
     country = frappe.db.get_value('Country', party.country, 'gp_country')
     
     if country == "Colombia":
         
-        state = frappe.db.get_value('qp_CO_State', party.state,  "state_name")
-        municipality = frappe.db.get_value('qp_CO_Municipality', party.municipality, 'municipality_name')
+        municipality_code = ""
         
-        municipality_code = f"{party.state_code}{party.municipality_code}"
+        if party.state:
+            
+            if frappe.db.exists('qp_CO_State', party.state):
+            
+                state = frappe.get_doc('qp_CO_State', party.state)
+            
+                state_name = state.state_name
+            
+                state_code = state.state_code
+            
+        if party.municipality:
+            
+            if frappe.db.exists('qp_CO_Municipality', party.municipality):
+                
+                municipality = frappe.get_doc('qp_CO_Municipality', party.municipality)
+                                  
+                municipality_name = municipality.municipality_name
+                    
+                municipality_code = municipality.municipality_code
+                
+        municipality_code = f"{state_code}{municipality_code}"
         
     return {
-        "state": state,
-        "municipality": municipality,
+        "state": state_name,
+        "municipality": municipality_name,
         "municipality_code": municipality_code,
         "country":country
     }
