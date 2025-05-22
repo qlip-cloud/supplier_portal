@@ -56,7 +56,9 @@ def get_payload(supplier):
     }
     party = get_party(supplier)
     
-    address = get_address(party)
+    addresses = get_dynamic_link(supplier, "Address")
+    
+    address = get_address(addresses[0] if addresses else None)
     
     eft_information = get_eft_information(supplier)
     
@@ -107,35 +109,39 @@ def get_contact(supplier):
     
     return contact[0] if contact else ""
     
-def get_address(party):
+def get_address(address):
     
     state_name = ""
-    
+    state_code = ""
     municipality_name = ""
     
     municipality_code = "00000"
     
-    country = frappe.db.get_value('Country', party.country, 'gp_country')
+    country = ""
+    
+    if address:
+        
+        country = frappe.db.get_value('Country', address.country, 'gp_country')
     
     if country == "Colombia":
         
         municipality_code = ""
         
-        if party.state:
+        if address.city:
             
-            if frappe.db.exists('qp_CO_State', party.state):
+            if frappe.db.exists('qp_CO_State', address.city):
             
-                state = frappe.get_doc('qp_CO_State', party.state)
+                state = frappe.get_doc('qp_CO_State', address.city)
             
                 state_name = state.state_name
             
                 state_code = state.state_code
             
-        if party.municipality:
+        if address.state:
             
-            if frappe.db.exists('qp_CO_Municipality', party.municipality):
+            if frappe.db.exists('qp_CO_Municipality', address.state):
                 
-                municipality = frappe.get_doc('qp_CO_Municipality', party.municipality)
+                municipality = frappe.get_doc('qp_CO_Municipality', address.state)
                                   
                 municipality_name = municipality.municipality_name
                     

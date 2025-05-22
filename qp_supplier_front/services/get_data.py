@@ -23,7 +23,7 @@ def get_dynamic_link(doc, doctype):
 		["Dynamic Link", "parenttype", "=", doctype]
 	]
     
-    all_data = frappe.get_all(doctype, filters=filters, fields=["*"])
+    all_data = frappe.get_all(doctype, filters=filters, fields=["*"], order_by = "creation desc")
     
     return [frappe.get_doc(doctype, data.get("name")) for data in all_data]
 
