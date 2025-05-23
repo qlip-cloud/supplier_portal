@@ -74,6 +74,7 @@ def set_doc(result, docs_new, request_key, request_key_id ,request_list_key, doc
     assertRequestValid(result, request_key)
     
     assertDocNewNotEmpty(docs_new, doctype)
+    
     docs = {}    
     items ={}
     errors ={}
