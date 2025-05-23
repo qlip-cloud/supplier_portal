@@ -65,7 +65,7 @@ def setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_k
                    
 def get_last_creation(doctype, supplier_id, order_by):
     
-    latest_record = frappe.db.get_list(doctype, filters = {"supplier", supplier_id}, pluck = order_by, order_by=f"{order_by} desc", limit=1)  
+    latest_record = frappe.db.get_list(doctype, filters = {"supplier": supplier_id}, pluck = order_by, order_by=f"{order_by} desc", limit=1)  
             
     return latest_record[0] if latest_record else None
 
