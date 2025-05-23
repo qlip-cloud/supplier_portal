@@ -243,7 +243,7 @@ def get_result(endpoint, supplier_id, latest_record = None):
         
     result = send_request(url, param=param)
     
-    assertResponse(result, endpoint)
+    assertResponse(result, url)
     
     return result
 
@@ -275,8 +275,10 @@ def insert_erros(docs):
         create_doc(docs, doc_fiels, table)
 
 def assertResponse(result, endpoint):
-    pass
+    
     if "status" not in result or result["status"] != 200:
+        
+        frappe.log_error(message=json.dumps(result), title="assertResponse")
         
         raise ExceptionSyncResponse(endpoint)
                 
