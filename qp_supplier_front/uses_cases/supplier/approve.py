@@ -84,7 +84,7 @@ def get_payload(supplier):
             "country": address.get("country"),
             "state": address.get("state", ""),
             "city": address.get("municipality",""),
-            "address": party.address or "",
+            "address": address.get("address_line1",""),
             "CoDCity": address.get("municipality_code", "")
         },
         "mail": contact.user,
@@ -118,11 +118,11 @@ def get_address(address):
     municipality_code = "00000"
     
     country = ""
-    
+    address_line1 = ""
     if address:
         
         country = frappe.db.get_value('Country', address.country, 'gp_country')
-    
+        address_line1 = address.address_line1
     if country == "Colombia":
         
         municipality_code = ""
@@ -153,7 +153,8 @@ def get_address(address):
         "state": state_name,
         "municipality": municipality_name,
         "municipality_code": municipality_code,
-        "country":country
+        "country":country,
+        "address_line1":address_line1
     }
         
 def get_eft_information(supplier):
