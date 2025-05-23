@@ -36,14 +36,13 @@ def update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_n
     bank_name = bank.strip()
     existing_bank = frappe.db.exists("Bank", bank_name)
 
-    if not existing_bank:
-        new_bank = frappe.new_doc("Bank")
-        new_bank.bank_name = bank_name
+    if existing_bank:
+        bank_doc = frappe.get_doc("Bank", bank_name)
         if swift_number:
-            new_bank.qp_swift_number = swift_number
+            bank_doc.swift_number = swift_number
         if qp_aba_number:
-            new_bank.qp_aba_number = qp_aba_number
-        new_bank.insert(ignore_permissions=True)
+            bank_doc.qp_aba_number = qp_aba_number
+        bank_doc.save()
 
     bank_account.bank = bank
     bank_account.account_type = account_type
