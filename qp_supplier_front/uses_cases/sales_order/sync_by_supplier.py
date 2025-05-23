@@ -79,5 +79,3 @@ def insert_doc(docs, items):
     items_fiels = "(name, item_code, qp_qty, qty, qp_unit_cost, rate, qp_extd_cost, parent, parentfield, parenttype, amount, item_name, creation, modified, modified_by, owner)"
     
     create_doc(items, items_fiels, table_item)
-
-    frappe.db.commit()

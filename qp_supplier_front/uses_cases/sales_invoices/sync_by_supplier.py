@@ -60,5 +60,3 @@ def insert_doc(docs, items = None):
     doc_fiels = "(name, invoice_id, status, create_date, registration_date, currency, subtotal, tax, total, supplier, detail, creation, modified, modified_by, owner)"
     
     create_doc(docs, doc_fiels, table)
-
-    frappe.db.commit()

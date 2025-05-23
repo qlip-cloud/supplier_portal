@@ -4,6 +4,9 @@ from datetime import datetime
 from qp_authorization.use_case.bearer.authorize import send_request
 from qp_supplier_front.exception.sync import ExceptionSyncResponseEmpty, ExceptionSyncNoNewRecords, ExceptionSyncProductNotFound, ExceptionSyncRequestNotList, ExceptionSyncDocNotList, ExceptionSyncResponse
 from qp_supplier_front.services.background.set_item import handler as set_sync_item
+from qp_supplier_front.util.command import create_doc
+
+NOW = str(datetime.now())
 
 def setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list, doctype_list_key_id, is_validate_items, get_doc_base, order_by, insert_doc, set_item_default = None):
     
@@ -29,7 +32,9 @@ def setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_k
         
         docs_new = get_docs_new(result, request_key, request_key_id, doctype_key, doctype)
         
-        set_doc(result, docs_new, request_key, request_key_id, request_list_key, doctype, items_code, doctype_list_key, request_list_key_id, is_validate_items, get_doc_base, insert_doc, set_item_default)       
+        set_doc(result, docs_new, request_key, request_key_id, request_list_key, doctype, items_code, doctype_list_key, request_list_key_id, is_validate_items, get_doc_base, insert_doc, set_item_default)
+              
+        frappe.db.commit()
         
     except ExceptionSyncResponse as e:
         
@@ -71,7 +76,11 @@ def set_doc(result, docs_new, request_key, request_key_id ,request_list_key, doc
     assertDocNewNotEmpty(docs_new, doctype)
     docs = {}    
     items ={}
+    errors ={}
+    
     for doc_new in docs_new:
+        
+        qp_is_error = False
         
         key_id = doc_new.get(request_key_id)
         
@@ -81,7 +90,7 @@ def set_doc(result, docs_new, request_key, request_key_id ,request_list_key, doc
             
             get_doc_base(doc_new, request_key_id, docs)
             
-            set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_key_id, doctype_list_key, request_key_id, is_validate_items, items, set_item_default)
+            set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_key_id, doctype_list_key, request_key_id, is_validate_items, items, errors, set_item_default)
             
             #set_doc_control(doc_new, request_list_key, doctype_list_key)
             
@@ -95,11 +104,8 @@ def set_doc(result, docs_new, request_key, request_key_id ,request_list_key, doc
             
             title = str(e)
             
-            #doc.append("lines_errors", {
-            #    "line":0,
-            #    "code": 0,
-            #    "error": title
-            #})
+            qp_is_error = True
+            
             
             pass
         
@@ -107,24 +113,20 @@ def set_doc(result, docs_new, request_key, request_key_id ,request_list_key, doc
             
             title = str(e)
             
-            #doc.qp_is_error = True
-            
-            #doc.append("lines_errors", {
-            #    "line":0,
-            #    "code": 0,
-            #    "error": title
-            #})
-            
+            qp_is_error = True
+
             pass
         
         finally:
-            pass
-            #if doc.qp_is_error == True:
-                            
-            #frappe.log_error(message=json.dumps(doc_new), title=title) 
+            
+            if qp_is_error == True:                
+                
+                frappe.log_error(message=json.dumps(doc_new), title=title) 
     
     insert_doc(docs, items)
-        
+    
+    insert_erros(errors)
+    
 def sync_item(doc, doc_new, items_code, set_item, doctype, doctype_list_key, request_list_key_id, request_list_key):
     
     if set_item and not doc.qp_is_item_sync:
@@ -144,19 +146,19 @@ def set_doc_control(doc, doc_new, request_list_key, doctype_list_key):
         
         doc.qp_is_item_sync = doc.qp_item_sync == doc.qp_item_count       
                        
-def set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_key_id, doctype_list_key, request_key_id, is_validate_items, items, set_item_default = None):
+def set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_key_id, doctype_list_key, request_key_id, is_validate_items, items, errors, set_item_default = None):
     
     if set_item_default:
         
         count = 0
-        
+        qp_is_error = False
         assertRequestListNotEmpty(doc_new.get(request_list_key), request_key_id)
         
         message=json.dumps(doc_new)
         
         for item in doc_new.get(request_list_key):
             
-            title=f"Error sync {doctype}: {item.get(request_key_id)}"
+            title=f"Error sync {doctype}: {item.get(request_list_key_id)}"
 
             try:
                 
@@ -168,39 +170,47 @@ def set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_ke
                 
                 #doc.append(doctype_list_key, set_item_default(item))
             
-            except ExceptionSyncProductNotFound as e:  
+            except ExceptionSyncProductNotFound as e:
+                
                 title = str(e)
+
+                qp_is_error = True
                 
-                """doc.qp_is_error = True
-                
-                doc.append("lines_errors", {
+                error = {
                     "line":count,
                     "code": item.get(request_list_key_id),
                     "error": title
-                })
-                message=json.dumps(item)"""
+                }  
+
+                message=json.dumps(item)
+                
+                set_error(error, errors, doc_new.get(request_key_id), item.get(request_list_key_id), doctype)
+                
                 pass
             
             except Exception as e:
                 
-                #doc.qp_is_error = True
-                
                 title = str(e)
                 
-                """doc.append("lines_errors", {
+                qp_is_error = True
+                
+                error = {
                     "line":0,
                     "code": 0,
                     "error": title
-                })"""
+                }  
+                
+                set_error(error, errors, doc_new.get(request_key_id), item.get(request_list_key_id), doctype)
                 
                 message=json.dumps(item)
+                
                 pass
                 
             finally:            
-                pass
-                #if doc.qp_is_error == True:
                 
-                #    frappe.log_error(message=message, title=title)
+                if qp_is_error == True:
+                
+                    frappe.log_error(message=message, title=title)
 
 def get_docs_new(result, request_key, request_key_id, doctype_key, doctype):
     
@@ -235,6 +245,31 @@ def get_result(endpoint, supplier_id, latest_record = None):
     assertResponse(result, endpoint)
     
     return result
+
+
+def set_error(error, errors, doc_id, item_code, doctype):
+
+    errors.update({f"{doc_id}:{item_code}":(
+            f"{doc_id}:{item_code}",
+            error.get("line"),
+            error.get("code"),
+            error.get("error"),
+            doc_id,
+            "lines_errors",
+            doctype,
+            NOW,
+            NOW,
+            "Administrator",
+            "Administrator"
+        )})
+    
+def insert_erros(docs):
+    
+    table = "`tabqp_SP_LineErrorSync`"
+    
+    doc_fiels = "(name, line, code, error, parent, parentfield, parenttype, creation, modified, modified_by, owner)"
+    
+    create_doc(docs, doc_fiels, table)
 
 def assertResponse(result, endpoint):
     pass
