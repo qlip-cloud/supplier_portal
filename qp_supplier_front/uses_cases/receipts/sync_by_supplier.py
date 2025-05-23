@@ -54,10 +54,10 @@ def set_item(item, items, doc_id, items_data = None):
     item_code = item.get("aptvchnm")
     items.update({f"{doc_id}:{item_code}":(
             f"{doc_id}:{item_code}",
-            item.get("aptvchnm"),
-            item.get("seq"),
-            item.get("appldamt"),
-            item.get("aptodcnm"),
+            item.get("aptvchnm") or "",
+            item.get("seq") or "",
+            item.get("appldamt") or "",
+            item.get("aptodcnm") or "",
             doc_id,
             "qp_references",
             "Purchase Receipt",

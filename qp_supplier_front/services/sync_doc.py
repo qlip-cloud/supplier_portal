@@ -265,11 +265,13 @@ def set_error(error, errors, doc_id, item_code, doctype):
     
 def insert_erros(docs):
     
-    table = "`tabqp_SP_LineErrorSync`"
+    if docs:
+        
+        table = "`tabqp_SP_LineErrorSync`"
     
-    doc_fiels = "(name, line, code, error, parent, parentfield, parenttype, creation, modified, modified_by, owner)"
+        doc_fiels = "(name, line, code, error, parent, parentfield, parenttype, creation, modified, modified_by, owner)"
     
-    create_doc(docs, doc_fiels, table)
+        create_doc(docs, doc_fiels, table)
 
 def assertResponse(result, endpoint):
     pass
