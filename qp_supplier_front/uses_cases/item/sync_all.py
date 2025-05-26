@@ -21,15 +21,19 @@ def handler():
     
     items_result = result["items"]
     
+    item_codes = frappe.db.get_list('Item', filters={'item_code': ["in", [item_result.get('itemId') for item_result in items_result]]}, pluck='item_code')
+    
     create_uoms(items_result)
     
-    create_items(items_result)   
-        
-def create_items(items_result):
+    create_items(items_result, item_codes)
+    
+    update_items(items_result, item_codes)
+    
+    frappe.db.commit()
+    
+def create_items(items_result, item_codes):
     
     items_new = {}
-    
-    item_codes = frappe.db.get_list('Item', filters={'item_code': ["in", [item_result.get('itemId') for item_result in items_result]]}, pluck='item_code')
     
     for item in items_result:
         
@@ -55,20 +59,47 @@ def create_items(items_result):
                 qp_type = item.get("itemType")
                 qp_class = item.get("class")
                 stock_uom = item.get("unitOfMeasurePlan")
+                disabled = item.get("itemStatus") !=  "Activo"
                 
                 #qp_info = item.get("priceLevel") no se que hacer con la lista de precios
                 
                 items.append((item_code, item_code, item_name, item_group, qp_location,
-                            qp_qty, qp_info, qp_data, qp_type, qp_class, stock_uom,
+                            qp_qty, qp_info, qp_data, qp_type, qp_class, stock_uom, disabled,
                             current_time, current_time, owner, owner))                  
                                 
         if items:
             
             frappe.db.sql("""
-                INSERT INTO `tabItem` (name, item_code, item_name, item_group, qp_location, qp_qty, qp_info, qp_data, qp_type, qp_class, stock_uom, creation, modified, owner, modified_by)
+                INSERT INTO `tabItem` (name, item_code, item_name, item_group, qp_location, qp_qty, qp_info, qp_data, qp_type, qp_class, stock_uom, disabled, creation, modified, owner, modified_by)
                 VALUES {values}
             """.format(values=', '.join(str(item) for item in items)))
-        frappe.db.commit()
+            
+def update_items(items_result, item_codes):
+    
+    for item in items_result:
+        
+        if item.get("itemId") in item_codes:
+            
+            is_disabled = 1 if item.get("itemStatus") !=  "Activo" else 0
+            description = frappe.db.escape(item.get("itemDescription"))
+            sql = f""" 
+                UPDATE `tabItem` 
+                SET
+                    item_name = {description},
+                    qp_location = '{item.get("location")}',
+                    qp_qty = {item.get("quantityAvailable")},
+                    qp_info = '{item.get("itemInfo")}',
+                    qp_data = '{item.get("itemData")}',
+                    qp_type = {item.get("itemType")},
+                    qp_class = '{item.get("class")}',
+                    stock_uom = '{item.get("unitOfMeasurePlan")}',
+                    disabled = {is_disabled}
+                WHERE 
+                    item_code = '{item.get("itemId")}'
+            """
+             
+            frappe.db.sql(sql)
+
 def create_uoms(items_result):
     
     uom_codes = frappe.db.get_list('UOM', filters={'uom_name': ["in", [item_result.get('unitOfMeasurePlan') for item_result in items_result]]}, pluck='uom_name')

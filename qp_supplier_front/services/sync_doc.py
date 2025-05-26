@@ -84,7 +84,7 @@ def set_doc(result, docs_new, request_key, request_key_id ,request_list_key, doc
         qp_is_error = False
         
         key_id = doc_new.get(request_key_id)
-        
+           
         title=f"Error sync {doctype}: {key_id}"
         
         try:
@@ -157,7 +157,7 @@ def set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_ke
         
         message=json.dumps(doc_new)
         
-        for item in doc_new.get(request_list_key):
+        for key, item in enumerate(doc_new.get(request_list_key)):
             
             title=f"Error sync {doctype}: {item.get(request_list_key_id)}"
 
@@ -201,7 +201,7 @@ def set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_ke
                     "error": title
                 }  
                 
-                set_error(error, errors, doc_new.get(request_key_id), item.get(request_list_key_id), doctype)
+                set_error(error, errors, doc_new.get(request_key_id), item.get(request_list_key_id), doctype, key)
                 
                 message=json.dumps(item)
                 
@@ -248,10 +248,10 @@ def get_result(endpoint, supplier_id, latest_record = None):
     return result
 
 
-def set_error(error, errors, doc_id, item_code, doctype):
+def set_error(error, errors, doc_id, item_code, doctype, key):
 
     errors.update({f"{doc_id}:{item_code}":(
-            f"{doc_id}:{item_code}",
+            f"{doc_id}:{item_code}:{key}",
             error.get("line"),
             error.get("code"),
             error.get("error"),
