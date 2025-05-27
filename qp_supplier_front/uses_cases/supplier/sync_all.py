@@ -72,9 +72,9 @@ def handler():
 
             else:
                 count += 1
-                print(f"El proveedor con tax_id {supplier_response.get('vendorId')} ya existe en la base de datos en linea {key}")
+                #print(f"El proveedor con tax_id {supplier_response.get('vendorId')} ya existe en la base de datos en linea {key}")
                 
-        print(f"Se han creado {count} proveedores")
+        #print(f"Se han creado {count} proveedores")
                
     frappe.db.set_value('qp_SP_MasterSetup', None, 'supplier_date_sync', sync_datetime)
     

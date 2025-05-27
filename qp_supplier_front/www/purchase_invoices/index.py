@@ -22,19 +22,20 @@ def get_context(context):
     
     key = "sales_invoices"
     
-    doctype = "Purchase Invoice"
-    
-    doctype_detail = "Purchase Invoice Item"
-    
+    doctype = "qp_SP_PurchaseInvoice"
+        
+    context.order_by = "create_date"
     context.supplier_id = supplier_id
     
-    context.sales_invoices = get_paginated(0, doctype, supplier_id)
+    context.sales_invoices = get_paginated(0, doctype, supplier_id, context.order_by )
                        
     context.key = key
     
     context.doctype = doctype
-    
-    context.doctype_detail = doctype_detail
-    
+        
     context.show_result = True
+    
+    context.date_key = "create_date"
+    
+    
     

@@ -9,51 +9,42 @@ def handler(doc, products, items_valid, key_item, key_id, set_item):
         try:
             
             if products:
-                                            
-                batch_size = 200
+    
+                try:
                 
-                batch_control = 1
+                    for key, item in enumerate(products):
+                                                                                    
+                        try:
+                            
+                            if items_valid:
+                                
+                                validate_item(item, items_valid, key_id)
+                            
+                            doc.append(key_item, set_item(item))
+                            
+                        except Exception as e:
+                            doc.append("lines_errors", {
+                                "line":key,
+                                "code": "Lote",
+                                "error": str(e)
+                            })
+                            
+                    doc.qp_item_count = len(doc.items)
+                    
+                    doc.qp_is_item_sync = doc.qp_item_sync == doc.qp_item_count
+                    
+                except Exception as e:
+                    doc.append("lines_errors", {
+                        "line": key,
+                        "code": item.get("itemnmbr"),
+                        "error": str(e)
+                    })                           
+                    
+                finally:
                 
-                for i in range(0, len(products), batch_size):
-                                            
-                    batch = products[i:i + batch_size]
-                    
-                    try:
-                    
-                        for item in batch:  
-                                                                
-                            batch_control += 1
-                            
-                            try:
-                                
-                                if items_valid:
-                                    
-                                    validate_item(item, items_valid, key_id)
-                                
-                                doc.append(key_item, set_item(item))
-                                
-                            except Exception as e:
-                                doc.append("lines_errors", {
-                                    "line":i + batch_size,
-                                    "code": "Lote",
-                                    "error": str(e)
-                                })
-                        doc.qp_item_count = len(doc.items)
+                    doc.save()
                         
-                        doc.qp_is_item_sync = doc.qp_item_sync == doc.qp_item_count
-                        
-                    except Exception as e:
-                        doc.append("lines_errors", {
-                            "line":batch_control,
-                            "code": item.get("itemnmbr"),
-                            "error": str(e)
-                        })                           
-                        
-                    finally:
-                    
-                        doc.save()
-                            
-                        frappe.db.commit()                        
+                    frappe.db.commit()                        
                             
                         
         except Exception as e:
@@ -65,6 +56,7 @@ def handler(doc, products, items_valid, key_item, key_id, set_item):
             })
         
         finally:
+            
             doc.qp_process_item_sync  = False
             
             doc.save()

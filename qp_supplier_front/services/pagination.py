@@ -10,25 +10,28 @@ def get_detail(parent_doctype, doctype, name, page = 0):
     
     doc = frappe.get_doc(parent_doctype, name)
     
+    count = frappe.db.count(doctype, {"parent": name})
+    
+    total_pages = (count + page_length - 1) // page_length   
+
     list_detail = frappe.get_list(doctype, filters = {"parent": name}, fields = ["*"], start=start,
     page_length=page_length)
     
-    total_pages = (doc.qp_item_sync + page_length - 1) // page_length   
          
     return {
         "list_detail": list_detail,
         "parent": doc,
-        "total_items": doc.qp_item_sync,
-        "total_items_sync": doc.qp_item_count,
+        "total_items": count,
+        "total_items_sync": count,
         "total_pages": total_pages,
         "page": page
     }
     
 
-def get_paginated(page, doctype, supplier_id, filters = {}):
+def get_paginated(page, doctype, supplier_id, order_by, filters = {}):
     
     filters.update({"supplier": supplier_id})
     
     start = page * PAGE_LENGTH
     
-    return frappe.get_list(doctype, filters = filters, fields = ["*"], start=start, page_length=PAGE_LENGTH)
+    return frappe.get_list(doctype, filters = filters, fields = ["*"], start=start, page_length=PAGE_LENGTH, order_by = f"{order_by} desc")

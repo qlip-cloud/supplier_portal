@@ -2,31 +2,25 @@
 {% for invoice in sales_invoices %}
 
 <tr class="card-header" id="heading-{{ invoice.qp_invoice_id }}">
-    <td class="text-left">{{ invoice.qp_invoice_id }}</td>
+    <td>{{ invoice.invoice_id }}</td>
     <td class="text-left">
         <span class="status-badge
-          {% if invoice.qp_status == 'Abierto' %} status-open
-          {% elif invoice.qp_status == 'Pagado' %} status-paid
-          {% elif invoice.qp_status == 'Cancelado' %} status-cancelled
+          {% if invoice.status == 'Abierto' %} status-open
+          {% elif invoice.status == 'Pagado' %} status-paid
+          {% elif invoice.status == 'Cancelado' %} status-cancelled
           {% else %} status-default
           {% endif %}">
-            {{ invoice.qp_status }}
+            {{ invoice.status }}
         </span>
     </td>
-    <td class="text-left">{{ frappe.format_date(invoice.qp_create_date, "dd/MM/yyyy") }}</td>
-    <td class="text-left">{{ frappe.format_date(invoice.qp_due_date, "dd/MM/yyyy") }}</td>
-    <td class="text-left">{{ invoice.currency }}</td>
-    <td class="text-left">{{ frappe.format_value(invoice.qp_subtotal, "Currency", currency = invoice.currency) }}</td>
-    <td class="text-left">{{ frappe.format_value(invoice.qp_tax, "Currency", currency = invoice.currency) }}</td>
-    <td class="text-left">{{ frappe.format_value(invoice.qp_total, "Currency", currency = invoice.currency) }}</td>
-    <td class="text-left">
-        <span class="material-symbols-outlined detail-row empty-data" data-toggle="collapse"
-            id="action-{{invoice.name}}" data-target="#collapse-{{ invoice.qp_invoice_id }}" aria-expanded="true"
-            aria-controls="collapse-{{ invoice.qp_invoice_id }}" data-name="{{invoice.name}}" data-key="{{key}}"
-            data-doctype="{{doctype_detail}}" data-parent-doctype="{{doctype}}" data-search="1">
-            inventory_2
-        </span>
-    </td>
+
+    <td class="text-center">{{ frappe.format_date(invoice.create_date, "dd/MM/yyyy") }}</td>
+    <td class="text-center">{{ frappe.format_date(invoice.registration_date, "dd/MM/yyyy") }}</td>
+    <td class="text-center">{{ invoice.currency }}</td>
+    <td class="text-right">{{ frappe.format_value(invoice.subtotal, "Currency", currency = invoice.currency) }}</td>
+    <td class="text-right">{{ frappe.format_value(invoice.tax, "Currency", currency = invoice.currency) }}</td>
+    <td class="text-right">{{ frappe.format_value(invoice.total, "Currency", currency = invoice.currency) }}</td>
+    
 </tr>
 <tr id="collapse-{{ invoice.qp_invoice_id }}" class="collapse" aria-labelledby="heading-{{ invoice.qp_invoice_id }}"
     data-parent="#accordion" data-sync="0">

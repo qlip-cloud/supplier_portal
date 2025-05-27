@@ -1,6 +1,9 @@
 import frappe
 from qp_supplier_front.services.sync_doc import setup_doc
-from qp_supplier_front.constant.endpoint import PAYMENT_SUPPLIER_ID
+from qp_supplier_front.constant.endpoint import PAYMENT_SUPPLIER_ID, PAYMENT_SUPPLIER_DATE_RANGE
+from qp_supplier_front.util.command import create_doc
+from datetime import datetime
+NOW = str(datetime.now())
 
 def handler(supplier_id):
     
@@ -14,30 +17,66 @@ def handler(supplier_id):
     doctype_list = None
     doctype_list_key_id = None
     is_validate_items = False
+    order_by = "qp_create_date"
     
-    setup_doc(supplier_id, PAYMENT_SUPPLIER_ID, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list,doctype_list_key_id, is_validate_items, get_doc_base, set_item)
-                
-def get_doc_base(doctype, doc_new, request_key_id):
-    
-    doc = frappe.new_doc(doctype)
-    
-    doc.qp_receipt_id = doc_new.get(request_key_id)
-    doc.qp_create_date = doc_new.get("dinvodof")
-    doc.supplier = doc_new.get("vendor")
-    doc.posting_date = doc_new.get("docDate")
-    doc.qp_amount = doc_new.get("docamnt")
-    doc.base_grand_total = 0
-    doc.grand_total = 0
-    doc.base_rounded_total = 0
-    doc.rounded_total = 0
-    
-    return doc
-     
-def set_item(item):
-    return {
-        "qp_aptovcnm": item.get("aptvchnm"),
-        "qp_seq": item.get("seq"),
-        "qp_appldamt": item.get("appldamt"),
-        "qp_aptodcnm": item.get("aptodcnm")
-        
+    endpoint = {
+        "all": PAYMENT_SUPPLIER_ID,
+        "range": PAYMENT_SUPPLIER_DATE_RANGE
     }
+    
+    setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list,doctype_list_key_id, is_validate_items, get_doc_base, order_by, insert_doc, set_item)
+                
+       
+def get_doc_base(doc_new, request_key_id, docs):
+    
+    company = frappe.defaults.get_user_default("company")
+    
+    docs.update({doc_new.get(request_key_id):(
+            doc_new.get(request_key_id),
+            doc_new.get(request_key_id),
+            doc_new.get("dinvodof"),
+            doc_new.get("vendor"),
+            doc_new.get("dinvodof"),
+            doc_new.get("docamnt"),
+            0,
+            0,
+            0,
+            0,
+            company,
+            NOW,
+            NOW,
+            "Administrator",
+            "Administrator"
+        )})
+
+def set_item(item, items, doc_id, items_data = None):
+
+    item_code = item.get("aptvchnm")
+    items.update({f"{doc_id}:{item_code}":(
+            f"{doc_id}:{item_code}",
+            item.get("aptvchnm") or "",
+            item.get("seq") or "",
+            item.get("appldamt") or "",
+            item.get("aptodcnm") or "",
+            doc_id,
+            "qp_references",
+            "Purchase Receipt",
+            NOW,
+            NOW,
+            "Administrator",
+            "Administrator"
+        )})
+
+def insert_doc(docs, items):
+    
+    table = "`tabPurchase Receipt`"
+    
+    doc_fiels = "(name, qp_receipt_id, qp_create_date, supplier, posting_date, qp_amount, base_grand_total, grand_total, base_rounded_total, rounded_total, company, creation, modified, modified_by, owner)"
+    
+    create_doc(docs, doc_fiels, table)
+    
+    table_item = "`tabqp_SP_PurchaseReceiptItem`"
+
+    items_fiels = "(name, qp_aptovcnm, qp_seq, qp_appldamt, qp_aptodcnm, parent, parentfield, parenttype, creation, modified, modified_by, owner)"
+    
+    create_doc(items, items_fiels, table_item)
