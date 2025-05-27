@@ -156,12 +156,14 @@ $(document).ready(function () {
         }
     });
 
-    function loadMoreInvoices() {
+    function loadMoreInvoices(is_filter = false) {
 
         currentPage++;
 
-        if (loading == false && no_more == false) {
+        if (is_filter || (loading == false && no_more == false)) {
 
+            $("#no-more").hide()
+            console.log($("#no-more"))
             loading = true;
 
             $("#loading").show()
@@ -219,7 +221,7 @@ $(document).ready(function () {
     
         debounceTimer = setTimeout(function () {
             accordion.html("")
-            loadMoreInvoices()
+            loadMoreInvoices(true)
         }, 300);
     }
 });
