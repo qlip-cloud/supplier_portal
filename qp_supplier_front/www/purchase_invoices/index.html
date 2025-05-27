@@ -1,0 +1,83 @@
+{% extends "qp_supplier_front/templates/includes/container.html" %}
+
+{% block content_page %}
+<div class="row">
+
+
+    <div class="col-lg-12" id="area">
+
+
+        <div class="row row-line">
+
+            <div class="col-lg-2">
+                <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold filter-list"
+                    maxlength="140" data-fieldtype="Data" data-doctype="Issue" id="invoice_id" placeholder="Factura">
+            </div>
+
+
+            <div class="col-lg-2">
+                <input type="date" autocomplete="off" class="input-with-feedback form-control bold filter-list date"
+                    id="start_date" data-placeholder="Fecha de radicación" data-date_key = "{{date_key}}">
+            </div>
+            <div class="col-lg-2">
+                <input type="date" autocomplete="off" class="input-with-feedback form-control bold filter-list date"
+                    id="end_date" data-placeholder="Fecha de radicación" data-date_key = "{{date_key}}">
+            </div>
+
+            <div class="col-lg-2">
+
+                <select class="form-control filter-list" name="status" id="status" data-label="Status" data-fieldtype="Select">
+                    <option value="0" selected="selected" class="custom-option">Estado</option>
+                    <option value="Abierto" >Abierto</option>
+                </select>
+            </div>
+            <div class="col-lg-1 offset-lg-3">
+                <div class="row">
+                    <div class="col-sm-6 offset-lg-6">
+                        <span class="material-symbols-outlined btn  btn-primary" id="refresh_filter_list">
+                            refresh
+                        </span>
+                    </div>
+                    
+                </div>
+            </div>
+
+
+        </div>
+        <div class="row row-line">
+
+            <table class="table table-striped table-bordered table-list">
+                <thead>
+                    <tr>
+                        <th class="text-center">Factura</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Fecha de creación</th>
+                        <th class="text-center">Fecha registro</th>
+                        <th class="text-center">Moneda</th>
+                        <th class="text-center">Neto a pagar</th>
+                        <th class="text-center">Impuesto a pagar</th>
+                        <th class="text-center">Sado a pagar</th>
+                    </tr>
+                </thead>
+                <tbody id="accordion" data-key="{{key}}" data-doctype="{{doctype}}" data-doctype_detail="{{doctype_detail}}" data-order_by="{{order_by}}">
+
+                    {% include "qp_supplier_front/templates/list/sales_invoices/list.html" %}
+
+
+                </tbody>
+            </table>
+
+        </div>
+        <div class="row row-line">
+            <div class="col-sm-12" style="display: none;" id="loading">
+                Buscando información...
+            </div>
+            <div class="col-sm-12" style="display: none;" id="no-more">
+                No hay más registros.
+            </div>
+        </div>
+    </div>
+
+
+</div>
+{% endblock %}

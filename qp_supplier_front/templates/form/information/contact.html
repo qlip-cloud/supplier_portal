@@ -1,35 +1,38 @@
+<div class="row">
+    <div class="col-sm-12 text-muted" style="font-size: 14px; margin: 15px;">
+        <i>Debe crear los cuatro tipos de contacto: <strong>Comercial</strong>, <strong>Compras</strong>, <strong>Finanzas</strong> y <strong>Cartera</strong>, asegurándose de que todos tengan la información completa.</i>
+    </div>
+
+</div>
 <div class="row row-line">
     <div class="col-sm-12">
-        <button type="button" class="btn btn-primary btn-sm primary-action"
-            data-toggle="modal" data-target="#contact_modal">+New</button>
+        <button type="button" class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new"
+            data-toggle="modal" data-target="#contact_modal" id="new-contact">
+            <span class="material-symbols-outlined" style="font-size: 16px; margin-left: 2px;">
+                add
+            </span>
+            New
+        </button>
     </div>
 </div>
-<form>
-    <div class="row row-line">
-        {% if contacts %}
-        <table class="table">
-            <thead>
-                <th>Codigo</th>
-                <th>Nombre</th>
-                <th>Correo</th>
-                <th>Teléfono</th>
-            </thead>
-            <tbody>
-                {% for contact in contacts %}
-
-                <tr>
-                    <td>{{contact.name}}</td>
-                    <td>{{contact.first_name}}</td>
-                    <td>{{contact.email_ids[0].email_id}}</td>
-                    <td>{{contact.phone_nos[0].phone}}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="col-lg-12">
-            <p>No hay contactos registradas</p>
-            {% endif %}
-        </div>
-
-</form>
+<div id = "contact_list">
+    {% include "qp_supplier_front/templates/list/information/contacts.html" %}
+   
+</div>
+<div class="row row-line justify-content-between">
+    <div class="col-4 text-left">
+        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab2')" id="save">
+            <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 2px;">
+                arrow_back_ios
+            </span>
+            Direcciones</button>
+    </div>
+    <div class="col-4 text-right">
+        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab4')" id="save">
+            Continuar
+            <span class="material-symbols-outlined" style="font-size: 14px; margin-left: 2px;">
+                arrow_forward_ios
+            </span>
+        </button>
+    </div>
+</div>

@@ -19,11 +19,15 @@
   {
    "fieldname": "fullname",
    "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
    "label": "fullname"
   },
   {
    "fieldname": "nationality",
    "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
    "label": "nationality"
   },
   {
@@ -46,7 +50,9 @@
   },
   {
    "fieldname": "tax_id",
-   "fieldtype": "Int",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
    "label": "tax_id"
   },
   {
@@ -70,7 +76,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-01-08 18:07:24.939193",
+ "modified": "2025-03-10 15:28:12.654389",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_ShareHolder",

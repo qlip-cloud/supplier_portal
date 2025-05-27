@@ -1,0 +1,46 @@
+{
+ "actions": [],
+ "creation": "2025-03-03 13:22:46.474424",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "supplier_date_sync",
+  "init_fiscal_year"
+ ],
+ "fields": [
+  {
+   "fieldname": "supplier_date_sync",
+   "fieldtype": "Datetime",
+   "label": "supplier_date_sync"
+  },
+  {
+   "fieldname": "init_fiscal_year",
+   "fieldtype": "Int",
+   "label": "init_fiscal_year"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-03-04 09:50:02.458287",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_MasterSetup",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

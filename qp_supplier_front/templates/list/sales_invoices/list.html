@@ -1,0 +1,38 @@
+{% if sales_invoices %}
+{% for invoice in sales_invoices %}
+
+<tr class="card-header" id="heading-{{ invoice.qp_invoice_id }}">
+    <td>{{ invoice.invoice_id }}</td>
+    <td class="text-left">
+        <span class="status-badge
+          {% if invoice.status == 'Abierto' %} status-open
+          {% elif invoice.status == 'Pagado' %} status-paid
+          {% elif invoice.status == 'Cancelado' %} status-cancelled
+          {% else %} status-default
+          {% endif %}">
+            {{ invoice.status }}
+        </span>
+    </td>
+
+    <td class="text-center">{{ frappe.format_date(invoice.create_date, "dd/MM/yyyy") }}</td>
+    <td class="text-center">{{ frappe.format_date(invoice.registration_date, "dd/MM/yyyy") }}</td>
+    <td class="text-center">{{ invoice.currency }}</td>
+    <td class="text-right">{{ frappe.format_value(invoice.subtotal, "Currency", currency = invoice.currency) }}</td>
+    <td class="text-right">{{ frappe.format_value(invoice.tax, "Currency", currency = invoice.currency) }}</td>
+    <td class="text-right">{{ frappe.format_value(invoice.total, "Currency", currency = invoice.currency) }}</td>
+    
+</tr>
+<tr id="collapse-{{ invoice.qp_invoice_id }}" class="collapse" aria-labelledby="heading-{{ invoice.qp_invoice_id }}"
+    data-parent="#accordion" data-sync="0">
+    <td colspan="9">
+        Buscando información...
+    </td>
+</tr>
+
+{% endfor %}
+{% elif show_result %}
+<tr>
+    <td colspan="9">No hay resultados</td>
+</tr>
+
+{% endif %}

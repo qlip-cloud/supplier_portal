@@ -23,7 +23,7 @@ def get_dynamic_link(doc, doctype):
 		["Dynamic Link", "parenttype", "=", doctype]
 	]
     
-    all_data = frappe.get_all(doctype, filters=filters, fields=["*"])
+    all_data = frappe.get_all(doctype, filters=filters, fields=["*"], order_by = "creation desc")
     
     return [frappe.get_doc(doctype, data.get("name")) for data in all_data]
 
@@ -41,7 +41,9 @@ def get_supplier(supplier_id):
 
 def get_document_types():
     
-    return frappe.get_list("qp_CO_IdType", fields = ["name", "id_type_name"])
+    list_permited = ["11", "12", "13", "21", "22", "31", "41", "42", "43"]
+    
+    return frappe.get_list("qp_CO_IdType", filters = {"id_type_id":["in", list_permited]}, fields = ["name", "id_type_name"])
 
 def get_ciius():
     

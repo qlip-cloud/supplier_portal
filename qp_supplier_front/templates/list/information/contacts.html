@@ -1,0 +1,33 @@
+<div class="row row-line">
+    {% if contacts %}
+    <table class="table">
+        <thead>
+            <th>Codigo</th>
+            <th>Nombre</th>
+            <th>Tipo de contacto</th>
+            <th>Correo</th>
+            <th>Teléfono</th>
+        </thead>
+        <tbody>
+            {% for contact in contacts %}
+            {% set info = "Requiere completar datos" if not contact.phone_nos or not contact.phone_nos[0].phone else False %}
+            <tr>
+                <td class="contact-id" data-id="{{contact.name}}"><span class="link_modal">{{contact.name}}</span>  {% if info %}
+                    - {{info}}
+                {% endif %}</td>
+                <td>{{contact.first_name}}
+                   
+                </td>
+                <td>{{contact.qp_contact_type}}</td>
+                <td>{{contact.email_ids[0].email_id}}</td>
+                <td>{{contact.phone_nos[0].phone if contact.phone_nos else "" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="col-lg-12">
+        <p>No hay contactos registradas</p>
+    </div>
+    {% endif %}
+</div>

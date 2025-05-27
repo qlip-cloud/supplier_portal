@@ -1,0 +1,58 @@
+<div class="modal fade accept-terms" id="autorizationModal" data-view="{{is_alpla_admin}}"
+    data-accept="{{supplier.qp_accept_autorization_processing }}" tabindex="-1" role="dialog"
+    aria-labelledby="autorizationModalLabel" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header text-center">
+                <h6 class="modal-title" id="autorizationModalLabel">Autorización Tratamiento de datos personales</h6>
+            </div>
+            <div class="modal-body modal-content-scroll" id="modal-content"
+                style="max-height: 400px; overflow-y: auto;">
+                <p><strong>ALPLA COLOMBIA LTDA. </strong>sociedad identificada con NIT 830.007.240-4 (en adelante LA
+                    ORGANIZACIÓN), ostentará la calidad de Responsable del Tratamiento de Datos
+                    Personales y por ende, es quien decidirá sobre el tratamiento que se le dé a sus datos
+                    personales.</p>
+                <p>En cumplimiento de la Ley General de Protección de Datos Personales (Ley 1581 de 2012)
+                    y sus decretos reglamentarios, le informamos que los datos personales facilitados de
+                    manera voluntaria quedarán incorporados de forma confidencial en la base de datos de
+                    proveedores.</p>
+                <p>Asimismo, al registrarse, presta su consentimiento libre y expreso para que ALPLA
+                    COLOMBIA LTDA., utilice sus datos personales con los fines de: i) efectuar el análisis de
+                    las propuestas presentadas; ii) evaluar la capacidad e idoneidad del proveedor potencial
+                    para atender los requerimientos de compra; iii) valorar el cumplimiento de los parámetros
+                    de calidad y seguridad por parte de los potenciales proveedores; iv) mantener
+                    comunicación en relación con los productos y servicios ofertados; v) adelantar el proceso
+                    de compra con el proveedor que resulte seleccionado; vi) consolidar un banco de
+                    proveedores potenciales para futuros requerimientos de productos y servicios que surjan;
+                    vii) mantener comunicación con las personas naturales que el proveedor disponga para
+                    desarrollar el contrato celebrado, el cual atiende en todo caso a un fin
+                    profesional/comercial.</p>
+                <p>Lo invitamos a que conozca la Política de Tratamiento de la Información Personal la cual
+                    se encuentra disponible en el punto de atención personal o solicitándola al correo
+                    electrónico COCOT1-OficialPDP@alpla.com Si usted tiene alguna inquietud frente al
+                    manejo de la información, tenga en cuenta que como titular de datos personales puede
+                    formular consultas y reclamos mediante comunicación enviada al correo electrónico:
+                    COCOT1-OficialPDP@alpla.com con el fin de ejercer sus derechos a conocer, actualizar y
+                    rectificar sus datos personales o revocar la autorización otorgada para el tratamiento de
+                    los mismos.</p>
+                <p> la suscripción de este documento, manifiesto mi consentimiento para el tratamiento
+                    de datos personales y mi aprobación frente a la totalidad de su contenido, incluyendo la
+                    veracidad y calidad de la información, reconociendo que la temporalidad del tratamiento
+                    atenderá a la duración de la relación contractual y el almacenamiento contable que exige
+                    la Legislación en Colombia, además me comprometo a actualizar cada año toda mi
+                    información y dentro de los 10 días siguientes a la fecha en que se produzca cualquier</p>
+            </div>
+            <div class="modal-footer">
+                {% if supplier.qp_accept_autorization_processing %}
+                <p> Aceptado por {#supplier.qp_accept_autorization_processing_user}} el
+                    {{supplier.qp_accept_autorization_processing_date#}</p>
+                {% else %}
+                <button type="button" class="btn btn-primary accept-button" id="accept-button"
+                    data-accept-type="qp_accept_autorization_processing" disabled>Autorizo el tratamiento de datos
+                    personales</button>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>

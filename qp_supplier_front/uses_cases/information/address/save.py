@@ -11,7 +11,6 @@ def handler(supplier_id, country, city, state, address_line1):
     
     supplier = get_supplier(supplier_id)
     
-    
     address = create_address(supplier, doctype, country, city, state, address_line1)
     
     fields_to_validate = ['address_line1', 'city', 'country', 'state']
@@ -21,10 +20,11 @@ def handler(supplier_id, country, city, state, address_line1):
     supplier.save()
     
     return {
-        "address": address.as_dict()
+        "address": address.as_dict(),
+        "supplier": supplier,
     }
 
-def  create_address(supplier, doctype, country, city, state, address_line1):
+def create_address(supplier, doctype, country, city, state, address_line1):
     
     address = frappe.new_doc(doctype)
     
@@ -39,7 +39,7 @@ def  create_address(supplier, doctype, country, city, state, address_line1):
     
     if not get_dynamic_link(supplier, doctype):
         
-        save_party(supplier, country, city, state)
+        save_party(supplier, country, city, state, address_line1)
         
         address.is_primary_address = 1
     
@@ -47,13 +47,13 @@ def  create_address(supplier, doctype, country, city, state, address_line1):
     
     return address
     
-def save_party(supplier, country, state, municipality):
+def save_party(supplier, country, state, municipality, address):
     
     party = get_party(supplier)
     
     party.country = country
     party.state = state
     party.municipality = municipality
+    party.address = address
         
     party.save()
-         

@@ -17,6 +17,7 @@ app_license = "MIT"
 # app_include_js = "/assets/qp_supplier_front/js/qp_supplier_front.js"
 
 # include js, css files in header of web template
+
 web_include_css = "/assets/qp_supplier_front/css/qp_supplier_front.css"
 web_include_js = ["/assets/qp_supplier_front/js/qp_supplier_front.js", "/assets/qp_supplier_front/js/api_connection.js"]
 
@@ -97,19 +98,26 @@ web_include_js = ["/assets/qp_supplier_front/js/qp_supplier_front.js", "/assets/
 #	}
 # }
 
-doc_events = {
- 	"Supplier": {
- 		"before_save": "qp_supplier_front.uses_cases.information.complete.handler",
-	}
-}
+
+#doc_events = {
+# 	"Supplier": {
+# 		"before_save": "qp_supplier_front.uses_cases.information.complete.handler",
+#	}
+#}
+
+
+
+get_website_user_home_page = "qp_supplier_front.redirect.login.get_home_page"
 
 # Scheduled Tasks
 # ---------------
 
 scheduler_events = {
-# 	"all": [
-# 		"qp_supplier_front.tasks.all"
-# 	],
+ 	"cron": {
+		"0 12 * * *": [
+			"qp_supplier_front.taks.sync.all"
+		]
+    },
  	"daily": [
     	"qp_supplier_front.uses_cases.information.tasks.daily"
  		#"qp_supplier_front.tasks.daily"
@@ -152,26 +160,26 @@ scheduler_events = {
 # User Data Protection
 # --------------------
 
-user_data_fields = [
-	{
-		"doctype": "{doctype_1}",
-		"filter_by": "{filter_by}",
-		"redact_fields": ["{field_1}", "{field_2}"],
-		"partial": 1,
-	},
-	{
-		"doctype": "{doctype_2}",
-		"filter_by": "{filter_by}",
-		"partial": 1,
-	},
-	{
-		"doctype": "{doctype_3}",
-		"strict": False,
-	},
-	{
-		"doctype": "{doctype_4}"
-	}
-]
+#user_data_fields = [
+#	{
+#		"doctype": "{doctype_1}",
+#		"filter_by": "{filter_by}",
+#		"redact_fields": ["{field_1}", "{field_2}"],
+#		"partial": 1,
+#	},
+#	{
+#		"doctype": "{doctype_2}",
+#		"filter_by": "{filter_by}",
+#		"partial": 1,
+#	},
+#	{
+#		"doctype": "{doctype_3}",
+#		"strict": False,
+#	},
+#	{
+#		"doctype": "{doctype_4}"
+#	}
+#]
 
 # Authentication and authorization
 # --------------------------------
@@ -179,4 +187,21 @@ user_data_fields = [
 # auth_hooks = [
 # 	"qp_supplier_front.auth.validate"
 # ]
+
+# Fixtures
+fixtures = [
+    {
+        "dt": "Custom Field",
+        "filters": [["name", "in", [
+            "Supplier-qp_request_edit",
+            "Supplier-qp_is_foreigner_supplier",
+            "Bank-qp_aba_number",
+            "Bank-qp_swift_number",
+            "Bank Account-qp_iban_number",
+            "Bank Account-qp_routing_code",
+            "Contact-qp_contact_type",
+            "Supplier-qp_resolution_self_retaining"
+        ]]]
+    }
+]
 
