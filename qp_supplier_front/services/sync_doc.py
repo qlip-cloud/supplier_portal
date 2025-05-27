@@ -60,7 +60,7 @@ def setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_k
         
         if message:
                     
-            frappe.log_error(message=message, title=title)  
+            frappe.log_error(message=message, title=title)
             frappe.throw(title)  
                    
 def get_last_creation(doctype, supplier_id, order_by):

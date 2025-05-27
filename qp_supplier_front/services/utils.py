@@ -1,6 +1,7 @@
 import frappe
 import json
-def add_log(title, payload, response, supplier_id):
+
+def add_log(title, payload = None, response = None, supplier_id = None):
     
     request_log = frappe.new_doc("qp_SP_RequestLog")
     
