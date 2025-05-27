@@ -114,7 +114,7 @@ get_website_user_home_page = "qp_supplier_front.redirect.login.get_home_page"
 
 scheduler_events = {
  	"cron": {
-		"16 50 * * *": [
+		"0 12 * * *": [
 			"qp_supplier_front.taks.sync.all"
 		]
     },
