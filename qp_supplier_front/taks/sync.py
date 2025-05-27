@@ -25,14 +25,34 @@ def all():
         
         add_log("Error Sincronizacion programada all", str(e),  frappe.get_traceback())
     
-    frappe.db.commit()
     
 def sync_purchace_all():
     
-    suppliers_id = frappe.get_list("Supplier", pluck = "name")
+    try:
     
-    for supplier_id in suppliers_id:
+        suppliers_id = frappe.get_list("Supplier", pluck = "name")
+    
+        for supplier_id in suppliers_id:
+            
+            try:
+                sync_by_receipts(supplier_id)
+            except:
+                pass
+            
+            try:
+                sync_by_invoice(supplier_id)
+                
+            except:
+                pass
+            
+            try:
+
+                sync_by_order(supplier_id)
+            except:
+                pass
         
-        sync_by_receipts(supplier_id)
-        sync_by_invoice(supplier_id)
-        sync_by_order(supplier_id)
+    except Exception as e:
+        
+        message = str(e) + "\n" + frappe.get_traceback()
+        
+        frappe.log_error(message=message, title="Error Sincronizacion programada all")

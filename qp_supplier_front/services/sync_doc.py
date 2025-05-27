@@ -152,7 +152,9 @@ def set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_ke
     if set_item_default:
         
         count = 0
+        
         qp_is_error = False
+        
         assertRequestListNotEmpty(doc_new.get(request_list_key), request_key_id)
         
         message=json.dumps(doc_new)
@@ -242,9 +244,7 @@ def get_result(endpoint, supplier_id, latest_record = None):
         url = endpoint["range"]
         
     result = send_request(url, param=param)
-    
-    assertResponse(result, url)
-    
+        
     return result
 
 

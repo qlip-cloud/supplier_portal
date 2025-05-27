@@ -9,6 +9,7 @@ def add_log(title, payload = None, response = None, supplier_id = None):
     request_log.response = json.dumps(response)
     request_log.payload = json.dumps(payload)
     request_log.supplier_id = supplier_id
+    
     request_log.insert()
     
     
