@@ -1,26 +1,21 @@
 import json
 import frappe
 from datetime import datetime 
-from qp_authorization.use_case.bearer.authorize import send_request
 from qp_supplier_front.exception.sync import ExceptionSyncResponseEmpty, ExceptionSyncNoNewRecords, ExceptionSyncProductNotFound, ExceptionSyncRequestNotList, ExceptionSyncDocNotList, ExceptionSyncResponse
 from qp_supplier_front.services.background.set_item import handler as set_sync_item
 from qp_supplier_front.util.command import create_doc
+from qp_authorization.use_case.bearer.authorize import send_request
 
 NOW = str(datetime.now())
 
-def setup_doc(supplier_id, endpoint, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list, doctype_list_key_id, is_validate_items, get_doc_base, order_by, insert_doc, set_item_default = None):
+def setup_doc(result, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list, doctype_list_key_id, is_validate_items, get_doc_base, insert_doc, set_item_default = None):
     
         
     message = None
     title = f"Error sync {doctype}"
     items_code = {}
-    result = None
     
     try:
-        
-        latest_record = get_last_creation(doctype, supplier_id, order_by)
-        
-        result = get_result(endpoint, supplier_id, latest_record)
         
         if is_validate_items:
                         
@@ -81,23 +76,20 @@ def set_doc(result, docs_new, request_key, request_key_id ,request_list_key, doc
     
     for doc_new in docs_new:
         
+        doc_id = None
+        
         qp_is_error = False
-        
-        key_id = doc_new.get(request_key_id)
-           
-        title=f"Error sync {doctype}: {key_id}"
-        
+                   
+        title=f"Error sync {doctype}:" + doc_new.get(request_key_id)
+                
+        doc_id  = doc_new.get(request_key_id) + ":" + doc_new.get("vendor")
+
         try:
             
-            get_doc_base(doc_new, request_key_id, docs)
+            get_doc_base(doc_new, request_key_id, docs, doc_id)
             
-            set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_key_id, doctype_list_key, request_key_id, is_validate_items, items, errors, set_item_default)
+            set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_key_id, doctype_list_key, request_key_id, is_validate_items, items, errors, doc_id, set_item_default)
             
-            #set_doc_control(doc_new, request_list_key, doctype_list_key)
-            
-            #doc.insert(ignore_permissions=True, ignore_links=True, ignore_if_duplicate=True, ignore_mandatory=True)
-            
-            #sync_item(doc, doc_new, items_code, set_item, doctype, doctype_list_key, request_list_key_id, request_list_key)
             
         except (ExceptionSyncDocNotList, ExceptionSyncRequestNotList) as e:
             
@@ -147,7 +139,7 @@ def set_doc_control(doc, doc_new, request_list_key, doctype_list_key):
         
         doc.qp_is_item_sync = doc.qp_item_sync == doc.qp_item_count       
                        
-def set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_key_id, doctype_list_key, request_key_id, is_validate_items, items, errors, set_item_default = None):
+def set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_key_id, doctype_list_key, request_key_id, is_validate_items, items, errors, doc_id, set_item_default = None):
     
     if set_item_default:
         
@@ -162,14 +154,15 @@ def set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_ke
         for key, item in enumerate(doc_new.get(request_list_key)):
             
             title=f"Error sync {doctype}: {item.get(request_list_key_id)}"
-
+            
+    
             try:
                 
                 count += 1
                 
                 assertProductExist(item.get(request_list_key_id), items_code, is_validate_items)
                 
-                set_item_default(item, items, doc_new.get(request_key_id), items_code)
+                set_item_default(item, items, doc_id, items_code)
                 
                 #doc.append(doctype_list_key, set_item_default(item))
             
@@ -187,7 +180,7 @@ def set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_ke
 
                 message=json.dumps(item)
                 
-                set_error(error, errors, doc_new.get(request_key_id), item.get(request_list_key_id), doctype)
+                set_error(error, errors, doc_id, item.get(request_list_key_id), doctype, key)
                 
                 pass
             
@@ -203,7 +196,7 @@ def set_doc_list(doc_new, doctype, request_list_key, items_code, request_list_ke
                     "error": title
                 }  
                 
-                set_error(error, errors, doc_new.get(request_key_id), item.get(request_list_key_id), doctype, key)
+                set_error(error, errors, doc_id, item.get(request_list_key_id), doctype, key)
                 
                 message=json.dumps(item)
                 
@@ -249,9 +242,9 @@ def get_result(endpoint, supplier_id, latest_record = None):
 
 
 def set_error(error, errors, doc_id, item_code, doctype, key):
-
-    errors.update({f"{doc_id}:{item_code}":(
-            f"{doc_id}:{item_code}:{key}",
+    error_id = f"{doc_id}:{item_code}:{key}"
+    errors.update({error_id:(
+            error_id,
             error.get("line"),
             error.get("code"),
             error.get("error"),

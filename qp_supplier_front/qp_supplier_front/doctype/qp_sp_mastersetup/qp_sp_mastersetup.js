@@ -25,6 +25,15 @@ frappe.ui.form.on('qp_SP_MasterSetup', {
 					}
 					
 				});
+				frm.add_custom_button(__('Sincronizar todo'), function(){
+					if (!frm.is_dirty()){
+						sync_all(frm, frm.doc.name)
+					}
+					else{
+						show_alert (__("Unable to sync, <br> There are unsaved changes"))
+					}
+					
+				});
 
 		}
 	}
@@ -48,6 +57,17 @@ function sync_items(frm, master_name){
 	sync(master_name, method, message)
 
 }
+
+function sync_all(frm, master_name){
+
+	let method = 'qp_supplier_front.taks.sync.all';
+
+	let message = `Sincronizacion finalizada, revise el registro de errores para verificar que culmino exitosamente `;
+
+	sync(master_name, method, message)
+
+}
+
 function sync(master_name, method, message){
 
 	frappe.call({
@@ -55,12 +75,6 @@ function sync(master_name, method, message){
 		callback: function(r) {
 			if (!r.exc) {
 
-				/*const response = r.message
-				
-				if (response.has_pending){
-					message = `Existe una sincronización en proceso`
-
-				}*/
 				
 				frappe.msgprint({
 					message: message,
