@@ -33,3 +33,9 @@ class ExceptionSyncDocNotList(Exception):
     def __init__(self, doctype):
         
         super().__init__(f"No hay lineas para {doctype}")
+        
+class ExceptionAmountMaxLengthNotValid(Exception):
+    
+    def __init__(self, amount, item_code, order):
+        
+        super().__init__(f"La longitud del monto del producto {item_code} de la orden {order} no es soportado por el sistema {amount}")

@@ -1,6 +1,5 @@
 {
  "actions": [],
- "autoname": "field:invoice_id",
  "creation": "2025-04-11 15:15:18.373336",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -23,8 +22,7 @@
    "fieldname": "invoice_id",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "invoice Id",
-   "unique": 1
+   "label": "invoice Id"
   },
   {
    "fieldname": "status",
@@ -84,7 +82,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-02 15:32:39.809782",
+ "modified": "2025-06-03 17:58:22.236604",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_PurchaseInvoice",
