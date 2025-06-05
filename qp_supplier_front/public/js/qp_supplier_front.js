@@ -251,8 +251,9 @@ function getValidInputs() {
 
     $('.filter-list').each(function () {
         var $input = $(this);
+        console.log($input)
         var id = $input.attr('id');
-        var value = $input.val().trim();
+        var value = $input.val() ? $input.val().trim() : null
 
         // Verifica si el input es válido
         if ($input.is('select') && value === '0') {
