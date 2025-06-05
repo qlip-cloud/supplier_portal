@@ -163,7 +163,7 @@ $(document).ready(function () {
         if (is_filter || (loading == false && no_more == false)) {
 
             $("#no-more").hide()
-            console.log($("#no-more"))
+            
             loading = true;
 
             $("#loading").show()
@@ -251,8 +251,9 @@ function getValidInputs() {
 
     $('.filter-list').each(function () {
         var $input = $(this);
+        console.log($input)
         var id = $input.attr('id');
-        var value = $input.val().trim();
+        var value = $input.val() ? $input.val().trim() : null
 
         // Verifica si el input es válido
         if ($input.is('select') && value === '0') {

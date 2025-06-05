@@ -5,7 +5,7 @@
         <i>Los documentos adjuntos <strong>no</strong> deben haber sido expedidos hace <strong>más de 30 días</strong>.</i>
     </div>
 
-    {% set chunk_size = 3 %}
+    {% set chunk_size = 2 %}
     {% for i in range(0, document_settings|length, chunk_size) %}
 
     <div class="row row-line">
