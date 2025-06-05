@@ -163,7 +163,7 @@ $(document).ready(function () {
         if (is_filter || (loading == false && no_more == false)) {
 
             $("#no-more").hide()
-            console.log($("#no-more"))
+            
             loading = true;
 
             $("#loading").show()
