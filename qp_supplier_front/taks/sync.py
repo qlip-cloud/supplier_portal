@@ -24,8 +24,8 @@ def all():
         sync_by_order()
         frappe.db.commit()
         
-        sync_by_receipts()
-        frappe.db.commit()
+        #sync_by_receipts()
+        #frappe.db.commit()
         add_log("Fin Sincronizacion programada all", str(datetime.today()))
         
     except Exception as e:

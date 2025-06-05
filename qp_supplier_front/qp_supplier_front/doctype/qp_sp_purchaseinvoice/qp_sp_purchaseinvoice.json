@@ -32,12 +32,12 @@
   },
   {
    "fieldname": "create_date",
-   "fieldtype": "Datetime",
+   "fieldtype": "Date",
    "label": "create date"
   },
   {
    "fieldname": "registration_date",
-   "fieldtype": "Datetime",
+   "fieldtype": "Date",
    "label": "registration Date"
   },
   {
@@ -82,7 +82,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-03 17:58:22.236604",
+ "modified": "2025-06-05 11:24:11.082522",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_PurchaseInvoice",
