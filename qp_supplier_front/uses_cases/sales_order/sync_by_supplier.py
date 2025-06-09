@@ -29,8 +29,9 @@ def handler(supplier_id):
     latest_record = get_last_creation(doctype, supplier_id, order_by)
     
     result = get_result(endpoint, supplier_id, latest_record)
-    
+
     setup_doc(result, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list,doctype_list_key_id, is_validate_items, get_doc_base, insert_doc, set_item)
+    
 @frappe.whitelist()
 def handler_all():
     
