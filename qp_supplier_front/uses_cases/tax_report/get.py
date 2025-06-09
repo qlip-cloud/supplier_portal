@@ -51,7 +51,6 @@ def generate_pdf(certificates, withholding_id, supplier, party, fiscal_year, bim
     
     addresses = get_dynamic_link(supplier, "Address")
     
-        
     company = {
         "name": certificates[0].get("companyName") if certificates else party.other_name,
         "tax_id":certificates[0].get("nit") if certificates else party.tax_id,

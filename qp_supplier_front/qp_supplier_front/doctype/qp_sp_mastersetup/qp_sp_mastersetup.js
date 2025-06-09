@@ -7,16 +7,50 @@ frappe.ui.form.on('qp_SP_MasterSetup', {
 
 		if (!(frm.is_new())){
 
-				frm.add_custom_button(__('Proveedores'), function(){
+				frm.add_custom_button(__('Facturas'), function() {
+					let method = 'qp_supplier_front.services.clean_table.invoice';
+
+					let message = `Tabla de Facturas han sido limpiada correctamente`;
+
+					sync(null, method, message)				}, __("Limpiar Tablas"));
+				frm.add_custom_button(__('Ordenes'), function() {
+					let method = 'qp_supplier_front.services.clean_table.order';
+
+					let message = `Tabla de Ordenes han sido limpiada correctamente`;
+
+					sync(null, method, message)
+				}, __("Limpiar Tablas"));
+
+				frm.add_custom_button(__('Pagos'), function() {
+
+					let method = 'qp_supplier_front.services.clean_table.receipt';
+
+					let message = `Tabla de Pagos han sido limpiada correctamente`;
+
+					sync(null, method, message)
+
+				}, __("Limpiar Tablas"));
+
+				frm.add_custom_button(__('Todos'), function() {
+
+					let method = 'qp_supplier_front.services.clean_table.all';
+
+					let message = `Todas las tablas han sido limpiada correctamente`;
+
+					sync(null, method, message)
+
+				}, __("Limpiar Tablas"));
+
+				frm.add_custom_button(__('Proveedores'), function() {
 					if (!frm.is_dirty()){
 						sync_customer(frm, frm.doc.name)
 					}
 					else{
 						show_alert (__("Unable to sync, <br> There are unsaved changes"))
 					}
-					
-				});
-				frm.add_custom_button(__('Crear Productos'), function(){
+				}, __("Sincronizar"));
+
+				frm.add_custom_button(__('Productos'), function(){
 					if (!frm.is_dirty()){
 						sync_items(frm, frm.doc.name)
 					}
@@ -24,8 +58,8 @@ frappe.ui.form.on('qp_SP_MasterSetup', {
 						show_alert (__("Unable to sync, <br> There are unsaved changes"))
 					}
 					
-				});
-				frm.add_custom_button(__('Sincronizar todo'), function(){
+				}, __("Sincronizar"));
+				frm.add_custom_button(__('Todo'), function(){
 					if (!frm.is_dirty()){
 						sync_all(frm, frm.doc.name)
 					}
@@ -33,7 +67,7 @@ frappe.ui.form.on('qp_SP_MasterSetup', {
 						show_alert (__("Unable to sync, <br> There are unsaved changes"))
 					}
 					
-				});
+				}, __("Sincronizar"));
 
 		}
 	}
