@@ -118,11 +118,12 @@ def get_context(certificates, withholding_id, supplier, party, fiscal_year, bime
 
 def get_context_ica(certificates, withholding_id, supplier, party, fiscal_year, bimester):
     
+    contexts = []
+    
     if certificates:
         
         cities = {}
         
-        contexts = []
                 
         for certificate in certificates:
             
