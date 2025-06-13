@@ -111,11 +111,18 @@ def get_context(certificates, withholding_id, supplier, party, fiscal_year, bime
         "supplier": supplier,
         "download_control": download_control,
         "periocity_translate": "Anual" if bimester == "0" else "BIMESTRAL",
-        "location": location if is_location else city
+        "location": get_legend() if is_location else get_legend_ica(city)
     }
     
     return context
+def get_legend():
+    
+    return f"""SE EXPIDE ESTE CERTIFICADO PARA DAR CUMPLIMIENTO A LO PREVISTO EN EL ARTICULO 381 DEL ESTATUTO TRIBUTARIO. DICHA RETENCION FUE CONSIGNADA OPORTUNAMENTE A NOMBRE DE LA DIRECCION DE IMUESTOS Y ADUANAS NACIONALES DIAN. SE OMITE LA FIRMA AUTOGRAFA SEGÚN ARTICULO 10 DECRETO REGLAMENTARIO 836/91."""
 
+def get_legend_ica(city):
+    
+    return f"""SE EXPIDE ESTE CERTIFICADO PARA DAR CUMPLIMIENTO A LO PREVISTO EN EL ARTICULO 381 DEL ESTATUTO TRIBUTARIO. DICHA RETENCION FUE CONSIGNADA OPORTUNAMENTE en la ciudad de {city}. SE OMITE LA FIRMA AUTOGRAFA SEGÚN ARTICULO 10 DECRETO REGLAMENTARIO 836/91.""" 
+    
 def get_context_ica(certificates, withholding_id, supplier, party, fiscal_year, bimester):
     
     contexts = []
