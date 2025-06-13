@@ -120,26 +120,31 @@ def get_context_ica(certificates, withholding_id, supplier, party, fiscal_year, 
     
     contexts = []
     
-    if certificates:
+    cities = {}
+    
+    if not certificates:
         
-        cities = {}
+        pdf = get_context(certificates, withholding_id, supplier, party, fiscal_year, bimester)
+            
+        contexts.append(pdf)
         
-                
-        for certificate in certificates:
-            
-            city = get_city(certificate.get("taxDescription"))
-            
-            if city not in cities:
-                
-                cities.setdefault(city, [])
-                
-            cities[city].append(certificate)
+        return contexts
         
-        for city, certificate in cities.items():
+    for certificate in certificates:
+        
+        city = get_city(certificate.get("taxDescription"))
+        
+        if city not in cities:
             
-            pdf = get_context(certificate, withholding_id, supplier, party, fiscal_year, bimester, city)
+            cities.setdefault(city, [])
             
-            contexts.append(pdf)
+        cities[city].append(certificate)
+    
+    for city, certificate in cities.items():
+        
+        pdf = get_context(certificate, withholding_id, supplier, party, fiscal_year, bimester, city)
+        
+        contexts.append(pdf)
 
     return contexts
             
