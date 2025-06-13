@@ -124,7 +124,7 @@ def get_context_ica(certificates, withholding_id, supplier, party, fiscal_year, 
     
     if not certificates:
         
-        pdf = get_context(certificates, withholding_id, supplier, party, fiscal_year, bimester)
+        pdf = get_context(certificates, withholding_id, supplier, party, fiscal_year, bimester, is_location = False)
             
         contexts.append(pdf)
         
