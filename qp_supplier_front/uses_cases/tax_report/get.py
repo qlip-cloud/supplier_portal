@@ -6,6 +6,8 @@ from qp_supplier_front.constant.endpoint import GET_TAX_REPORT_SUPPLIER
 from babel.numbers import format_currency,format_decimal
 from nlt import numlet as nl
 from datetime import datetime
+import os
+from frappe.utils import get_files_path, now_datetime
 
 REPORT_TYPES = [
     "Retenciones en la fuente",
@@ -24,41 +26,53 @@ def handler(supplier_id, report_type, fiscal_year, bimester):
     
     party = get_party(company)
     
-    pdf = generate_pdf(certificates, withholding_id, supplier, party, fiscal_year, bimester)
-
-    return pdf
+    contexts = []
+    
+    if report_type != "3":
+        
+        contexts = [get_context(certificates, withholding_id, supplier, party, fiscal_year, bimester, is_location = True)]
+        
+    else:
+        
+        contexts = get_context_ica(certificates, withholding_id, supplier, party, fiscal_year, bimester)
+    
+    return get_pdf(frappe.render_template("templates/pdf/report.html", {"contexts": contexts}))
 
 def get_gp_certificate(supplier, report_type, fiscal_year, bimester):
-    
-    #param = f"{report_type}/{fiscal_year}/{bimester}/{supplier.name}"
-    
+        
     param = f"{report_type}/{fiscal_year}/{bimester}/{supplier.name}"
     
     result = send_request(GET_TAX_REPORT_SUPPLIER, param = param)
     
-    
     if "status" not in result or result["status"] != 200 or "certificates" not in result:
         
-        error = result["description"] if "description" in result else "Hubo un error obteniendo los datos"
+        #error = result["description"] if "description" in result else "Hubo un error obteniendo los datos"
         
         return []
     
     return result["certificates"]
 
-def generate_pdf(certificates, withholding_id, supplier, party, fiscal_year, bimester):
+def get_context(certificates, withholding_id, supplier, party, fiscal_year, bimester, city = None, is_location = False):
     
     context = {}
     
     addresses = get_dynamic_link(supplier, "Address")
+    
     
     company = {
         "name": certificates[0].get("companyName") if certificates else party.other_name,
         "tax_id":certificates[0].get("nit") if certificates else party.tax_id,
         "address": certificates[0].get("address") if certificates else party.address,
     }
-    
+       
+    if not city:
+        
+        city = certificates[0].get("city") if certificates else addresses[0].city
+        
+        location = "LA DIRECCION DE IMUESTOS Y ADUANAS NACIONALES DIAN"
+        
     supplier = {
-        "city": certificates[0].get("city") if certificates else addresses[0].city,
+        "city": city,
         "name": certificates[0].get("vendorName") if certificates else supplier.supplier_name,
         "tax_id":certificates[0].get("vendorId") if certificates else supplier.tax_id
     }
@@ -96,7 +110,53 @@ def generate_pdf(certificates, withholding_id, supplier, party, fiscal_year, bim
         "company": company,
         "supplier": supplier,
         "download_control": download_control,
-        "periocity_translate": "Anual" if bimester == "0" else "BIMESTRAL"
+        "periocity_translate": "Anual" if bimester == "0" else "BIMESTRAL",
+        "location": get_legend() if is_location else get_legend_ica(city)
     }
     
-    return get_pdf(frappe.render_template("templates/pdf/report.html", context))
+    return context
+def get_legend():
+    
+    return f"""SE EXPIDE ESTE CERTIFICADO PARA DAR CUMPLIMIENTO A LO PREVISTO EN EL ARTICULO 381 DEL ESTATUTO TRIBUTARIO. DICHA RETENCION FUE CONSIGNADA OPORTUNAMENTE A NOMBRE DE LA DIRECCION DE IMUESTOS Y ADUANAS NACIONALES DIAN. SE OMITE LA FIRMA AUTOGRAFA SEGÚN ARTICULO 10 DECRETO REGLAMENTARIO 836/91."""
+
+def get_legend_ica(city):
+    
+    return f"""SE EXPIDE ESTE CERTIFICADO PARA DAR CUMPLIMIENTO A LO PREVISTO EN EL ARTICULO 381 DEL ESTATUTO TRIBUTARIO. DICHA RETENCION FUE CONSIGNADA OPORTUNAMENTE EN LA CIUDAD DE {city}. SE OMITE LA FIRMA AUTOGRAFA SEGÚN ARTICULO 10 DECRETO REGLAMENTARIO 836/91.""" 
+    
+def get_context_ica(certificates, withholding_id, supplier, party, fiscal_year, bimester):
+    
+    contexts = []
+    
+    cities = {}
+    
+    if not certificates:
+        
+        pdf = get_context(certificates, withholding_id, supplier, party, fiscal_year, bimester, is_location = False)
+            
+        contexts.append(pdf)
+        
+        return contexts
+        
+    for certificate in certificates:
+        
+        city = get_city(certificate.get("taxDescription"))
+        
+        if city not in cities:
+            
+            cities.setdefault(city, [])
+            
+        cities[city].append(certificate)
+    
+    for city, certificate in cities.items():
+        
+        pdf = get_context(certificate, withholding_id, supplier, party, fiscal_year, bimester, city)
+        
+        contexts.append(pdf)
+
+    return contexts
+            
+def get_city(description):
+    
+    parts = description.split("RETENCION ICA-")
+
+    return parts[1].split()[0]

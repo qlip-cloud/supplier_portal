@@ -4,106 +4,120 @@
     border-collapse: collapse;
     font-size: 10px;
     }
+
+    .page-break {
+        page-break-after: always;
+    }
+
 </style>
 {% set timezone = 'America/Colombia' %}
-<div class="container" style="font-size: 10;">
-    {% if download_control %}
 
-    <div class="row">
-        <div class = "col-sm-12" style="font-size: 12;">
-            <center><h5>CERTIFICADO DE {{download_control.withholding_id}}</h5></center>
-        </div>
-    </div>
-    <div class="row text-center">
-        <div class = "col-sm-12 " style="text-align: right;">
-            {{download_control.name}}
-        </div>
-    </div>
-    <div class="row">
-        <div class = "col-sm-12" style="text-align: right;">
-            Fecha de Envió: {{download_control.shipping_date}}
-        </div>
-    </div>
-    <div class="row">
-        
-        <table  class="table table-bordered tabla" style="width: 100%; ">
-                <tr>
-                    <td colspan="3">
-                        <p>NOMBRE O NOMBRE DE LA COMPAÑÍA DEL AGENTE DE RETENCIÓN</p>
-                        <strong>{{company.name}}</strong>
-                        
-                    </td>
-                    <td>
-                        <p> NIT o CC No.</p>
-                        <strong> <center> {{company.tax_id}}</center></strong>
-                    </td>
-                </tr>
-                <tr>
-                    <td width = "40%">
-                        <p>DIRECCIÓN</p>
-                        <strong>{{company.address}}</strong>
-                    </td>
-                    <td>
-                        <p>AÑO</p>
-                        <strong>{{download_control.fiscal_year}}</strong>
-                    </td>          
-                    <td>
-                        <p>PERIODO</p>
-                        <strong>{{periocity_translate}}-{{download_control.period}}</strong>
-                    </td>
-                    <td>
-                        <p>CIUDAD DONDE SE ASIGNÓ Y PAGO LA RETENCIÓN</p>
-                        <strong>{{supplier.city}}</strong>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="4">
-                        <p>NOMBRE O NOMBRE DE LA COMPAÑÍA DE LA PERSONA O ENTIDAD SE RETUVO EL MOMENTO</p>
-                        <strong>{{supplier.name}}</strong>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="4">
-                        <p>NIT o CC</p>
-                        <strong><center>{{supplier.tax_id}}</center></strong>
-                    </td>
-                </tr>
-        </table>
-    </div>
-    {{download_control.table_withholding}}
-    <div class="row" style="margin-top: 20px; background-color: rgb(216, 235, 255);">
-        <table class="table table-bordered" style="width: 100%; ">
-            <tr>
-                <td width="60%">
-                    IGUAL A
-                    
-                </td>
-                <td>
-                    Total Retenido
-                </td>
+{% for context in contexts %}
+    <div class="page-break">
 
-                <td style="border: 1px solid black; text-align: right;">
-                    {{download_control.total_amount}}
-                </td>
-            </tr>
-            <tr>        
-                <td colspan="3" ><br>
-                    {{download_control.total_str}} COP
-                    
-                </td>
-            </tr>
-            <tr>        
-                <td colspan="3"><br>
-                    SE EXPIDE ESTE CERTIFICADO PARA DAR CUMPLIMIENTO A LO PREVISTO EN EL ARTICULO
-381 DEL ESTATUTO TRIBUTARIO. DICHA RETENCION FUE CONSIGNADA OPORTUNAMENTE A NOMBRE DE LA
-DIRECCION DE IMUESTOS Y ADUANAS NACIONALES DIAN. SE OMITE LA FIRMA AUTOGRAFA SEGÚN
-ARTICULO 10 DECRETO REGLAMENTARIO 836/91.
-                    
-                </td>
-            </tr>
-        </table>
+        {% set download_control = context.download_control%}
+        {% set company = context.company%}
+        {% set supplier = context.supplier%}
+        {% set periocity_translate = context.periocity_translate%}
+        {% set location = context.location%}
+
+        <div class="container " style="font-size: 10;">
+            {% if download_control %}
+
+            <div class="row">
+                <div class = "col-sm-12" style="font-size: 12;">
+                    <center><h5>CERTIFICADO DE {{download_control.withholding_id}}</h5></center>
+                </div>
+            </div>
+            <div class="row text-center">
+                <div class = "col-sm-12 " style="text-align: right;">
+                    {{download_control.name}}
+                </div>
+            </div>
+            <div class="row">
+                <div class = "col-sm-12" style="text-align: right;">
+                    Fecha de Envió: {{download_control.shipping_date}}
+                </div>
+            </div>
+            <div class="row">
+                
+                <table  class="table table-bordered tabla" style="width: 100%; ">
+                        <tr>
+                            <td colspan="3">
+                                <p>NOMBRE O NOMBRE DE LA COMPAÑÍA DEL AGENTE DE RETENCIÓN</p>
+                                <strong>{{company.name}}</strong>
+                                
+                            </td>
+                            <td>
+                                <p> NIT o CC No.</p>
+                                <strong> <center> {{company.tax_id}}</center></strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td width = "40%">
+                                <p>DIRECCIÓN</p>
+                                <strong>{{company.address}}</strong>
+                            </td>
+                            <td>
+                                <p>AÑO</p>
+                                <strong>{{download_control.fiscal_year}}</strong>
+                            </td>          
+                            <td>
+                                <p>PERIODO</p>
+                                <strong>{{periocity_translate}}-{{download_control.period}}</strong>
+                            </td>
+                            <td>
+                                <p>CIUDAD DONDE SE ASIGNÓ Y PAGO LA RETENCIÓN</p>
+                                <strong>{{supplier.city}}</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="4">
+                                <p>NOMBRE O NOMBRE DE LA COMPAÑÍA DE LA PERSONA O ENTIDAD SE RETUVO EL MOMENTO</p>
+                                <strong>{{supplier.name}}</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="4">
+                                <p>NIT o CC</p>
+                                <strong><center>{{supplier.tax_id}}</center></strong>
+                            </td>
+                        </tr>
+                </table>
+            </div>
+            {{download_control.table_withholding}}
+            <div class="row" style="margin-top: 20px; background-color: rgb(216, 235, 255);">
+                <table class="table table-bordered" style="width: 100%; ">
+                    <tr>
+                        <td width="60%">
+                            IGUAL A
+                            
+                        </td>
+                        <td>
+                            Total Retenido
+                        </td>
+
+                        <td style="border: 1px solid black; text-align: right;">
+                            {{download_control.total_amount}}
+                        </td>
+                    </tr>
+                    <tr>        
+                        <td colspan="3" ><br>
+                            {{download_control.total_str}} COP
+                            
+                        </td>
+                    </tr>
+                    <tr>        
+                        <td colspan="3"><br>
+                            {{location}}
+                            
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            {% else %}
+            No hay datos disponibles
+        {% endif %}
+        </div>
     </div>
-    {% else %}
-    No hay datos disponibles
-{% endif %}
-</div>
+    {% endfor %}
