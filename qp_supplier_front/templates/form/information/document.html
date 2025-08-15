@@ -1,5 +1,5 @@
 <form id="form-document" method="POST" data-method-default="POST"
-    action="qp_supplier_front.resources.information.document.update">
+    action="qp_supplier_front.resources.information.document.update"  data-control="{{ 'is_estatus_editable' if is_estatus_editable else '' }}" data-type="document">
 
     <div class="text-muted" style="font-size: 14px; margin: 15px;">
         <i>Los documentos adjuntos <strong>no</strong> deben haber sido expedidos hace <strong>más de 30 días</strong>.</i>

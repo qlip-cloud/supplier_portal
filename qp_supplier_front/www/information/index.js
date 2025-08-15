@@ -1,20 +1,96 @@
+function saveShowTab(tabId) {
+
+    var $form = $(".tab-content").filter(function() {
+        return $(this).css("display") !== "none";
+    }).find("form");
+
+    control = $form.data("control")
+
+    typeAction = $form.data("type")
+
+    supplier_id = $("#supplier_id").val();
+
+    if (control == 'is_estatus_editable') {
+
+        $("#overlay").css("display", "block");
+
+
+        switch (typeAction) {
+
+            case 'estandar':
+
+                var formData = new FormData($form[0]);
+
+                formData.append("supplier_id", supplier_id);
+
+                callresponse = (response) => {
+
+                    data = response.data
+
+                    showTab(tabId)
+
+                }
+
+                petition_send_data(formData, $form.attr('action'), callresponse, $form.attr('method'))
+
+                break;
+                
+            case 'document':
+
+                var formData = getDocuments(control == 'is_estatus_editable')
+                console.log(formData)
+                callresponse = (response) => {
+
+                    data = response.data
+
+                    showTab(tabId)
+
+                    clear_file()
+
+                }
+
+                petition_get_data(formData, $form.attr('action'), callresponse)
+                break;
+
+            default:
+                break;
+        }
+        $("#overlay").css("display", "none");
+
+    } else {
+        showTab(tabId)
+    }
+
+
+}
+
 function showTab(tabId) {
+
+    //frappe.msgprint(response.msg)
+
     const tabs = document.querySelectorAll('.tab');
+
     const contents = document.querySelectorAll('.tab-content');
+
     const form = document.getElementById('dynamicForm');
 
     // Remove active class from all tabs and hide all tab contents
     tabs.forEach(tab => tab.classList.remove('active'));
+
     contents.forEach(content => content.style.display = 'none');
 
     // Add active class to the clicked tab and show the corresponding tab content
-    const activeTab = document.querySelector(`[onclick="showTab('${tabId}')"]`);
+    const activeTab = document.querySelector(`[onclick="saveShowTab('${tabId}')"]`);
+
     const activeContent = document.getElementById(tabId);
 
     activeTab.classList.add('active');
+
     activeContent.style.display = 'block';
 
     // Move the form to the active tab content
+
+
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -30,6 +106,8 @@ document.addEventListener('DOMContentLoaded', function () {
 $(document).ready(function () {
 
     showTab('tab1');
+
+    clear_file()
 
     $('.modal-content-scroll').on('scroll', function () {
         var $modalContent = $(this);
@@ -132,7 +210,6 @@ $(document).ready(function () {
 
     $('.form-estandar').on('submit', function (event) {
 
-
         event.preventDefault(); // Evita el envío del formulario
 
         var formData = new FormData(this);
@@ -142,6 +219,7 @@ $(document).ready(function () {
         formData.append("supplier_id", supplier_id);
 
         const submitter = $(document.activeElement);
+
         if (submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal")) {
 
             document.getElementById("overlay").style.display = 'block';
@@ -190,30 +268,11 @@ $(document).ready(function () {
 
         event.preventDefault(); // Evita el envío del formulario
 
-        var data = { "documents": {} };
-
-        $('#form-document .file-link').each(function () {
-
-            if ($(this).data('updated') == "1") {
-                var docType = $(this).data('document');
-                var name = $(this).attr('name');
-                var value = $(this).val();
-
-                if (!data["documents"][docType]) {
-                    data["documents"][docType] = {};
-                }
-
-                data["documents"][docType][name] = value;
-            }
-        });
-
-        var supplier_id = $("#supplier_id").val();
-
-        data["supplier_id"] = supplier_id;
-
         const submitter = $(document.activeElement);
 
-        data["is_estatus_editable"] = submitter.hasClass('is_estatus_editable');
+        is_estatus_editable = submitter.hasClass('is_estatus_editable');
+
+        const formData = getDocuments(is_estatus_editable);
 
         if (submitter.hasClass('is_estatus_editable') || submitter.hasClass('finish')) {
 
@@ -223,21 +282,26 @@ $(document).ready(function () {
 
                 data = response.data
 
+                supplier = data.supplier
                 if (submitter.hasClass("finish")) {
-                    supplier = data.supplier
 
 
                     $('.tab').css('color', 'black');
                     has_incompleted = false
+                    console.log(supplier.qp_field_validations)
                     // Suponiendo que jsqp_field_validations es tu array
                     $.each(supplier.qp_field_validations, function (index, validation) {
+                        const $tab = $(`.tab.${validation.field_section}`);
 
                         if (validation.is_completed === 0) {
-                            has_incompleted = true 
-                            const $tab = $(`.tab.${validation.field_section}`);
+                            has_incompleted = true
                             $tab.css('color', 'red');
                             $tab.find('span').css('color', 'red');
                             $tab.addClass('incomplete-tab');
+                        } else {
+                            $tab.css('color', '#999');
+                            $tab.find('span').css('color', '#999');
+                            $tab.removeClass('incomplete-tab');
                         }
                     });
                     msg_error = has_incompleted ? "<p>Hay secciones sin completar, las cuales se indican en rojo. Para continuar con el proceso de validación, debe completar todos los campos.</p>" : "";
@@ -246,7 +310,6 @@ $(document).ready(function () {
 
                     frappe.msgprint(msg);
 
-                    setup_button(supplier);
 
                 }
                 if (submitter.hasClass('is_estatus_editable')) {
@@ -254,11 +317,14 @@ $(document).ready(function () {
                     showTab(submitter.data("control"))
                 }
 
+                clear_file()
+
+                setup_button(supplier);
                 document.getElementById("overlay").style.display = 'none';
 
             }
 
-            petition_get_data(data, $(this).attr('action'), callresponse)
+            petition_get_data(formData, $(this).attr('action'), callresponse)
         } else {
             showTab(submitter.data("control"))
 
@@ -444,7 +510,7 @@ $(document).ready(function () {
     $("#new-address").on("click", function () {
         $("#form-address")[0].reset();
         $("#form-address").find("input[type='text'], select").val("").trigger('change');
-        $("#form-address").attr('method', 'POST');  
+        $("#form-address").attr('method', 'POST');
     });
     $("#contact_list").on("click", ".contact-id", function () {
 
@@ -492,11 +558,11 @@ $(document).ready(function () {
         petition_get_data({ contact_id }, url, callresponse)
     })
 
-    
+
     $("#new-contact").on("click", function () {
         $("#form-contact")[0].reset();
         $("#form-contact").find("input[type='text'], select").val("").trigger('change');
-        $("#form-contact").attr('method', 'POST');  
+        $("#form-contact").attr('method', 'POST');
     });
 
     $("#bank_account_list").on("click", ".bank_account-id", function () {
@@ -584,9 +650,9 @@ $(document).ready(function () {
     $("#new-shareholder").on("click", function () {
         $("#form-shareholder")[0].reset();
         $("#form-shareholder").find("input[type='text'], select").val("").trigger('change');
-        $("#form-shareholder").attr('method', 'POST');  
+        $("#form-shareholder").attr('method', 'POST');
     });
-    
+
     $("#request-edit-btn").on("click", function () {
         const supplier_id = $("#supplier_id").val();
 
@@ -665,6 +731,40 @@ $(document).ready(function () {
     })
 });
 
+function getDocuments(is_estatus_editable) {
+
+    var data = { "documents": {} };
+
+    $('#form-document .file-link').each(function () {
+
+        if ($(this).data('updated') == "1") {
+            var docType = $(this).data('document');
+            var name = $(this).attr('name');
+            var value = $(this).val();
+
+            if (!data["documents"][docType]) {
+                data["documents"][docType] = {};
+            }
+
+            data["documents"][docType][name] = value;
+        }
+    });
+
+    var supplier_id = $("#supplier_id").val();
+
+    data["supplier_id"] = supplier_id;
+
+    data["is_estatus_editable"] = is_estatus_editable;
+
+    return data
+}
+function clear_file() {
+    $('.file-link').each(function () {
+        let $newInput = $(this).clone();
+        $newInput.val('');
+        $(this).replaceWith($newInput);
+    });
+}
 function setup_button(supplier) {
 
     const alert_estatus = {

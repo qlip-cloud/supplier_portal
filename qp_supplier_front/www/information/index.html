@@ -51,37 +51,37 @@
         <div class="container-tab">
             <div class="tabs-container">
                 <div class="tabs wizard-tabs">
-                    <button class="tab basic active" data-step="01" onclick="showTab('tab1')">
+                    <button class="tab basic active" data-step="01" onclick="saveShowTab('tab1')">
                         <span>Información Básica</span>
                     </button>
                     {% if supplier_id %}
-                        <button class="tab address" data-step="02" onclick="showTab('tab2')">
+                        <button class="tab address" data-step="02" onclick="saveShowTab('tab2')">
                             <span>Direcciones</span>
                         </button>
-                        <button class="tab contact" data-step="03" onclick="showTab('tab3')">
+                        <button class="tab contact" data-step="03" onclick="saveShowTab('tab3')">
                             <span>Contactos</span>
                         </button>
-                        <button class="tab legal" data-step="04" onclick="showTab('tab4')">
+                        <button class="tab legal" data-step="04" onclick="saveShowTab('tab4')">
                             <span>Representante Legal</span>
                         </button>
-                        <button class="tab bank_account bank_account_complement" data-step="05" onclick="showTab('tab5')">
+                        <button class="tab bank_account bank_account_complement" data-step="05" onclick="saveShowTab('tab5')">
                             <span>Cuentas Bancarias</span>
                         </button>
-                        <button class="tab tax" data-step="06" onclick="showTab('tab6')">
+                        <button class="tab tax" data-step="06" onclick="saveShowTab('tab6')">
                             <span>Información Tributaria</span>
                         </button>
-                        <button class="tab financial" data-step="07" onclick="showTab('tab7')">
+                        <button class="tab financial" data-step="07" onclick="saveShowTab('tab7')">
                             <span>Información Financiera</span>
                         </button>
                         {% if not supplier.qp_is_foreigner_supplier %}
-                            <button class="tab international" data-step="08" onclick="showTab('tab8')">
+                            <button class="tab international" data-step="08" onclick="saveShowTab('tab8')">
                                 <span>Operaciones Internacionales</span>
                             </button>
                         {% endif %}
-                        <button class="tab shareholder" data-step="09" onclick="showTab('tab9')">
+                        <button class="tab shareholder" data-step="09" onclick="saveShowTab('tab9')">
                             <span>Accionistas y Asociados</span>
                         </button>
-                        <button class="tab document" data-step="10" onclick="showTab('tab10')" id="document">
+                        <button class="tab document" data-step="10" onclick="saveShowTab('tab10')" id="document">
                             <span>Documentos</span>
                         </button>
                     {% endif %}
