@@ -1,5 +1,7 @@
 function saveShowTab(tabId) {
 
+    document.getElementById("overlay").style.display = 'block';
+
     var $form = $(".tab-content").filter(function() {
         return $(this).css("display") !== "none";
     }).find("form");
@@ -11,8 +13,6 @@ function saveShowTab(tabId) {
     supplier_id = $("#supplier_id").val();
 
     if (control == 'is_estatus_editable') {
-
-        $("#overlay").css("display", "block");
 
 
         switch (typeAction) {
@@ -38,7 +38,7 @@ function saveShowTab(tabId) {
             case 'document':
 
                 var formData = getDocuments(control == 'is_estatus_editable')
-                console.log(formData)
+                
                 callresponse = (response) => {
 
                     data = response.data
@@ -55,7 +55,6 @@ function saveShowTab(tabId) {
             default:
                 break;
         }
-        $("#overlay").css("display", "none");
 
     } else {
         showTab(tabId)
@@ -87,6 +86,7 @@ function showTab(tabId) {
     activeTab.classList.add('active');
 
     activeContent.style.display = 'block';
+    $("#overlay").css("display", "none");
 
     // Move the form to the active tab content
 
@@ -288,7 +288,7 @@ $(document).ready(function () {
 
                     $('.tab').css('color', 'black');
                     has_incompleted = false
-                    console.log(supplier.qp_field_validations)
+                    
                     // Suponiendo que jsqp_field_validations es tu array
                     $.each(supplier.qp_field_validations, function (index, validation) {
                         const $tab = $(`.tab.${validation.field_section}`);
@@ -418,7 +418,7 @@ $(document).ready(function () {
             $('.modal').modal('hide')
 
             data = response.data
-            console.log(data.supplier)
+            
             setup_button(data.supplier)
             $(".approve-row").remove()
 
