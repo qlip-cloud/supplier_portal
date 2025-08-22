@@ -1,5 +1,5 @@
 <form class="form-estandar" id="form-basic" method="{{'PUT' if supplier_id else 'POST'}}" data-method-default="PUT"
-    action="api/method/qp_supplier_front.resources.information.basic.update">
+    action="api/method/qp_supplier_front.resources.information.basic.update" data-control="{{ 'is_estatus_editable' if is_estatus_editable else '' }}" data-type="estandar">
     <div class="row row-line">
 
 
