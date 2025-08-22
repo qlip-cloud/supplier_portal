@@ -16,7 +16,7 @@
     {% include "qp_supplier_front/templates/list/information/bank_accounts.html" %}
 </div>
 <hr>
-<form class = "form-estandar" id="form-bank-account-complemet" method="PUT" data-method-default = "PUT" action="api/method/qp_supplier_front.resources.information.bank_account.save_complement">
+<form class = "form-estandar" id="form-bank-account-complemet" method="PUT" data-method-default = "PUT" action="api/method/qp_supplier_front.resources.information.bank_account.save_complement" data-control="{{ 'is_estatus_editable' if is_estatus_editable else '' }}" data-type="estandar">
     <div class="row row-line">
         <div class="col-lg-4">
             <label for="qp_public_resource_management">¿Por su cargo o actividad maneja o maneja recursos públicos? (Sí/No)</label>

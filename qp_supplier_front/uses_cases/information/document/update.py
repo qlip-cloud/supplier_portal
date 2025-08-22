@@ -1,7 +1,7 @@
 
 import frappe
 from qp_supplier_front.services.get_data import get_supplier
-from qp_supplier_front.services.field_validate import setup_validate_field_list
+from qp_supplier_front.services.field_validate import add_field_validations
 from qp_supplier_front.uses_cases.information.complete import handler as complete
 from qp_supplier_front.services.field_validate import handler as validate_field
 from frappe.utils import add_to_date # type: ignore
@@ -11,15 +11,12 @@ def handler(supplier_id, documents, is_estatus_editable):
     
     doctype = "qp_SP_DocumentParty"
     
-    valid_code = "document"
     
     supplier = get_supplier(supplier_id)
     
     set_document(supplier, documents)
     
-    fields_to_validate = ['file', "is_valid"]
-
-    setup_validate_field_list(supplier, supplier.qp_documents, valid_code, fields_to_validate)
+    setup_validate_field_list(supplier)
     
     validate_document_expirate(supplier)
     
@@ -36,23 +33,40 @@ def handler(supplier_id, documents, is_estatus_editable):
     return {
         "supplier": supplier
     }
+def setup_validate_field_list(supplier):
+    
+    valid_code = "document"
+    
+    count = 0
+    
+    for qp_document in supplier.qp_documents:
+        
+        
+        if qp_document.file and qp_document.is_valid:
+            
+            count += 1
+            
+    add_field_validations(supplier,valid_code, count)
+    
     
 def  set_document(supplier, documents):
     
     for key, document in documents.items():
         
-        setting_id = key.replace("-", " ")
+        if document["file"]:
+            
+            setting_id = key.replace("-", " ")
+            
+            document_setting = frappe.get_doc("qp_SP_DocumentSetting", setting_id)
         
-        document_setting = frappe.get_doc("qp_SP_DocumentSetting", setting_id)
-    
-        validity = add_to_date(datetime.now(), days=document_setting.expire_day)
-        
-        supplier.append("qp_documents", {
-            "documento_setting": setting_id,
-            "validity": validity,
-            "is_valid": True,
-            "file": document["file"]
-        })
+            validity = add_to_date(datetime.now(), days=document_setting.expire_day)
+            
+            supplier.append("qp_documents", {
+                "documento_setting": setting_id,
+                "validity": validity,
+                "is_valid": True,
+                "file": document["file"]
+            })
         
 def validate_document_expirate(supplier):
     
