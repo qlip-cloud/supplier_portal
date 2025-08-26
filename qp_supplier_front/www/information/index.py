@@ -40,6 +40,7 @@ def get_context(context):
         context.is_alpla_admin = "Alpla Administrator" in user_roles
     
     setup_document_types(context, party)
+    setup_legal_document_types(context, supplier)
     
     setup_business_types(context, party)
     
@@ -116,6 +117,16 @@ def setup_document_types(context, party):
         set_selected_select(document_types, party.id_type)
             
     context.document_types = document_types
+    
+def setup_legal_document_types(context, supplier):
+    
+    legal_document_types = get_document_types()
+    
+    if supplier:
+        
+        set_selected_select(legal_document_types, supplier.qp_legal_id_type)
+            
+    context.legal_document_types = legal_document_types
     
 def setup_business_types(context, party):
     
