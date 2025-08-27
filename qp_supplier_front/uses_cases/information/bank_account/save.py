@@ -29,16 +29,25 @@ def create_bank_account(supplier, bank, account_type, bank_account_no, swift_num
     doctype = "Bank Account"
     
     bank_name = bank.strip()
+    
     existing_bank = frappe.db.exists("Bank", bank_name)
 
     if not existing_bank:
+        
         new_bank = frappe.new_doc("Bank")
+        
         new_bank.bank_name = bank_name
+        
         if swift_number:
+            
             new_bank.qp_swift_number = swift_number
+            
         if qp_aba_number:
+            
             new_bank.qp_aba_number = qp_aba_number
+            
         new_bank.insert(ignore_permissions=True)
+        
         frappe.db.commit()
 
     bank_account = frappe.new_doc(doctype)

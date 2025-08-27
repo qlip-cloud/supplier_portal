@@ -34,28 +34,57 @@ def update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_n
     bank_account = frappe.get_doc(doctype,doctype_id)
 
     bank_name = bank.strip()
-    existing_bank = frappe.db.exists("Bank", bank_name)
-
-    if existing_bank:
-        bank_doc = frappe.get_doc("Bank", bank_name)
-        if swift_number:
-            bank_doc.swift_number = swift_number
-        if qp_aba_number:
-            bank_doc.qp_aba_number = qp_aba_number
-        bank_doc.save()
-
+    
+    bank_doc = setup_bank(bank_name, swift_number, qp_aba_number)
+    
     bank_account.bank = bank
+    
     bank_account.account_type = account_type
+    
     bank_account.bank_account_no = bank_account_no
 
     if iban:
+        
         bank_account.qp_iban_number = iban
     
     if qp_routing_code:
+        
         bank_account.qp_routing_code = qp_routing_code
     
     bank_account.save()
     
     return bank_account
     
-         
+def setup_bank(bank_name, swift_number, qp_aba_number):
+    
+    existing_bank = frappe.db.exists("Bank", bank_name)
+    
+    if not existing_bank:
+        
+        new_bank = frappe.new_doc("Bank")
+        
+        new_bank.bank_name = bank_name
+        
+        update_bank(new_bank , swift_number, qp_aba_number)
+            
+        new_bank.insert(ignore_permissions=True)
+        
+        return new_bank
+    
+    bank_doc = frappe.get_doc("Bank", bank_name)
+    
+    update_bank(bank_doc , swift_number, qp_aba_number)
+    
+    bank_doc.save()
+        
+    return bank_doc
+    
+def update_bank(bank , swift_number, qp_aba_number):
+    
+    if swift_number:
+            
+        bank.swift_number = swift_number
+        
+    if qp_aba_number:
+        
+        bank.qp_aba_number = qp_aba_number
