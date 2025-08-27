@@ -37,7 +37,7 @@ def update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_n
     
     bank_doc = setup_bank(bank_name, swift_number, qp_aba_number)
     
-    bank_account.bank = bank
+    bank_account.bank = bank_name
     
     bank_account.account_type = account_type
     

@@ -53,7 +53,7 @@ def create_bank_account(supplier, bank, account_type, bank_account_no, swift_num
     bank_account = frappe.new_doc(doctype)
     
     bank_account.account_name = f"{supplier.name}:{bank_account_no}"
-    bank_account.bank = bank
+    bank_account.bank = bank_name
     bank_account.account_type = account_type
     bank_account.bank_account_no = bank_account_no
     bank_account.party_type = supplier.doctype
