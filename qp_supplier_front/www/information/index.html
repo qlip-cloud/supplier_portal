@@ -2,10 +2,6 @@
 
 {% block content_page %}
 
-
-
-{% set is_estatus_editable = not supplier or supplier.qp_status not in ("En revisión", "Aprobado") %}
-
 {% set alert_estatus = {
         "En proceso": {
             "class": "alert-info",
