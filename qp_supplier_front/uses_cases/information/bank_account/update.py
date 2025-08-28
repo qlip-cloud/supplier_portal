@@ -51,7 +51,7 @@ def update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_n
         
         bank_account.qp_routing_code = qp_routing_code
     
-    bank_account.save()
+    bank_account.save(ignore_permissions=True)
     
     return bank_account
     
