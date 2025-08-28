@@ -15,18 +15,11 @@ def handler(supplier_id, qp_vat_officer, tax_regime, qp_industry_and_commerce_ta
         [qp_major_contributor, qp_resolution]
     ]
 
-    validate_field(
-        supplier,
-        "tax",
-        0,
-        dual_fields,
-        qp_vat_officer,
-        tax_regime,
-        qp_industry_and_commerce_tax,
-        qp_industry_and_commerce_rate,
-        qp_vat_withholding_agent,
-        ciiu_id
-    )
+    if qp_industry_and_commerce_tax=="NO":
+        validate_field(supplier,"tax",1,dual_fields,qp_vat_officer,tax_regime,qp_industry_and_commerce_tax,qp_vat_withholding_agent,ciiu_id)
+    else:
+        
+        validate_field(supplier,"tax",0,dual_fields,qp_vat_officer,tax_regime,qp_industry_and_commerce_tax,qp_industry_and_commerce_rate,qp_vat_withholding_agent,ciiu_id)
         
     return {
         "supplier": supplier.as_dict()

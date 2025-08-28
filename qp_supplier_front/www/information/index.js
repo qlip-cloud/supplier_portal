@@ -268,8 +268,8 @@ $(document).ready(function () {
         } else {
             showTab(submitter.data("control"))
 
+            document.getElementById("overlay").style.display = 'none';
         }
-        document.getElementById("overlay").style.display = 'none';
 
     });
 
