@@ -83,7 +83,7 @@ def update_bank(bank , swift_number, qp_aba_number):
     
     if swift_number:
             
-        bank.swift_number = swift_number
+        bank.qp_swift_number = swift_number
         
     if qp_aba_number:
         

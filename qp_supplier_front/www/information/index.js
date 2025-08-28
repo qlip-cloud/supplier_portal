@@ -604,7 +604,7 @@ $(document).ready(function () {
 
             $dataBankAccount_no.val(bank_account.bank_account_no);
 
-            $swiftNumber.val(bank.swift_number || "");
+            $swiftNumber.val(bank.qp_swift_number || "");
             $abaNumber.val(bank.qp_aba_number || "");
             $ibanNumber.val(bank_account.qp_iban_number || "");
             $qp_routing_code.val(bank_account.qp_routing_code || "");
