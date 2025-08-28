@@ -242,7 +242,9 @@ def get_result(endpoint, supplier_id, latest_record = None):
 
 
 def set_error(error, errors, doc_id, item_code, doctype, key):
+    
     error_id = f"{doc_id}:{item_code}:{key}"
+    
     errors.update({error_id:(
             error_id,
             error.get("line"),

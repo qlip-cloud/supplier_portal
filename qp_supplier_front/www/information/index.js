@@ -2,7 +2,7 @@ function saveShowTab(tabId) {
 
     document.getElementById("overlay").style.display = 'block';
 
-    var $form = $(".tab-content").filter(function() {
+    var $form = $(".tab-content").filter(function () {
         return $(this).css("display") !== "none";
     }).find("form");
 
@@ -34,11 +34,11 @@ function saveShowTab(tabId) {
                 petition_send_data(formData, $form.attr('action'), callresponse, $form.attr('method'))
 
                 break;
-                
+
             case 'document':
 
                 var formData = getDocuments(control == 'is_estatus_editable')
-                
+
                 callresponse = (response) => {
 
                     data = response.data
@@ -219,49 +219,58 @@ $(document).ready(function () {
         formData.append("supplier_id", supplier_id);
 
         const submitter = $(document.activeElement);
-
-        if (submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal")) {
+        console.log(supplier_id)
+        console.log(submitter.hasClass('is_estatus_editable'))
+        console.log($(this).hasClass("form-modal"))
+        console.log(!supplier_id || submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal"))
+        if (!supplier_id || submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal")) {
 
             document.getElementById("overlay").style.display = 'block';
 
             callresponse = (response) => {
 
                 data = response.data
-                //frappe.msgprint(response.msg)
 
-                if (data.redirect_to) {
-                    window.location.href = data.redirect_to
-                }
+                if (response.status == 200) {
 
-                if ($(this).hasClass("form-modal")) {
-
-                    $('.modal').modal('hide')
-
-                    if (data.render) {
-
-                        render = data.render
-
-                        $(`#${render.container}`).html(render.list)
+                    if (data.redirect_to) {
+                        window.location.href = data.redirect_to
                     }
 
+                    if ($(this).hasClass("form-modal")) {
+
+                        $('.modal').modal('hide')
+
+                        if (data.render) {
+
+                            render = data.render
+
+                            $(`#${render.container}`).html(render.list)
+                        }
+
+                    } else {
+                        if (!$(this).hasClass("form-modal")) {
+
+                            showTab(submitter.data("control"))
+                        }
+                    }
+
+                    $(this).attr('method', $(this).data("method-default"));
                 } else {
-                    if (!$(this).hasClass("form-modal")) {
+                    frappe.msgprint(response.msg)
 
-                        showTab(submitter.data("control"))
-                    }
+
                 }
-
-                $(this).attr('method', $(this).data("method-default"));
 
                 document.getElementById("overlay").style.display = 'none';
-
             }
-
             petition_send_data(formData, $(this).attr('action'), callresponse, $(this).attr('method'))
         } else {
             showTab(submitter.data("control"))
 
+            document.getElementById("overlay").style.display = 'none';
         }
+
     });
 
     $('#form-document').on('submit', function (event) {
@@ -288,7 +297,7 @@ $(document).ready(function () {
 
                     $('.tab').css('color', 'black');
                     has_incompleted = false
-                    
+
                     // Suponiendo que jsqp_field_validations es tu array
                     $.each(supplier.qp_field_validations, function (index, validation) {
                         const $tab = $(`.tab.${validation.field_section}`);
@@ -418,7 +427,7 @@ $(document).ready(function () {
             $('.modal').modal('hide')
 
             data = response.data
-            
+
             setup_button(data.supplier)
             $(".approve-row").remove()
 

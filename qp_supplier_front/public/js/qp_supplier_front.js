@@ -35,7 +35,7 @@ $(document).ready(function () {
 
             activeElement.removeClass('active');
 
-            $(this).css({'background-color': "#EEF0F2"});
+            $(this).css({ 'background-color': "#EEF0F2" });
 
             loading = true
 
@@ -72,7 +72,7 @@ $(document).ready(function () {
 
 
             petition_get_data(data, url, callresponse)
-        }else{
+        } else {
             showPopup()
         }
     });
@@ -100,7 +100,7 @@ $(document).ready(function () {
 
     })
 
-    $("#refresh_filter_list").on("click", function(){
+    $("#refresh_filter_list").on("click", function () {
         $(".filter-list").val("")
         filter_init()
     })
@@ -160,65 +160,69 @@ $(document).ready(function () {
 
         currentPage++;
 
-        if (is_filter || (loading == false && no_more == false)) {
+        if ($("#no-load").length === 0) {
 
-            $("#no-more").hide()
-            
-            loading = true;
 
-            $("#loading").show()
 
-            accordion = $("#accordion");
+            if (is_filter || (loading == false && no_more == false)) {
 
-            supplier_id = $("#supplier_id").val();
+                $("#no-more").hide()
 
-            url = `qp_supplier_front.resources.utils.pagination.render_pagination`;
-            filters = getValidInputs();
+                loading = true;
 
-            data = {
-                'page': currentPage,
-                "key": accordion.data("key"),
-                "doctype": accordion.data("doctype"),
-                "doctype_detail": accordion.data("doctype_detail"),
-                "order_by": accordion.data("order_by"),
-                "date_key": accordion.data("date_key"),
-                supplier_id,
-                filters
-            }
+                $("#loading").show()
 
-            callresponse = (response) => {
-                loading = false;
+                accordion = $("#accordion");
 
-                if (response.data.trim() === "") {
-                    // No more data to load
-                    $(window).off('scroll');
-                    no_more = true;
-                    $("#no-more").show()
-                    $("#loading").hide()
+                supplier_id = $("#supplier_id").val();
 
-                    return;
+                url = `qp_supplier_front.resources.utils.pagination.render_pagination`;
+                filters = getValidInputs();
+
+                data = {
+                    'page': currentPage,
+                    "key": accordion.data("key"),
+                    "doctype": accordion.data("doctype"),
+                    "doctype_detail": accordion.data("doctype_detail"),
+                    "order_by": accordion.data("order_by"),
+                    "date_key": accordion.data("date_key"),
+                    supplier_id,
+                    filters
                 }
 
-                accordion.append(response.data);
+                callresponse = (response) => {
+                    loading = false;
 
-                $("#loading").hide()
+                    if (response.data.trim() === "") {
+                        // No more data to load
+                        $(window).off('scroll');
+                        no_more = true;
+                        $("#no-more").show()
+                        $("#loading").hide()
 
+                        return;
+                    }
+
+                    accordion.append(response.data);
+
+                    $("#loading").hide()
+
+                }
+
+                petition_get_data(data, url, callresponse)
+
+            } else {
+                showPopup()
             }
 
-            petition_get_data(data, url, callresponse)
-
-        } else {
-            showPopup()
         }
-
-
     }
-    function filter_init(){
+    function filter_init() {
         currentPage = -1;
         accordion = $("#accordion");
-    
+
         clearTimeout(debounceTimer);
-    
+
         debounceTimer = setTimeout(function () {
             accordion.html("")
             loadMoreInvoices(true)
@@ -235,17 +239,17 @@ function getValidInputs() {
     let $end_date = $("#end_date")
     date_key = $start_date.data("date_key")
 
-    if ($start_date.val().trim() && $end_date.val().trim()){
-        inputs[date_key] = ["between", [$start_date.val(),$end_date.val()]]
-    }else{
-        
-        if ($start_date.val().trim()){
+    if ($start_date.val().trim() && $end_date.val().trim()) {
+        inputs[date_key] = ["between", [$start_date.val(), $end_date.val()]]
+    } else {
+
+        if ($start_date.val().trim()) {
             inputs[date_key] = [">=", $start_date.val()]
         }
-            
-        if ($end_date.val().trim()){
-            
-            inputs[date_key] = ["<=",$end_date.val()]
+
+        if ($end_date.val().trim()) {
+
+            inputs[date_key] = ["<=", $end_date.val()]
         }
     }
 
@@ -277,7 +281,7 @@ function showPopup() {
     $('#popup-sync').fadeIn(500).delay(2000).fadeOut(500);
 }
 
-$('.sidebar-menu').on('click', function() {
+$('.sidebar-menu').on('click', function () {
     closeNav();
     $('#syncModal').modal('show');
 });

@@ -18,7 +18,7 @@
                 <option value="0" selected="selected" class="custom-option">Tipo de
                     Documento
                 </option>
-                {% for document_type in document_types %}
+                {% for document_type in legal_document_types %}
                 <option value="{{document_type.name}}" {{document_type.selected}} class="custom-option">
                     {{document_type.id_type_name}}
                 </option>
