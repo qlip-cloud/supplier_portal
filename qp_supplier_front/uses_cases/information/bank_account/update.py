@@ -75,7 +75,7 @@ def setup_bank(bank_name, swift_number, qp_aba_number):
     
     update_bank(bank_doc , swift_number, qp_aba_number)
     
-    bank_doc.save()
+    bank_doc.save(ignore_permissions=True)
         
     return bank_doc
     
