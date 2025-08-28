@@ -15,7 +15,7 @@ def handler(supplier_id, documents, is_estatus_editable):
     supplier = get_supplier(supplier_id)
     
     set_document(supplier, documents)
-    
+    setup_document(supplier)
     setup_validate_field_list(supplier)
     
     validate_document_expirate(supplier)
@@ -73,3 +73,20 @@ def validate_document_expirate(supplier):
     qp_has_document_expired = any(document for document in supplier.qp_documents if document.is_valid == False)
     
     supplier.qp_has_document_expired = qp_has_document_expired
+    
+def setup_document(supplier):
+    
+    documents = {}
+    
+    for document in supplier.qp_documents:
+        
+        if not document.documento_setting in documents:
+            
+            documents[document.documento_setting] = document
+        else:
+            
+            if document.file and document.is_valid and document.creation > documents[document.documento_setting].creation:
+                
+                documents[document.documento_setting] = document
+                
+    supplier.qp_documents = [document for document in documents.values()]
