@@ -34,7 +34,7 @@
             <input type="text" autocomplete="off" name="qp_financial_other_income"
                 class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable
                 else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
-                id="qp_financial_other_income" value="{{supplier.qp_financial_other_income or ''}}"
+                id="qp_financial_other_income" value="{{supplier.qp_financial_other_income or 0.00}}"
                 placeholder="Otros Ingresos">
         </div>
 
