@@ -80,13 +80,15 @@ def setup_document(supplier):
     
     for document in supplier.qp_documents:
         
-        if not document.documento_setting in documents:
+        if document.file:
             
-            documents[document.documento_setting] = document
-        else:
-            
-            if document.file and document.is_valid and document.creation > documents[document.documento_setting].creation:
+            if not document.documento_setting in documents:
                 
                 documents[document.documento_setting] = document
+            else:
+                
+                if document.is_valid and document.creation > documents[document.documento_setting].creation:
+                    
+                    documents[document.documento_setting] = document
                 
     supplier.qp_documents = [document for document in documents.values()]
