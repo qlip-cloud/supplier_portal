@@ -11,8 +11,6 @@ def get_context(context):
   supplier_id = query_params.get("supplier")
   
   context.supplier_id = supplier_id
-
-  print(article_name)
   
   context.article = get_article(article_name)
 
