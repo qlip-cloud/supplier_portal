@@ -8,7 +8,7 @@ def get_context(context):
   
   article_name = query_params.get("article_name")
 
-  supplier_id = query_params.get("supplier")
+  supplier_id = query_params.get("supplier_id")
   
   context.supplier_id = supplier_id
   
