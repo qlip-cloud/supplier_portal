@@ -1,6 +1,6 @@
 import frappe
 
-def get_published_news(limit=10, category=None):
+def get_published_news(category=None):
 
     filters = {
         "publish_date": ["<=", frappe.utils.nowdate()]
@@ -17,8 +17,7 @@ def get_published_news(limit=10, category=None):
             "featured_image",       
             "tag"    
         ],
-        order_by="publish_date desc",
-        limit=limit
+        order_by="publish_date desc"
     )
 
     return news

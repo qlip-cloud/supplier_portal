@@ -385,6 +385,9 @@ $(document).ready(function () {
         $('#qp_major_contributor').val() === 'SI' ? 'show' : 'hide'
     ]();
 
+    $('#qp_quality_cert_detail').closest('.col-lg-4')[
+        $('#qp_has_quality_cert').val() === 'SI' ? 'show' : 'hide'
+    ]();
 
     $('#qp_self_retaining').on('change', function () {
         if ($(this).val() === 'SI') {
@@ -402,7 +405,16 @@ $(document).ready(function () {
         }
     });
 
+    $('#qp_has_quality_cert').on('change', function () {
+        if ($(this).val() === 'SI') {
+            $('#qp_quality_cert_detail').closest('.col-lg-4').show();
+        }
+        else {
+            $('#qp_quality_cert_detail').closest('.col-lg-4').hide();
+        }
+    });
 
+    
     $('#qp_reject_observation').on('input', function () {
         if ($(this).val().trim() !== '') {
             $('#reject').prop('disabled', false);
