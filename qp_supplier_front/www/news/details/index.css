@@ -15,3 +15,9 @@ p {
     font-family: 'Open Sans', sans-serif !important;
     font-weight: 400;
 }
+
+.badge{
+    border: 2px solid rgb(16, 57, 125);
+    color: rgb(16, 57, 125);   
+}
+

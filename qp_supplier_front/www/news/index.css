@@ -46,3 +46,8 @@ body {
 body {
 	background-color: #f8f9fa;
 }
+
+.badge{
+    border: 2px solid rgb(16, 57, 125);
+    color: rgb(16, 57, 125);   
+}
