@@ -193,14 +193,11 @@ fixtures = [
     {
         "dt": "Custom Field",
         "filters": [["name", "in", [
-            "Supplier-qp_request_edit",
-            "Supplier-qp_is_foreigner_supplier",
             "Bank-qp_aba_number",
             "Bank-qp_swift_number",
             "Bank Account-qp_iban_number",
             "Bank Account-qp_routing_code",
-            "Contact-qp_contact_type",
-            "Supplier-qp_resolution_self_retaining"
+            "Contact-qp_contact_type"
         ]]]
     }
 ]
