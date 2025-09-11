@@ -394,6 +394,43 @@ $(document).ready(function () {
             }, function () { })
     })
 
+    $(".doc-delete").on("click", function () {
+        setting_id = $(this).data("setting-id");
+        frappe.confirm('¿Seguro que desea eliminar este registro?',
+            function () {
+                $(`#status-${setting_id}`).text("Eliminando archivo...");
+
+
+                supplier_id = $("#supplier_id").val();
+
+                url = "qp_supplier_front.resources.information.document.delete";
+
+                callresponse = (response) => {
+
+                    frappe.msgprint(response.msg)
+
+                    data = response.data
+                    statusCode = response.status
+                    if (statusCode == 200){
+                        $(`#status-${setting_id}`).text("Archivo no cargado");
+
+
+                        $(`.upload-${setting_id}`).show()
+                        $(`.empty-${setting_id}`).hide()
+                    }
+                    else{
+                        $(`#status-${setting_id}`).text("Hubo un error eliminando el archivo");
+
+                    }
+                }
+
+
+                petition_get_data({ supplier_id, setting_id }, url, callresponse)
+
+
+            }, function () { })
+    })
+
 
     $('#qp_resolution_self_retaining').closest('.col-lg-4')[
         $('#qp_self_retaining').val() === 'SI' ? 'show' : 'hide'
@@ -449,7 +486,7 @@ $(document).ready(function () {
         qp_reject_observation = $("#qp_reject_observation").val();
 
         url = "qp_supplier_front.resources.supplier.supplier.reject";
-
+        
         callresponse = (response) => {
 
             frappe.msgprint(response.msg)
@@ -752,10 +789,12 @@ $(document).ready(function () {
 
                 $(`#link-${setting_id}`).val(data.file_url);
                 $(`#link-${setting_id}`).attr("data-updated", "1");
+                $(`.upload-${setting_id}`).hide()
 
-                const viewBtn = `<a href="${data.file_url}" target="_blank" class="view-btn">Ver archivo</a>`;
-                $(`#file-${setting_id}`).parent().replaceWith(viewBtn);
-
+                $view_link = $(`#view-${setting_id}`)
+                $view_link.prop("href",data.file_url )
+                $(`.empty-${setting_id}`).show()
+//data.file_url
             } else {
                 $(`#file_empty-${setting_id}`).show()
                 $(`#file_loading-${setting_id}`).hide()

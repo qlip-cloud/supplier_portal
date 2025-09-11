@@ -27,17 +27,17 @@
                     </div>
                 </div>
                 <div class="doc-action" id="action-{{ id }}">
-                    {% if not line_file %}
-                    <label class="upload-btn">
+                    <label  class="upload-btn upload-{{id}} " style="display: {{'none' if line_file else ''}};">
                         Subir
                         <input type="file" class="supplier_file"
                             data-document="{{ id }}"
                             id="file-{{ id }}"
                             data-setting-id="{{ id }}">
                     </label>
-                    {% else %}
-                    <a href="{{ line.file }}" target="_blank" class="view-btn">Ver archivo</a>
-                    {% endif %}
+
+                    <a href="{{ line.file }}" id ="view-{{id}}" target="_blank" class="view-btn empty-{{id}} " style="display: {{'none' if not line_file else ''}};">Ver archivo</a>
+                    <span class="material-symbols-outlined doc-delete empty-{{id}}" style="margin-left: 1em;color: red;display: {{'none' if not line_file else ''}};" data-setting-id="{{id}}" >delete</span>
+
                 </div>
                 <input type="hidden" class="file-link"
                     data-updated="{{ '0' if line else '1' }}"
