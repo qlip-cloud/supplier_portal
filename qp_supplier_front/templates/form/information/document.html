@@ -50,7 +50,28 @@
     </div>
 
     {% endfor %}
+    <div class="row row-line">
+        <div class="col-6">
+             <label for="qp_has_quality_cert">¿Cuenta con certificados de calidad?</label>
 
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }} name="qp_has_quality_cert"
+                id="qp_has_quality_cert" data-label="qp_has_quality_cert" data-fieldtype="Select">
+                {% for response in responses %}
+                {% set selected = "selected" if supplier.qp_has_quality_cert == response.name %}
+
+                <option value="{{response.name}}" class="custom-option" {{selected}}>
+                    {{response.value}}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6">
+            <label for="qp_quality_cert_detail">¿Cuáles?</label>
+            <input type="text" class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }} name="qp_quality_cert_detail"
+                id="qp_quality_cert_detail" data-label="qp_quality_cert_detail" data-fieldtype="Text"
+                value="{{ supplier.qp_quality_cert_detail if supplier.qp_quality_cert_detail else "" }}">
+        </div>
+    </div>
     <div class="row row-line justify-content-between">
         <div class="col-4 text-left">
             <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save"

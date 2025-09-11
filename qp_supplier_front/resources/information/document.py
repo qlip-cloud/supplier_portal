@@ -5,16 +5,16 @@ from qp_supplier_front.uses_cases.information.document.update import handler as 
 
 
 @frappe.whitelist()
-def update(supplier_id, documents, is_estatus_editable):
-    
+def update(supplier_id, documents, qp_has_quality_cert, qp_quality_cert_detail, is_estatus_editable):
+
     try:
         
         msg = "Los datos han sido actualizados correctamente"
         
         documents = json.loads(documents)
-        
-        result = update_document(supplier_id, documents, is_estatus_editable)
-        
+
+        result = update_document(supplier_id, documents, qp_has_quality_cert, qp_quality_cert_detail, is_estatus_editable)
+    
         response(200,  msg, result)
         
     except Exception as error:

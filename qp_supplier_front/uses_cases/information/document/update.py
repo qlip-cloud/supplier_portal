@@ -7,7 +7,7 @@ from qp_supplier_front.services.field_validate import handler as validate_field
 from frappe.utils import add_to_date # type: ignore
 from datetime import datetime
 
-def handler(supplier_id, documents, is_estatus_editable):
+def handler(supplier_id, documents, qp_has_quality_cert, qp_quality_cert_detail, is_estatus_editable):
     
     doctype = "qp_SP_DocumentParty"
     
@@ -17,6 +17,8 @@ def handler(supplier_id, documents, is_estatus_editable):
     set_document(supplier, documents)
     setup_document(supplier)
     setup_validate_field_list(supplier)
+    supplier.qp_has_quality_cert = qp_has_quality_cert
+    supplier.qp_quality_cert_detail = qp_quality_cert_detail
     
     validate_document_expirate(supplier)
     
