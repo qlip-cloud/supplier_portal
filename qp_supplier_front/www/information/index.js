@@ -109,6 +109,24 @@ $(document).ready(function () {
 
     clear_file()
 
+
+    $('#supplier_name').on('input', function () {
+            const value = $(this).val();
+            const maxLength = 65;
+            const regex = /^[a-zA-Z0-9. ]*$/;
+
+            if (value.length > maxLength) {
+                $('#error_message').text('Máximo 65 caracteres permitidos.');
+                $(this).val(value.substring(0, maxLength));
+            } else if (!regex.test(value)) {
+                $('#error_message').text('Solo se permiten letras, números, espacios y el punto (.)');
+                $(this).val(value.replace(/[^a-zA-Z0-9. ]/g, ''));
+            } else {
+                $('#error_message').text('');
+            }
+        });
+
+
     $('.modal-content-scroll').on('scroll', function () {
         var $modalContent = $(this);
         var scrollHeight = $modalContent[0].scrollHeight;

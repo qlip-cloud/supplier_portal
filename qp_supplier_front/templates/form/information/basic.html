@@ -42,6 +42,9 @@
                 is_estatus_editable else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" name="supplier_name" id="supplier_name" placeholder="Nombre"
                 value="{{supplier.supplier_name or ''}}">
+                <div class="text-muted" style="font-size: 12px;">
+                <i>Máximo 65 caracteres. No se permiten caracteres especiales ni acentos.</i>
+            </div>
         </div>
 
         <div class="col-lg-4">
