@@ -36,8 +36,9 @@
                     </label>
 
                     <a href="{{ line.file }}" id ="view-{{id}}" target="_blank" class="view-btn empty-{{id}} " style="display: {{'none' if not line_file else ''}};">Ver archivo</a>
+                    {% if is_estatus_editable %}
                     <span class="material-symbols-outlined doc-delete empty-{{id}}" style="margin-left: 1em;color: red;display: {{'none' if not line_file else ''}};" data-setting-id="{{id}}" >delete</span>
-
+                    {% endif %}
                 </div>
                 <input type="hidden" class="file-link"
                     data-updated="{{ '0' if line else '1' }}"
