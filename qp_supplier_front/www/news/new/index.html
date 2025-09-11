@@ -1,0 +1,67 @@
+{% extends "qp_supplier_front/templates/includes/container.html" %}
+
+{% block content_page %}
+<div id="overlay"></div>
+<div class="row">
+  <div class="col-lg-12" id="area">
+    <div class="container my-5">
+      <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+          <div class="card mb-5 shadow">
+            <div class="card-body">
+              <h4 class="fw-bold mb-4" style="font-family: 'Open Sans', sans-serif;">Crear Nueva Noticia</h4>
+
+              <form id="news-form">
+                <input type="hidden" name="supplier_id" value="{{supplier_id}}">
+                <!-- Título -->
+                <div class="mb-3">
+                  <label class="form-label">Título</label>
+                  <input type="text" class="form-control floating-input bold" name="title" required>
+                </div>
+
+                <!-- Resumen -->
+                <div class="mb-3">
+                  <label class="form-label">Resumen</label>
+                  <textarea class="form-control floating-input bold" name="summary" rows="2" required></textarea>
+                </div>
+
+                <!-- Contenido -->
+                <div class="mb-3">
+                  <label class="form-label">Contenido</label>
+                  <textarea class="form-control floating-input bold" name="content" rows="5" required></textarea>
+                </div>
+
+                <!-- Fecha de publicación -->
+                <div class="mb-3">
+                  <label class="form-label">Fecha de publicación</label>
+                  <input type="date" class="form-control floating-input bold" name="publish_date" required>
+                </div>
+
+                <!-- Imagen -->
+                <div class="mb-3">
+                  <label class="form-label">Imagen destacada</label>
+                  <input type="file" class="form-control" name="featured_image" accept="image/*">
+                </div>
+
+
+                <!-- Categoría / Tag -->
+                <div class="mb-3">
+                  <label class="form-label">Categoría</label>
+                  <input type="text" class="form-control floating-input bold" name="tag">
+                </div>
+
+
+                <div class="d-grid">
+                  <button type="submit" class="btn btn-primary button-save">Guardar Noticia</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

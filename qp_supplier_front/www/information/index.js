@@ -403,6 +403,9 @@ $(document).ready(function () {
         $('#qp_major_contributor').val() === 'SI' ? 'show' : 'hide'
     ]();
 
+    $('#qp_quality_cert_detail').closest('.col-6')[
+        $('#qp_has_quality_cert').val() === 'SI' ? 'show' : 'hide'
+    ]();
 
     $('#qp_self_retaining').on('change', function () {
         if ($(this).val() === 'SI') {
@@ -420,7 +423,16 @@ $(document).ready(function () {
         }
     });
 
+    $('#qp_has_quality_cert').on('change', function () {
+        if ($(this).val() === 'SI') {
+            $('#qp_quality_cert_detail').closest('.col-6').show();
+        }
+        else {
+            $('#qp_quality_cert_detail').closest('.col-6').hide();
+        }
+    });
 
+    
     $('#qp_reject_observation').on('input', function () {
         if ($(this).val().trim() !== '') {
             $('#reject').prop('disabled', false);
@@ -782,6 +794,17 @@ function getDocuments(is_estatus_editable) {
     data["supplier_id"] = supplier_id;
 
     data["is_estatus_editable"] = is_estatus_editable;
+
+    qp_has_quality_cert = $("#qp_has_quality_cert").val();
+
+    data["qp_has_quality_cert"] = qp_has_quality_cert;
+
+    if (qp_has_quality_cert == "NO" || qp_has_quality_cert == "") {
+        data["qp_quality_cert_detail"] = "";
+    }else {
+        data["qp_quality_cert_detail"] = $("#qp_quality_cert_detail").val();
+    }
+
 
     return data
 }
