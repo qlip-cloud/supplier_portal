@@ -35,7 +35,8 @@ def  set_document(supplier, documents):
                 "documento_setting": setting_id,
                 "validity": validity,
                 "is_valid": True,
-                "file": document["file"]
+                "file": document["file"],
+                "file_id": document["file_id"]
             })
         
 def validate_document_expirate(supplier):

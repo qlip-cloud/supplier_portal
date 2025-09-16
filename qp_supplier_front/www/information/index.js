@@ -310,8 +310,8 @@ $(document).ready(function () {
                 data = response.data
 
                 supplier = data.supplier
-                if (submitter.hasClass("finish")) {
 
+                if (submitter.hasClass("finish")) {
 
                     $('.tab').css('color', 'black');
                     has_incompleted = false
@@ -781,6 +781,7 @@ $(document).ready(function () {
                 $(`#file_full-${setting_id} a`).attr('href', data.file_url);
                 $(`#file_full-${setting_id} a`).html("Ver archivo")
                 $(`#link-${setting_id}`).val(data.file_url)
+                $(`#file_id_${setting_id}`).val(data.name)
                 $(`#link-${setting_id}`).attr("data-updated", "1")
                 $(`#file_full-${setting_id}`).show()
                 $(`#file_full-${setting_id}`).show()

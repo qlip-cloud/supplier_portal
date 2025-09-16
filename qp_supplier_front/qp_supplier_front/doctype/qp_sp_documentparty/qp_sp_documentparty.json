@@ -8,7 +8,8 @@
   "documento_setting",
   "file",
   "validity",
-  "is_valid"
+  "is_valid",
+  "file_id"
  ],
  "fields": [
   {
@@ -34,12 +35,18 @@
    "fieldname": "is_valid",
    "fieldtype": "Check",
    "label": "is_valid"
+  },
+  {
+   "fieldname": "file_id",
+   "fieldtype": "Link",
+   "label": "file_id",
+   "options": "File"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-03-04 13:32:35.996824",
+ "modified": "2025-09-16 17:55:14.790148",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DocumentParty",

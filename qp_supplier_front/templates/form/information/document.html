@@ -39,6 +39,8 @@
                     {% if is_estatus_editable %}
                     <span class="material-symbols-outlined doc-delete empty-{{id}}" style="margin-left: 1em;color: red;display: {{'none' if not line_file else ''}};" data-setting-id="{{id}}" >delete</span>
                     {% endif %}
+                    <input type="hidden" id="file_id_{{ id }}" data-document="{{ id }}" class="file-link" name = "file_id" value = "{{line.file_id}}" data-updated="{{ '0' if line else '1' }}">
+
                 </div>
                 <input type="hidden" class="file-link"
                     data-updated="{{ '0' if line else '1' }}"
