@@ -27,17 +27,20 @@
                     </div>
                 </div>
                 <div class="doc-action" id="action-{{ id }}">
-                    {% if not line_file %}
-                    <label class="upload-btn">
+                    <label  class="upload-btn upload-{{id}} " style="display: {{'none' if line_file else ''}};">
                         Subir
                         <input type="file" class="supplier_file"
                             data-document="{{ id }}"
                             id="file-{{ id }}"
                             data-setting-id="{{ id }}">
                     </label>
-                    {% else %}
-                    <a href="{{ line.file }}" target="_blank" class="view-btn">Ver archivo</a>
+
+                    <a href="{{ line.file }}" id ="view-{{id}}" target="_blank" class="view-btn empty-{{id}} " style="display: {{'none' if not line_file else ''}};">Ver archivo</a>
+                    {% if is_estatus_editable %}
+                    <span class="material-symbols-outlined doc-delete empty-{{id}}" style="margin-left: 1em;color: red;display: {{'none' if not line_file else ''}};" data-setting-id="{{id}}" >delete</span>
                     {% endif %}
+                    <input type="hidden" id="file_id_{{ id }}" data-document="{{ id }}" class="file-link" name = "file_id" value = "{{line.file_id}}" data-updated="{{ '0' if line else '1' }}">
+
                 </div>
                 <input type="hidden" class="file-link"
                     data-updated="{{ '0' if line else '1' }}"
@@ -50,7 +53,28 @@
     </div>
 
     {% endfor %}
+    <div class="row row-line">
+        <div class="col-6">
+             <label for="qp_has_quality_cert">¿Cuenta con certificados de calidad?</label>
 
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }} name="qp_has_quality_cert"
+                id="qp_has_quality_cert" data-label="qp_has_quality_cert" data-fieldtype="Select">
+                {% for response in responses %}
+                {% set selected = "selected" if supplier.qp_has_quality_cert == response.name %}
+
+                <option value="{{response.name}}" class="custom-option" {{selected}}>
+                    {{response.value}}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6">
+            <label for="qp_quality_cert_detail">¿Cuáles?</label>
+            <input type="text" class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }} name="qp_quality_cert_detail"
+                id="qp_quality_cert_detail" data-label="qp_quality_cert_detail" data-fieldtype="Text"
+                value="{{ supplier.qp_quality_cert_detail if supplier.qp_quality_cert_detail else "" }}">
+        </div>
+    </div>
     <div class="row row-line justify-content-between">
         <div class="col-4 text-left">
             <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save"

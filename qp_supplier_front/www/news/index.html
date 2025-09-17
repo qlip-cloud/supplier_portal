@@ -1,0 +1,44 @@
+{% extends "qp_supplier_front/templates/includes/container.html" %}
+
+{% block content_page %}
+<div id="overlay"></div>
+<div class="row">
+
+
+  <div class="col-lg-12" id="area">
+
+    <div class="container">
+      {% if is_alpla_admin %}
+        <div class="d-flex justify-content my-3">
+          <a class="btn btn-primary btn-sm primary-action button-save" href="/news/new?supplier={{supplier_id}}">Crear Noticia</a>
+        </div>
+      {% endif %}
+				<div class="row" id="news-list">
+          {% for article in news %}
+						<div class="col-md-6 col-lg-4 mb-4">
+							<div class="card h-100">
+                {% if article.featured_image %}
+                  <img src="{{ article.featured_image }}" class="card-img-top" alt="Imagen noticia">
+                {% else %}
+                  <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height:200px; color:#fff;">
+                  </div>
+                {% endif %}
+								<div class="card-body">
+									<h5 class="card-title">{{ article.title }}</h5>
+                  {% if article.tag %}
+                    <span class="badge mb-2">{{ article.tag }}</span>
+                  {% endif %}
+									<p class="card-text">{{ article.summary }}</p>
+									<a class="btn btn-primary btn-sm primary-action button-save" href="/news/details?article_name={{article.name}}&supplier={{supplier_id}}">Ver más</a>
+								</div>
+							</div>
+						</div>
+            {% endfor %}
+					
+				</div>
+		</div>
+  </div>
+
+
+</div>
+{% endblock %}

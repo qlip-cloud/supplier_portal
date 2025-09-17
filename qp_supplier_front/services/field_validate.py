@@ -1,5 +1,6 @@
 import frappe
 from qp_supplier_front.services.get_data import get_dynamic_link
+import re
 
 def handler(supplier, valid_code, count, dual_field = None, *args):
     if should_skip_section(supplier, valid_code):
@@ -182,3 +183,12 @@ def validate_complete_contacts_by_type(supplier, doctype, valid_code):
 
     count = len(valid_types) 
     add_field_validations(supplier, valid_code, count)
+
+
+def validar_supplier_name(supplier_name):
+    if len(supplier_name) > 65:
+        frappe.throw("El nombre excede los 65 caracteres.")
+    
+    # Solo permite letras, números, espacios y punto
+    if not re.match(r'^[a-zA-Z0-9. ]*$', supplier_name):
+        frappe.throw("El nombre contiene caracteres no permitidos.")

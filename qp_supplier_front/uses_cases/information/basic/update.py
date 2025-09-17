@@ -3,7 +3,7 @@ from qp_supplier_front.services.get_data import get_party, get_supplier
 from qp_supplier_front.services.create_data import create_party, set_party
 from qp_supplier_front.services.create_data import create_party, create_first_contact
 
-from qp_supplier_front.services.field_validate import handler as validate_field
+from qp_supplier_front.services.field_validate import handler as validate_field, validar_supplier_name
 
 
 def handler(supplier_id, supplier_name, id_type_name, tax_id, phone_number, business_type_name, qp_is_foreigner_supplier):
@@ -34,6 +34,8 @@ def handler(supplier_id, supplier_name, id_type_name, tax_id, phone_number, busi
     return  data
     
 def update_supplier(supplier, supplier_name, tax_id, qp_is_foreigner_supplier):
+    
+    validar_supplier_name(supplier_name)
     
     supplier.supplier_name = supplier_name
     

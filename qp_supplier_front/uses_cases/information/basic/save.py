@@ -1,7 +1,7 @@
 import frappe
 from qp_supplier_front.services.create_data import create_party, create_first_contact
-from qp_supplier_front.services.field_validate import handler as validate_field
-
+from qp_supplier_front.services.field_validate import handler as validate_field, validar_supplier_name
+import re
 
 def handler(supplier_name, id_type_name, tax_id, phone_number, business_type_name, qp_is_foreigner_supplier ,email = None): 
     
@@ -23,6 +23,8 @@ def create_supplier(supplier_name, tax_id, qp_is_foreigner_supplier,gp_vendor_id
     
     supplier = frappe.new_doc("Supplier")
     
+    validar_supplier_name(supplier_name)
+    
     supplier.supplier_name = supplier_name
     
     supplier.tax_id = tax_id
@@ -37,4 +39,6 @@ def create_supplier(supplier_name, tax_id, qp_is_foreigner_supplier,gp_vendor_id
     
     supplier.insert()
     
-    return supplier     
+    return supplier
+
+
