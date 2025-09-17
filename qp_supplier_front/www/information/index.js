@@ -109,6 +109,24 @@ $(document).ready(function () {
 
     clear_file()
 
+
+    $('#supplier_name').on('input', function () {
+            const value = $(this).val();
+            const maxLength = 65;
+            const regex = /^[a-zA-Z0-9. ]*$/;
+
+            if (value.length > maxLength) {
+                $('#error_message').text('Máximo 65 caracteres permitidos.');
+                $(this).val(value.substring(0, maxLength));
+            } else if (!regex.test(value)) {
+                $('#error_message').text('Solo se permiten letras, números, espacios y el punto (.)');
+                $(this).val(value.replace(/[^a-zA-Z0-9. ]/g, ''));
+            } else {
+                $('#error_message').text('');
+            }
+        });
+
+
     $('.modal-content-scroll').on('scroll', function () {
         var $modalContent = $(this);
         var scrollHeight = $modalContent[0].scrollHeight;
@@ -292,8 +310,8 @@ $(document).ready(function () {
                 data = response.data
 
                 supplier = data.supplier
-                if (submitter.hasClass("finish")) {
 
+                if (submitter.hasClass("finish")) {
 
                     $('.tab').css('color', 'black');
                     has_incompleted = false
@@ -376,6 +394,43 @@ $(document).ready(function () {
             }, function () { })
     })
 
+    $(".doc-delete").on("click", function () {
+        setting_id = $(this).data("setting-id");
+        frappe.confirm('¿Seguro que desea eliminar este registro?',
+            function () {
+                $(`#status-${setting_id}`).text("Eliminando archivo...");
+
+
+                supplier_id = $("#supplier_id").val();
+
+                url = "qp_supplier_front.resources.information.document.delete";
+
+                callresponse = (response) => {
+
+                    frappe.msgprint(response.msg)
+
+                    data = response.data
+                    statusCode = response.status
+                    if (statusCode == 200){
+                        $(`#status-${setting_id}`).text("Archivo no cargado");
+
+
+                        $(`.upload-${setting_id}`).show()
+                        $(`.empty-${setting_id}`).hide()
+                    }
+                    else{
+                        $(`#status-${setting_id}`).text("Hubo un error eliminando el archivo");
+
+                    }
+                }
+
+
+                petition_get_data({ supplier_id, setting_id }, url, callresponse)
+
+
+            }, function () { })
+    })
+
 
     $('#qp_resolution_self_retaining').closest('.col-lg-4')[
         $('#qp_self_retaining').val() === 'SI' ? 'show' : 'hide'
@@ -385,6 +440,9 @@ $(document).ready(function () {
         $('#qp_major_contributor').val() === 'SI' ? 'show' : 'hide'
     ]();
 
+    $('#qp_quality_cert_detail').closest('.col-6')[
+        $('#qp_has_quality_cert').val() === 'SI' ? 'show' : 'hide'
+    ]();
 
     $('#qp_self_retaining').on('change', function () {
         if ($(this).val() === 'SI') {
@@ -402,7 +460,16 @@ $(document).ready(function () {
         }
     });
 
+    $('#qp_has_quality_cert').on('change', function () {
+        if ($(this).val() === 'SI') {
+            $('#qp_quality_cert_detail').closest('.col-6').show();
+        }
+        else {
+            $('#qp_quality_cert_detail').closest('.col-6').hide();
+        }
+    });
 
+    
     $('#qp_reject_observation').on('input', function () {
         if ($(this).val().trim() !== '') {
             $('#reject').prop('disabled', false);
@@ -419,7 +486,7 @@ $(document).ready(function () {
         qp_reject_observation = $("#qp_reject_observation").val();
 
         url = "qp_supplier_front.resources.supplier.supplier.reject";
-
+        
         callresponse = (response) => {
 
             frappe.msgprint(response.msg)
@@ -714,6 +781,7 @@ $(document).ready(function () {
                 $(`#file_full-${setting_id} a`).attr('href', data.file_url);
                 $(`#file_full-${setting_id} a`).html("Ver archivo")
                 $(`#link-${setting_id}`).val(data.file_url)
+                $(`#file_id_${setting_id}`).val(data.name)
                 $(`#link-${setting_id}`).attr("data-updated", "1")
                 $(`#file_full-${setting_id}`).show()
                 $(`#file_full-${setting_id}`).show()
@@ -722,10 +790,12 @@ $(document).ready(function () {
 
                 $(`#link-${setting_id}`).val(data.file_url);
                 $(`#link-${setting_id}`).attr("data-updated", "1");
+                $(`.upload-${setting_id}`).hide()
 
-                const viewBtn = `<a href="${data.file_url}" target="_blank" class="view-btn">Ver archivo</a>`;
-                $(`#file-${setting_id}`).parent().replaceWith(viewBtn);
-
+                $view_link = $(`#view-${setting_id}`)
+                $view_link.prop("href",data.file_url )
+                $(`.empty-${setting_id}`).show()
+//data.file_url
             } else {
                 $(`#file_empty-${setting_id}`).show()
                 $(`#file_loading-${setting_id}`).hide()
@@ -764,6 +834,17 @@ function getDocuments(is_estatus_editable) {
     data["supplier_id"] = supplier_id;
 
     data["is_estatus_editable"] = is_estatus_editable;
+
+    qp_has_quality_cert = $("#qp_has_quality_cert").val();
+
+    data["qp_has_quality_cert"] = qp_has_quality_cert;
+
+    if (qp_has_quality_cert == "NO" || qp_has_quality_cert == "") {
+        data["qp_quality_cert_detail"] = "";
+    }else {
+        data["qp_quality_cert_detail"] = $("#qp_quality_cert_detail").val();
+    }
+
 
     return data
 }
