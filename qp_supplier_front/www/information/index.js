@@ -237,10 +237,7 @@ $(document).ready(function () {
         formData.append("supplier_id", supplier_id);
 
         const submitter = $(document.activeElement);
-        console.log(supplier_id)
-        console.log(submitter.hasClass('is_estatus_editable'))
-        console.log($(this).hasClass("form-modal"))
-        console.log(!supplier_id || submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal"))
+        
         if (!supplier_id || submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal")) {
 
             document.getElementById("overlay").style.display = 'block';
@@ -264,6 +261,10 @@ $(document).ready(function () {
                             render = data.render
 
                             $(`#${render.container}`).html(render.list)
+                        }
+                        if (data.is_bank_account){
+                            $(`#bank-new`).remove()
+
                         }
 
                     } else {
