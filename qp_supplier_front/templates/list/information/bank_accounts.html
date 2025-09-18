@@ -1,4 +1,3 @@
-
 <div class="row row-line">
     {% if bank_accounts %}
     <table class="table">
@@ -7,15 +6,26 @@
             <th>Nombre</th>
             <th>Correo</th>
             <th>Número de Cuenta</th>
+            {% if is_estatus_editable %}
+                <th width="5%"></th>
+            {% endif %}
+
         </thead>
         <tbody>
             {% for bank_account in bank_accounts %}
 
             <tr>
-                <td class="bank_account-id" data-id="{{bank_account.name}}"><span class="link_modal">{{bank_account.name}}</span></td>
+                <td class="bank_account-id" data-id="{{bank_account.name}}"><span
+                        class="link_modal">{{bank_account.name}}</span></td>
                 <td>{{bank_account.bank}}</td>
                 <td>{{bank_account.account_type}}</td>
                 <td>{{bank_account.bank_account_no}}</td>
+
+                {% if is_estatus_editable %}
+                <td><span class="material-symbols-outlined bank-account-delete" style="color: red;"
+                        data-bank-acccount-id="{{bank_account.name}}">delete</span></td>
+                {% endif %}
+
             </tr>
             {% endfor %}
         </tbody>
