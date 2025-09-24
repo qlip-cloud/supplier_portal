@@ -1,31 +1,35 @@
-<div class="row row-line">
-
-
+<div class="row row-line" id="bank-new">
     <div class="col-sm-4">
-        <button type="button" class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new" data-toggle="modal"
-            data-target="#bank_account_modal" id="new-bank-account">
+        <button type="button"
+            class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable and not bank_accounts else 'hidden disabled' }} button-new"
+            data-toggle="modal" data-target="#bank_account_modal" id="new-bank-account">
             <span class="material-symbols-outlined" style="font-size: 16px; margin-left: 2px;">
                 add
             </span>
             New
         </button>
     </div>
-
 </div>
-<div id = "bank_account_list">
+
+
+<div id="bank_account_list">
     {% include "qp_supplier_front/templates/list/information/bank_accounts.html" %}
 </div>
 <hr>
-<form class = "form-estandar" id="form-bank-account-complemet" method="PUT" data-method-default = "PUT" action="api/method/qp_supplier_front.resources.information.bank_account.save_complement" data-control="{{ 'is_estatus_editable' if is_estatus_editable else '' }}" data-type="estandar">
+<form class="form-estandar" id="form-bank-account-complemet" method="PUT" data-method-default="PUT"
+    action="api/method/qp_supplier_front.resources.information.bank_account.save_complement"
+    data-control="{{ 'is_estatus_editable' if is_estatus_editable else '' }}" data-type="estandar">
     <div class="row row-line">
         <div class="col-lg-4">
-            <label for="qp_public_resource_management">¿Por su cargo o actividad maneja o maneja recursos públicos? (Sí/No)</label>
-            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'"}} name="qp_public_resource_management" id="qp_public_resource_management" data-label="qp_public_resource_management"
-                data-fieldtype="Select">
+            <label for="qp_public_resource_management">¿Por su cargo o actividad maneja o maneja recursos públicos?
+                (Sí/No)</label>
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }}
+                name="qp_public_resource_management" id="qp_public_resource_management"
+                data-label="qp_public_resource_management" data-fieldtype="Select">
                 {% for response in responses %}
                 {% set selected = "selected" if supplier.qp_public_resource_management == response.name %}
 
-                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                <option value="{{response.name}}" class="custom-option" {{selected}}>
                     {{response.value}}
                 </option>
                 {% endfor %}
@@ -33,27 +37,31 @@
         </div>
         <div class="col-lg-4">
 
-            <label for="qp_public_activity">¿Por su cargo o actividad es o ejerce alguna figura de poder público? (Sí/No)</label>
-            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'"}} name="qp_public_activity" id="qp_public_activity" data-label="qp_public_activity"
+            <label for="qp_public_activity">¿Por su cargo o actividad es o ejerce alguna figura de poder público?
+                (Sí/No)</label>
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }}
+                name="qp_public_activity" id="qp_public_activity" data-label="qp_public_activity"
                 data-fieldtype="Select">
                 {% for response in responses %}
                 {% set selected = "selected" if supplier.qp_public_activity == response.name %}
 
-                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                <option value="{{response.name}}" class="custom-option" {{selected}}>
                     {{response.value}}
                 </option>
                 {% endfor %}
             </select>
         </div>
         <div class="col-lg-4">
-            <label for="qp_public_recognition">¿Por su actividad o oficio goza de reconocimiento público nacional o internacional?
+            <label for="qp_public_recognition">¿Por su actividad o oficio goza de reconocimiento público nacional o
+                internacional?
                 (Sí/No)</label>
-            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'"}} name="qp_public_recognition" id="qp_public_recognition" data-label="qp_public_recognition"
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }}
+                name="qp_public_recognition" id="qp_public_recognition" data-label="qp_public_recognition"
                 data-fieldtype="Select">
                 {% for response in responses %}
                 {% set selected = "selected" if supplier.qp_public_recognition == response.name %}
 
-                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                <option value="{{response.name}}" class="custom-option" {{selected}}>
                     {{response.value}}
                 </option>
                 {% endfor %}
@@ -62,37 +70,46 @@
     </div>
     <div class="row row-line">
         <div class="col-lg-4">
-            <label for="qp_link_politically_exposed">¿Existe algún vínculo entre usted y una persona considerada políticamente expuesta?
+            <label for="qp_link_politically_exposed">¿Existe algún vínculo entre usted y una persona considerada
+                políticamente expuesta?
                 (Sí/No)</label>
-            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'"}} name="qp_link_politically_exposed" id="qp_link_politically_exposed" data-label="qp_link_politically_exposed"
-                data-fieldtype="Select">
+            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }}
+                name="qp_link_politically_exposed" id="qp_link_politically_exposed"
+                data-label="qp_link_politically_exposed" data-fieldtype="Select">
                 {% for response in responses %}
                 {% set selected = "selected" if supplier.qp_link_politically_exposed == response.name %}
 
-                <option value="{{response.name}}"  class="custom-option" {{selected}}>
+                <option value="{{response.name}}" class="custom-option" {{selected}}>
                     {{response.value}}
                 </option>
                 {% endfor %}
             </select>
         </div>
         <div class="col-lg-8">
-            <label for="qp_detail_politically_exposed">En caso de ser afirmativo, detalle entidades estatales con vínculo contractual</label>
+            <label for="qp_detail_politically_exposed">En caso de ser afirmativo, detalle entidades estatales con
+                vínculo contractual</label>
 
             <input type="text" autocomplete="off" name="qp_detail_politically_exposed"
-                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable else "disabled = 'true'"}} maxlength="140" data-fieldtype="Data"
-                data-doctype="Issue" id="qp_detail_politically_exposed" value="{{supplier.qp_detail_politically_exposed or ''}}" placeholder="Respuesta">
+                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
+                else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
+                id="qp_detail_politically_exposed" value="{{supplier.qp_detail_politically_exposed or ''}}"
+                placeholder="Respuesta">
         </div>
     </div>
     <div class="row row-line justify-content-between">
         <div class="col-4 text-left">
-            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab4"  id="save">
+            <button
+                class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save"
+                data-control="tab4" id="save">
                 <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 2px;">
                     arrow_back_ios
                 </span>
                 Representante Legal</button>
         </div>
         <div class="col-4 text-right">
-            <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" data-control = "tab6" id="save">
+            <button
+                class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save"
+                data-control="tab6" id="save">
                 Continuar
                 <span class="material-symbols-outlined" style="font-size: 14px; margin-left: 2px;">
                     arrow_forward_ios
@@ -101,5 +118,3 @@
         </div>
     </div>
 </form>
-
-

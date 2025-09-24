@@ -237,10 +237,7 @@ $(document).ready(function () {
         formData.append("supplier_id", supplier_id);
 
         const submitter = $(document.activeElement);
-        console.log(supplier_id)
-        console.log(submitter.hasClass('is_estatus_editable'))
-        console.log($(this).hasClass("form-modal"))
-        console.log(!supplier_id || submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal"))
+        
         if (!supplier_id || submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal")) {
 
             document.getElementById("overlay").style.display = 'block';
@@ -264,6 +261,10 @@ $(document).ready(function () {
                             render = data.render
 
                             $(`#${render.container}`).html(render.list)
+                        }
+                        if (data.is_bank_account){
+                            $(`#new-bank-account`).addClass("hidden disabled")
+
                         }
 
                     } else {
@@ -334,6 +335,10 @@ $(document).ready(function () {
                     msg_error = has_incompleted ? "<p>Hay secciones sin completar, las cuales se indican en rojo. Para continuar con el proceso de validación, debe completar todos los campos.</p>" : "";
 
                     msg = `<p>${response.msg}</p> ${msg_error}`;
+
+                    if (!has_incompleted){
+                        location.reload(true);
+                    }
 
                     frappe.msgprint(msg);
 
@@ -431,6 +436,48 @@ $(document).ready(function () {
             }, function () { })
     })
 
+    $("#bank_account_list").on("click", ".bank-account-delete", function () {
+
+        bank_account_id = $(this).data("bank-acccount-id");
+        
+        frappe.confirm('¿Seguro que desea eliminar este registro?',
+            function () {
+
+
+                supplier_id = $("#supplier_id").val();
+
+
+                url = "qp_supplier_front.resources.information.bank_account.delete";
+
+                callresponse = (response) => {
+
+                    data = response.data
+
+                    statusCode = response.status
+                    
+                    if (statusCode == 200){
+
+                        frappe.msgprint(response.msg)
+
+                        render = data.render
+                        $(`#${render.container}`).html(render.list)
+
+                        if (data.bank_accounts.length === 0){
+                            $(`#new-bank-account`).removeClass("hidden disabled")
+                        }
+                    }
+                    else{
+                        $(`#status-${setting_id}`).text("Hubo un error eliminando la cuenta bancaria");
+
+                    }
+                }
+
+
+                petition_get_data({ supplier_id, bank_account_id }, url, callresponse)
+
+
+            }, function () { })
+    })
 
     $('#qp_resolution_self_retaining').closest('.col-lg-4')[
         $('#qp_self_retaining').val() === 'SI' ? 'show' : 'hide'
