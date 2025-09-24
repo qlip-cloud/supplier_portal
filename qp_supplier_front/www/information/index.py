@@ -25,7 +25,7 @@ def get_context(context):
     
         contacts = get_dynamic_link(supplier, "Contact")
         
-        context.contacts =contacts
+        context.contacts = contacts
         
         context.bank_accounts = get_bank_accounts(supplier, "Bank Account")
         

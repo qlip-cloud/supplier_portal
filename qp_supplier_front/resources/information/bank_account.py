@@ -3,8 +3,10 @@ from qp_supplier_front.uses_cases.information.bank_account.save import handler a
 from qp_supplier_front.uses_cases.information.bank_account.save_complement import handler as save_complement_bank_account   
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.uses_cases.information.bank_account.update import handler as update_bank_account   
+from qp_supplier_front.uses_cases.information.bank_account.delete import handler as delete_bank_account   
 from qp_supplier_front.uses_cases.information.bank_account.get import get_bank_account
 from qp_supplier_front.services.get_data import get_bank_accounts
+from qp_supplier_front.services.get_is_estatus_editable import handler as get_is_estatus_editable
 
 
 @frappe.whitelist()
@@ -24,13 +26,7 @@ def save(supplier_id, bank, account_type, bank_account_no, doctype_id = None, sw
             
             result = update_bank_account(supplier_id, doctype_id, bank, account_type, bank_account_no, swift_number, qp_aba_number, iban, qp_routing_code)
             
-        bank_accounts = get_bank_accounts(result.get("supplier"), "Bank Account")
-        
-        list = frappe.render_template("qp_supplier_front/templates/list/information/bank_accounts.html", {
-            "bank_accounts": bank_accounts
-        })
-        
-        result.setdefault("render", {"list": list, "container": "bank_account_list"})    
+        add_list_updated(result.get("supplier"), result)
         response(200,  msg, result)
         
     except Exception as error:
@@ -70,7 +66,38 @@ def search_bank_account(bank_account_id):
         
         msg = f"Error al buscados bank_account: {str(error)}"
         
-        response(500,  msg)  
+        response(500,  msg) 
+        
+@frappe.whitelist()
+def delete(supplier_id, bank_account_id):
+    
+    try:
+        
+        msg = "Los datos han sido eliminados correctamente"
+        
+        result = delete_bank_account(supplier_id, bank_account_id)
+        
+        add_list_updated(result.get("supplier"), result)
+        
+        response(200,  msg, result)
+        
+    except Exception as error:
+        
+        msg = f"Error al buscados bank_account: {str(error)}"
+        
+        response(500,  msg) 
+
+def add_list_updated(supplier, result):
+    
+    bank_accounts = get_bank_accounts(supplier, "Bank Account")
+    
+    is_estatus_editable = get_is_estatus_editable(supplier)
+    
+    list = frappe.render_template("qp_supplier_front/templates/list/information/bank_accounts.html", {
+            "bank_accounts": bank_accounts, "is_estatus_editable": is_estatus_editable
+    })
+        
+    result.setdefault("render", {"list": list, "container": "bank_account_list"})    
         
     
         

@@ -11,6 +11,8 @@ def handler(supplier_id, bank, account_type, bank_account_no, swift_number=None,
     
     supplier = get_supplier(supplier_id)
     
+    assert_is_only_one(supplier)
+    
     bank_account = create_bank_account(supplier, bank, account_type, bank_account_no, swift_number, qp_aba_number, iban, qp_routing_code)
     
     fields_to_validate = ['bank', 'account_type', 'bank_account_no']
@@ -21,7 +23,8 @@ def handler(supplier_id, bank, account_type, bank_account_no, swift_number=None,
     supplier.save()
     return {
         "bank_account": bank_account.as_dict(),
-        "supplier": supplier
+        "supplier": supplier,
+        "is_bank_account": 1
     }
     
 def create_bank_account(supplier, bank, account_type, bank_account_no, swift_number=None, qp_aba_number=None, iban=None, qp_routing_code=None):
@@ -72,5 +75,10 @@ def create_bank_account(supplier, bank, account_type, bank_account_no, swift_num
     bank_account.insert()
     
     return bank_account
+
+def assert_is_only_one(supplier):
     
+    if frappe.db.exists("Bank Account", {"party_type": supplier.doctype, "party": supplier.name}):
+        
+        frappe.throw("Lo siento, no esta permitido agregar otra cuenta bancaria")
          
