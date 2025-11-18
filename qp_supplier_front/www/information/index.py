@@ -81,7 +81,7 @@ def get_context(context):
   
 def setup_document_settings(qp_documents):
     
-    document_settings = frappe.get_list("qp_SP_DocumentSetting", filters = {"is_active": 1}, fields = ["name", "title", "is_required", "is_active"])
+    document_settings = frappe.get_list("qp_SP_DocumentSetting", filters = {"is_active": 1}, fields = ["name", "title", "is_required", "is_active"], order_by="creation asc")
     
     for document_setting in document_settings:
         

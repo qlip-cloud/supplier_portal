@@ -11,9 +11,8 @@ def setup_validate_field_list(supplier):
     
     for qp_document in supplier.qp_documents:
         
-        
-        if qp_document.file and qp_document.is_valid:
-            
+        document_setting = frappe.get_doc("qp_SP_DocumentSetting", qp_document.documento_setting)
+        if qp_document.file and qp_document.is_valid and document_setting.is_required:
             count += 1
             
     add_field_validations(supplier,valid_code, count)
