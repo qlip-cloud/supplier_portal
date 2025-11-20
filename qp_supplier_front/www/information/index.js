@@ -319,6 +319,7 @@ $(document).ready(function () {
 
                     // Suponiendo que jsqp_field_validations es tu array
                     $.each(supplier.qp_field_validations, function (index, validation) {
+                        console.log(validation.field_section)
                         const $tab = $(`.tab.${validation.field_section}`);
 
                         if (validation.is_completed === 0) {
