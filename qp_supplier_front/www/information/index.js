@@ -321,8 +321,10 @@ $(document).ready(function () {
                     $.each(supplier.qp_field_validations, function (index, validation) {
                         console.log(validation.field_section)
                         const $tab = $(`.tab.${validation.field_section}`);
-
+                        console.log(validation.is_completed)
                         if (validation.is_completed === 0) {
+                            console.log("incomplete tab")
+                            console.log($tab)
                             has_incompleted = true
                             $tab.css('color', 'red');
                             $tab.find('span').css('color', 'red');
