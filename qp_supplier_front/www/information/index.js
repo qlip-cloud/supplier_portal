@@ -321,7 +321,6 @@ $(document).ready(function () {
                     var tabValidations = {};
                     
                     $.each(supplier.qp_field_validations, function (index, validation) {
-                        console.log(validation.field_section)
                         
                         // Buscar tabs que contengan la clase del field_section
                         const $tabs = $(`.tab[class*="${validation.field_section}"]`);
@@ -345,11 +344,8 @@ $(document).ready(function () {
                     
                     // Aplicar estilos basados en el estado acumulado
                     $.each(tabValidations, function(tabClasses, tabData) {
-                        console.log(tabData.$tab)
-                        console.log(tabData.allCompleted)
                         
                         if (!tabData.allCompleted) {
-                            console.log("incomplete tab")
                             has_incompleted = true
                             tabData.$tab.css('color', 'red');
                             tabData.$tab.find('span').css('color', 'red');
@@ -618,7 +614,7 @@ $(document).ready(function () {
         petition_get_data({ city }, url, callresponse)
 
     })
-
+    
     $("#address_list").on("click", ".addres-id", function () {
 
         address_id = $(this).data("id");
