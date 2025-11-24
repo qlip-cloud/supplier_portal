@@ -614,7 +614,7 @@ $(document).ready(function () {
         petition_get_data({ city }, url, callresponse)
 
     })
-chore
+    
     $("#address_list").on("click", ".addres-id", function () {
 
         address_id = $(this).data("id");
