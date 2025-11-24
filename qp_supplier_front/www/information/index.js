@@ -317,20 +317,47 @@ $(document).ready(function () {
                     $('.tab').css('color', 'black');
                     has_incompleted = false
 
-                    // Suponiendo que jsqp_field_validations es tu array
+                    // Agrupar validaciones por tab
+                    var tabValidations = {};
+                    
                     $.each(supplier.qp_field_validations, function (index, validation) {
                         console.log(validation.field_section)
-                        const $tab = $(`.tab.${validation.field_section}`);
-
-                        if (validation.is_completed === 0) {
+                        
+                        // Buscar tabs que contengan la clase del field_section
+                        const $tabs = $(`.tab[class*="${validation.field_section}"]`);
+                        
+                        $tabs.each(function() {
+                            const tabClasses = $(this).attr('class');
+                            
+                            if (!tabValidations[tabClasses]) {
+                                tabValidations[tabClasses] = {
+                                    $tab: $(this),
+                                    allCompleted: true
+                                };
+                            }
+                            
+                            // Si alguna validación está incompleta, marcar el tab como incompleto
+                            if (validation.is_completed === 0) {
+                                tabValidations[tabClasses].allCompleted = false;
+                            }
+                        });
+                    });
+                    
+                    // Aplicar estilos basados en el estado acumulado
+                    $.each(tabValidations, function(tabClasses, tabData) {
+                        console.log(tabData.$tab)
+                        console.log(tabData.allCompleted)
+                        
+                        if (!tabData.allCompleted) {
+                            console.log("incomplete tab")
                             has_incompleted = true
-                            $tab.css('color', 'red');
-                            $tab.find('span').css('color', 'red');
-                            $tab.addClass('incomplete-tab');
+                            tabData.$tab.css('color', 'red');
+                            tabData.$tab.find('span').css('color', 'red');
+                            tabData.$tab.addClass('incomplete-tab');
                         } else {
-                            $tab.css('color', '#999');
-                            $tab.find('span').css('color', '#999');
-                            $tab.removeClass('incomplete-tab');
+                            tabData.$tab.css('color', '#999');
+                            tabData.$tab.find('span').css('color', '#999');
+                            tabData.$tab.removeClass('incomplete-tab');
                         }
                     });
                     msg_error = has_incompleted ? "<p>Hay secciones sin completar, las cuales se indican en rojo. Para continuar con el proceso de validación, debe completar todos los campos.</p>" : "";
