@@ -8,7 +8,7 @@ def handler(supplier_id, qp_financial_assets, qp_financial_liabilities, qp_finan
     
     set_financial(supplier, qp_financial_assets, qp_financial_liabilities, qp_financial_equity, qp_financial_details_income, qp_financial_monthly_income, qp_financial_monthly_expenses, qp_financial_other_income)
     
-    validate_field(supplier, "financial" , 0, None, qp_financial_assets, qp_financial_liabilities, qp_financial_equity, qp_financial_details_income, qp_financial_monthly_income, qp_financial_monthly_expenses, qp_financial_other_income)
+    validate_field(supplier, "financial" , 0, None, qp_financial_assets=qp_financial_assets, qp_financial_liabilities=qp_financial_liabilities, qp_financial_equity=qp_financial_equity, qp_financial_details_income=qp_financial_details_income, qp_financial_monthly_income=qp_financial_monthly_income, qp_financial_monthly_expenses=qp_financial_monthly_expenses, qp_financial_other_income=qp_financial_other_income)
         
     return {
         "supplier": supplier.as_dict()

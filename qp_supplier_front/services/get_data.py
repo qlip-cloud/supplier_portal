@@ -56,3 +56,13 @@ def get_regimes():
 def get_business_types():
     
     return frappe.get_list("qp_CO_BusinessTypes", fields = ["name", "business_type_name"])
+
+def has_recent_news():
+    
+    from datetime import datetime, timedelta
+    
+    last_week = datetime.now() - timedelta(days=7)
+    
+    news = frappe.get_all("qp_SP_Portal_News", filters = {"publish_date": [">=", last_week]}, fields = ["name"], limit=1)
+    
+    return bool(news)

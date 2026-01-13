@@ -11,7 +11,7 @@ def handler(supplier_name, id_type_name, tax_id, phone_number, business_type_nam
     
     create_first_contact(supplier, email)
     
-    validate_field(supplier, "basic" , 0, None, supplier_name, id_type_name, tax_id, phone_number, business_type_name)
+    validate_field(supplier, "basic" , 0, None, supplier_name=supplier_name, id_type_name=id_type_name, tax_id=tax_id, phone_number=phone_number, business_type_name=business_type_name)
     
     return {
         "supplier": supplier.as_dict(),

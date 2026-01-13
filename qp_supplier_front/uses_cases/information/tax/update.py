@@ -11,15 +11,26 @@ def handler(supplier_id, qp_vat_officer, tax_regime, qp_industry_and_commerce_ta
     save_party(supplier, tax_regime, ciiu_id)
     
     dual_fields = [
-        [qp_self_retaining, qp_resolution_self_retaining],
-        [qp_major_contributor, qp_resolution]
+        {
+            "condition_name": "qp_self_retaining",
+            "condition_value": qp_self_retaining,
+            "dependent_name": "qp_resolution_self_retaining",
+            "dependent_value": qp_resolution_self_retaining,
+        },
+        {
+            "condition_name": "qp_major_contributor",
+            "condition_value": qp_major_contributor,
+            "dependent_name": "qp_resolution",
+            "dependent_value": qp_resolution,
+        }
     ]
 
+
     if qp_industry_and_commerce_tax=="NO":
-        validate_field(supplier,"tax",1,dual_fields,qp_vat_officer,tax_regime,qp_industry_and_commerce_tax,qp_vat_withholding_agent,ciiu_id)
+        validate_field(supplier,"tax",1,dual_fields, qp_vat_officer=qp_vat_officer,tax_regime=tax_regime,qp_industry_and_commerce_tax=qp_industry_and_commerce_tax,qp_vat_withholding_agent=qp_vat_withholding_agent,ciiu_id=ciiu_id)
     else:
         
-        validate_field(supplier,"tax",0,dual_fields,qp_vat_officer,tax_regime,qp_industry_and_commerce_tax,qp_industry_and_commerce_rate,qp_vat_withholding_agent,ciiu_id)
+        validate_field(supplier,"tax",0,dual_fields,qp_vat_officer=qp_vat_officer,tax_regime=tax_regime,qp_industry_and_commerce_tax=qp_industry_and_commerce_tax,qp_industry_and_commerce_rate=qp_industry_and_commerce_rate,qp_vat_withholding_agent=qp_vat_withholding_agent,ciiu_id=ciiu_id)
         
     return {
         "supplier": supplier.as_dict()

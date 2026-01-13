@@ -11,18 +11,24 @@ def handler(supplier_id, qp_public_resource_management, qp_public_activity, qp_p
     
     update_complement_bank_account(supplier, qp_public_resource_management, qp_public_activity, qp_public_recognition, qp_link_politically_exposed, qp_detail_politically_exposed)
     
-    dual_field = [[qp_link_politically_exposed,qp_detail_politically_exposed]]
-
-    
-    fields = [qp_public_resource_management, qp_public_activity, qp_public_recognition]
-
+    dual_field = [("qp_link_politically_exposed","qp_detail_politically_exposed")]
+    dual_field = [
+        {
+            "condition_value": qp_link_politically_exposed,
+            "condition_name": "qp_link_politically_exposed",
+            "dependent_value": qp_detail_politically_exposed,
+            "dependent_name": "qp_detail_politically_exposed",
+        }
+    ]
 
     validate_field(
         supplier,
         valid_code,
         0,
         dual_field,
-        *fields
+        qp_public_resource_management=qp_public_resource_management,
+        qp_public_activity=qp_public_activity,
+        qp_public_recognition=qp_public_recognition,
     )
 
     
