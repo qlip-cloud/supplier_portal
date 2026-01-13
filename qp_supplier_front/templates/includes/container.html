@@ -16,7 +16,12 @@
             <a href="/receipt?supplier={{supplier_id}}" class="sidebar-menu">Recibos</a>
             <a href="/tax_report?supplier={{supplier_id}}" class="sidebar-menu">Reportes impuesto</a>
             <a href="/request_quotation?supplier={{supplier_id}}" class="sidebar-menu">Solicitud de cotización</a>
-            <a href="/news?supplier={{supplier_id}}" class="sidebar-menu">Noticias</a>
+            <a href="/news?supplier={{supplier_id}}" class="sidebar-menu">
+                Noticias
+                {% if has_recent_news %}
+                    <span class="badge badge-danger">New</span>
+                {% endif %}
+            </a>
             <!--a href="/quotations?supplier={{supplier_id}}" class="sidebar-menu">Cotizaciones</a-->
         </div>
 

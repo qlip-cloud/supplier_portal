@@ -309,12 +309,17 @@ $(document).ready(function () {
             callresponse = (response) => {
 
                 data = response.data
-
+                
                 supplier = data.supplier
-
+                
                 if (submitter.hasClass("finish")) {
-
+                    // Indicar en rojo los campos incompletos en cada tab
+                    
                     $('.tab').css('color', 'black');
+                    
+                    // Limpiar clase status-cancelled de todos los campos
+                    $('input, select, textarea').removeClass('status-cancelled');
+                    
                     has_incompleted = false
 
                     // Agrupar validaciones por tab
@@ -338,6 +343,19 @@ $(document).ready(function () {
                             // Si alguna validación está incompleta, marcar el tab como incompleto
                             if (validation.is_completed === 0) {
                                 tabValidations[tabClasses].allCompleted = false;
+                                
+                                // Marcar campos faltantes con status-cancelled
+                                if (validation.missing_fields) {
+                                    const missingFields = validation.missing_fields.split(',');
+                                    missingFields.forEach(function(fieldId) {
+                                        const trimmedId = fieldId.trim();
+                                        if (trimmedId) {
+                                            // Buscar por ID o por name
+                                            const $field = $(`#${trimmedId}, [name="${trimmedId}"]`);
+                                            $field.addClass('status-cancelled');
+                                        }
+                                    });
+                                }
                             }
                         });
                     });
@@ -460,6 +478,54 @@ $(document).ready(function () {
             }, function () { })
     })
 
+    $('.contact-delete').on('click', function () {
+        contact_id = $(this).data("contact-id");
+        frappe.confirm('¿Seguro que desea eliminar este registro?',
+            function () {
+                supplier_id = $("#supplier_id").val();
+                url = "qp_supplier_front.resources.information.contact.delete"; 
+                callresponse = (response) => {
+                    data = response.data
+                    statusCode = response.status
+                    console.log(response)
+                    if (statusCode == 200){
+                        frappe.msgprint(response.msg)
+                        render = data.render
+                        $(`#${render.container}`).html(render.list)
+                    }
+                    else{
+                        msg = response.msg || "Hubo un error eliminando el contacto."
+                        frappe.msgprint(msg);
+                    }
+                }
+                petition_get_data({ supplier_id, contact_id }, url, callresponse)
+            }, function () { })
+    })
+
+    $('.shareholder-delete').on('click', function () {
+        shareholder_id = $(this).data("shareholder-id");
+        frappe.confirm('¿Seguro que desea eliminar este registro?',
+            function () {
+                supplier_id = $("#supplier_id").val();
+                url = "qp_supplier_front.resources.information.shareholder.delete";
+                callresponse = (response) => {
+                    data = response.data
+                    statusCode = response.status
+                    if (statusCode == 200){
+                        frappe.msgprint(response.msg)
+                        render = data.render
+                        $(`#${render.container}`).html(render.list)
+                    }
+                    else{
+                        $(`#status-${shareholder_id}`).text("Hubo un error eliminando el accionista");
+                    }
+                }
+                petition_get_data({ supplier_id, shareholder_id }, url, callresponse)
+            }, function () { })
+    })
+    
+    
+
     $("#bank_account_list").on("click", ".bank-account-delete", function () {
 
         bank_account_id = $(this).data("bank-acccount-id");
@@ -549,6 +615,46 @@ $(document).ready(function () {
         }
     });
 
+    $('[name="id_type_name"]').on('change', function () {
+        if ($(this).val() === 'NIT') {
+            $('#tax_id').attr('maxlength', '9');
+        } else {
+            $('#tax_id').attr('maxlength', '140');
+        }
+    })
+
+    $('#phone_number').on('keypress', function (e) {
+        const char = String.fromCharCode(e.which);
+        if (!/^\d$/.test(char)) {
+            e.preventDefault(); 
+        }
+    });
+
+    $('#phone_number').on('input', function () {
+        this.value = this.value.replace(/\D/g, ''); 
+    });
+
+    $('#country_code').on('keypress', function (e) {
+        const char = String.fromCharCode(e.which);
+        if (!/^\d$/.test(char)) {
+            e.preventDefault(); 
+        }
+    });
+
+    $('#country_code').on('input', function () {
+        this.value = this.value.replace(/\D/g, ''); 
+    });
+
+    $('#phone').on('keypress', function (e) {
+        const char = String.fromCharCode(e.which);
+        if (!/^\d$/.test(char)) {
+            e.preventDefault(); 
+        }
+    });
+
+    $('#phone').on('input', function () {
+        this.value = this.value.replace(/\D/g, ''); 
+    });
 
     $("#reject").on("click", function () {
 

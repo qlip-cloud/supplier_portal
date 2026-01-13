@@ -8,7 +8,7 @@
             <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold number"
                 {{ "" if is_estatus_editable else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" name="qp_financial_assets" id="qp_financial_assets" placeholder="Activos"
-                value="{{supplier.qp_financial_assets  or ''}}">
+                value="{{supplier.qp_financial_assets  or 0.00}}">
         </div>
 
         <div class="col-lg-4">
@@ -16,7 +16,7 @@
             <input type="text" autocomplete="off" name="qp_financial_liabilities"
                 class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable
                 else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
-                id="qp_financial_liabilities" value="{{supplier.qp_financial_liabilities  or ''}}"
+                id="qp_financial_liabilities" value="{{supplier.qp_financial_liabilities  or 0.00}}"
                 placeholder="Pasivos">
         </div>
         <div class="col-lg-4">
@@ -24,7 +24,7 @@
             <input type="text" autocomplete="off" name="qp_financial_equity"
                 class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable
                 else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
-                id="qp_financial_equity " value="{{supplier.qp_financial_equity or ''}}" placeholder="Patrimonio">
+                id="qp_financial_equity " value="{{supplier.qp_financial_equity or 0.00}}" placeholder="Patrimonio">
         </div>
     </div>
     <div class="row row-line">
@@ -44,7 +44,7 @@
             <input type="text" autocomplete="off" name="qp_financial_monthly_income"
                 class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable
                 else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
-                id="qp_financial_monthly_income" value="{{supplier.qp_financial_monthly_income  or ''}}"
+                id="qp_financial_monthly_income" value="{{supplier.qp_financial_monthly_income  or 0.00}}"
                 placeholder="Ingresos Mensuales">
         </div>
         <div class="col-lg-4">
@@ -52,7 +52,7 @@
             <input type="text" autocomplete="off" name="qp_financial_monthly_expenses"
                 class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable
                 else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
-                id="qp_financial_monthly_expenses" value="{{supplier.qp_financial_monthly_expenses or ''}}"
+                id="qp_financial_monthly_expenses" value="{{supplier.qp_financial_monthly_expenses or 0.00}}"
                 placeholder="Egresos Mensuales">
         </div>
     </div>

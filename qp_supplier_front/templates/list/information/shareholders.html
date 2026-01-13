@@ -6,6 +6,9 @@
             <th>Tipo de Identificación</th>
             <th>Número</th>
             <th>% Participación</th>
+            {% if is_estatus_editable %}
+                <th>Acciones</th>
+            {% endif %}
         </thead>
         <tbody>
             {% for shareholder in supplier.qp_shareholders %}
@@ -16,6 +19,11 @@
                 <td>{{shareholder.id_type}}</td>
                 <td>{{shareholder.tax_id}}</td>
                 <td>{{shareholder.market_share}}</td>
+                {% if is_estatus_editable %}
+                <td>
+                    <span class="material-symbols-outlined shareholder-delete empty-{{shareholder.name}}"  data-shareholder-id="{{shareholder.name}}" style="margin-left: 1em;color: red;">delete</span>
+                </td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>

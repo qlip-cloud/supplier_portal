@@ -7,6 +7,9 @@
             <th>Tipo de contacto</th>
             <th>Correo</th>
             <th>Teléfono</th>
+            {% if is_estatus_editable %}
+                <th>Acciones</th>
+            {% endif %} 
         </thead>
         <tbody>
             {% for contact in contacts %}
@@ -21,6 +24,12 @@
                 <td>{{contact.qp_contact_type}}</td>
                 <td>{{contact.email_ids[0].email_id}}</td>
                 <td>{{contact.phone_nos[0].phone if contact.phone_nos else "" }}</td>
+                
+                {% if is_estatus_editable %}
+                <td>
+                    <span class="material-symbols-outlined contact-delete empty-{{contact.name}}" data-contact-id="{{contact.name}}" style="margin-left: 1em;color: red;">delete</span>
+                </td>
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>

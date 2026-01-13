@@ -1,6 +1,7 @@
 import frappe
 from qp_supplier_front.uses_cases.information.contact.save import handler as save_contact   
 from qp_supplier_front.uses_cases.information.contact.update import handler as update_contact   
+from qp_supplier_front.uses_cases.information.contact.delete import handler as delete_contact
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.uses_cases.information.contact.get import get_contact
 from qp_supplier_front.services.get_data import get_dynamic_link
@@ -36,6 +37,23 @@ def save(supplier_id, first_name,  qp_contact_type, email_id,country_code,phone,
     except Exception as error:
         
         msg = f"Error al crear contacto: {str(error)}"
+        
+        response(500,  msg)
+
+@frappe.whitelist()
+def delete(supplier_id, contact_id):
+    
+    try:
+        
+        msg = "Los datos han sido eliminados correctamente"
+        
+        result = delete_contact(supplier_id, contact_id)
+        
+        response(200,  msg, result)
+        
+    except Exception as error:
+        
+        msg = f"Error al eliminar contacto: {str(error)}"
         
         response(500,  msg)
 
