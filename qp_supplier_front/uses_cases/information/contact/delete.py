@@ -30,7 +30,8 @@ def handler(supplier_id, contact_id):
     supplier.save()
       
     list = frappe.render_template("qp_supplier_front/templates/list/information/contacts.html", {
-        "contacts": contacts
+        "contacts": contacts,
+        "is_estatus_editable": True
     })
     
     result = {

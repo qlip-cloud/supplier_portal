@@ -23,7 +23,8 @@ def update(supplier_id, fullname, nationality, have_resident_another_country, ha
         
         
         list = frappe.render_template("qp_supplier_front/templates/list/information/shareholders.html", {
-            "supplier": result.get("supplier")
+            "supplier": result.get("supplier"),
+            "is_estatus_editable": True
         })
         
         result.setdefault("render", {"list": list, "container": "shareholder_list"})

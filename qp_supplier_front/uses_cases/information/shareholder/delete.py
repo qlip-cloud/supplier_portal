@@ -15,7 +15,8 @@ def handler(supplier_id, shareholder_id):
   setup_validate_field_list(supplier, supplier.qp_shareholders, "shareholder", fields_to_validate)
   
   list = frappe.render_template("qp_supplier_front/templates/list/information/shareholders.html", {
-      "supplier": supplier
+      "supplier": supplier,
+        "is_estatus_editable": True
   })
   
   result = {
