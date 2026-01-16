@@ -11,7 +11,7 @@ def handler(supplier, valid_code, count, dual_field = None, **kargs):
         supplier.save()
         return
 
-    count += count_valid_fields(**kargs)
+    count += count_valid_fields(*kargs.values())
     count += get_count_dual_field(dual_field)
 
     add_field_validations(supplier, valid_code, count)
@@ -57,13 +57,13 @@ def init_field_validations(supplier, valid_code, count):
             "missing_fields": ""
         })
     
-def count_valid_fields(**kargs):
+def count_valid_fields(*args):
 
     valid_count = 0
     
-    if kargs:
+    if args:
         
-        for arg in kargs.values():
+        for arg in args:
         
             if is_valid(arg):
             
