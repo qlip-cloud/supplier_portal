@@ -22,8 +22,8 @@
             <label for="tax_id">Documento</label>
             <input type="text" autocomplete="off" name="tax_id"
                 class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
-                else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue" id="tax_id"
-                value="{{supplier.tax_id or ''}}" placeholder="Documento">
+                else "disabled = 'true'" }} data-fieldtype="Data" data-doctype="Issue" id="tax_id"
+                value="{{supplier.tax_id or ''}}" placeholder="Documento"{{"maxlength=9" if supplier.qp_legal_id_type == "NIT" else "maxlength=140"}}>
             <div class="text-muted" style="font-size: 12px;">
                 <i>Si el tipo de documento es NIT, ingrese el número sin dígito de verificación.</i>
             </div>

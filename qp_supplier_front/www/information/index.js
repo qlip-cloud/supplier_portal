@@ -622,7 +622,18 @@ $(document).ready(function () {
             $('#tax_id').attr('maxlength', '140');
         }
     })
+    $('#tax_id').on('keypress', function (e) {
+        const char = String.fromCharCode(e.which);
+        if($('#id_type_name').val() === 'NIT'){
+            if (!/^\d$/.test(char)) {
+                e.preventDefault(); 
+            }
+        } 
+    });
 
+    $('#tax_id').on('input', function () {
+        this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
+    });
     $('#phone_number').on('keypress', function (e) {
         const char = String.fromCharCode(e.which);
         if (!/^\d$/.test(char)) {
