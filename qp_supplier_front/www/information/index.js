@@ -478,7 +478,7 @@ $(document).ready(function () {
             }, function () { })
     })
 
-    $('.contact-delete').on('click', function () {
+    $("#contact_list").on("click", ".contact-delete", function () {
         contact_id = $(this).data("contact-id");
         frappe.confirm('¿Seguro que desea eliminar este registro?',
             function () {
@@ -502,7 +502,7 @@ $(document).ready(function () {
             }, function () { })
     })
 
-    $('.shareholder-delete').on('click', function () {
+    $('#shareholder_list').on('click', '.shareholder-delete', function () {
         shareholder_id = $(this).data("shareholder-id");
         frappe.confirm('¿Seguro que desea eliminar este registro?',
             function () {
@@ -624,7 +624,7 @@ $(document).ready(function () {
     })
     $('#tax_id').on('keypress', function (e) {
         const char = String.fromCharCode(e.which);
-        if($('#id_type_name').val() === 'NIT'){
+        if($('[name="id_type_name"]').val() === 'NIT'){
             if (!/^\d$/.test(char)) {
                 e.preventDefault(); 
             }

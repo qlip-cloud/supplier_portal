@@ -26,7 +26,8 @@ def save(supplier_id, first_name,  qp_contact_type, email_id,country_code,phone,
         contacts = get_dynamic_link(result.get("supplier"), "Contact")
         
         list = frappe.render_template("qp_supplier_front/templates/list/information/contacts.html", {
-            "contacts": contacts
+            "contacts": contacts,
+            "is_estatus_editable": True
         })
         
         result.setdefault("render", {"list": list, "container": "contact_list"})
