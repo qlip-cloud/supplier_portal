@@ -630,6 +630,12 @@ $(document).ready(function () {
             }
         } 
     });
+    $('#tax_id').on('keypress', function (e) {
+        const char = String.fromCharCode(e.which);
+        if($('#tax_id').val().length === 9 && $('[name="id_type_name"]').val() === 'NIT'){
+            e.preventDefault();
+        } 
+    });
 
     $('#tax_id').on('input', function () {
         this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
