@@ -2,7 +2,7 @@ import frappe
 from qp_supplier_front.services.get_data import get_dynamic_link
 import re
 
-def handler(supplier, valid_code, count, dual_field = None, *args):
+def handler(supplier, valid_code, count, dual_field = None, **kargs):
     if should_skip_section(supplier, valid_code):
         sections = frappe.get_list("qp_SP_FieldSection", filters={"code": valid_code}, fields=["number_valid"])
         required = int(sections[0].number_valid) if sections else 0
@@ -11,11 +11,11 @@ def handler(supplier, valid_code, count, dual_field = None, *args):
         supplier.save()
         return
 
-
-    count += count_valid_fields(*args)
+    count += count_valid_fields(*kargs.values())
     count += get_count_dual_field(dual_field)
 
     add_field_validations(supplier, valid_code, count)
+    set_missing_fields(supplier, valid_code, dual_field,**kargs)
     supplier.save()
     
 def add_field_validations(supplier,valid_code, count):
@@ -42,7 +42,6 @@ def set_field_validations(supplier, valid_code, count):
                     field_validation.is_completed = count == int(field_validation.field_number)   
             else:
                 field_validation.is_completed = count == int(field_validation.field_number)
-
             return field_validation
             
 def init_field_validations(supplier, valid_code, count):
@@ -54,7 +53,8 @@ def init_field_validations(supplier, valid_code, count):
         supplier.append("qp_field_validations", {
             "field_section": section.code,
             "number": count if valid_code == section.code else 0,
-            "is_completed": count == section.number_valid if valid_code == section.code else False
+            "is_completed": count == section.number_valid if valid_code == section.code else False,
+            "missing_fields": ""
         })
     
 def count_valid_fields(*args):
@@ -71,6 +71,35 @@ def count_valid_fields(*args):
     
     return valid_count
 
+def set_missing_fields(supplier, valid_code, dual_field=None, **kargs):
+    for field_validation in supplier.qp_field_validations:
+
+        if field_validation.field_section == valid_code:
+
+            if field_validation.is_completed:
+                field_validation.missing_fields = ""
+            else:
+                missing_fields = []
+                if kargs:
+                    for key, value in kargs.items():
+                        if not is_valid(value):
+                            missing_fields.append(key)
+
+                if dual_field:
+                    for field in dual_field:
+                        condition_field = field["condition_value"]
+                        dependent_field = field.get("dependent_value")
+
+                        if is_valid(condition_field):
+                            if condition_field == "SI" and not is_valid(dependent_field):
+                                missing_fields.append(f"{field.get('dependent_name')}")
+                            elif condition_field == "NO":
+                                continue
+                        else:
+                            missing_fields.append(f"{field.get('condition_name')}")
+                field_validation.missing_fields = ",".join(missing_fields)
+            return field_validation.missing_fields
+        
 def is_valid(value):
         
         return value is not None and (str(value).strip() != "" and value != "0")
@@ -100,8 +129,8 @@ def get_count_dual_field(dual_field=None):
 
     if dual_field:
         for field in dual_field:
-            condition_field = field[0]
-            dependent_field = field[1] if len(field) > 1 else None
+            condition_field = field["condition_value"]
+            dependent_field = field.get("dependent_value")
 
             if is_valid(condition_field):
                 if condition_field == "SI" and is_valid(dependent_field):

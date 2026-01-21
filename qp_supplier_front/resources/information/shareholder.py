@@ -1,6 +1,7 @@
 import frappe
 from qp_supplier_front.uses_cases.information.shareholder.save import handler as save_shareholder
 from qp_supplier_front.uses_cases.information.shareholder.update import handler as update_shareholder
+from qp_supplier_front.uses_cases.information.shareholder.delete import handler as delete_shareholder
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.uses_cases.information.shareholder.get import get_shareholder
 
@@ -22,7 +23,8 @@ def update(supplier_id, fullname, nationality, have_resident_another_country, ha
         
         
         list = frappe.render_template("qp_supplier_front/templates/list/information/shareholders.html", {
-            "supplier": result.get("supplier")
+            "supplier": result.get("supplier"),
+            "is_estatus_editable": True
         })
         
         result.setdefault("render", {"list": list, "container": "shareholder_list"})
@@ -36,7 +38,22 @@ def update(supplier_id, fullname, nationality, have_resident_another_country, ha
         response(500,  msg)
         
     
+@frappe.whitelist()
+def delete(supplier_id, shareholder_id):
+    
+    try:
         
+        msg = "Los datos han sido eliminados correctamente"
+        
+        result = delete_shareholder(supplier_id, shareholder_id)
+        
+        response(200,  msg, result)
+        
+    except Exception as error:
+        
+        msg = f"Error al eliminar Accionistas o Asociados: {str(error)}"
+        
+        response(500,  msg)        
 @frappe.whitelist()
 def search_shareholder(shareholder_id):
     

@@ -2,6 +2,7 @@ import frappe
 import json
 from qp_supplier_front.uses_cases.sales_invoices.sync_by_supplier import handler as sync_by_supplier
 from qp_supplier_front.services.pagination import get_paginated
+from qp_supplier_front.services.get_data import has_recent_news
 
 def get_context(context):
     
@@ -36,6 +37,8 @@ def get_context(context):
     context.show_result = True
     
     context.date_key = "create_date"
+
+    context.has_recent_news = has_recent_news()
     
     
     

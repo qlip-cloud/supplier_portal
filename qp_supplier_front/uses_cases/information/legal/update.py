@@ -8,7 +8,7 @@ def handler(supplier_id, qp_legal_name, qp_legal_id_type, qp_legal_tax_id, qp_le
     
     set_legal(supplier, qp_legal_name, qp_legal_id_type, qp_legal_tax_id, qp_legal_place_expedition, qp_legal_date_expedition)
     
-    validate_field(supplier, "legal" , 0, None, qp_legal_name, qp_legal_id_type, qp_legal_tax_id, qp_legal_place_expedition, qp_legal_date_expedition)
+    validate_field(supplier, "legal" , 0, None, qp_legal_name=qp_legal_name, qp_legal_id_type=qp_legal_id_type, qp_legal_tax_id=qp_legal_tax_id, qp_legal_place_expedition=qp_legal_place_expedition, qp_legal_date_expedition=qp_legal_date_expedition)
         
     return {
         "supplier": supplier.as_dict()

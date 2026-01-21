@@ -2,6 +2,7 @@ import frappe
 import json
 from qp_authorization.use_case.bearer.authorize import send_request
 from qp_supplier_front.constant.endpoint import INVOICE_ALL
+from qp_supplier_front.services.get_data import has_recent_news 
 
 def get_context(context):
     context.no_cache = True
@@ -25,3 +26,5 @@ def get_context(context):
     print(request_quotations)
     
     context.request_quotations = request_quotations
+
+    context.has_recent_news = has_recent_news()
