@@ -1,0 +1,80 @@
+{
+ "actions": [],
+ "autoname": "field:bol",
+ "creation": "2026-01-27 13:08:47.791251",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "travel_id",
+  "license_plate",
+  "bol",
+  "origin",
+  "destination",
+  "bol_value",
+  "supplier_id"
+ ],
+ "fields": [
+  {
+   "fieldname": "travel_id",
+   "fieldtype": "Data",
+   "label": "Travel Id"
+  },
+  {
+   "fieldname": "license_plate",
+   "fieldtype": "Data",
+   "label": "License Plate"
+  },
+  {
+   "fieldname": "bol",
+   "fieldtype": "Data",
+   "label": "Bol",
+   "unique": 1
+  },
+  {
+   "fieldname": "origin",
+   "fieldtype": "Data",
+   "label": "Origin"
+  },
+  {
+   "fieldname": "destination",
+   "fieldtype": "Data",
+   "label": "Destination"
+  },
+  {
+   "fieldname": "bol_value",
+   "fieldtype": "Currency",
+   "label": "BolValue"
+  },
+  {
+   "fieldname": "supplier_id",
+   "fieldtype": "Link",
+   "label": "Supplier Id",
+   "options": "Supplier"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-30 12:20:06.328785",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_DispatchSync",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

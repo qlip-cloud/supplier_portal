@@ -238,18 +238,20 @@ function getValidInputs() {
     let $start_date = $("#start_date")
     let $end_date = $("#end_date")
     date_key = $start_date.data("date_key")
+    console.log($start_date)
+    if ($start_date.val()){
+        if ($start_date.val().trim() && $end_date.val().trim()) {
+            inputs[date_key] = ["between", [$start_date.val(), $end_date.val()]]
+        } else {
 
-    if ($start_date.val().trim() && $end_date.val().trim()) {
-        inputs[date_key] = ["between", [$start_date.val(), $end_date.val()]]
-    } else {
+            if ($start_date.val().trim()) {
+                inputs[date_key] = [">=", $start_date.val()]
+            }
 
-        if ($start_date.val().trim()) {
-            inputs[date_key] = [">=", $start_date.val()]
-        }
+            if ($end_date.val().trim()) {
 
-        if ($end_date.val().trim()) {
-
-            inputs[date_key] = ["<=", $end_date.val()]
+                inputs[date_key] = ["<=", $end_date.val()]
+            }
         }
     }
 

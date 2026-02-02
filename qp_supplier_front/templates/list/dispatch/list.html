@@ -1,0 +1,21 @@
+    
+    {% if dispatch %}
+    
+            {% for line in dispatch %}
+
+            <tr>
+                <td class = "lines-text">{{line.travel_id}}</td>
+                <td class = "lines-text">{{line.license_plate}}</td>
+                <td class = "lines-text">{{line.bol}}</td>
+                <td class = "lines-text">{{line.origin}}</td>
+                <td class = "lines-text">{{line.destination}}</td>
+                <td class="lines-number text-right">{{frappe.format_value(line.bol_value, "Currency")}}</td>
+                <td class="text-center"><input type="checkbox" data-value = "{{line.bol_value}}" name="dispatchs" class="dispatch-check" value = "{{line.name}}"></td>
+            </tr>
+            {% endfor %}
+        
+    {% else %}
+    <tr >
+        <td colspan="7">No hay despachos registradas</td>
+    </tr>
+    {% endif %}

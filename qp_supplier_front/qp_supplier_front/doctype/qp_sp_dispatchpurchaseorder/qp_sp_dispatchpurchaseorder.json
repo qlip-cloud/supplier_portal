@@ -1,0 +1,146 @@
+{
+ "actions": [],
+ "creation": "2026-01-28 12:18:38.477242",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "purchase_type",
+  "purchase_number",
+  "vendor_id",
+  "document_date",
+  "trade_discount_amount",
+  "freight_amount",
+  "miscellaneous_amount",
+  "subtotal",
+  "comment_text",
+  "currency_id",
+  "required_date",
+  "bol_details",
+  "payload",
+  "response",
+  "is_sync",
+  "is_error"
+ ],
+ "fields": [
+  {
+   "fieldname": "purchase_type",
+   "fieldtype": "Int",
+   "label": "Purchase Type"
+  },
+  {
+   "fieldname": "purchase_number",
+   "fieldtype": "Data",
+   "label": "Purchase Number"
+  },
+  {
+   "fieldname": "vendor_id",
+   "fieldtype": "Data",
+   "label": "Vendor Id"
+  },
+  {
+   "fieldname": "document_date",
+   "fieldtype": "Data",
+   "label": "Document Date"
+  },
+  {
+   "fieldname": "trade_discount_amount",
+   "fieldtype": "Float",
+   "label": "Trade Discount Amount"
+  },
+  {
+   "fieldname": "freight_amount",
+   "fieldtype": "Float",
+   "label": "Freight Amount"
+  },
+  {
+   "fieldname": "miscellaneous_amount",
+   "fieldtype": "Float",
+   "label": "Miscellaneous Amount"
+  },
+  {
+   "fieldname": "subtotal",
+   "fieldtype": "Currency",
+   "label": "Subtotal"
+  },
+  {
+   "fieldname": "comment_text",
+   "fieldtype": "Data",
+   "label": "Comment Text"
+  },
+  {
+   "fieldname": "currency_id",
+   "fieldtype": "Data",
+   "label": "Currency Id"
+  },
+  {
+   "fieldname": "required_date",
+   "fieldtype": "Data",
+   "label": "Required Date"
+  },
+  {
+   "fieldname": "payload",
+   "fieldtype": "Long Text",
+   "label": "Payload"
+  },
+  {
+   "fieldname": "response",
+   "fieldtype": "Long Text",
+   "label": "Response"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_sync",
+   "fieldtype": "Check",
+   "label": "is_sync"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_error",
+   "fieldtype": "Check",
+   "label": "is_error"
+  },
+  {
+   "fieldname": "bol_details",
+   "fieldtype": "Table",
+   "label": "Bol Detail",
+   "options": "qp_SP_DispatchPurchaseOrderLine"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-28 13:48:47.403857",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_DispatchPurchaseOrder",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Supplier",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

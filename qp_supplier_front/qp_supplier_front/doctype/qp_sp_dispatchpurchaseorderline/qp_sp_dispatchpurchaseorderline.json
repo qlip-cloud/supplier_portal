@@ -1,0 +1,90 @@
+{
+ "actions": [],
+ "creation": "2026-01-28 12:17:22.001829",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "dispatch",
+  "bol",
+  "bol_value",
+  "location",
+  "item_number",
+  "quantity",
+  "required_date",
+  "promised_date",
+  "unitcost",
+  "uom"
+ ],
+ "fields": [
+  {
+   "fieldname": "dispatch",
+   "fieldtype": "Link",
+   "label": "dispatch",
+   "options": "qp_SP_Dispatch"
+  },
+  {
+   "fetch_from": "dispatch.bol",
+   "fieldname": "bol",
+   "fieldtype": "Read Only",
+   "label": "Bol"
+  },
+  {
+   "fetch_from": "dispatch.bol_value",
+   "fieldname": "bol_value",
+   "fieldtype": "Read Only",
+   "label": "Bol Value"
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "label": "Location"
+  },
+  {
+   "fieldname": "item_number",
+   "fieldtype": "Data",
+   "label": "Item Number"
+  },
+  {
+   "default": "1",
+   "fieldname": "quantity",
+   "fieldtype": "Int",
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "required_date",
+   "fieldtype": "Data",
+   "label": "Required Date"
+  },
+  {
+   "fieldname": "promised_date",
+   "fieldtype": "Data",
+   "label": "Promised Date"
+  },
+  {
+   "default": "0",
+   "fieldname": "unitcost",
+   "fieldtype": "Currency",
+   "label": "UnitCost"
+  },
+  {
+   "default": "Nos",
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "Uom",
+   "options": "UOM"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-28 13:57:59.312332",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_DispatchPurchaseOrderLine",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
