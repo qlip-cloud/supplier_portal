@@ -23,7 +23,7 @@ def get_context(context):
         """, values={'supplier_id': supplier_id}, as_dict=1)
     
     
-    print(request_quotations)
+    #print(request_quotations)
     
     context.request_quotations = request_quotations
 

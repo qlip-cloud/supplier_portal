@@ -10,7 +10,7 @@
                 <td class = "lines-text">{{line.origin}}</td>
                 <td class = "lines-text">{{line.destination}}</td>
                 <td class="lines-number text-right">{{frappe.format_value(line.bol_value, "Currency")}}</td>
-                <td class="text-center"><input type="checkbox" data-value = "{{line.bol_value}}" name="dispatchs" class="dispatch-check" value = "{{line.name}}"></td>
+                <td class="text-center"><input type="checkbox" data-id = 'name' data-value = "{{line.bol_value}}" name="dispatchs" class="dispatch-check" value = "{{line.name}}"></td>
             </tr>
             {% endfor %}
         

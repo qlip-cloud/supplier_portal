@@ -1,13 +1,18 @@
-$(document).ready(function() {
+$(document).ready(function () {
     $('#total').text(formatearCOP(0));
-    $("#finish").on("click", function(){
+
+    $(".filter-list").on("input", function () {
+        
+
+    })
+    $("#finish").on("click", function () {
 
         url = `qp_supplier_front.resources.dispatch.purchase_order.create`;
 
-        
+
         let dispatchs = [];
-        
-        $('.dispatch-check:checked').each(function() {
+
+        $('.dispatch-check:checked').each(function () {
             dispatchs.push($(this).val());
         });
 
@@ -20,32 +25,49 @@ $(document).ready(function() {
         supplier_id = $("#supplier_id").val();
 
         callresponse = (response) => {
+
             status_code = response.status
 
             loading = false;
-            
+
             data = response.data
 
             $('#total').text(formatearCOP(0));
-            
+
             $("#accordion").html(data)
 
         }
-                
-        petition_get_data({supplier_id, dispatchs}, url, callresponse)
+
+        petition_get_data({ supplier_id, dispatchs }, url, callresponse)
     })
 
-    $('#accordion').on('change', '.dispatch-check',function() {
-        let sumaTotal = 0;
+    $('#accordion').on('change', '.dispatch-check', function () {
+        let $checkbox = $(this);
+        let $fila = $checkbox.closest('tr');
 
-        // Recorrer solo los que están marcados
-        $('.dispatch-check:checked').each(function() {
-            // Convertir a número el data-value (asegúrate que venga sin símbolos de moneda)
+        if ($checkbox.is(':checked')) {
+            // 1. Asignamos la clase al checkbox para tu uso futuro en filtros
+            $checkbox.addClass('filter-notin');
+
+            // 2. Aplicamos estilos a la fila
+            $fila.addClass('selected'); // Para el color de fondo
+            $fila.find('td').css('font-style', 'italic'); // Fuente itálica a todos los td
+        } else {
+            // 1. Quitamos la clase al checkbox
+            $checkbox.removeClass('filter-notin');
+
+            // 2. Revertimos estilos
+            $fila.removeClass('selected');
+            $fila.find('td').css('font-style', 'normal'); // Volver fuente a la normalidad
+        }
+
+        // --- Lógica de la suma total ---
+        let sumaTotal = 0;
+        $('.dispatch-check:checked').each(function () {
             let valor = parseFloat($(this).data('value')) || 0;
             sumaTotal += valor;
         });
-
-        // Formatear a moneda COP y asignar al elemento #total
+        
         $('#total').text(formatearCOP(sumaTotal));
     });
 
