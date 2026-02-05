@@ -29,7 +29,7 @@ def get_context(context):
     
     context.supplier_id = supplier_id
     
-    context.dispatch = get_paginated(0, doctype, supplier_id, context.order_by )
+    context.dispatch = get_paginated(0, doctype, supplier_id, context.order_by, filters = {"is_complete": False})
                        
     context.key = key
     
@@ -37,7 +37,7 @@ def get_context(context):
         
     context.show_result = True
     
-    context.date_key = "creation"
+    context.date_key = "travel_date"
 
     context.has_recent_news = has_recent_news()
     

@@ -34,12 +34,6 @@ def handler(supplier_id):
     move_to_final_dispatch()
     frappe.db.commit()
     
-@frappe.whitelist() 
-def handler_all():
-    
-    result = send_request(INVOICE_ALL)
-
-    setup_doc(result, request_key, request_key_id, request_list_key, request_list_key_id ,doctype, doctype_key, doctype_list_key, doctype_list,doctype_list_key_id, is_validate_items, get_doc_base, insert_doc)
     
 def sync_dispatch_fast(json_data, supplier_id):
     
@@ -63,6 +57,7 @@ def sync_dispatch_fast(json_data, supplier_id):
             b.get("Origin"),
             b.get("Destination"),
             b.get("BolValue") or 0,
+            b.get("TravelDate") or 0,
             supplier_id,
             now,
             now,
@@ -71,7 +66,7 @@ def sync_dispatch_fast(json_data, supplier_id):
             0
         ))
         rows.append(row)
-    print(rows)    
+    
     values_query = ", ".join(rows)
     
     sql = f"""
@@ -83,6 +78,7 @@ def sync_dispatch_fast(json_data, supplier_id):
             origin, 
             destination,
             bol_value,
+            travel_date,
             supplier_id, 
             creation,
             modified,
@@ -104,7 +100,8 @@ def move_to_final_dispatch():
             bol, 
             origin, 
             destination, 
-            bol_value, 
+            bol_value,
+            travel_date,
             supplier,
             warehouse,
             creation, 
@@ -121,6 +118,7 @@ def move_to_final_dispatch():
             sync.origin,
             sync.destination,
             sync.bol_value,
+            sync.travel_date,
             sync.supplier_id,
             warehouse.code,
             sync.creation,

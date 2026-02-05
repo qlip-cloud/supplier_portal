@@ -16,19 +16,20 @@ def create(supplier_id, dispatchs):
         msg = "Los datos han sido creados correctamente"
         
         create_purchase_order(supplier_id, dispatchs)
+        
         doctype = "qp_SP_Dispatch"
 
-        dispatchs = get_paginated(0, doctype, supplier_id, "creation" )
+        dispatchs = get_paginated(0, doctype, supplier_id, "creation", filters = {"is_complete": False} )
         
         list_dispatch = frappe.render_template("qp_supplier_front/templates/list/dispatch/list.html", {
             "dispatch": dispatchs
         })
         
-        response(200,  msg, list_dispatch)
+        response(200, msg, list_dispatch)
         
     except Exception as error:
         
         msg = f"Error al crear direccion: {str(error)}"
         
-        response(500,  msg)
+        response(500, msg)
         

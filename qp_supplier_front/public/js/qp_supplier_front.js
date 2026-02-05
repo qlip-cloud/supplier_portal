@@ -8,7 +8,13 @@ function closeNav() {
     document.getElementById("overlay").style.display = "none";
 }
 
-
+const observer = new MutationObserver((mutations) => {
+    // Si no hay ningún modal de mensaje visible, ocultamos nuestro overlay
+    if ($('.msgprint-dialog:visible').length === 0) {
+        $('#custom-overlay').hide();
+    }
+});
+observer.observe(document.body, { childList: true, subtree: true });
 $(document).ready(function () {
     let currentPage = 0;
     let loading = false;
@@ -102,6 +108,7 @@ $(document).ready(function () {
 
     $("#refresh_filter_list").on("click", function () {
         $(".filter-list").val("")
+        $(".filter-list.filter-check").val("0")
         filter_init()
     })
 

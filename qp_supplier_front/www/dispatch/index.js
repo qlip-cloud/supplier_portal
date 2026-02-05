@@ -1,12 +1,8 @@
 $(document).ready(function () {
     $('#total').text(formatearCOP(0));
-
-    $(".filter-list").on("input", function () {
-        
-
-    })
+    $(".dispatch-check").prop("checked", false);
+    
     $("#finish").on("click", function () {
-
         url = `qp_supplier_front.resources.dispatch.purchase_order.create`;
 
 
@@ -31,12 +27,16 @@ $(document).ready(function () {
             loading = false;
 
             data = response.data
-
+            
             $('#total').text(formatearCOP(0));
 
             $("#accordion").html(data)
 
+            $('#custom-overlay').hide();
+            frappe.msgprint("Despacho creado exitosamente", "Exito")
+
         }
+        $("#custom-overlay").show()
 
         petition_get_data({ supplier_id, dispatchs }, url, callresponse)
     })

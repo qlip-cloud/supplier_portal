@@ -20,6 +20,7 @@
   {
    "fieldname": "dispatch",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "dispatch",
    "options": "qp_SP_Dispatch"
   },
@@ -33,16 +34,19 @@
    "fetch_from": "dispatch.bol_value",
    "fieldname": "bol_value",
    "fieldtype": "Read Only",
+   "in_list_view": 1,
    "label": "Bol Value"
   },
   {
    "fieldname": "location",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Location"
   },
   {
    "fieldname": "item_number",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Item Number"
   },
   {
@@ -78,7 +82,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-28 13:57:59.312332",
+ "modified": "2026-02-05 14:28:11.573212",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DispatchPurchaseOrderLine",

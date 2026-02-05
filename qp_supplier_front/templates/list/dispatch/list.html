@@ -7,6 +7,7 @@
                 <td class = "lines-text">{{line.travel_id}}</td>
                 <td class = "lines-text">{{line.license_plate}}</td>
                 <td class = "lines-text">{{line.bol}}</td>
+                <td class = "lines-text">{{frappe.utils.format_date(line.travel_date, "dd-mm-yyyy") or ""}}</td>
                 <td class = "lines-text">{{line.origin}}</td>
                 <td class = "lines-text">{{line.destination}}</td>
                 <td class="lines-number text-right">{{frappe.format_value(line.bol_value, "Currency")}}</td>

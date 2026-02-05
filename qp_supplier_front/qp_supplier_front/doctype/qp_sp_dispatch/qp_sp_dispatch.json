@@ -14,7 +14,8 @@
   "bol_value",
   "supplier",
   "is_complete",
-  "warehouse"
+  "warehouse",
+  "travel_date"
  ],
  "fields": [
   {
@@ -64,11 +65,16 @@
    "fieldname": "warehouse",
    "fieldtype": "Data",
    "label": "warehouse"
+  },
+  {
+   "fieldname": "travel_date",
+   "fieldtype": "Date",
+   "label": "travel_date"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-30 12:20:19.980538",
+ "modified": "2026-02-05 12:22:39.669033",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_Dispatch",

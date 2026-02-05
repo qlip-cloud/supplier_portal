@@ -19,8 +19,18 @@ class qp_SP_DispatchPurchaseOrder(Document):
 		self.required_date = today()
 		self.vendor_id = vendor_id
 		self.comment_text = ""
+  
+	def setup(self, vendor_id, dispatchs, item_name, item_oum):
+ 		
+		self.init(vendor_id = vendor_id)
 
-	def set_bol_details(self, dispatchs, item_number):
+		self.set_bol_details(dispatchs, item_name, item_oum)
+
+		self.set_subtotal()
+  
+		self.set_payload()
+    
+	def set_bol_details(self, dispatchs, item_name, item_oum):
 		
 		for dispatch in dispatchs:
       
@@ -29,14 +39,17 @@ class qp_SP_DispatchPurchaseOrder(Document):
 			self.append("bol_details",{
 				"dispatch": dispatch.get("name"),
 				"location": dispatch.get("warehouse"),
-				"item_number": item_number,
+				"item_number": item_name,
+				"uom": item_oum,
+				"unitcost": dispatch.get("bol_value"),
 				"required_date": today(),
-				"promised_date":  today()
+				"promised_date":  today(),
+				"quantity":  1,
 			})
 		
 	def set_subtotal(self):
 		
-		self.subtotal = sum(map(lambda bol: bol.bol_value, self.bol_details))
+		self.subtotal = sum(map(lambda bol: bol.unitcost, self.bol_details))
 
 	def set_payload(self):
 		
@@ -73,8 +86,8 @@ class qp_SP_DispatchPurchaseOrder(Document):
 		return list(map(lambda line: 
 			{
 				 
-				"Bol": line.bol,
-				"Value": line.bol_value
+				"Bol": line.dispatch,
+				"Value": line.unitcost
 				
 			}
    		, self.bol_details))
@@ -90,7 +103,7 @@ class qp_SP_DispatchPurchaseOrder(Document):
 				"Quantity": line.quantity,
 				"RequiredDate": line.required_date,
 				"PromisedDate": line.promised_date,
-				"UnitCost": line.unitcost,
+				"UnitCost": self.subtotal,
 				"Uom": line.uom
 			}]
 
