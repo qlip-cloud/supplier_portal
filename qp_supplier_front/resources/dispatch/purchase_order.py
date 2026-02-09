@@ -19,7 +19,7 @@ def create(supplier_id, dispatchs):
         
         doctype = "qp_SP_Dispatch"
 
-        dispatchs = get_paginated(0, doctype, supplier_id, "creation", filters = {"is_complete": False} )
+        dispatchs = get_paginated(0, doctype, supplier_id, "travel_date", filters = {"is_complete": False} )
         
         list_dispatch = frappe.render_template("qp_supplier_front/templates/list/dispatch/list.html", {
             "dispatch": dispatchs

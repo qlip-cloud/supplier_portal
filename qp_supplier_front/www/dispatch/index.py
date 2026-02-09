@@ -25,7 +25,7 @@ def get_context(context):
     
     doctype = "qp_SP_Dispatch"
         
-    context.order_by = "creation"
+    context.order_by = "travel_date"
     
     context.supplier_id = supplier_id
     
