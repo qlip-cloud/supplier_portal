@@ -146,4 +146,4 @@ class qp_SP_DispatchPurchaseOrder(Document):
 		
 		if not warehouse:
 			
-			frappe.throw(f"La linea {line} no tiene undeposito valido")
+			frappe.throw(f"La linea {line} no tiene un deposito valido")
