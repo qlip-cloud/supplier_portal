@@ -16,7 +16,8 @@
   "comment_text",
   "currency_id",
   "required_date",
-  "bol_details",
+  "bols",
+  "items",
   "payload",
   "response",
   "is_sync",
@@ -101,15 +102,21 @@
    "label": "is_error"
   },
   {
-   "fieldname": "bol_details",
+   "fieldname": "bols",
    "fieldtype": "Table",
-   "label": "Bol Detail",
-   "options": "qp_SP_DispatchPurchaseOrderLine"
+   "label": "Bols",
+   "options": "qp_SP_DispatchPurchaseOrderBol"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "items",
+   "options": "qp_SP_DispatchPurchaseOrderItem"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-28 13:48:47.403857",
+ "modified": "2026-02-13 16:49:54.336404",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DispatchPurchaseOrder",
@@ -136,6 +143,18 @@
    "read": 1,
    "report": 1,
    "role": "Supplier",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Customer",
    "share": 1,
    "write": 1
   }

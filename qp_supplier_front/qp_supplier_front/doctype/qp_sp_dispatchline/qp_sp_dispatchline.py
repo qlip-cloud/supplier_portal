@@ -4,5 +4,5 @@
 # import frappe
 from frappe.model.document import Document
 
-class qp_SP_DispatchPurchaseOrderLine(Document):
+class qp_SP_DispatchLine(Document):
 	pass

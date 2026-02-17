@@ -31,7 +31,8 @@ def handler(supplier_id):
 
     sync_dispatch_fast(result, supplier_id)
 
-    move_to_final_dispatch()
+    move_to_dispatch(supplier_id)
+    move_to_dispatch_line(supplier_id)
     frappe.db.commit()
     
     
@@ -48,16 +49,18 @@ def sync_dispatch_fast(json_data, supplier_id):
     now = frappe.utils.now()
     values = []
     rows = []
-    for b in bols:
+    
+    for bol in bols:
+        
         row = str((
-            b.get("Bol"),
-            b.get("TravelId"),
-            b.get("LicensePlate"),
-            b.get("Bol"),
-            b.get("Origin"),
-            b.get("Destination"),
-            b.get("BolValue") or 0,
-            b.get("TravelDate") or 0,
+            bol.get("Bol"),
+            bol.get("TravelId"),
+            bol.get("LicensePlate"),
+            bol.get("Bol"),
+            bol.get("Origin"),
+            bol.get("Destination"),
+            bol.get("BolValue") or 0,
+            bol.get("TravelDate"),
             supplier_id,
             now,
             now,
@@ -91,16 +94,16 @@ def sync_dispatch_fast(json_data, supplier_id):
     frappe.db.sql(sql)
 
 
-def move_to_final_dispatch():
-    sql = """
+def move_to_dispatch(supplier_id):
+    
+    sql = f"""
         INSERT INTO `tabqp_SP_Dispatch` (
             name, 
             travel_id, 
             license_plate, 
-            bol, 
             origin, 
             destination, 
-            bol_value,
+            travel_amount,
             travel_date,
             supplier,
             warehouse,
@@ -111,10 +114,12 @@ def move_to_final_dispatch():
             docstatus
         )
         SELECT 
-            sync.name,
+            CASE 
+                WHEN sync.travel_id IS NULL OR sync.travel_id = '' THEN UUID()
+                ELSE sync.travel_id 
+            END AS name,
             sync.travel_id,
             sync.license_plate,
-            sync.bol,
             sync.origin,
             sync.destination,
             sync.bol_value,
@@ -128,8 +133,83 @@ def move_to_final_dispatch():
             0
         FROM `tabqp_SP_DispatchSync` AS sync
         LEFT JOIN `tabqp_SP_DispatchWarehouse` AS warehouse ON sync.origin = warehouse.title
-        LEFT JOIN `tabqp_SP_Dispatch` AS final ON sync.name = final.name
+        LEFT JOIN `tabqp_SP_Dispatch` AS final ON sync.travel_id = final.travel_id
+        WHERE final.travel_id IS NULL and sync.travel_id is not null and sync.supplier_id = '{supplier_id}'
+        group by 
+            sync.travel_id,
+            sync.license_plate,
+            sync.origin,
+            sync.destination,
+            sync.bol_value,
+            sync.travel_date,
+            sync.supplier_id,
+            warehouse.code,
+            sync.creation,
+            sync.modified,
+            sync.modified_by,
+            sync.owner
+    """
+    
+    frappe.db.sql(sql)
+    
+def move_to_dispatch_line(supplier_id):
+    sql = f"""
+        INSERT INTO `tabqp_SP_DispatchLine` (
+            name, 
+            bol, 
+            parent,
+            parentfield,
+            parenttype,
+            creation, 
+            modified, 
+            modified_by, 
+            owner
+        )
+        SELECT 
+            sync.name,
+            sync.bol,
+            dispatch.name,
+            'bols' as parentfield,
+            'qp_SP_Dispatch' as parenttype,
+            sync.creation,
+            sync.modified,
+            sync.modified_by,
+            sync.owner
+        FROM `tabqp_SP_DispatchSync` AS sync
+        INNER JOIN (
+            SELECT
+                name, 
+                travel_id, 
+                license_plate, 
+                origin, 
+                destination, 
+                travel_amount,
+                travel_date,
+                supplier,
+                warehouse,
+                creation, 
+                modified, 
+                modified_by, 
+                owner
+            FROM tabqp_SP_Dispatch AS dispatch
+            where supplier = '{supplier_id}'
+        ) as dispatch
+        on (
+                dispatch.travel_id = sync.travel_id
+            AND dispatch.license_plate = sync.license_plate
+            AND dispatch.origin = sync.origin
+            AND dispatch.destination = sync.destination
+            AND dispatch.travel_amount = sync.bol_value
+            AND dispatch.travel_date = sync.travel_date
+            AND dispatch.supplier = sync.supplier_id
+            AND dispatch.creation = sync.creation
+            AND dispatch.modified = sync.modified
+            AND dispatch.modified_by = sync.modified_by
+            AND dispatch.owner = sync.owner
+        )
+        LEFT JOIN `tabqp_SP_DispatchLine` AS final ON sync.name = final.name
         WHERE final.bol IS NULL
+        
     """
     
     frappe.db.sql(sql)

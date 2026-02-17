@@ -1,6 +1,5 @@
 {
  "actions": [],
- "autoname": "field:bol",
  "creation": "2026-01-27 12:59:03.630699",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -8,31 +7,27 @@
  "field_order": [
   "travel_id",
   "license_plate",
-  "bol",
   "origin",
   "destination",
-  "bol_value",
+  "travel_amount",
   "supplier",
   "is_complete",
   "warehouse",
-  "travel_date"
+  "travel_date",
+  "bols"
  ],
  "fields": [
   {
    "fieldname": "travel_id",
    "fieldtype": "Data",
-   "label": "Travel Id"
+   "in_list_view": 1,
+   "label": "Travel Id",
+   "unique": 1
   },
   {
    "fieldname": "license_plate",
    "fieldtype": "Data",
    "label": "License Plate"
-  },
-  {
-   "fieldname": "bol",
-   "fieldtype": "Data",
-   "label": "Bol",
-   "unique": 1
   },
   {
    "fieldname": "origin",
@@ -45,13 +40,9 @@
    "label": "Destination"
   },
   {
-   "fieldname": "bol_value",
-   "fieldtype": "Currency",
-   "label": "BolValue"
-  },
-  {
    "fieldname": "supplier",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Supplier Id",
    "options": "Supplier"
   },
@@ -70,11 +61,22 @@
    "fieldname": "travel_date",
    "fieldtype": "Date",
    "label": "travel_date"
+  },
+  {
+   "fieldname": "bols",
+   "fieldtype": "Table",
+   "label": "Bols",
+   "options": "qp_SP_DispatchLine"
+  },
+  {
+   "fieldname": "travel_amount",
+   "fieldtype": "Currency",
+   "label": "Travel Amount"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-09 08:14:14.548290",
+ "modified": "2026-02-13 15:00:01.243947",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_Dispatch",

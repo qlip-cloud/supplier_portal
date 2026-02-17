@@ -24,32 +24,54 @@ class qp_SP_DispatchPurchaseOrder(Document):
  		
 		self.init(vendor_id = vendor_id)
 
-		self.set_bol_details(dispatchs, item_name, item_oum)
-
-		self.set_subtotal()
+		self.set_bols(dispatchs)
+  
+		self.set_items(dispatchs, item_name, item_oum)
+  
+		self.set_subtotal(dispatchs)
   
 		self.set_payload()
     
-	def set_bol_details(self, dispatchs, item_name, item_oum):
+	def set_bols(self, dispatchs):
 		
 		for dispatch in dispatchs:
-      
-			self.__assert_that_location_valid(dispatch.get("warehouse"), dispatch.get("name"))
+
+			for bol in dispatch.bols:
+       
+				self.append("bols",{
+					"bol": bol.bol,
+					"bol_value": dispatch.travel_amount,
+					"travel_id": dispatch.travel_id
+				})
    
-			self.append("bol_details",{
-				"dispatch": dispatch.get("name"),
-				"location": dispatch.get("warehouse"),
-				"item_number": item_name,
-				"uom": item_oum,
-				"unitcost": dispatch.get("bol_value"),
-				"required_date": today(),
-				"promised_date":  today(),
-				"quantity":  1,
-			})
+	def set_items(self, dispatchs, item_name, item_oum):
 		
-	def set_subtotal(self):
+		items = {}	
+
+		for dispatch in dispatchs:
+
+			self.__assert_that_location_valid(dispatch.warehouse, dispatch.name)
+   
+			if not dispatch.warehouse in items:
+       
+				items[dispatch.warehouse] = {
+					"location": dispatch.warehouse,
+					"item_number": item_name,
+					"uom": item_oum,
+					"unitcost": dispatch.travel_amount,
+					"required_date": today(),
+					"promised_date":  today(),
+					"quantity":  1,
+				}
+
+		for item in items.values():
+
+			self.append("items", item)
+   
+   
+	def set_subtotal(self, dispatchs):
 		
-		self.subtotal = sum(map(lambda bol: bol.unitcost, self.bol_details))
+		self.subtotal = sum(map(lambda dispatch: dispatch.travel_amount, dispatchs))
 
 	def set_payload(self):
 		
@@ -86,17 +108,16 @@ class qp_SP_DispatchPurchaseOrder(Document):
 		return list(map(lambda line: 
 			{
 				 
-				"Bol": line.dispatch,
-				"Value": line.unitcost
+				"Bol": line.bol,
+				"Value": line.bol_value,
+				"TravelId": line.travel_id,
 				
 			}
-   		, self.bol_details))
+   		, self.bols))
 
 	def __get_items(self):
 
-		line = self.bol_details[0]
-  
-		return [
+		return list(map(lambda line:
 			{
 				"Location": line.location,
 				"ItemNumber": line.item_number,
@@ -105,7 +126,8 @@ class qp_SP_DispatchPurchaseOrder(Document):
 				"PromisedDate": line.promised_date,
 				"UnitCost": self.subtotal,
 				"Uom": line.uom
-			}]
+			}
+   		, self.items))
 
 	def __get_payload_str(self, header, bol_detail, items):
 		

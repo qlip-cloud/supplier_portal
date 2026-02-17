@@ -13,9 +13,9 @@ def handler(supplier_id, dispatchs_id):
     
     item = get_item(supplier.qp_item_number)
         
-    parchase_order = create_purchase_order(dispatchs, item, supplier.name)
+    purchase_order = create_purchase_order(dispatchs, item, supplier.name)
     
-    send_purchase_order(parchase_order)
+    send_purchase_order(purchase_order)
     
     update_dispaths(dispatchs_id)
 
@@ -38,6 +38,7 @@ def get_item(qp_item_number):
     return item
 
 def assert_user_is_supplier():
+    
     pass
 
 def assert_that_user_has_dispatch_setup(qp_is_transporter):
@@ -64,7 +65,15 @@ def assert_that_dispatch_is_not_completed(dispatchs):
     
 def get_dispatchs(supplier_id, dispatchs_id):
     
-    dispatchs = frappe.get_list("qp_SP_Dispatch", filters = {"name": ["IN" , dispatchs_id], "supplier": supplier_id}, fields = ["*"])
+    dispatchs = []
+    
+    for dispatch_id in dispatchs_id:
+        
+        if frappe.db.exists("qp_SP_Dispatch", {"name": dispatch_id,"supplier": supplier_id}):
+            
+            dispatch = frappe.get_doc("qp_SP_Dispatch", dispatch_id)
+            
+            dispatchs.append(dispatch)
     
     assert_that_dispatch_is_not_completed(dispatchs)
     
