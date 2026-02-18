@@ -36,7 +36,6 @@ def setup_context_default(context, supplier_id):
     
     context.has_dispatch_permission = get_has_dispatch_permission(supplier_id)
     
-    
 def assert_that_supplier_has_dispatch_permission(context):
     
     if not context.has_dispatch_permission:

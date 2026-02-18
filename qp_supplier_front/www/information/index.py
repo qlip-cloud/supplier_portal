@@ -1,5 +1,5 @@
 import frappe
-from qp_supplier_front.services.get_data import get_party, get_supplier, get_document_types, get_business_types, get_dynamic_link,get_bank_accounts, get_regimes, get_ciius, has_recent_news
+from qp_supplier_front.services.get_data import get_party, get_supplier, get_document_types, get_business_types, get_dynamic_link,get_bank_accounts, get_regimes, get_ciius, has_recent_news, get_has_dispatch_permission
 
 def get_context(context):
     
@@ -38,6 +38,8 @@ def get_context(context):
         user_roles = frappe.get_roles(user)
     
         context.is_alpla_admin = "Alpla Administrator" in user_roles or "Administrator" in user_roles
+        
+        context.has_dispatch_permission = get_has_dispatch_permission(supplier_id)
         
     context.is_estatus_editable = (not supplier or supplier.qp_status not in ("En revisión", "Aprobado")) and not context.is_alpla_admin
 
