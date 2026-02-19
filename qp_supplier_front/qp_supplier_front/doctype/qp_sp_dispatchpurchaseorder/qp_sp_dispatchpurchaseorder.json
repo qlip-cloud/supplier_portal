@@ -1,10 +1,12 @@
 {
  "actions": [],
+ "autoname": "naming_series:",
  "creation": "2026-01-28 12:18:38.477242",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "naming_series",
   "purchase_type",
   "purchase_number",
   "vendor_id",
@@ -112,11 +114,16 @@
    "fieldtype": "Table",
    "label": "items",
    "options": "qp_SP_DispatchPurchaseOrderItem"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Data",
+   "label": "naming_series"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-13 16:49:54.336404",
+ "modified": "2026-02-19 12:18:34.099570",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DispatchPurchaseOrder",

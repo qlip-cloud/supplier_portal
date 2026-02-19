@@ -4,8 +4,8 @@ var take_ovarlay = true;
 $(document).ready(function () {
     $('#total').text(formatearCOP(0));
     $(".dispatch-check").prop("checked", false);
-    
-    $('#check-all').on('change', function() {
+
+    $('#check-all').on('change', function () {
 
         const isChecked = $(this).is(':checked');
 
@@ -14,47 +14,51 @@ $(document).ready(function () {
     });
 
     $("#finish_lot").on("click", function () {
+        if (validateFilterList()) {
+            url = `qp_supplier_front.resources.dispatch.dispatch.search_detail_filter_lot`;
 
-        url = `qp_supplier_front.resources.dispatch.dispatch.search_detail_filter_lot`;
 
+            let filters = getValidInputs();
 
-        let filters = getValidInputs();
+            take_ovarlay = false
 
-        take_ovarlay = false
+            supplier_id = $("#supplier_id").val();
 
-        supplier_id = $("#supplier_id").val();
+            callresponse = (response) => {
 
-        callresponse = (response) => {
+                status_code = response.status
 
-            status_code = response.status
+                loading = false;
 
-            loading = false;
+                data = response.data
 
-            data = response.data
+                frappe.confirm(`Se procesaran <strong> ${data.count} </strong> despachos por un total de <strong> ${formatearCOP(data.total)} </strong> <br> ¿Seguro que desea continuar?`,
+                    function () {
 
-            frappe.confirm(`Se procesaran <strong> ${data.count} </strong> despachos por un total de <strong> ${formatearCOP(data.total)} </strong> <br> ¿Seguro que desea continuar?`,
-                function () {
+                        supplier_id = $("#supplier_id").val();
 
-                    supplier_id = $("#supplier_id").val();
-                    
-                    url = `qp_supplier_front.resources.dispatch.purchase_order.create_by_filter`;
+                        url = `qp_supplier_front.resources.dispatch.purchase_order.create_by_filter`;
 
-                    $("#custom-overlay").show()
+                        $("#custom-overlay").show()
 
-                    petition_get_data({ supplier_id, filters }, url, finished_process)
+                        petition_get_data({ supplier_id, filters }, url, finished_process)
 
-                }, function () {
-                   $('#custom-overlay').hide();
+                    }, function () {
+                        $('#custom-overlay').hide();
 
-                })
+                    })
 
+            }
+            $("#custom-overlay").show()
+
+            petition_get_data({ supplier_id, filters }, url, callresponse)
+        } else {
+            frappe.msgprint("Esta acción requiere que haya indicado al menos un filtro.")
         }
-        $("#custom-overlay").show()
-
-        petition_get_data({ supplier_id, filters }, url, callresponse)
     })
     $("#finish").on("click", function () {
-        url = `qp_supplier_front.resources.dispatch.purchase_order.create`;
+
+
 
 
         let dispatchs = [];
@@ -69,48 +73,55 @@ $(document).ready(function () {
             return;
         }
 
-        supplier_id = $("#supplier_id").val();
+        frappe.confirm(`Se procesaran <strong> ${dispatchs.length} </strong> despachos por un total de <strong> ${formatearCOP(getTotal())} </strong> <br> ¿Seguro que desea continuar?`,
+            function () {
 
-        $("#custom-overlay").show()
+                url = `qp_supplier_front.resources.dispatch.purchase_order.create`;
+                supplier_id = $("#supplier_id").val();
 
-        petition_get_data({ supplier_id, dispatchs }, url, finished_process)
+                $("#custom-overlay").show()
+
+                petition_get_data({ supplier_id, dispatchs }, url, finished_process)
+            }, function () {
+                $('#custom-overlay').hide();
+
+            })
     })
 
     $('#accordion').on('change', '.dispatch-check', function () {
+
         let $checkbox = $(this);
         let $fila = $checkbox.closest('tr');
 
         if ($checkbox.is(':checked')) {
-            // 1. Asignamos la clase al checkbox para tu uso futuro en filtros
             $checkbox.addClass('filter-notin');
 
-            // 2. Aplicamos estilos a la fila
-            $fila.addClass('selected'); // Para el color de fondo
-            $fila.find('td').css('font-style', 'italic'); // Fuente itálica a todos los td
+            $fila.addClass('selected');
+            $fila.find('td').css('font-style', 'italic');
         } else {
-            // 1. Quitamos la clase al checkbox
             $checkbox.removeClass('filter-notin');
 
-            // 2. Revertimos estilos
             $fila.removeClass('selected');
-            $fila.find('td').css('font-style', 'normal'); // Volver fuente a la normalidad
+            $fila.find('td').css('font-style', 'normal');
         }
 
-        // --- Lógica de la suma total ---
-        let sumaTotal = 0;
-        $('.dispatch-check:checked').each(function () {
-            let valor = parseFloat($(this).data('value')) || 0;
-            sumaTotal += valor;
-        });
-
-        $('#total').text(formatearCOP(sumaTotal));
+        
+        $('#total').text(formatearCOP(getTotal()));
     });
-
-    // Función auxiliar para formato de moneda Colombia
-    
-
 })
 
+function getTotal(){
+
+    let total = 0;
+
+        $('.dispatch-check:checked').each(function () {
+            let value = parseFloat($(this).data('value')) || 0;
+            total += value;
+        });
+
+    return total;
+
+}
 
 function finished_process(response) {
 
@@ -127,18 +138,34 @@ function finished_process(response) {
     $("#accordion").html(data)
 
     $('#custom-overlay').hide();
-    
+
     $(".filter-list").val("")
-    
+
     $(".filter-list.filter-check").val("0")
-    
+
     frappe.msgprint("Despacho creado exitosamente", "Exito")
 }
 
 function formatearCOP(valor) {
-        return new Intl.NumberFormat('es-CO', {
-            style: 'currency',
-            currency: 'COP',
-            minimumFractionDigits: 0
-        }).format(valor);
-    }
+    return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 0
+    }).format(valor);
+}
+
+function validateFilterList() {
+    const selectors = [
+        'input[type="text"].filter-list',
+        'input[type="date"].filter-list',
+        'select.filter-list'
+    ].join(', ');
+
+    const elements = document.querySelectorAll(selectors);
+
+    const hasValue = Array.from(elements).some(el => {
+        return el.value.trim() !== "";
+    });
+
+    return hasValue;
+};
