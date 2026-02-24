@@ -36,8 +36,12 @@ def get_context(context):
         user = frappe.session.user
         
         user_roles = frappe.get_roles(user)
-    
-        context.is_alpla_admin = "Alpla Administrator" in user_roles or "Administrator" in user_roles
+
+        context.is_alpla_admin = get_is_alpla_admin(user_roles)
+        
+        context.qp_preapproved = supplier.qp_preapproved
+        
+        context.is_preapproved = get_is_preapproved(user_roles, supplier.qp_preapproved)
         
         context.has_dispatch_permission = get_has_dispatch_permission(supplier_id)
         
@@ -64,6 +68,7 @@ def get_context(context):
     context.bank_account_types = frappe.get_all("Bank Account Type", fields = ["name", "account_type"])
     
     context.currencies = frappe.get_all("Currency", fields = ["name", "currency_name"])
+    
     context.responses = [{
         "name":"",
         "value": "Respuesta"
@@ -82,7 +87,27 @@ def get_context(context):
     context.supplier_id = supplier_id
 
     context.has_recent_news = has_recent_news()
-  
+     
+def get_is_alpla_admin(user_roles, add_rol = None, only_admin = False):
+    
+    admin_roles = {"Alpla Administrator", "Administrator"}
+    
+    if not only_admin:
+        
+        admin_roles |= {"Alpla Compras", "Alpla Finanzas"} if not add_rol else {add_rol}
+
+    return not admin_roles.isdisjoint(user_roles)
+
+def get_is_preapproved(user_roles, qp_preapproved):
+
+    if not qp_preapproved:
+        
+        return get_is_alpla_admin(user_roles, "Alpla Compras")
+        
+        
+    return get_is_alpla_admin(user_roles, "Alpla Finanzas")
+
+
 def setup_document_settings(qp_documents):
     
     document_settings = frappe.get_list("qp_SP_DocumentSetting", filters = {"is_active": 1}, fields = ["name", "title", "is_required", "is_active"], order_by="creation asc")
