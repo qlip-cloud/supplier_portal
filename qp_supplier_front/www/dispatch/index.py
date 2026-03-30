@@ -26,7 +26,10 @@ def get_context(context):
     
     dispatch = get_paginated(0, DOCTYPE, supplier_id, ORDER_BY, filters = {"is_complete": False})
     
-    set_context(context, origins, dispatch)
+    errors = frappe.get_list("qp_SP_DispatchSync", filters = { "is_error": 1 , "supplier_id": supplier_id},fields = ["travel_id"], group_by='travel_id', order_by = "travel_id asc")
+    
+    
+    set_context(context, origins, dispatch, errors)
 
 def setup_context_default(context, supplier_id):
     
@@ -61,11 +64,15 @@ def launch_sync(supplier_id):
         
         frappe.log_error(message=frappe.get_traceback(), title=f"Error sync dispath: {supplier_id}")
             
-def set_context(context, origins, dispatch):
+def set_context(context, origins, dispatch, errors):
 
     context.origins = origins
     
     context.dispatch = dispatch
+    
+    context.errors = errors
+    
+    context.total_errors = len(errors)
     
     context.order_by = ORDER_BY
                                

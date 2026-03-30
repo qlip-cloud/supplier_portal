@@ -25,16 +25,17 @@ endpoint = {
 @frappe.whitelist() 
 def handler(supplier_id):
 
-    
-    #result = get_result(endpoint, supplier_id, latest_record)
     result = get_result(endpoint, supplier_id)
 
     sync_dispatch_fast(result, supplier_id)
+    
+    mark_dispatch_error(supplier_id)
 
     move_to_dispatch(supplier_id)
-    move_to_dispatch_line(supplier_id)
-    frappe.db.commit()
     
+    move_to_dispatch_line(supplier_id)
+    
+    frappe.db.commit()
     
 def sync_dispatch_fast(json_data, supplier_id):
     
@@ -47,7 +48,7 @@ def sync_dispatch_fast(json_data, supplier_id):
     frappe.db.sql(f"DELETE FROM `tabqp_SP_DispatchSync` where supplier_id = '{supplier_id}'")
 
     now = frappe.utils.now()
-    values = []
+    
     rows = []
     
     for bol in bols:
@@ -93,6 +94,33 @@ def sync_dispatch_fast(json_data, supplier_id):
         
     frappe.db.sql(sql)
 
+    frappe.db.commit()
+
+def mark_dispatch_error(supplier_id):
+    
+    sql = f"""UPDATE `tabqp_SP_DispatchSync` AS target
+        INNER JOIN (
+            SELECT travel_id
+            FROM `tabqp_SP_DispatchSync`
+            WHERE travel_id IS NOT NULL 
+            AND supplier_id = '{supplier_id}'
+            GROUP BY travel_id
+            HAVING COUNT(DISTINCT 
+                CONCAT_WS('|', 
+                    IFNULL(license_plate, ''), 
+                    IFNULL(origin, ''), 
+                    IFNULL(destination, ''), 
+                    IFNULL(bol_value, 0),
+                    IFNULL(travel_date, '')
+                )
+            ) > 1
+        ) AS errors ON target.travel_id = errors.travel_id
+        SET target.is_error = 1
+        WHERE target.supplier_id = '{supplier_id}'"""
+
+    frappe.db.sql(sql)
+
+    frappe.db.commit()
 
 def move_to_dispatch(supplier_id):
     
@@ -134,7 +162,7 @@ def move_to_dispatch(supplier_id):
         FROM `tabqp_SP_DispatchSync` AS sync
         LEFT JOIN `tabqp_SP_DispatchWarehouse` AS warehouse ON sync.origin = warehouse.title
         LEFT JOIN `tabqp_SP_Dispatch` AS final ON sync.travel_id = final.travel_id
-        WHERE final.travel_id IS NULL and sync.travel_id is not null and sync.supplier_id = '{supplier_id}'
+        WHERE final.travel_id IS NULL and sync.travel_id is not null and sync.supplier_id = '{supplier_id}' AND sync.is_error = 0
         group by 
             sync.travel_id,
             sync.license_plate,
@@ -206,6 +234,7 @@ def move_to_dispatch_line(supplier_id):
             AND dispatch.modified = sync.modified
             AND dispatch.modified_by = sync.modified_by
             AND dispatch.owner = sync.owner
+            AND sync.is_error = 0
         )
         LEFT JOIN `tabqp_SP_DispatchLine` AS final ON sync.name = final.name
         WHERE final.bol IS NULL

@@ -13,7 +13,8 @@
   "destination",
   "bol_value",
   "supplier_id",
-  "travel_date"
+  "travel_date",
+  "is_error"
  ],
  "fields": [
   {
@@ -57,11 +58,17 @@
    "fieldname": "travel_date",
    "fieldtype": "Date",
    "label": "travel_date"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_error",
+   "fieldtype": "Check",
+   "label": "is_error"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-09 08:14:32.793270",
+ "modified": "2026-03-30 11:35:09.989185",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DispatchSync",
