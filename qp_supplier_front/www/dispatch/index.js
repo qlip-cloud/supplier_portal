@@ -2,6 +2,38 @@ var take_ovarlay = true;
 
 
 $(document).ready(function () {
+
+    $(".filter-list").on("input", function () {
+        
+        if ($("#errorsButton").length > 0){
+
+            filters = getValidInputs();
+
+            supplier_id = $("#supplier_id").val();
+
+            url = `qp_supplier_front.resources.dispatch.dispatch.search_error_filter`;
+
+            callresponse = (response) => {
+
+                status_code = response.status
+
+                data = response.data
+
+                template = data.template
+
+                total_errors = data.total_errors
+
+                $("#total_errors").text(total_errors)
+
+                $("#errorsModal .modal-body").html(template)
+
+            }
+
+            petition_get_data({ supplier_id, filters }, url, callresponse)
+
+        }
+
+    })
     $('#total').text(formatearCOP(0));
     $(".dispatch-check").prop("checked", false);
 

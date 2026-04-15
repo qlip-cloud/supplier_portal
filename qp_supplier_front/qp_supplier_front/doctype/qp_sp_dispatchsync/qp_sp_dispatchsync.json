@@ -20,22 +20,30 @@
   {
    "fieldname": "travel_id",
    "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Travel Id"
   },
   {
    "fieldname": "license_plate",
    "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "License Plate"
   },
   {
    "fieldname": "bol",
    "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Bol",
    "unique": 1
   },
   {
    "fieldname": "origin",
    "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Origin"
   },
   {
@@ -57,6 +65,8 @@
   {
    "fieldname": "travel_date",
    "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "travel_date"
   },
   {
@@ -68,7 +78,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-30 11:35:09.989185",
+ "modified": "2026-04-14 16:05:37.334030",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DispatchSync",

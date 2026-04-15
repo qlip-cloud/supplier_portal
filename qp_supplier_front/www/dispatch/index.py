@@ -61,7 +61,7 @@ def launch_sync(supplier_id):
         sync_by_supplier(supplier_id)
         
     except Exception as e:
-        
+        print(frappe.get_traceback())
         frappe.log_error(message=frappe.get_traceback(), title=f"Error sync dispath: {supplier_id}")
             
 def set_context(context, origins, dispatch, errors):

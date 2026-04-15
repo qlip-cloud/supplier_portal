@@ -1,0 +1,12 @@
+{% if errors %}
+<ul>
+    {% for error in errors %}
+        <li>{{ error.travel_id or "No especificado" }}</li>
+    {% endfor %}
+</ul>
+{%else%}
+    <div class="alert alert-info">
+        <p>No se encontraron errores de sincronización.</p>
+    </div>
+
+{% endif %}

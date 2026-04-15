@@ -21,8 +21,7 @@
    "fieldname": "travel_id",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Travel Id",
-   "unique": 1
+   "label": "Travel Id"
   },
   {
    "fieldname": "license_plate",
@@ -76,7 +75,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-13 15:00:01.243947",
+ "modified": "2026-04-14 11:26:59.255435",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_Dispatch",
