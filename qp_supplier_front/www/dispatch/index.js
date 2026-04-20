@@ -3,8 +3,8 @@ var take_ovarlay = true;
 
 $(document).ready(function () {
 
-    $(".filter-list").on("input", function () {
-        
+
+    updateErrorList = function(){
         if ($("#errorsButton").length > 0){
 
             filters = getValidInputs();
@@ -32,6 +32,15 @@ $(document).ready(function () {
             petition_get_data({ supplier_id, filters }, url, callresponse)
 
         }
+    }
+
+    $(".filter-list, #refresh_filter_list").on("input", function () {
+        
+        updateErrorList();
+
+    })
+    $("#refresh_filter_list").on("click", function () {
+        updateErrorList();
 
     })
     $('#total').text(formatearCOP(0));

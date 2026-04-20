@@ -178,7 +178,7 @@ def move_to_dispatch(supplier_id):
             sync.modified_by,
             sync.owner
     """
-    print(sql)
+    
     frappe.db.sql(sql)
     
 def move_to_dispatch_line(supplier_id):

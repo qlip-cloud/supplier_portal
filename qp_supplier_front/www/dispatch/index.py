@@ -4,6 +4,7 @@ from qp_supplier_front.uses_cases.dispatch.sync_by_supplier import handler as sy
 from qp_supplier_front.services.pagination import get_paginated
 from qp_supplier_front.services.get_data import has_recent_news
 from qp_supplier_front.services.get_data import get_has_dispatch_permission
+from qp_supplier_front.uses_cases.dispatch.find_with_error_filter import handler as find_with_error_filter   
 
 
 DOCTYPE = "qp_SP_Dispatch"
@@ -26,7 +27,8 @@ def get_context(context):
     
     dispatch = get_paginated(0, DOCTYPE, supplier_id, ORDER_BY, filters = {"is_complete": False})
     
-    errors = frappe.get_list("qp_SP_DispatchSync", filters = { "is_error": 1 , "supplier_id": supplier_id},fields = ["travel_id"], group_by='travel_id', order_by = "travel_id asc")
+    errors = find_with_error_filter(supplier_id, filters={})
+
     
     
     set_context(context, origins, dispatch, errors)

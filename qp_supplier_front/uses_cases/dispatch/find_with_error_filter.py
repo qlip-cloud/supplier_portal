@@ -5,12 +5,14 @@ from qp_supplier_front.constant.endpoint import DISPATCH_PURCHASE_ORDER_CREATE
 
 def handler(supplier_id, filters):
     
-    del filters["is_complete"]
+    if filters.get("is_complete") is not None:
+        
+        del filters["is_complete"]
     
     filters.setdefault("supplier_id", supplier_id)
     
     filters.setdefault("is_error", True)
     
-    result = frappe.get_list("qp_SP_DispatchSync", filters = filters ,fields = ["travel_id"], group_by='travel_id', order_by = "travel_id asc")
+    result = frappe.get_list("qp_SP_DispatchSync", filters = filters ,fields = ["travel_id", "travel_date", "origin"], group_by='travel_id, travel_date, origin', order_by = "travel_id asc, travel_date desc")
     
     return result
