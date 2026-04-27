@@ -5,6 +5,7 @@ $(document).ready(function () {
 
 
     updateErrorList = function(){
+
         if ($("#errorsButton").length > 0){
 
             filters = getValidInputs();
@@ -34,7 +35,7 @@ $(document).ready(function () {
         }
     }
 
-    $(".filter-list, #refresh_filter_list").on("input", function () {
+    $(".filter-list").on("input", function () {
         
         updateErrorList();
 

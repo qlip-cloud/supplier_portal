@@ -104,6 +104,8 @@ $(document).ready(function () {
     $("#refresh_filter_list").on("click", function () {
         $(".filter-list").val("")
         $(".filter-list.filter-check").val("0")
+        $(".filter-list.date").removeAttr("min").removeAttr("max");
+
         filter_init()
     })
 
