@@ -1,5 +1,5 @@
 import frappe
-from qp_supplier_front.services.get_data import has_recent_news
+from qp_supplier_front.services.get_data import has_recent_news, get_has_dispatch_permission
 
 def get_context(context):
     context.no_cache = True
@@ -13,4 +13,6 @@ def get_context(context):
     context.init_fiscal_year  = frappe.db.get_single_value('qp_SP_MasterSetup', 'init_fiscal_year')
 
     context.has_recent_news = has_recent_news()
+    
+    context.has_dispatch_permission = get_has_dispatch_permission(supplier_id)
     

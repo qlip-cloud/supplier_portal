@@ -1,0 +1,124 @@
+{
+ "actions": [],
+ "creation": "2026-01-27 12:59:03.630699",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "travel_id",
+  "license_plate",
+  "origin",
+  "destination",
+  "travel_amount",
+  "supplier",
+  "is_complete",
+  "warehouse",
+  "travel_date",
+  "bols"
+ ],
+ "fields": [
+  {
+   "fieldname": "travel_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Travel Id"
+  },
+  {
+   "fieldname": "license_plate",
+   "fieldtype": "Data",
+   "label": "License Plate"
+  },
+  {
+   "fieldname": "origin",
+   "fieldtype": "Data",
+   "label": "Origin"
+  },
+  {
+   "fieldname": "destination",
+   "fieldtype": "Data",
+   "label": "Destination"
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Supplier Id",
+   "options": "Supplier"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_complete",
+   "fieldtype": "Check",
+   "label": "is_complete"
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Data",
+   "label": "warehouse"
+  },
+  {
+   "fieldname": "travel_date",
+   "fieldtype": "Date",
+   "label": "travel_date"
+  },
+  {
+   "fieldname": "bols",
+   "fieldtype": "Table",
+   "label": "Bols",
+   "options": "qp_SP_DispatchLine"
+  },
+  {
+   "fieldname": "travel_amount",
+   "fieldtype": "Currency",
+   "label": "Travel Amount"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-14 11:26:59.255435",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_Dispatch",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Supplier",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Customer",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

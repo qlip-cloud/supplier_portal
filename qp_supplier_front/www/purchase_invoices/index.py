@@ -2,7 +2,7 @@ import frappe
 import json
 from qp_supplier_front.uses_cases.sales_invoices.sync_by_supplier import handler as sync_by_supplier
 from qp_supplier_front.services.pagination import get_paginated
-from qp_supplier_front.services.get_data import has_recent_news
+from qp_supplier_front.services.get_data import has_recent_news, get_has_dispatch_permission
 
 def get_context(context):
     
@@ -20,6 +20,8 @@ def get_context(context):
     except Exception as e:
         
         frappe.log_error(message=frappe.get_traceback(), title=f"Error sync purchase invoice: {supplier_id}")
+    
+    context.has_dispatch_permission = get_has_dispatch_permission(supplier_id)
     
     key = "sales_invoices"
     

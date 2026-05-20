@@ -1,0 +1,72 @@
+{
+ "actions": [],
+ "creation": "2026-02-13 16:48:56.057794",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "location",
+  "item_number",
+  "quantity",
+  "required_date",
+  "promised_date",
+  "unitcost",
+  "uom"
+ ],
+ "fields": [
+  {
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Location"
+  },
+  {
+   "fieldname": "item_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Number"
+  },
+  {
+   "default": "1",
+   "fieldname": "quantity",
+   "fieldtype": "Int",
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "required_date",
+   "fieldtype": "Data",
+   "label": "Required Date"
+  },
+  {
+   "fieldname": "promised_date",
+   "fieldtype": "Data",
+   "label": "Promised Date"
+  },
+  {
+   "default": "0",
+   "fieldname": "unitcost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "UnitCost"
+  },
+  {
+   "default": "Nos",
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "Uom",
+   "options": "UOM"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-13 17:02:17.913558",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_DispatchPurchaseOrderItem",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

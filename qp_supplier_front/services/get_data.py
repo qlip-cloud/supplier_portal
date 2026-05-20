@@ -66,3 +66,7 @@ def has_recent_news():
     news = frappe.get_all("qp_SP_Portal_News", filters = {"publish_date": [">=", last_week]}, fields = ["name"], limit=1)
     
     return bool(news)
+
+def get_has_dispatch_permission(supplier_id):
+
+    return frappe.db.exists("Supplier", {"qp_is_transporter": True, "name": supplier_id})

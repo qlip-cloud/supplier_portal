@@ -1,5 +1,6 @@
 import frappe
 from qp_supplier_front.uses_cases.supplier.approve import handler as approve_supplier   
+from qp_supplier_front.uses_cases.supplier.pre_approved import handler as pre_approved_supplier   
 from qp_supplier_front.uses_cases.supplier.reject import handler as reject_supplier   
 from qp_supplier_front.uses_cases.supplier.find import handler as find_supplier   
 from qp_supplier_front.resources.response import handler as response
@@ -19,6 +20,23 @@ def approve(supplier_id):
     except Exception as error:
         
         msg = f"Error al aprobar información: {str(error)}"
+        
+        response(500,  msg)
+        
+@frappe.whitelist()
+def pre_approved(supplier_id):
+    
+    try:
+        
+        msg = "Información pre aprobada correctamente."
+        
+        result = pre_approved_supplier(supplier_id)
+        
+        response(200,  msg, result)
+        
+    except Exception as error:
+        
+        msg = f"Error al pre aprobar información: {str(error)}"
         
         response(500,  msg)
 

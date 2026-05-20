@@ -17,4 +17,4 @@ def handler(status ,msg, data = None):
 
         traceback.print_exc()
         
-        frappe.log_error(message=frappe.get_traceback(), title = data )       
+        frappe.log_error(message=frappe.get_traceback(), title = data or msg)       

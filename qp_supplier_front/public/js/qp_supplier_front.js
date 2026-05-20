@@ -9,6 +9,7 @@ function closeNav() {
 }
 
 
+
 $(document).ready(function () {
     let currentPage = 0;
     let loading = false;
@@ -102,6 +103,9 @@ $(document).ready(function () {
 
     $("#refresh_filter_list").on("click", function () {
         $(".filter-list").val("")
+        $(".filter-list.filter-check").val("0")
+        $(".filter-list.date").removeAttr("min").removeAttr("max");
+
         filter_init()
     })
 
@@ -224,8 +228,10 @@ $(document).ready(function () {
         clearTimeout(debounceTimer);
 
         debounceTimer = setTimeout(function () {
-            accordion.html("")
+            $('#accordion tr:not(.selected)').remove();
+
             loadMoreInvoices(true)
+            
         }, 300);
     }
 });
@@ -238,24 +244,25 @@ function getValidInputs() {
     let $start_date = $("#start_date")
     let $end_date = $("#end_date")
     date_key = $start_date.data("date_key")
+    
+    if ($start_date.val()){
+        if ($start_date.val().trim() && $end_date.val().trim()) {
+            inputs[date_key] = ["between", [$start_date.val(), $end_date.val()]]
+        } else {
 
-    if ($start_date.val().trim() && $end_date.val().trim()) {
-        inputs[date_key] = ["between", [$start_date.val(), $end_date.val()]]
-    } else {
+            if ($start_date.val().trim()) {
+                inputs[date_key] = [">=", $start_date.val()]
+            }
 
-        if ($start_date.val().trim()) {
-            inputs[date_key] = [">=", $start_date.val()]
-        }
+            if ($end_date.val().trim()) {
 
-        if ($end_date.val().trim()) {
-
-            inputs[date_key] = ["<=", $end_date.val()]
+                inputs[date_key] = ["<=", $end_date.val()]
+            }
         }
     }
 
     $('.filter-list').each(function () {
         var $input = $(this);
-        console.log($input)
         var id = $input.attr('id');
         var value = $input.val() ? $input.val().trim() : null
 
@@ -272,6 +279,25 @@ function getValidInputs() {
                 inputs[id] = ["like", `${value}%`];
         }
     });
+
+    let filterNotIn = [];
+
+    $('.filter-notin').each(function () {
+        
+        var $input = $(this);
+        var value = $input.val() ? $input.val().trim() : null
+        
+
+        if (value) {
+
+            filterNotIn.push(`${value}`);
+        }
+
+    });
+
+    if (filterNotIn){
+        inputs["name"] = ["Not In", filterNotIn];
+    }
 
     return inputs;
 }
