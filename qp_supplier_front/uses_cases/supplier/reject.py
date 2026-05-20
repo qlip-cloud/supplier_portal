@@ -7,6 +7,8 @@ def handler(supplier_id, qp_reject_observation):
     
     supplier.qp_status = REJECT
     
+    supplier.qp_preapproved = False
+    
     supplier.qp_reject_observation = qp_reject_observation
     
     supplier.save()

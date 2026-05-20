@@ -1,0 +1,25 @@
+{% if errors %}
+<table class="table">
+    <thead>
+        <tr>
+            <th>Viaje</th>
+            <th>Fecha de viaje</th>
+            <th>Origen</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for error in errors %}
+            <tr>
+                <td>{{ error.travel_id or "No especificado" }}</td>
+                <td>{{ frappe.utils.format_date(error.travel_date, "dd-mm-yyyy") if error.travel_date else "No especificado" }}</td>
+                <td>{{ error.origin or "No especificado" }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{%else%}
+    <div class="alert alert-info">
+        <p>No se encontraron errores de sincronización.</p>
+    </div>
+
+{% endif %}

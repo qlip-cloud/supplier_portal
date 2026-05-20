@@ -164,14 +164,37 @@
     </div>
 </div>
 
-{% if supplier and supplier.qp_status == "En revisión" and is_alpla_admin %}
-<div class="row approve-row justify-content-end" style="margin-top: 15px;margin-bottom: 15px;">
-    <div class="col-lg-1 mr-4">
-        <input type="button" class="btn btn-success rounded" id="approve" value="Aprobar">
+{% if supplier and supplier.qp_status == "En revisión" and is_alpla_admin%}
+
+<div class="row approve-row justify-content-between align-items-center" style="margin-top: 15px; margin-bottom: 15px;">
+    
+    <div class="col-lg-4">
+        <div class="alert alert-info mb-0" role="alert" style="padding: 5px 15px;">
+            <strong>Nota:</strong> 
+            <span id = "preapproved_legend">
+                {% if not qp_preapproved %}
+                    En proceso de pre aprobación por compras
+                {% else %}
+                    En proceso de aprobación por finanzas
+
+                {% endif %}
+            </span>
+
+        </div>
     </div>
-    <div class="col-lg-1 mr-8">
-        <button type="button" class="btn btn-danger rounded" data-toggle="modal" data-target="#reject_motive">Rechazar</button>
-    </div>
+    {% if is_preapproved %}
+        <div class="col-lg-auto d-flex button-row">
+            <div class="mr-2">
+                    <input type="button" class="btn btn-success rounded approve" id="approve" value="Aprobar" style="display: {{none if not qp_preapproved else ''}};">
+                    <input type="button" class="btn btn-success rounded preapproved" id="preapproved" value="Pre Aprobar" style="display: {{none if qp_preapproved else ''}};">
+            </div>
+
+            <div>
+                <button type="button" class="btn btn-danger rounded" data-toggle="modal" data-target="#reject_motive">Rechazar</button>
+            </div>
+        </div>
+    {% endif %}
+    
 </div>
 {% endif %}
 

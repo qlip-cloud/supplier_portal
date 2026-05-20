@@ -1,0 +1,25 @@
+    
+    {% if dispatch %}
+    
+            {% for line in dispatch %}
+
+            <tr class="{{ '' if line.travel_id and line.travel_amount else 'warning' }}">
+                <td class = "lines-text">{{line.travel_id}}</td>
+                <td class = "lines-text">{{line.license_plate}}</td>
+                <td class = "lines-text">{{frappe.utils.format_date(line.travel_date, "dd-mm-yyyy") or ""}}</td>
+                <td class = "lines-text">{{line.origin}}</td>
+                <td class = "lines-text">{{line.destination}}</td>
+                <td class="lines-number text-right">{{frappe.format_value(line.travel_amount, "Currency")}}</td>
+                <td class="text-center">
+                    {% if line.travel_id and line.travel_amount %}
+                    <input type="checkbox" data-id = 'name' data-value = "{{line.travel_amount}}" name="dispatchs" class="dispatch-check" value = "{{line.name}}">
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        
+    {% else %}
+    <tr >
+        <td colspan="7">No hay despachos registradas</td>
+    </tr>
+    {% endif %}

@@ -2,7 +2,7 @@ import frappe
 import json
 from qp_authorization.use_case.bearer.authorize import send_request
 from qp_supplier_front.constant.endpoint import INVOICE_ALL
-from qp_supplier_front.services.get_data import has_recent_news 
+from qp_supplier_front.services.get_data import has_recent_news, get_has_dispatch_permission
 
 def get_context(context):
     context.no_cache = True
@@ -23,8 +23,11 @@ def get_context(context):
         """, values={'supplier_id': supplier_id}, as_dict=1)
     
     
-    print(request_quotations)
+    #print(request_quotations)
     
     context.request_quotations = request_quotations
 
     context.has_recent_news = has_recent_news()
+    
+    context.has_dispatch_permission = get_has_dispatch_permission(supplier_id)
+    

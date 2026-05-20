@@ -1,4 +1,5 @@
 import frappe
+from qp_supplier_front.www.information.index import get_is_alpla_admin
 
 def handler(supplier):
     
@@ -6,6 +7,6 @@ def handler(supplier):
     
     user_roles = frappe.get_roles(user)
     
-    is_alpla_admin = "Alpla Administrator" in user_roles or "Administrator" in user_roles
+    is_alpla_admin = get_is_alpla_admin(user_roles)
         
     return ( supplier.qp_status not in ("En revisión", "Aprobado")) and not is_alpla_admin

@@ -1,4 +1,5 @@
 import frappe
+from qp_supplier_front.www.information.index import get_is_alpla_admin
 
 def get_home_page(user):    
     
@@ -8,7 +9,7 @@ def get_home_page(user):
     
     user_roles = frappe.get_roles(user)
     
-    if user == "Administrator" or "Alpla Administrator" in user_roles:
+    if get_is_alpla_admin(user_roles):
     
         return "/app"
     
