@@ -441,6 +441,45 @@ $(document).ready(function () {
             }, function () { })
     })
 
+        $("#preapproved").on("click", function () {
+
+        frappe.confirm('¿Seguro que desea pre aprobar el registro?',
+            function () {
+
+                supplier_id = $("#supplier_id").val();
+
+                url = "qp_supplier_front.resources.supplier.supplier.pre_approved";
+
+                callresponse = (response) => {
+
+                    frappe.msgprint(response.msg)
+
+                    data = response.data
+                    
+                    setup_button(data.supplier)
+
+                    $("#preapproved_legend").html("En proceso de aprobación por finanzas")
+
+                    if (data.is_alpla_admin){
+
+                        
+                        $("#preapproved").hide()
+                        $("#approve").show()
+
+                    }else{
+
+                        $(".button-row").remove()
+                    }
+                    
+                }
+
+
+                petition_get_data({ supplier_id }, url, callresponse)
+
+
+            }, function () { })
+    })
+
     $(".doc-delete").on("click", function () {
         setting_id = $(this).data("setting-id");
         frappe.confirm('¿Seguro que desea eliminar este registro?',

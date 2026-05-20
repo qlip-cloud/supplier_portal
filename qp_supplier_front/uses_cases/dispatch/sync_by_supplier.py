@@ -54,12 +54,12 @@ def sync_dispatch_fast(json_data, supplier_id):
     for bol in bols:
         
         row = str((
-            bol.get("Bol"),
-            bol.get("TravelId"),
-            bol.get("LicensePlate"),
-            bol.get("Bol"),
-            bol.get("Origin"),
-            bol.get("Destination"),
+            bol.get("Bol").strip() if bol.get("Bol") else "",
+            bol.get("TravelId").strip() if bol.get("TravelId") else "",
+            bol.get("LicensePlate").strip() if bol.get("LicensePlate") else "",
+            bol.get("Bol").strip() if bol.get("Bol") else "",
+            bol.get("Origin").strip() if bol.get("Origin") else "",
+            bol.get("Destination").strip() if bol.get("Destination") else "",
             bol.get("BolValue") or 0,
             bol.get("TravelDate"),
             supplier_id,
@@ -100,21 +100,22 @@ def mark_dispatch_error(supplier_id):
     
     sql = f"""UPDATE `tabqp_SP_DispatchSync` AS target
         INNER JOIN (
-            SELECT travel_id
+            SELECT travel_id, travel_date
             FROM `tabqp_SP_DispatchSync`
             WHERE travel_id IS NOT NULL 
             AND supplier_id = '{supplier_id}'
-            GROUP BY travel_id
+            GROUP BY travel_id, travel_date
             HAVING COUNT(DISTINCT 
                 CONCAT_WS('|', 
                     IFNULL(license_plate, ''), 
                     IFNULL(origin, ''), 
+                    IFNULL(travel_date, ''), 
                     IFNULL(destination, ''), 
                     IFNULL(bol_value, 0),
                     IFNULL(travel_date, '')
                 )
             ) > 1
-        ) AS errors ON target.travel_id = errors.travel_id
+        ) AS errors ON target.travel_id = errors.travel_id and target.travel_date = errors.travel_date
         SET target.is_error = 1
         WHERE target.supplier_id = '{supplier_id}'"""
 
@@ -144,7 +145,7 @@ def move_to_dispatch(supplier_id):
         SELECT 
             CASE 
                 WHEN sync.travel_id IS NULL OR sync.travel_id = '' THEN UUID()
-                ELSE sync.travel_id 
+                ELSE CONCAT(sync.travel_id,":", sync.travel_date)
             END AS name,
             sync.travel_id,
             sync.license_plate,
@@ -169,8 +170,8 @@ def move_to_dispatch(supplier_id):
             sync.origin,
             sync.destination,
             sync.bol_value,
-            sync.travel_date,
             sync.supplier_id,
+            sync.travel_date,
             warehouse.code,
             sync.creation,
             sync.modified,
@@ -228,8 +229,8 @@ def move_to_dispatch_line(supplier_id):
             AND dispatch.origin = sync.origin
             AND dispatch.destination = sync.destination
             AND dispatch.travel_amount = sync.bol_value
-            AND dispatch.travel_date = sync.travel_date
             AND dispatch.supplier = sync.supplier_id
+            AND dispatch.travel_date = sync.travel_date
             AND dispatch.creation = sync.creation
             AND dispatch.modified = sync.modified
             AND dispatch.modified_by = sync.modified_by

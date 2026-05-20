@@ -85,7 +85,7 @@
                     <td width="25%"><button class="btn  btn-primary" id="finish_lot">Finalizar por filtro</button> </td>
                     <td width="50%" style="text-align: center;">
                         {% if total_errors%}
-                            <button class="btn  btn-danger" data-toggle="modal" data-target="#errorsModal">Despachos no sincronizados ({{total_errors}})</button> 
+                            <button class="btn  btn-danger" data-toggle="modal" data-target="#errorsModal" id = "errorsButton">Despachos no sincronizados (<span id = "total_errors">{{total_errors}}</span>)</button> 
                         {% endif %}
                     </td>
                     <td width="15%" class="text-right" style="vertical-align: bottom;">Total: <span id="total"></span>
@@ -144,7 +144,7 @@
 </div>
 
 <div class="modal fade" id="errorsModal" tabindex="-1" aria-labelledby="errorsModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="errorsModalLabel">Lista de despachos no sincronizados</h5>
@@ -153,11 +153,8 @@
         </button>
       </div>
       <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
-        <ul>
-          {% for error in errors %}
-            <li>{{ error.travel_id }}</li>
-          {% endfor %}
-        </ul>
+            {% include "qp_supplier_front/templates/list/dispatch/error_list.html" %}
+        
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
