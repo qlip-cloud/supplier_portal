@@ -54,8 +54,11 @@
 
             <input type="text" autocomplete="off" name="phone_number"
                 class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
-                else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue" id="phone_number"
-                value="{{party.phone_number or ''}}" placeholder="Número Telefónico">
+                else "disabled = 'true'" }} maxlength="17" data-fieldtype="Data" data-doctype="Issue" id="phone_number"
+                value="{{party.phone_number or ''}}" placeholder="(000)0000000)">
+            <div class="text-muted" style="font-size: 12px;">
+                <i>(Indicativo de ciudad) Número telefónico.</i>
+            </div>
         </div>
         <div class="col-lg-4">
             <label for="business_type_name">Tipo de Persona</label>

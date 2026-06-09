@@ -679,16 +679,31 @@ $(document).ready(function () {
     $('#tax_id').on('input', function () {
         this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
     });
-    $('#phone_number').on('keypress', function (e) {
-        const char = String.fromCharCode(e.which);
-        if (!/^\d$/.test(char)) {
-            e.preventDefault(); 
-        }
-    });
-
     $('#phone_number').on('input', function () {
-        this.value = this.value.replace(/\D/g, ''); 
-    });
+        let cursor = this.selectionStart;
+        let originalLen = this.value.length;
+        
+        let val = this.value.replace(/\D/g, '');
+        if (val.length > 10) {
+            val = val.substring(0, 10);
+        }
+        
+        let formatted = '';
+        if (val.length > 0) {
+            formatted += '(' + val.substring(0, 3);
+            if (val.length > 3) {
+                formatted += ')' + val.substring(3);
+            }
+        }
+        
+        this.value = formatted;
+        
+        let newLen = formatted.length;
+        let diff = newLen - originalLen;
+        if (cursor < originalLen) {
+            this.setSelectionRange(cursor + diff, cursor + diff);
+        }
+    }).trigger('input');
 
     $('#country_code').on('keypress', function (e) {
         const char = String.fromCharCode(e.which);
