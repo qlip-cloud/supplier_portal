@@ -202,3 +202,8 @@ fixtures = [
     }
 ]
 
+before_request = [
+    "qp_supplier_front.util.uppercase_utils.uppercase_form_inputs"
+]
+
+
