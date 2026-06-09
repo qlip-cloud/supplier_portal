@@ -1,3 +1,36 @@
+// Interceptar asignaciones programáticas mediante jQuery .val()
+(function($) {
+    if ($ && $.fn && $.fn.val) {
+        const originalVal = $.fn.val;
+        $.fn.val = function(value) {
+            if (arguments.length > 0 && typeof value === 'string') {
+                if (this.is('input[type="text"], input:not([type]), textarea') && this.closest('.form-estandar').length > 0 && !this.hasClass('no-uppercase')) {
+                    value = value.toUpperCase();
+                }
+            }
+            return originalVal.apply(this, arguments);
+        };
+    }
+})(window.jQuery);
+
+// Interceptor global de eventos input (escritura y pegado) preservando la posición del cursor
+$(document).on('input', '.form-estandar input[type="text"], .form-estandar input:not([type]), .form-estandar textarea', function () {
+    if (!$(this).hasClass('no-uppercase')) {
+        const start = this.selectionStart;
+        const end = this.selectionEnd;
+        const originalVal = this.value;
+        if (originalVal) {
+            const upperVal = originalVal.toUpperCase();
+            if (originalVal !== upperVal) {
+                this.value = upperVal;
+                if (start !== null && end !== null) {
+                    this.setSelectionRange(start, end);
+                }
+            }
+        }
+    }
+});
+
 function openNav() {
     document.getElementById("mySidenav").style.width = "250px";
     document.getElementById("overlay").style.display = "block";
