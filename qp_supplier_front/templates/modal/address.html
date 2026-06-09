@@ -8,15 +8,15 @@
                 </button>
             </div>
             <div class="modal-body">
-                <form class="form-estandar form-modal" method="POST" data-method-default = "POST" id="form-address" action="api/method/qp_supplier_front.resources.information.address.save">
+                <form class="form-estandar form-modal" method="POST" data-method-default="POST" id="form-address"
+                    action="api/method/qp_supplier_front.resources.information.address.save">
                     <div class="row row-line">
 
                         <div class="col-lg-12">
                             <label for="business_type_name">País</label>
 
-                            <select class="form-control" name="country" id="country" data-label="País"
-                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
-                                data-fieldtype="Select">
+                            <select class="form-control" name="country" id="country" data-label="País" {{ "" if
+                                is_estatus_editable else "disabled = 'true'" }} data-fieldtype="Select">
                                 <option value="0" selected="selected" class="custom-option">País
                                 </option>
                                 {% for country in countries %}
@@ -32,9 +32,8 @@
                         <div class="col-lg-12">
                             <label for="business_type_name">Departamento</label>
 
-                            <select class="form-control" name="city" id="city" data-label="Departamento"
-                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
-                                data-fieldtype="Select">
+                            <select class="form-control" name="city" id="city" data-label="Departamento" {{ "" if
+                                is_estatus_editable else "disabled = 'true'" }} data-fieldtype="Select">
                                 <option value="0" selected="selected" class="custom-option">Departamento
                                 </option>
                                 {% for city in cities %}
@@ -50,9 +49,8 @@
                         <div class="col-lg-12">
                             <label for="business_type_name">Municipio</label>
 
-                            <select class="form-control" name="state" id="state" data-label="Municipio"
-                                {{ "" if is_estatus_editable else "disabled = 'true'" }}
-                                data-fieldtype="Select">
+                            <select class="form-control" name="state" id="state" data-label="Municipio" {{ "" if
+                                is_estatus_editable else "disabled = 'true'" }} data-fieldtype="Select">
                                 <option value="0" selected="selected" class="custom-option">Municipio
                                 </option>
                                 {% for state in states %}
@@ -68,14 +66,18 @@
                         <div class="col-lg-12">
                             <label for="business_type_name">Dirección</label>
 
-                            <textarea name="address_line1" id="address_line1" 
-                            {{ "" if is_estatus_editable else "disabled = 'true'" }}
-                            ></textarea>
+                            <textarea name="address_line1" id="address_line1" {{ "" if is_estatus_editable
+                                else "disabled = 'true'" }} maxlength="64"></textarea>
+                            <div class="text-muted" style="font-size: 12px;">
+                                <i>Diligencie con la dirección registrada en el RUT. <br> Máximo 64 caracteres.</i>
+                            </div>
                         </div>
                     </div>
                     <div class="row row-line">
                         <div class="col-lg-4">
-                            <button class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new" id="save">Guardar</button>
+                            <button
+                                class="btn btn-primary btn-sm primary-action {{ '' if is_estatus_editable else 'hidden disabled' }} button-new"
+                                id="save">Guardar</button>
                         </div>
                     </div>
                     <input type="hidden" name="doctype_id" value="">
