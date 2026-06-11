@@ -41,3 +41,29 @@ class TestUppercaseMiddleware(unittest.TestCase):
         uppercase_form_inputs()
         
         self.assertEqual(frappe.local.form_dict["supplier_name"], "mi proveedor s.a.s")
+
+    def test_sanitize_colombian_number(self):
+        from qp_supplier_front.util.uppercase_utils import sanitize_colombian_number
+        self.assertEqual(sanitize_colombian_number("1.250.000,00"), "1250000.00")
+        self.assertEqual(sanitize_colombian_number("1250000,00"), "1250000.00")
+        self.assertEqual(sanitize_colombian_number("0,05"), "0.05")
+        self.assertEqual(sanitize_colombian_number("1250000.00"), "1250000.00")
+        self.assertEqual(sanitize_colombian_number("1.250.000"), "1250000")
+        self.assertEqual(sanitize_colombian_number(1250000.0), 1250000.0)
+        self.assertEqual(sanitize_colombian_number(None), None)
+
+    def test_uppercase_form_inputs_sanitizes_financial_fields(self):
+        frappe.local.form_dict.update({
+            "cmd": "qp_supplier_front.resources.information.financial.update",
+            "qp_financial_assets": "1.250.000,00",
+            "qp_financial_liabilities": "78.526.644,23",
+            "supplier_name": "mi proveedor s.a.s"
+        })
+        
+        uppercase_form_inputs()
+        
+        self.assertEqual(frappe.local.form_dict["qp_financial_assets"], "1250000.00")
+        self.assertEqual(frappe.local.form_dict["qp_financial_liabilities"], "78526644.23")
+        self.assertEqual(frappe.local.form_dict["supplier_name"], "MI PROVEEDOR S.A.S")
+
+

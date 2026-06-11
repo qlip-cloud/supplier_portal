@@ -31,6 +31,16 @@ $(document).on('input', '.form-estandar input[type="text"], .form-estandar input
     }
 });
 
+function formatColombianCurrency(digits) {
+    let clean = digits.replace(/\D/g, '');
+    if (clean.length === 0) return '';
+    let num = parseInt(clean, 10) / 100;
+    return new Intl.NumberFormat('es-CO', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(num);
+}
+
 function openNav() {
     document.getElementById("mySidenav").style.width = "250px";
     document.getElementById("overlay").style.display = "block";
@@ -54,12 +64,49 @@ $(document).ready(function () {
         $("#page-rfq .sidebar-column.col-sm-2, #page-rfq .page-breadcrumbs").remove();
     }
 
-    $('.number').on('input', function () {
-        let value = $(this).val().replace(/\D/g, ''); // Eliminar cualquier carácter que no sea un número
-        if (value.length > 0) {
-            value = (parseInt(value) / 100).toFixed(2); // Convertir a decimal con dos decimales
+    // Formatear valores numéricos existentes al cargar la página
+    $('.floating-input.number').each(function () {
+        let val = $(this).val();
+        if (val) {
+            let num = parseFloat(val.replace(',', '.'));
+            if (!isNaN(num)) {
+                let cents = Math.round(num * 100);
+                let formatted = formatColombianCurrency(cents.toString());
+                $(this).val(formatted);
+            }
         }
-        $(this).val(value);
+    });
+
+    $('.floating-input.number').on('input', function () {
+        let input = this;
+        let originalVal = input.value;
+        let start = input.selectionStart;
+        
+        // Contar cuántos dígitos hay antes del cursor
+        let digitsBeforeCursor = originalVal.substring(0, start).replace(/\D/g, '').length;
+        
+        // Formatear el valor completo
+        let digits = originalVal.replace(/\D/g, '');
+        let formatted = formatColombianCurrency(digits);
+        input.value = formatted;
+        
+        // Encontrar la nueva posición del cursor
+        let newCursor = 0;
+        let digitsSeen = 0;
+        for (let i = 0; i < formatted.length; i++) {
+            if (/\d/.test(formatted[i])) {
+                digitsSeen++;
+            }
+            newCursor = i + 1;
+            if (digitsSeen === digitsBeforeCursor) {
+                break;
+            }
+        }
+        
+        // Restaurar posición de cursor
+        if (formatted.length > 0) {
+            input.setSelectionRange(newCursor, newCursor);
+        }
     });
 
     $("#accordion").on("click", ".page-link", function () {
