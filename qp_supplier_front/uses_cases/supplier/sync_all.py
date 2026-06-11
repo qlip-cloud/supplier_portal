@@ -40,17 +40,84 @@ def get_existing_tax_ids(vendor_ids: list) -> list:
     )
 
 
-def resolve_and_create_banks(suppliers_response: list, existing_tax_ids: list) -> dict:
+def get_existing_suppliers(vendor_ids: list) -> dict:
     """
-    Fase 1: Recolectar todos los eftInformation de proveedores nuevos
+    Obtiene un diccionario {tax_id: name} de los proveedores existentes.
+    """
+    if not vendor_ids:
+        return {}
+    suppliers = frappe.db.get_all(
+        'Supplier',
+        filters={'tax_id': ["in", vendor_ids]},
+        fields=['tax_id', 'name']
+    )
+    return {s['tax_id']: s['name'] for s in suppliers}
+
+
+def get_suppliers_with_contacts(supplier_names: list) -> set:
+    """
+    Obtiene un conjunto con los nombres de proveedores que ya tienen un contacto asociado.
+    """
+    if not supplier_names:
+        return set()
+    links = frappe.db.sql("""
+        SELECT dl.link_name 
+        FROM `tabDynamic Link` dl
+        INNER JOIN `tabContact` c ON dl.parent = c.name
+        WHERE dl.link_doctype = 'Supplier' 
+          AND dl.link_name IN %s
+          AND dl.parenttype = 'Contact'
+    """, (supplier_names,), as_dict=False)
+    return {l[0] for l in links} if links else set()
+
+
+def get_suppliers_with_addresses(supplier_names: list) -> set:
+    """
+    Obtiene un conjunto con los nombres de proveedores que ya tienen una dirección asociada.
+    """
+    if not supplier_names:
+        return set()
+    links = frappe.db.sql("""
+        SELECT dl.link_name 
+        FROM `tabDynamic Link` dl
+        INNER JOIN `tabAddress` a ON dl.parent = a.name
+        WHERE dl.link_doctype = 'Supplier' 
+          AND dl.link_name IN %s
+          AND dl.parenttype = 'Address'
+    """, (supplier_names,), as_dict=False)
+    return {l[0] for l in links} if links else set()
+
+
+def get_suppliers_with_bank_accounts(supplier_names: list) -> set:
+    """
+    Obtiene un conjunto con los nombres de proveedores que ya tienen una cuenta bancaria asociada.
+    """
+    if not supplier_names:
+        return set()
+    accounts = frappe.db.get_all(
+        'Bank Account',
+        filters={
+            'party_type': 'Supplier',
+            'party': ['in', supplier_names]
+        },
+        pluck='party'
+    )
+    return set(accounts)
+
+
+
+
+
+def resolve_and_create_banks(suppliers_response: list) -> dict:
+    """
+    Fase 1: Recolectar todos los eftInformation de proveedores
     y resolver sus bancos en lote. Retorna un diccionario mapping de vendor_id a la lista de EFTs resueltos.
     """
     eft_by_vendor = {}  # {vendor_id: [eft_data_resuelto, ...]}
 
     for supplier_response in suppliers_response:
         vendor_id = supplier_response.get('vendorId')
-
-        if vendor_id in existing_tax_ids:
+        if not vendor_id:
             continue
 
         eft_list = supplier_response.get('eftInformation') or []
@@ -159,7 +226,14 @@ def create_bank_account_record(vendor_id: str, eft_index: int, eft_data: dict) -
     )
 
 
-def build_records(suppliers_response: list, existing_tax_ids: list, eft_by_vendor: dict) -> dict:
+def build_records(
+    suppliers_response: list,
+    existing_suppliers: dict,
+    suppliers_with_contacts: set,
+    suppliers_with_addresses: set,
+    suppliers_with_bank_accounts: set,
+    eft_by_vendor: dict
+) -> dict:
     """
     Fase 2: Construir los registros de proveedores, contactos y direcciones en tuplas utilizando funciones atómicas.
     """
@@ -169,16 +243,49 @@ def build_records(suppliers_response: list, existing_tax_ids: list, eft_by_vendo
     dynamic_links = []
     bank_accounts = []
 
-    # Copiamos existing_tax_ids localmente para evitar side effects
-    local_tax_ids = list(existing_tax_ids)
+    # Copiamos localmente para evitar side effects y mejorar performance
+    local_tax_ids = set(existing_suppliers.keys())
+    local_suppliers_with_contacts = set(suppliers_with_contacts)
+    local_suppliers_with_addresses = set(suppliers_with_addresses)
+    local_suppliers_with_bank_accounts = set(suppliers_with_bank_accounts)
 
     for supplier_index, supplier_response in enumerate(suppliers_response):
         vendor_id = supplier_response.get('vendorId')
-        if not vendor_id or vendor_id in local_tax_ids:
+        if not vendor_id:
             continue
 
         name = supplier_response['name']
         mail = supplier_response.get('mail', '')
+
+        # Si el proveedor ya existe en la base de datos
+        if vendor_id in local_tax_ids:
+            supplier_name = existing_suppliers.get(vendor_id)
+            if supplier_name:
+                # 1. Contacto
+                if mail and mail.strip() and supplier_name not in local_suppliers_with_contacts:
+                    contact, dynamic_link = create_contact_records(supplier_index, supplier_name, name, mail)
+                    contacts.append(contact)
+                    dynamic_links.append(dynamic_link)
+                    local_suppliers_with_contacts.add(supplier_name)
+
+                # 2. Direcciones
+                if supplier_name not in local_suppliers_with_addresses:
+                    address_list = supplier_response.get('address', [])
+                    for address_index, address_data in enumerate(address_list):
+                        address, dynamic_link = create_address_records(address_index, supplier_name, address_data)
+                        addresses.append(address)
+                        dynamic_links.append(dynamic_link)
+                    if address_list:
+                        local_suppliers_with_addresses.add(supplier_name)
+
+                # 3. Cuentas bancarias
+                if supplier_name not in local_suppliers_with_bank_accounts:
+                    bank_list = eft_by_vendor.get(vendor_id, [])
+                    for eft_index, eft_data in enumerate(bank_list):
+                        bank_accounts.append(create_bank_account_record(supplier_name, eft_index, eft_data))
+                    if bank_list:
+                        local_suppliers_with_bank_accounts.add(supplier_name)
+            continue
 
         suppliers.append(create_supplier_record(vendor_id, name))
 
@@ -186,6 +293,8 @@ def build_records(suppliers_response: list, existing_tax_ids: list, eft_by_vendo
             contact, dynamic_link = create_contact_records(supplier_index, vendor_id, name, mail)
             contacts.append(contact)
             dynamic_links.append(dynamic_link)
+            if vendor_id not in local_suppliers_with_contacts:
+                local_suppliers_with_contacts.add(vendor_id)
 
         for address_index, address_data in enumerate(supplier_response.get('address', [])):
             address, dynamic_link = create_address_records(address_index, vendor_id, address_data)
@@ -196,7 +305,7 @@ def build_records(suppliers_response: list, existing_tax_ids: list, eft_by_vendo
         for eft_index, eft_data in enumerate(eft_by_vendor.get(vendor_id, [])):
             bank_accounts.append(create_bank_account_record(vendor_id, eft_index, eft_data))
 
-        local_tax_ids.append(vendor_id)
+        local_tax_ids.add(vendor_id)
 
     return {
         "suppliers": suppliers,
@@ -208,59 +317,92 @@ def build_records(suppliers_response: list, existing_tax_ids: list, eft_by_vendo
 
 
 
+
 def bulk_insert_suppliers(suppliers: list) -> None:
-    """Inserta en lote los registros de Supplier."""
+    """Inserta en lote los registros de Supplier, evitando duplicados en la lista y base de datos."""
     if suppliers:
-        frappe.db.bulk_insert(
-            "Supplier",
-            ["name", "supplier_name", "tax_id", "supplier_group", "naming_series", "creation", "modified", "owner", "modified_by"],
-            suppliers
-        )
+        unique_suppliers = {s[0]: s for s in suppliers}
+        filtered_suppliers = list(unique_suppliers.values())
+        names = [s[0] for s in filtered_suppliers]
+        existing_names = frappe.db.get_all("Supplier", filters={"name": ["in", names]}, pluck="name")
+        filtered = [s for s in filtered_suppliers if s[0] not in existing_names]
+        if filtered:
+            frappe.db.bulk_insert(
+                "Supplier",
+                ["name", "supplier_name", "tax_id", "supplier_group", "naming_series", "creation", "modified", "owner", "modified_by"],
+                filtered
+            )
 
 
 def bulk_insert_contacts(contacts: list) -> None:
-    """Inserta en lote los registros de Contact."""
+    """Inserta en lote los registros de Contact, evitando duplicados en la lista y base de datos."""
     if contacts:
-        frappe.db.bulk_insert(
-            "Contact",
-            ["name", "first_name", "user", "creation", "modified", "owner", "modified_by"],
-            contacts
-        )
+        unique_contacts = {c[0]: c for c in contacts}
+        filtered_contacts = list(unique_contacts.values())
+        names = [c[0] for c in filtered_contacts]
+        existing_names = frappe.db.get_all("Contact", filters={"name": ["in", names]}, pluck="name")
+        filtered = [c for c in filtered_contacts if c[0] not in existing_names]
+        if filtered:
+            frappe.db.bulk_insert(
+                "Contact",
+                ["name", "first_name", "user", "creation", "modified", "owner", "modified_by"],
+                filtered
+            )
 
 
 def bulk_insert_addresses(addresses: list) -> None:
-    """Inserta en lote los registros de Address."""
+    """Inserta en lote los registros de Address, evitando duplicados en la lista y base de datos."""
     if addresses:
-        frappe.db.bulk_insert(
-            "Address",
-            ["name", "address_line1", "city", "state", "country", "address_type", "creation", "modified", "owner", "modified_by"],
-            addresses
-        )
+        unique_addresses = {a[0]: a for a in addresses}
+        filtered_addresses = list(unique_addresses.values())
+        names = [a[0] for a in filtered_addresses]
+        existing_names = frappe.db.get_all("Address", filters={"name": ["in", names]}, pluck="name")
+        filtered = [a for a in filtered_addresses if a[0] not in existing_names]
+        if filtered:
+            frappe.db.bulk_insert(
+                "Address",
+                ["name", "address_line1", "city", "state", "country", "address_type", "creation", "modified", "owner", "modified_by"],
+                filtered
+            )
 
 
 def bulk_insert_dynamic_links(dynamic_links: list) -> None:
-    """Inserta en lote los registros de Dynamic Link."""
+    """Inserta en lote los registros de Dynamic Link, evitando duplicados en la lista y base de datos."""
     if dynamic_links:
-        frappe.db.bulk_insert(
-            "Dynamic Link",
-            ["name", "link_doctype", "link_name", "parenttype", "parent", "creation", "modified", "owner", "modified_by"],
-            dynamic_links
-        )
+        unique_links = {dl[0]: dl for dl in dynamic_links}
+        filtered_links = list(unique_links.values())
+        names = [dl[0] for dl in filtered_links]
+        existing_names = frappe.db.get_all("Dynamic Link", filters={"name": ["in", names]}, pluck="name")
+        filtered = [dl for dl in filtered_links if dl[0] not in existing_names]
+        if filtered:
+            frappe.db.bulk_insert(
+                "Dynamic Link",
+                ["name", "link_doctype", "link_name", "parenttype", "parent", "creation", "modified", "owner", "modified_by"],
+                filtered
+            )
 
 
 def bulk_insert_bank_accounts(bank_accounts: list) -> None:
-    """Inserta en lote los registros de Bank Account."""
+    """Inserta en lote los registros de Bank Account, evitando duplicados en la lista y base de datos."""
     if bank_accounts:
-        frappe.db.bulk_insert(
-            "Bank Account",
-            [
-                "name", "account_name", "bank", "account_type", "bank_account_no",
-                "party_type", "party", "is_default",
-                "qp_iban_number", "qp_routing_code",
-                "creation", "modified", "owner", "modified_by"
-            ],
-            bank_accounts
-        )
+        unique_accounts = {ba[0]: ba for ba in bank_accounts}
+        filtered_accounts = list(unique_accounts.values())
+        names = [ba[0] for ba in filtered_accounts]
+        existing_names = frappe.db.get_all("Bank Account", filters={"name": ["in", names]}, pluck="name")
+        filtered = [ba for ba in filtered_accounts if ba[0] not in existing_names]
+        if filtered:
+            frappe.db.bulk_insert(
+                "Bank Account",
+                [
+                    "name", "account_name", "bank", "account_type", "bank_account_no",
+                    "party_type", "party", "is_default",
+                    "qp_iban_number", "qp_routing_code",
+                    "creation", "modified", "owner", "modified_by"
+                ],
+                filtered
+            )
+
+
 
 
 def bulk_insert_all_records(records: dict) -> None:
@@ -284,10 +426,22 @@ def handler():
     if result:
         suppliers_response = result.get('vendors', [])
         vendor_ids = [s.get('vendorId') for s in suppliers_response if s.get('vendorId')]
-        existing_tax_ids = get_existing_tax_ids(vendor_ids)
+        existing_suppliers = get_existing_suppliers(vendor_ids)
+        supplier_names = list(existing_suppliers.values())
+        
+        suppliers_with_contacts = get_suppliers_with_contacts(supplier_names)
+        suppliers_with_addresses = get_suppliers_with_addresses(supplier_names)
+        suppliers_with_bank_accounts = get_suppliers_with_bank_accounts(supplier_names)
 
-        eft_by_vendor = resolve_and_create_banks(suppliers_response, existing_tax_ids)
-        records = build_records(suppliers_response, existing_tax_ids, eft_by_vendor)
+        eft_by_vendor = resolve_and_create_banks(suppliers_response)
+        records = build_records(
+            suppliers_response,
+            existing_suppliers,
+            suppliers_with_contacts,
+            suppliers_with_addresses,
+            suppliers_with_bank_accounts,
+            eft_by_vendor
+        )
 
         if nuevo_sync_datetime:
             sync_datetime = nuevo_sync_datetime
@@ -295,4 +449,6 @@ def handler():
         bulk_insert_all_records(records)
 
     frappe.db.set_value('qp_SP_MasterSetup', None, 'supplier_date_sync', sync_datetime)
+
+
 
