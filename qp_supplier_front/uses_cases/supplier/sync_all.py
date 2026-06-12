@@ -257,6 +257,7 @@ def create_bank_account_record(vendor_id: str, eft_index: int, eft_data: dict) -
         is_default,
         eft_data['iban'] or None,
         eft_data['regulatory_code'] or None,
+        1,  # qp_from_sync
         current_time, current_time, owner, owner
     )
 
@@ -432,6 +433,7 @@ def bulk_insert_bank_accounts(bank_accounts: list) -> None:
                     "name", "account_name", "bank", "account_type", "bank_account_no",
                     "party_type", "party", "is_default",
                     "qp_iban_number", "qp_routing_code",
+                    "qp_from_sync",
                     "creation", "modified", "owner", "modified_by"
                 ],
                 filtered

@@ -34,6 +34,9 @@ def update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_n
     
     bank_account = frappe.get_doc(doctype,doctype_id)
 
+    if bank_account.qp_from_sync:
+        frappe.throw("No se permite modificar una cuenta bancaria recibida desde la sincronización.")
+
     bank_name = resolve_bank_name(bank, swift_number or "")
     
     bank_doc = setup_bank(bank_name, swift_number, qp_aba_number)

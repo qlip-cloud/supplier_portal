@@ -924,6 +924,33 @@ $(document).ready(function () {
             $ibanNumber.val(bank_account.qp_iban_number || "");
             $qp_routing_code.val(bank_account.qp_routing_code || "");
 
+            const is_synced = bank_account.qp_from_sync === 1;
+            const is_page_editable = !$("#qp_public_resource_management").prop("disabled");
+
+            if (is_synced) {
+                $selectBank.prop("disabled", true);
+                $selectAccountType.prop("disabled", true);
+                $dataBankAccount_no.prop("disabled", true);
+                $swiftNumber.prop("disabled", true);
+                $abaNumber.prop("disabled", true);
+                $ibanNumber.prop("disabled", true);
+                $qp_routing_code.prop("disabled", true);
+                $("#form-bank-account #save").addClass("hidden disabled").prop("disabled", true);
+            } else {
+                $selectBank.prop("disabled", !is_page_editable);
+                $selectAccountType.prop("disabled", !is_page_editable);
+                $dataBankAccount_no.prop("disabled", !is_page_editable);
+                $swiftNumber.prop("disabled", !is_page_editable);
+                $abaNumber.prop("disabled", !is_page_editable);
+                $ibanNumber.prop("disabled", !is_page_editable);
+                $qp_routing_code.prop("disabled", !is_page_editable);
+                if (is_page_editable) {
+                    $("#form-bank-account #save").removeClass("hidden disabled").prop("disabled", false);
+                } else {
+                    $("#form-bank-account #save").addClass("hidden disabled").prop("disabled", true);
+                }
+            }
+
             $("#form-bank-account").attr('method', 'PUT');
             $('#bank_account_modal').modal('show')
         }
@@ -935,6 +962,28 @@ $(document).ready(function () {
         $("#form-bank-account")[0].reset();
         $("#form-bank-account").find("input[type='text'], select").val("").trigger('change');
         $("#form-bank-account").attr('method', 'POST');
+
+        const is_page_editable = !$("#qp_public_resource_management").prop("disabled");
+        const $selectBank = $("#bank");
+        const $selectAccountType = $("#account_type");
+        const $dataBankAccount_no = $("#bank_account_no");
+        const $swiftNumber = $("#swift_number");
+        const $abaNumber = $("#qp_aba_number");
+        const $ibanNumber = $("#iban");
+        const $qp_routing_code = $("#qp_routing_code");
+
+        $selectBank.prop("disabled", !is_page_editable);
+        $selectAccountType.prop("disabled", !is_page_editable);
+        $dataBankAccount_no.prop("disabled", !is_page_editable);
+        $swiftNumber.prop("disabled", !is_page_editable);
+        $abaNumber.prop("disabled", !is_page_editable);
+        $ibanNumber.prop("disabled", !is_page_editable);
+        $qp_routing_code.prop("disabled", !is_page_editable);
+        if (is_page_editable) {
+            $("#form-bank-account #save").removeClass("hidden disabled").prop("disabled", false);
+        } else {
+            $("#form-bank-account #save").addClass("hidden disabled").prop("disabled", true);
+        }
     });
     $("#shareholder_list").on("click", ".shareholder-id", function () {
 
