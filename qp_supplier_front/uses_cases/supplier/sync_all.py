@@ -490,6 +490,6 @@ def handler():
         frappe.db.set_value('qp_SP_MasterSetup', None, 'supplier_date_sync', sync_datetime)
     except Exception as error:
 
-        frappe.log_error(message=frappe.get_traceback(), title=f"Error sync sync all supplier: {supplier_id}")
+        frappe.log_error(message=frappe.get_traceback(), title="Error sync_all supplier")
 
 
