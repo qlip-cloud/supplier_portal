@@ -28,7 +28,7 @@ from qp_supplier_front.services.bank_normalizer import (
 )
 
 
-def resolve_bank_name(raw_name: str, swift_code: str = "") -> str:
+def resolve_bank_name(raw_name: str, swift_code: str = ""):
     """
     Punto de entrada principal de la cascada de resolución.
 
@@ -98,7 +98,7 @@ def resolve_bank_name(raw_name: str, swift_code: str = "") -> str:
 # Helpers privados
 # ---------------------------------------------------------------------------
 
-def _find_by_variant(raw_name: str) -> str | None:
+def _find_by_variant(raw_name: str):
     """
     Busca en el doctype qp_SP_BankNameVariant por el campo raw_variant.
 
@@ -115,7 +115,7 @@ def _find_by_variant(raw_name: str) -> str | None:
     return result or None
 
 
-def _find_by_swift(swift_code: str) -> str | None:
+def _find_by_swift(swift_code: str):
     """
     Busca en el doctype Bank por el campo custom qp_swift_number.
 
@@ -126,7 +126,7 @@ def _find_by_swift(swift_code: str) -> str | None:
     return result or None
 
 
-def _find_exact(name: str) -> str | None:
+def _find_exact(name: str):
     """
     Verifica si existe un Bank con ese name exacto (PK).
 
@@ -137,7 +137,7 @@ def _find_exact(name: str) -> str | None:
     return name if exists else None
 
 
-def _find_normalized_exact(candidate_norm: str, banks: list) -> str | None:
+def _find_normalized_exact(candidate_norm: str, banks: list):
     """
     Busca match exacto comparando el candidate normalizado contra
     los bank_name del catálogo también normalizados.
@@ -163,7 +163,7 @@ def _find_normalized_exact(candidate_norm: str, banks: list) -> str | None:
     return _disambiguate(matches)
 
 
-def _find_fuzzy(candidate_norm: str, banks: list, threshold: float, strip_catalog: bool = False) -> str | None:
+def _find_fuzzy(candidate_norm: str, banks: list, threshold: float, strip_catalog: bool = False):
     """
     Fuzzy matching con SequenceMatcher contra todos los bancos del catálogo.
 
@@ -210,7 +210,7 @@ def _find_fuzzy(candidate_norm: str, banks: list, threshold: float, strip_catalo
     return _disambiguate(top_candidates)
 
 
-def _disambiguate(candidates: list) -> str:
+def _disambiguate(candidates: list):
     """
     Desambigua entre múltiples bancos candidatos eligiendo el más usado.
 

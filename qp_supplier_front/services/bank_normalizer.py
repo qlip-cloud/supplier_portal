@@ -64,7 +64,7 @@ _MIN_STRIP_RESULT_LEN = 3
 # Funciones públicas
 # ---------------------------------------------------------------------------
 
-def normalize(name: str) -> str:
+def normalize(name: str):
     """
     Normaliza un nombre de banco:
       - Elimina espacios extremos
@@ -89,7 +89,7 @@ def normalize(name: str) -> str:
     return _LEGAL_SUFFIX_RE.sub("", normalized).strip()
 
 
-def strip_bank_prefix(normalized_name: str, allow_no_space: bool = False) -> str | None:
+def strip_bank_prefix(normalized_name: str, allow_no_space: bool = False):
     """
     Intenta eliminar el prefijo genérico bancario de un nombre ya normalizado.
 
@@ -125,7 +125,7 @@ def strip_bank_prefix(normalized_name: str, allow_no_space: bool = False) -> str
     return None
 
 
-def similarity(a: str, b: str) -> float:
+def similarity(a: str, b: str):
     """
     Calcula el coeficiente de similitud entre dos cadenas ya normalizadas.
 

@@ -12,7 +12,7 @@ owner = "Administrator"
 ACCOUNT_TYPE_MAP = {1: "Corriente", 2: "Ahorro"}
 
 
-def fetch_suppliers_from_api(sync_datetime) -> tuple:
+def fetch_suppliers_from_api(sync_datetime):
     """
     Obtiene la respuesta de proveedores desde el endpoint externo.
     Retorna una tupla (result_dict, nuevo_sync_datetime).
@@ -27,7 +27,7 @@ def fetch_suppliers_from_api(sync_datetime) -> tuple:
         return result, now_dt
 
 
-def get_existing_tax_ids(vendor_ids: list) -> list:
+def get_existing_tax_ids(vendor_ids: list):
     """
     Obtiene la lista de tax_ids de proveedores existentes en la base de datos.
     """
@@ -40,7 +40,7 @@ def get_existing_tax_ids(vendor_ids: list) -> list:
     )
 
 
-def get_existing_suppliers(vendor_ids: list) -> dict:
+def get_existing_suppliers(vendor_ids: list):
     """
     Obtiene un diccionario {tax_id: name} de los proveedores existentes.
     """
@@ -54,7 +54,7 @@ def get_existing_suppliers(vendor_ids: list) -> dict:
     return {s['tax_id']: s['name'] for s in suppliers}
 
 
-def get_suppliers_with_contacts(supplier_names: list) -> set:
+def get_suppliers_with_contacts(supplier_names: list):
     """
     Obtiene un conjunto con los nombres de proveedores que ya tienen un contacto asociado.
     """
@@ -71,7 +71,7 @@ def get_suppliers_with_contacts(supplier_names: list) -> set:
     return {l[0] for l in links} if links else set()
 
 
-def get_suppliers_with_addresses(supplier_names: list) -> set:
+def get_suppliers_with_addresses(supplier_names: list):
     """
     Obtiene un conjunto con los nombres de proveedores que ya tienen una dirección asociada.
     """
@@ -88,7 +88,7 @@ def get_suppliers_with_addresses(supplier_names: list) -> set:
     return {l[0] for l in links} if links else set()
 
 
-def get_suppliers_with_bank_accounts(supplier_names: list) -> set:
+def get_suppliers_with_bank_accounts(supplier_names: list):
     """
     Obtiene un conjunto con los nombres de proveedores que ya tienen una cuenta bancaria asociada.
     """
@@ -108,7 +108,7 @@ def get_suppliers_with_bank_accounts(supplier_names: list) -> set:
 
 
 
-def resolve_and_create_banks(suppliers_response: list) -> dict:
+def resolve_and_create_banks(suppliers_response: list):
     """
     Fase 1: Recolectar todos los eftInformation de proveedores
     y resolver sus bancos en lote de forma deduplicada.
@@ -200,7 +200,7 @@ def resolve_and_create_banks(suppliers_response: list) -> dict:
     return eft_by_vendor
 
 
-def create_supplier_record(vendor_id: str, name: str) -> tuple:
+def create_supplier_record(vendor_id: str, name: str):
     """Construye la tupla de datos para el DocType Supplier."""
     return (
         vendor_id, name, vendor_id,
@@ -209,7 +209,7 @@ def create_supplier_record(vendor_id: str, name: str) -> tuple:
     )
 
 
-def create_contact_records(supplier_index: int, vendor_id: str, name: str, mail: str) -> tuple:
+def create_contact_records(supplier_index: int, vendor_id: str, name: str, mail: str):
     """Construye las tuplas para Contact y su Dynamic Link correspondiente."""
     contact_name = f"{supplier_index}-{vendor_id}"
     contact = (
@@ -224,7 +224,7 @@ def create_contact_records(supplier_index: int, vendor_id: str, name: str, mail:
     return contact, dynamic_link
 
 
-def create_address_records(address_index: int, vendor_id: str, address_data: dict) -> tuple:
+def create_address_records(address_index: int, vendor_id: str, address_data: dict):
     """Construye las tuplas para Address y su Dynamic Link correspondiente."""
     type_address = frappe._("Billing")
     address_name = f"{address_index}-{vendor_id}:{type_address}"
@@ -242,7 +242,7 @@ def create_address_records(address_index: int, vendor_id: str, address_data: dic
     return address, dynamic_link
 
 
-def create_bank_account_record(vendor_id: str, eft_index: int, eft_data: dict) -> tuple:
+def create_bank_account_record(vendor_id: str, eft_index: int, eft_data: dict):
     """Construye la tupla de datos para el DocType Bank Account."""
     account_name = f"{vendor_id}:{eft_data['account_no']}"
     is_default = 1 if eft_index == 0 else 0
@@ -269,7 +269,7 @@ def build_records(
     suppliers_with_addresses: set,
     suppliers_with_bank_accounts: set,
     eft_by_vendor: dict
-) -> dict:
+):
     """
     Fase 2: Construir los registros de proveedores, contactos y direcciones en tuplas utilizando funciones atómicas.
     """
@@ -354,7 +354,7 @@ def build_records(
 
 
 
-def bulk_insert_suppliers(suppliers: list) -> None:
+def bulk_insert_suppliers(suppliers: list):
     """Inserta en lote los registros de Supplier, evitando duplicados en la lista y base de datos."""
     if suppliers:
         unique_suppliers = {s[0]: s for s in suppliers}
@@ -370,7 +370,7 @@ def bulk_insert_suppliers(suppliers: list) -> None:
             )
 
 
-def bulk_insert_contacts(contacts: list) -> None:
+def bulk_insert_contacts(contacts: list):
     """Inserta en lote los registros de Contact, evitando duplicados en la lista y base de datos."""
     if contacts:
         unique_contacts = {c[0]: c for c in contacts}
@@ -386,7 +386,7 @@ def bulk_insert_contacts(contacts: list) -> None:
             )
 
 
-def bulk_insert_addresses(addresses: list) -> None:
+def bulk_insert_addresses(addresses: list):
     """Inserta en lote los registros de Address, evitando duplicados en la lista y base de datos."""
     if addresses:
         unique_addresses = {a[0]: a for a in addresses}
@@ -402,7 +402,7 @@ def bulk_insert_addresses(addresses: list) -> None:
             )
 
 
-def bulk_insert_dynamic_links(dynamic_links: list) -> None:
+def bulk_insert_dynamic_links(dynamic_links: list):
     """Inserta en lote los registros de Dynamic Link, evitando duplicados en la lista y base de datos."""
     if dynamic_links:
         unique_links = {dl[0]: dl for dl in dynamic_links}
@@ -418,7 +418,7 @@ def bulk_insert_dynamic_links(dynamic_links: list) -> None:
             )
 
 
-def bulk_insert_bank_accounts(bank_accounts: list) -> None:
+def bulk_insert_bank_accounts(bank_accounts: list):
     """Inserta en lote los registros de Bank Account, evitando duplicados en la lista y base de datos."""
     if bank_accounts:
         unique_accounts = {ba[0]: ba for ba in bank_accounts}
@@ -442,7 +442,7 @@ def bulk_insert_bank_accounts(bank_accounts: list) -> None:
 
 
 
-def bulk_insert_all_records(records: dict) -> None:
+def bulk_insert_all_records(records: dict):
     """
     Fase 3: INSERT batch de todos los registros acumulados utilizando funciones de inserción atómicas.
     """
@@ -454,7 +454,7 @@ def bulk_insert_all_records(records: dict) -> None:
 
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def handler():
 
     try:
