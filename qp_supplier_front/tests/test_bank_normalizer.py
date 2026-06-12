@@ -93,7 +93,7 @@ class TestStripBankPrefix(unittest.TestCase):
     def test_sin_prefijo_retorna_none(self):
         self.assertIsNone(strip_bank_prefix("davivienda"))
         self.assertIsNone(strip_bank_prefix("av villas"))
-        self.assertIsNone(strip_bank_prefix("bancolombia"))  # "banco" es prefijo pero "lombia" es el resto
+        self.assertIsNone(strip_bank_prefix("bancolombia"))  # sin espacio y sin allow_no_space → None (el regex exige \s+)
 
     def test_resultado_demasiado_corto_retorna_none(self):
         """Si el resultado tras el strip tiene < _MIN_STRIP_RESULT_LEN chars → None."""
@@ -168,5 +168,55 @@ class TestSimilarity(unittest.TestCase):
         self.assertGreater(FUZZY_STRIP_THRESHOLD, FUZZY_THRESHOLD)
 
 
+class TestNormalizeSufijosSocietarios(unittest.TestCase):
+
+    def test_elimina_sa(self):
+        self.assertEqual(normalize("BANCO COLOMBIA S.A."), "banco colombia")
+        self.assertEqual(normalize("BANCO COLOMBIA S.A"), "banco colombia")
+        self.assertEqual(normalize("BANCO COLOMBIA SA"), "banco colombia")
+
+    def test_elimina_sas(self):
+        self.assertEqual(normalize("DAVIVIENDA S.A.S."), "davivienda")
+        self.assertEqual(normalize("DAVIVIENDA S.A.S"), "davivienda")
+        self.assertEqual(normalize("DAVIVIENDA SAS"), "davivienda")
+        self.assertEqual(normalize("DAVIVIENDA S. A. S."), "davivienda")
+
+    def test_elimina_ltda(self):
+        self.assertEqual(normalize("AV VILLAS LTDA."), "av villas")
+        self.assertEqual(normalize("AV VILLAS LTDA"), "av villas")
+
+    def test_elimina_otros_sufijos(self):
+        self.assertEqual(normalize("CITIBANK INC."), "citibank")
+        self.assertEqual(normalize("CITIBANK CORP."), "citibank")
+        self.assertEqual(normalize("CITIBANK LLC"), "citibank")
+
+    def test_no_elimina_falsos_positivos(self):
+        """Nombres que terminan en 'sa' o similares pero sin espacio previo no deben ser alterados."""
+        self.assertEqual(normalize("VISA"), "visa")
+        self.assertEqual(normalize("BANCASA"), "bancasa")
+        self.assertEqual(normalize("BOGOTA"), "bogota")
+        self.assertEqual(normalize("CONFIAR"), "confiar")
+
+
+class TestStripBankPrefixNospace(unittest.TestCase):
+
+    def test_strip_pegado_con_allow_no_space(self):
+        self.assertEqual(strip_bank_prefix("bancodavivienda", allow_no_space=True), "davivienda")
+        self.assertEqual(strip_bank_prefix("bankbbva", allow_no_space=True), "bbva")
+
+    def test_strip_pegado_sin_allow_no_space_es_none(self):
+        self.assertIsNone(strip_bank_prefix("bancodavivienda"))
+        self.assertIsNone(strip_bank_prefix("bankbbva"))
+
+    def test_strip_bancolombia_con_allow_no_space_es_lombia(self):
+        """
+        Documentamos que bancolombia se stripea a lombia con allow_no_space=True.
+        Esto es seguro funcionalmente porque el catálogo se stripea con allow_no_space=False,
+        lo que mantiene a 'Bancolombia' intacto en el catálogo y evita falsos matches.
+        """
+        self.assertEqual(strip_bank_prefix("bancolombia", allow_no_space=True), "lombia")
+
+
 if __name__ == "__main__":
     unittest.main()
+

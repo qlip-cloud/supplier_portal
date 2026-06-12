@@ -5,12 +5,13 @@ bank_resolver.py
 Resolución del nombre de banco recibido de un servicio externo
 contra el catálogo del doctype Bank de Frappe.
 
-Implementa una cascada de resolución en 4 niveles:
-  0. Lookup por SWIFT code (si se provee)
+Implementa una cascada de resolución en 6 niveles:
+  0. Lookup en diccionario de variantes conocidas (DocType qp_SP_BankNameVariant)
+  0.5. Lookup por SWIFT code (si se provee)
   1. Exact match por name (PK del doctype)
-  2. Exact match normalizado (lowercase + sin tildes)
+  2. Exact match normalizado (lowercase + sin tildes + sin sufijos societarios)
   3a. Fuzzy sobre nombre completo normalizado (umbral 0.82)
-  3b. Fuzzy sobre nombre con prefijo eliminado (umbral 0.88)
+  3b. Fuzzy sobre nombre con prefijo/sufijo eliminado y strip simétrico (umbral 0.88)
   4. Fallback: retorna raw_name.strip() → se creará un banco nuevo
 
 Cuando hay múltiples candidatos en niveles 2, 3a o 3b, se desambigua
@@ -43,7 +44,12 @@ def resolve_bank_name(raw_name: str, swift_code: str = "") -> str:
     """
     clean_name = raw_name.strip()
 
-    # Nivel 0 — SWIFT lookup (identificador global definitivo)
+    # Nivel 0 — Diccionario de variantes conocidas (DocType qp_SP_BankNameVariant)
+    match = _find_by_variant(clean_name)
+    if match:
+        return match
+
+    # Nivel 0.5 — SWIFT lookup (identificador global definitivo)
     if swift_code and swift_code.strip():
         match = _find_by_swift(swift_code.strip())
         if match:
@@ -62,7 +68,7 @@ def resolve_bank_name(raw_name: str, swift_code: str = "") -> str:
 
     candidate_norm = normalize(clean_name)
 
-    # Nivel 2 — Exact match normalizado (case + tildes)
+    # Nivel 2 — Exact match normalizado (case + tildes + sufijos societarios)
     match = _find_normalized_exact(candidate_norm, banks)
     if match:
         return match
@@ -72,12 +78,17 @@ def resolve_bank_name(raw_name: str, swift_code: str = "") -> str:
     if match:
         return match
 
-    # Nivel 3b — Fuzzy sobre nombre con prefijo eliminado
-    stripped = strip_bank_prefix(candidate_norm)
+    # Nivel 3b-i — Fuzzy sobre nombre con prefijo de candidato removido + catálogo stripeado (umbral 0.88)
+    stripped = strip_bank_prefix(candidate_norm, allow_no_space=True)
     if stripped:
-        match = _find_fuzzy(stripped, banks, FUZZY_STRIP_THRESHOLD)
+        match = _find_fuzzy(stripped, banks, FUZZY_STRIP_THRESHOLD, strip_catalog=True)
         if match:
             return match
+
+    # Nivel 3b-ii — Fuzzy sobre nombre completo del candidato + catálogo stripeado (umbral 0.88)
+    match = _find_fuzzy(candidate_norm, banks, FUZZY_STRIP_THRESHOLD, strip_catalog=True)
+    if match:
+        return match
 
     # Nivel 4 — Fallback: crear banco nuevo con el nombre tal como viene
     return clean_name
@@ -86,6 +97,23 @@ def resolve_bank_name(raw_name: str, swift_code: str = "") -> str:
 # ---------------------------------------------------------------------------
 # Helpers privados
 # ---------------------------------------------------------------------------
+
+def _find_by_variant(raw_name: str) -> str | None:
+    """
+    Busca en el doctype qp_SP_BankNameVariant por el campo raw_variant.
+
+    Returns:
+        El ``canonical_bank`` si encuentra la variante, o None.
+    """
+    if not frappe.db.exists("DocType", "qp_SP_BankNameVariant"):
+        return None
+    result = frappe.db.get_value(
+        "qp_SP_BankNameVariant",
+        {"raw_variant": raw_name},
+        "canonical_bank"
+    )
+    return result or None
+
 
 def _find_by_swift(swift_code: str) -> str | None:
     """
@@ -135,17 +163,19 @@ def _find_normalized_exact(candidate_norm: str, banks: list) -> str | None:
     return _disambiguate(matches)
 
 
-def _find_fuzzy(candidate_norm: str, banks: list, threshold: float) -> str | None:
+def _find_fuzzy(candidate_norm: str, banks: list, threshold: float, strip_catalog: bool = False) -> str | None:
     """
     Fuzzy matching con SequenceMatcher contra todos los bancos del catálogo.
 
-    Evalúa cada banco con el nombre normalizado completo (sin strip de prefijo).
+    Evalúa cada banco con el nombre normalizado completo.
     Si hay varios candidatos sobre el umbral, desambigua por uso.
 
     Args:
         candidate_norm: Nombre entrante normalizado (con o sin prefijo strip).
         banks:          Catálogo completo de bancos.
         threshold:      Score mínimo aceptado (FUZZY_THRESHOLD o FUZZY_STRIP_THRESHOLD).
+        strip_catalog:  Si es True, aplica strip_bank_prefix con allow_no_space=False
+                        a los nombres del catálogo antes de la comparación.
 
     Returns:
         El ``name`` del banco con mejor score sobre el umbral, o None.
@@ -154,6 +184,11 @@ def _find_fuzzy(candidate_norm: str, banks: list, threshold: float) -> str | Non
 
     for bank in banks:
         bank_norm = normalize(bank["bank_name"])
+        if strip_catalog:
+            stripped_catalog = strip_bank_prefix(bank_norm, allow_no_space=False)
+            if stripped_catalog:
+                bank_norm = stripped_catalog
+
         score = similarity(candidate_norm, bank_norm)
         if score >= threshold:
             scored.append((score, bank["name"]))

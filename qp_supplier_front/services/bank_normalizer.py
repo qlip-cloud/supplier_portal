@@ -41,6 +41,21 @@ _BANK_PREFIX_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+_BANK_PREFIX_NOSPACE_RE = re.compile(
+    r"^("
+    r"banque|banco|bank|banca"
+    r")",
+    flags=re.IGNORECASE,
+)
+
+# ---------------------------------------------------------------------------
+# Patrón de sufijos societarios/legales comunes
+# ---------------------------------------------------------------------------
+_LEGAL_SUFFIX_RE = re.compile(
+    r"\s+(s\.?\s*a\.?\s*s?\.?|ltda?\.?|inc\.?|corp\.?|llc\.?|s\.?\s*c\.?|e\.?\s*a\.?\s*t\.?|ltd\.?)$",
+    flags=re.IGNORECASE,
+)
+
 _MIN_STRIP_RESULT_LEN = 3
 """Longitud mínima del resultado tras eliminar prefijo para ser considerado válido."""
 
@@ -55,6 +70,7 @@ def normalize(name: str) -> str:
       - Elimina espacios extremos
       - Convierte a minúsculas
       - Elimina tildes y diacríticos
+      - Elimina sufijos societarios (S.A., S.A.S., LTDA, etc.)
 
     NO elimina prefijos bancarios ("banco", "bank", etc.).
 
@@ -62,17 +78,18 @@ def normalize(name: str) -> str:
         name: Nombre de banco tal como se recibe (cualquier case/acentos).
 
     Returns:
-        Cadena normalizada en minúsculas sin acentos.
+        Cadena normalizada en minúsculas sin acentos ni sufijos legales.
     """
     name = name.strip()
     nfd_form = unicodedata.normalize("NFD", name)
     without_accents = "".join(
         ch for ch in nfd_form if unicodedata.category(ch) != "Mn"
     )
-    return without_accents.lower().strip()
+    normalized = without_accents.lower().strip()
+    return _LEGAL_SUFFIX_RE.sub("", normalized).strip()
 
 
-def strip_bank_prefix(normalized_name: str) -> str | None:
+def strip_bank_prefix(normalized_name: str, allow_no_space: bool = False) -> str | None:
     """
     Intenta eliminar el prefijo genérico bancario de un nombre ya normalizado.
 
@@ -81,6 +98,8 @@ def strip_bank_prefix(normalized_name: str) -> str | None:
 
     Args:
         normalized_name: Nombre ya procesado por `normalize()`.
+        allow_no_space:  Si es True, permite eliminar prefijos que estén pegados
+                         al nombre del banco (ej. "bancodavivienda" -> "davivienda").
 
     Returns:
         Nombre sin prefijo si el resultado tiene al menos
@@ -88,15 +107,22 @@ def strip_bank_prefix(normalized_name: str) -> str | None:
           - No se encontró ningún prefijo a eliminar.
           - El resultado tras el strip es demasiado corto.
     """
+    # Intentar primero con el regex estándar (que exige espacio)
     stripped = _BANK_PREFIX_RE.sub("", normalized_name).strip()
 
-    if stripped == normalized_name:
-        return None  # No se eliminó ningún prefijo
+    if stripped != normalized_name:
+        if len(stripped) >= _MIN_STRIP_RESULT_LEN:
+            return stripped
+        return None
 
-    if len(stripped) < _MIN_STRIP_RESULT_LEN:
-        return None  # Resultado no significativo
+    # Si no hubo match con espacio e indicamos allow_no_space y no hay espacios en el nombre
+    if allow_no_space and " " not in normalized_name:
+        stripped_nospace = _BANK_PREFIX_NOSPACE_RE.sub("", normalized_name).strip()
+        if stripped_nospace != normalized_name:
+            if len(stripped_nospace) >= _MIN_STRIP_RESULT_LEN:
+                return stripped_nospace
 
-    return stripped
+    return None
 
 
 def similarity(a: str, b: str) -> float:
@@ -113,3 +139,4 @@ def similarity(a: str, b: str) -> float:
         Float entre 0.0 (sin similitud) y 1.0 (idénticas).
     """
     return SequenceMatcher(None, a, b).ratio()
+

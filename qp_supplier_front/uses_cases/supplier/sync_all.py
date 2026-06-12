@@ -111,10 +111,55 @@ def get_suppliers_with_bank_accounts(supplier_names: list) -> set:
 def resolve_and_create_banks(suppliers_response: list) -> dict:
     """
     Fase 1: Recolectar todos los eftInformation de proveedores
-    y resolver sus bancos en lote. Retorna un diccionario mapping de vendor_id a la lista de EFTs resueltos.
+    y resolver sus bancos en lote de forma deduplicada.
+    Retorna un diccionario mapping de vendor_id a la lista de EFTs resueltos.
     """
     eft_by_vendor = {}  # {vendor_id: [eft_data_resuelto, ...]}
 
+    # 1. Recolectar todos los pares únicos (raw_bank_name, swift_code) en el lote
+    unique_banks = set()
+    for supplier_response in suppliers_response:
+        eft_list = supplier_response.get('eftInformation') or []
+        for eft in eft_list:
+            if not eft:
+                continue
+            raw_bank_name = (eft.get('bankName', '') or '').strip()
+            swift_code = (eft.get('swiftCode', '') or '').strip()
+            if raw_bank_name:
+                unique_banks.add((raw_bank_name, swift_code))
+
+    # 2. Resolver y crear en orden. Al hacerlo secuencialmente sobre un catálogo
+    #    que se actualiza y comitea al instante, se previene la duplicación.
+    resolved_mapping = {}  # {(raw_bank_name, swift_code): resolved_bank_name}
+
+    for raw_bank_name, swift_code in sorted(unique_banks):
+        resolved_bank = resolve_bank_name(raw_bank_name, swift_code)
+
+        # Si el banco no existe en la base de datos, crearlo
+        if not frappe.db.exists("Bank", resolved_bank):
+            new_bank = frappe.new_doc("Bank")
+            new_bank.bank_name = resolved_bank
+            if swift_code:
+                new_bank.qp_swift_number = swift_code
+            
+            # Buscar el primer eft correspondiente para extraer el abaCode si existe
+            aba_code = ""
+            for supplier_item in suppliers_response:
+                for eft in (supplier_item.get('eftInformation') or []):
+                    if eft and (eft.get('bankName', '') or '').strip() == raw_bank_name and (eft.get('swiftCode', '') or '').strip() == swift_code:
+                        aba_code = (eft.get('abaCode', '') or '').strip()
+                        break
+                if aba_code:
+                    break
+
+            if aba_code:
+                new_bank.qp_aba_number = aba_code
+            new_bank.insert(ignore_permissions=True)
+            frappe.db.commit()
+
+        resolved_mapping[(raw_bank_name, swift_code)] = resolved_bank
+
+    # 3. Construir el mapeo eft_by_vendor utilizando resolved_mapping
     for supplier_response in suppliers_response:
         vendor_id = supplier_response.get('vendorId')
         if not vendor_id:
@@ -135,19 +180,9 @@ def resolve_and_create_banks(suppliers_response: list) -> dict:
             if not raw_bank_name:
                 continue
 
-            resolved_bank = resolve_bank_name(raw_bank_name, swift_code)
-
-            # Si el banco no existe, crearlo
-            if not frappe.db.exists("Bank", resolved_bank):
-                new_bank = frappe.new_doc("Bank")
-                new_bank.bank_name = resolved_bank
-                if swift_code:
-                    new_bank.qp_swift_number = swift_code
-                aba_code = (eft.get('abaCode', '') or '').strip()
-                if aba_code:
-                    new_bank.qp_aba_number = aba_code
-                new_bank.insert(ignore_permissions=True)
-                frappe.db.commit()
+            resolved_bank = resolved_mapping.get((raw_bank_name, swift_code))
+            if not resolved_bank:
+                continue
 
             resolved_efts.append({
                 'bank': resolved_bank,
