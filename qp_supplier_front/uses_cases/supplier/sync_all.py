@@ -456,36 +456,40 @@ def bulk_insert_all_records(records: dict) -> None:
 
 @frappe.whitelist()
 def handler():
-    sync_datetime = frappe.db.get_single_value('qp_SP_MasterSetup', 'supplier_date_sync')
 
-    result, nuevo_sync_datetime = fetch_suppliers_from_api(sync_datetime)
+    try:
+        sync_datetime = frappe.db.get_single_value('qp_SP_MasterSetup', 'supplier_date_sync')
 
-    if result:
-        suppliers_response = result.get('vendors', [])
-        vendor_ids = [s.get('vendorId') for s in suppliers_response if s.get('vendorId')]
-        existing_suppliers = get_existing_suppliers(vendor_ids)
-        supplier_names = list(existing_suppliers.values())
-        
-        suppliers_with_contacts = get_suppliers_with_contacts(supplier_names)
-        suppliers_with_addresses = get_suppliers_with_addresses(supplier_names)
-        suppliers_with_bank_accounts = get_suppliers_with_bank_accounts(supplier_names)
+        result, nuevo_sync_datetime = fetch_suppliers_from_api(sync_datetime)
 
-        eft_by_vendor = resolve_and_create_banks(suppliers_response)
-        records = build_records(
-            suppliers_response,
-            existing_suppliers,
-            suppliers_with_contacts,
-            suppliers_with_addresses,
-            suppliers_with_bank_accounts,
-            eft_by_vendor
-        )
+        if result:
+            suppliers_response = result.get('vendors', [])
+            vendor_ids = [s.get('vendorId') for s in suppliers_response if s.get('vendorId')]
+            existing_suppliers = get_existing_suppliers(vendor_ids)
+            supplier_names = list(existing_suppliers.values())
+            
+            suppliers_with_contacts = get_suppliers_with_contacts(supplier_names)
+            suppliers_with_addresses = get_suppliers_with_addresses(supplier_names)
+            suppliers_with_bank_accounts = get_suppliers_with_bank_accounts(supplier_names)
 
-        if nuevo_sync_datetime:
-            sync_datetime = nuevo_sync_datetime
+            eft_by_vendor = resolve_and_create_banks(suppliers_response)
+            records = build_records(
+                suppliers_response,
+                existing_suppliers,
+                suppliers_with_contacts,
+                suppliers_with_addresses,
+                suppliers_with_bank_accounts,
+                eft_by_vendor
+            )
 
-        bulk_insert_all_records(records)
+            if nuevo_sync_datetime:
+                sync_datetime = nuevo_sync_datetime
 
-    frappe.db.set_value('qp_SP_MasterSetup', None, 'supplier_date_sync', sync_datetime)
+            bulk_insert_all_records(records)
 
+        frappe.db.set_value('qp_SP_MasterSetup', None, 'supplier_date_sync', sync_datetime)
+    except Exception as error:
+
+        frappe.log_error(message=frappe.get_traceback(), title=f"Error sync sync all supplier: {supplier_id}")
 
 
