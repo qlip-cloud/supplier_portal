@@ -857,7 +857,7 @@ $(document).ready(function () {
 
             $dataFirstName.val(contact.first_name);
 
-            $dataEmailId.val(contact.email_ids ? contact.email_ids[0].email_id : contact.user);
+            $dataEmailId.val(contact?.email_ids?.[0]?.email_id || contact?.user);
 
             let phone = contact.phone_nos.length ? contact.phone_nos[0].phone : "";
             let country_code = "";
