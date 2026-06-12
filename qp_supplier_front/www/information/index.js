@@ -111,20 +111,20 @@ $(document).ready(function () {
 
 
     $('#supplier_name').on('input', function () {
-            const value = $(this).val();
-            const maxLength = 65;
-            const regex = /^[a-zA-Z0-9. ]*$/;
+        const value = $(this).val();
+        const maxLength = 65;
+        const regex = /^[a-zA-Z0-9. ]*$/;
 
-            if (value.length > maxLength) {
-                $('#error_message').text('Máximo 65 caracteres permitidos.');
-                $(this).val(value.substring(0, maxLength));
-            } else if (!regex.test(value)) {
-                $('#error_message').text('Solo se permiten letras, números, espacios y el punto (.)');
-                $(this).val(value.replace(/[^a-zA-Z0-9. ]/g, ''));
-            } else {
-                $('#error_message').text('');
-            }
-        });
+        if (value.length > maxLength) {
+            $('#error_message').text('Máximo 65 caracteres permitidos.');
+            $(this).val(value.substring(0, maxLength));
+        } else if (!regex.test(value)) {
+            $('#error_message').text('Solo se permiten letras, números, espacios y el punto (.)');
+            $(this).val(value.replace(/[^a-zA-Z0-9. ]/g, ''));
+        } else {
+            $('#error_message').text('');
+        }
+    });
 
 
     $('.modal-content-scroll').on('scroll', function () {
@@ -237,7 +237,7 @@ $(document).ready(function () {
         formData.append("supplier_id", supplier_id);
 
         const submitter = $(document.activeElement);
-        
+
         if (!supplier_id || submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal")) {
 
             document.getElementById("overlay").style.display = 'block';
@@ -262,7 +262,7 @@ $(document).ready(function () {
 
                             $(`#${render.container}`).html(render.list)
                         }
-                        if (data.is_bank_account){
+                        if (data.is_bank_account) {
                             $(`#new-bank-account`).addClass("hidden disabled")
 
                         }
@@ -309,45 +309,45 @@ $(document).ready(function () {
             callresponse = (response) => {
 
                 data = response.data
-                
+
                 supplier = data.supplier
-                
+
                 if (submitter.hasClass("finish")) {
                     // Indicar en rojo los campos incompletos en cada tab
-                    
+
                     $('.tab').css('color', 'black');
-                    
+
                     // Limpiar clase status-cancelled de todos los campos
                     $('input, select, textarea').removeClass('status-cancelled');
-                    
+
                     has_incompleted = false
 
                     // Agrupar validaciones por tab
                     var tabValidations = {};
-                    
+
                     $.each(supplier.qp_field_validations, function (index, validation) {
-                        
+
                         // Buscar tabs que contengan la clase del field_section
                         const $tabs = $(`.tab[class*="${validation.field_section}"]`);
-                        
-                        $tabs.each(function() {
+
+                        $tabs.each(function () {
                             const tabClasses = $(this).attr('class');
-                            
+
                             if (!tabValidations[tabClasses]) {
                                 tabValidations[tabClasses] = {
                                     $tab: $(this),
                                     allCompleted: true
                                 };
                             }
-                            
+
                             // Si alguna validación está incompleta, marcar el tab como incompleto
                             if (validation.is_completed === 0) {
                                 tabValidations[tabClasses].allCompleted = false;
-                                
+
                                 // Marcar campos faltantes con status-cancelled
                                 if (validation.missing_fields) {
                                     const missingFields = validation.missing_fields.split(',');
-                                    missingFields.forEach(function(fieldId) {
+                                    missingFields.forEach(function (fieldId) {
                                         const trimmedId = fieldId.trim();
                                         if (trimmedId) {
                                             // Buscar por ID o por name
@@ -359,10 +359,10 @@ $(document).ready(function () {
                             }
                         });
                     });
-                    
+
                     // Aplicar estilos basados en el estado acumulado
-                    $.each(tabValidations, function(tabClasses, tabData) {
-                        
+                    $.each(tabValidations, function (tabClasses, tabData) {
+
                         if (!tabData.allCompleted) {
                             has_incompleted = true
                             tabData.$tab.css('color', 'red');
@@ -378,7 +378,7 @@ $(document).ready(function () {
 
                     msg = `<p>${response.msg}</p> ${msg_error}`;
 
-                    if (!has_incompleted){
+                    if (!has_incompleted) {
                         location.reload(true);
                     }
 
@@ -441,7 +441,7 @@ $(document).ready(function () {
             }, function () { })
     })
 
-        $("#preapproved").on("click", function () {
+    $("#preapproved").on("click", function () {
 
         frappe.confirm('¿Seguro que desea pre aprobar el registro?',
             function () {
@@ -455,22 +455,22 @@ $(document).ready(function () {
                     frappe.msgprint(response.msg)
 
                     data = response.data
-                    
+
                     setup_button(data.supplier)
 
                     $("#preapproved_legend").html("En proceso de aprobación por finanzas")
 
-                    if (data.is_alpla_admin){
+                    if (data.is_alpla_admin) {
 
-                        
+
                         $("#preapproved").hide()
                         $("#approve").show()
 
-                    }else{
+                    } else {
 
                         $(".button-row").remove()
                     }
-                    
+
                 }
 
 
@@ -497,14 +497,14 @@ $(document).ready(function () {
 
                     data = response.data
                     statusCode = response.status
-                    if (statusCode == 200){
+                    if (statusCode == 200) {
                         $(`#status-${setting_id}`).text("Archivo no cargado");
 
 
                         $(`.upload-${setting_id}`).show()
                         $(`.empty-${setting_id}`).hide()
                     }
-                    else{
+                    else {
                         $(`#status-${setting_id}`).text("Hubo un error eliminando el archivo");
 
                     }
@@ -522,17 +522,17 @@ $(document).ready(function () {
         frappe.confirm('¿Seguro que desea eliminar este registro?',
             function () {
                 supplier_id = $("#supplier_id").val();
-                url = "qp_supplier_front.resources.information.contact.delete"; 
+                url = "qp_supplier_front.resources.information.contact.delete";
                 callresponse = (response) => {
                     data = response.data
                     statusCode = response.status
                     console.log(response)
-                    if (statusCode == 200){
+                    if (statusCode == 200) {
                         frappe.msgprint(response.msg)
                         render = data.render
                         $(`#${render.container}`).html(render.list)
                     }
-                    else{
+                    else {
                         msg = response.msg || "Hubo un error eliminando el contacto."
                         frappe.msgprint(msg);
                     }
@@ -550,25 +550,25 @@ $(document).ready(function () {
                 callresponse = (response) => {
                     data = response.data
                     statusCode = response.status
-                    if (statusCode == 200){
+                    if (statusCode == 200) {
                         frappe.msgprint(response.msg)
                         render = data.render
                         $(`#${render.container}`).html(render.list)
                     }
-                    else{
+                    else {
                         $(`#status-${shareholder_id}`).text("Hubo un error eliminando el accionista");
                     }
                 }
                 petition_get_data({ supplier_id, shareholder_id }, url, callresponse)
             }, function () { })
     })
-    
-    
+
+
 
     $("#bank_account_list").on("click", ".bank-account-delete", function () {
 
         bank_account_id = $(this).data("bank-acccount-id");
-        
+
         frappe.confirm('¿Seguro que desea eliminar este registro?',
             function () {
 
@@ -583,19 +583,19 @@ $(document).ready(function () {
                     data = response.data
 
                     statusCode = response.status
-                    
-                    if (statusCode == 200){
+
+                    if (statusCode == 200) {
 
                         frappe.msgprint(response.msg)
 
                         render = data.render
                         $(`#${render.container}`).html(render.list)
 
-                        if (data.bank_accounts.length === 0){
+                        if (data.bank_accounts.length === 0) {
                             $(`#new-bank-account`).removeClass("hidden disabled")
                         }
                     }
-                    else{
+                    else {
                         $(`#status-${setting_id}`).text("Hubo un error eliminando la cuenta bancaria");
 
                     }
@@ -645,7 +645,7 @@ $(document).ready(function () {
         }
     });
 
-    
+
     $('#qp_reject_observation').on('input', function () {
         if ($(this).val().trim() !== '') {
             $('#reject').prop('disabled', false);
@@ -663,17 +663,17 @@ $(document).ready(function () {
     })
     $('#tax_id').on('keypress', function (e) {
         const char = String.fromCharCode(e.which);
-        if($('[name="id_type_name"]').val() === 'NIT'){
+        if ($('[name="id_type_name"]').val() === 'NIT') {
             if (!/^\d$/.test(char)) {
-                e.preventDefault(); 
+                e.preventDefault();
             }
-        } 
+        }
     });
     $('#tax_id').on('keypress', function (e) {
         const char = String.fromCharCode(e.which);
-        if($('#tax_id').val().length === 9 && $('[name="id_type_name"]').val() === 'NIT'){
+        if ($('#tax_id').val().length === 9 && $('[name="id_type_name"]').val() === 'NIT') {
             e.preventDefault();
-        } 
+        }
     });
 
     $('#tax_id').on('input', function () {
@@ -682,12 +682,12 @@ $(document).ready(function () {
     $('#phone_number').on('input', function () {
         let cursor = this.selectionStart;
         let originalLen = this.value.length;
-        
+
         let val = this.value.replace(/\D/g, '');
         if (val.length > 10) {
             val = val.substring(0, 10);
         }
-        
+
         let formatted = '';
         if (val.length > 0) {
             formatted += '(' + val.substring(0, 3);
@@ -695,9 +695,9 @@ $(document).ready(function () {
                 formatted += ')' + val.substring(3);
             }
         }
-        
+
         this.value = formatted;
-        
+
         let newLen = formatted.length;
         let diff = newLen - originalLen;
         if (cursor < originalLen) {
@@ -708,23 +708,23 @@ $(document).ready(function () {
     $('#country_code').on('keypress', function (e) {
         const char = String.fromCharCode(e.which);
         if (!/^\d$/.test(char)) {
-            e.preventDefault(); 
+            e.preventDefault();
         }
     });
 
     $('#country_code').on('input', function () {
-        this.value = this.value.replace(/\D/g, ''); 
+        this.value = this.value.replace(/\D/g, '');
     });
 
     $('#phone').on('keypress', function (e) {
         const char = String.fromCharCode(e.which);
         if (!/^\d$/.test(char)) {
-            e.preventDefault(); 
+            e.preventDefault();
         }
     });
 
     $('#phone').on('input', function () {
-        this.value = this.value.replace(/\D/g, ''); 
+        this.value = this.value.replace(/\D/g, '');
     });
 
     $("#reject").on("click", function () {
@@ -734,7 +734,7 @@ $(document).ready(function () {
         qp_reject_observation = $("#qp_reject_observation").val();
 
         url = "qp_supplier_front.resources.supplier.supplier.reject";
-        
+
         callresponse = (response) => {
 
             frappe.msgprint(response.msg)
@@ -791,7 +791,7 @@ $(document).ready(function () {
         petition_get_data({ city }, url, callresponse)
 
     })
-    
+
     $("#address_list").on("click", ".addres-id", function () {
 
         address_id = $(this).data("id");
@@ -857,7 +857,7 @@ $(document).ready(function () {
 
             $dataFirstName.val(contact.first_name);
 
-            $dataEmailId.val(contact.email_ids[0].email_id);
+            $dataEmailId.val(contact.email_ids ? contact.email_ids[0].email_id : contact.user);
 
             let phone = contact.phone_nos.length ? contact.phone_nos[0].phone : "";
             let country_code = "";
@@ -1090,9 +1090,9 @@ $(document).ready(function () {
                 $(`.upload-${setting_id}`).hide()
 
                 $view_link = $(`#view-${setting_id}`)
-                $view_link.prop("href",data.file_url )
+                $view_link.prop("href", data.file_url)
                 $(`.empty-${setting_id}`).show()
-//data.file_url
+                //data.file_url
             } else {
                 $(`#file_empty-${setting_id}`).show()
                 $(`#file_loading-${setting_id}`).hide()
@@ -1138,7 +1138,7 @@ function getDocuments(is_estatus_editable) {
 
     if (qp_has_quality_cert == "NO" || qp_has_quality_cert == "") {
         data["qp_quality_cert_detail"] = "";
-    }else {
+    } else {
         data["qp_quality_cert_detail"] = $("#qp_quality_cert_detail").val();
     }
 
