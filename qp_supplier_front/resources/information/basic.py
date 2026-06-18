@@ -57,3 +57,24 @@ def request_edit(supplier_id):
     except Exception as error:
         msg = f"Error al enviar la solicitud de edición: {str(error)}"
         response(500, msg)
+
+@frappe.whitelist()
+def approve_edit(supplier_id):
+    user = frappe.session.user
+    user_roles = frappe.get_roles(user)
+    
+    from qp_supplier_front.www.information.index import get_is_alpla_admin
+    if not get_is_alpla_admin(user_roles):
+        response(403, "No tiene permiso para realizar esta acción")
+        return
+
+    try:
+        supplier = frappe.get_doc("Supplier", supplier_id)
+        supplier.qp_status = "En proceso"
+        supplier.qp_request_edit = False
+        supplier.save()
+        msg = "La solicitud de edición ha sido aprobada correctamente"
+        response(200, msg)
+    except Exception as error:
+        msg = f"Error al aprobar la solicitud de edición: {str(error)}"
+        response(500, msg)

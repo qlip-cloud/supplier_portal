@@ -1042,6 +1042,21 @@ $(document).ready(function () {
         petition_get_data({ supplier_id }, url, callresponse);
     });
 
+    $("#approve-edit-btn").on("click", function () {
+        const supplier_id = $("#supplier_id").val();
+
+        const url = "qp_supplier_front.resources.information.basic.approve_edit";
+
+        const callresponse = (response) => {
+            frappe.msgprint("Solicitud de edición aprobada correctamente.");
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        };
+
+        petition_get_data({ supplier_id }, url, callresponse);
+    });
+
     $(".supplier_file").on("change", function () {
 
         supplier_id = $("#supplier_id").val();
