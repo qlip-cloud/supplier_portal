@@ -69,9 +69,13 @@ def approve_edit(supplier_id):
         return
 
     try:
+        from qp_supplier_front.services.snapshot import create_snapshot
+        create_snapshot(supplier_id)
+
         supplier = frappe.get_doc("Supplier", supplier_id)
         supplier.qp_status = "En proceso"
         supplier.qp_request_edit = False
+        supplier.qp_preapproved = False
         supplier.save()
         msg = "La solicitud de edición ha sido aprobada correctamente"
         response(200, msg)

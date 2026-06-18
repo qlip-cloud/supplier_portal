@@ -22,6 +22,9 @@ def handler(supplier_id):
     
     supplier.save()
 
+    from qp_supplier_front.services.snapshot import clear_snapshot
+    clear_snapshot(supplier_id)
+
     return {
         "supplier": supplier
     }

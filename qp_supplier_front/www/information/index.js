@@ -418,12 +418,14 @@ $(document).ready(function () {
 
         frappe.confirm('¿Seguro que desea aprobar el registro?',
             function () {
+                $("#overlay").css("display", "block");
 
                 supplier_id = $("#supplier_id").val();
 
                 url = "qp_supplier_front.resources.supplier.supplier.approve";
 
                 callresponse = (response) => {
+                    $("#overlay").css("display", "none");
 
                     frappe.msgprint(response.msg)
 
@@ -728,6 +730,7 @@ $(document).ready(function () {
     });
 
     $("#reject").on("click", function () {
+        $("#overlay").css("display", "block");
 
         supplier_id = $("#supplier_id").val();
 
@@ -736,6 +739,7 @@ $(document).ready(function () {
         url = "qp_supplier_front.resources.supplier.supplier.reject";
 
         callresponse = (response) => {
+            $("#overlay").css("display", "none");
 
             frappe.msgprint(response.msg)
 
@@ -1027,11 +1031,13 @@ $(document).ready(function () {
     });
 
     $("#request-edit-btn").on("click", function () {
+        $("#overlay").css("display", "block");
         const supplier_id = $("#supplier_id").val();
 
         const url = "qp_supplier_front.resources.information.basic.request_edit";
 
         const callresponse = (response) => {
+            $("#overlay").css("display", "none");
             frappe.msgprint("Solicitud de edición enviada correctamente.");
 
             $("#request-edit-btn").replaceWith(`
@@ -1043,6 +1049,7 @@ $(document).ready(function () {
     });
 
     $("#approve-edit-btn").on("click", function () {
+        $("#overlay").css("display", "block");
         const supplier_id = $("#supplier_id").val();
 
         const url = "qp_supplier_front.resources.information.basic.approve_edit";
@@ -1120,6 +1127,80 @@ $(document).ready(function () {
         send_upload(method, formData, callback)
 
     })
+
+    // Lógica para resaltar campos modificados (Alpla)
+    var $modData = $('#supplier-modified-data');
+    if ($modData.length) {
+        var modifiedFields = {};
+        var modifiedTabs = [];
+        try {
+            modifiedFields = JSON.parse($modData.attr('data-fields') || '{}');
+            modifiedTabs = JSON.parse($modData.attr('data-tabs') || '[]');
+        } catch (e) {
+            console.error("Error parsing modified data", e);
+        }
+
+        // 1. Resaltar campos individuales
+        Object.keys(modifiedFields).forEach(function (fieldName) {
+            var oldVal = modifiedFields[fieldName];
+
+            // Manejo de documentos adjuntos
+            if (fieldName.startsWith("file_id_") || fieldName.startsWith("link-")) {
+                var docId = fieldName.replace("file_id_", "").replace("link-", "");
+                var $docOption = $('#file-' + docId).closest('.doc-upload-option');
+                if ($docOption.length) {
+                    var $docTitle = $docOption.find('.doc-title');
+                    if ($docTitle.length && !$docTitle.hasClass('modified-label')) {
+                        $docTitle.css('color', '#28a745').addClass('modified-label');
+                        if (!$docTitle.find('.modified-info-icon').length) {
+                            var $infoIcon = $('<span class="material-symbols-outlined modified-info-icon" style="font-size: 16px; vertical-align: middle; margin-left: 4px; color: #28a745; cursor: help;" data-toggle="tooltip" title="Archivo modificado o nuevo">info</span>');
+                            $docTitle.append($infoIcon);
+                        }
+                    }
+                }
+            } else {
+                // Inputs y selectores convencionales
+                var $field = $('[name="' + fieldName + '"], #' + fieldName);
+                if ($field.length) {
+                    var id = $field.attr('id');
+                    var $label = id ? $('label[for="' + id + '"]') : [];
+                    if (!$label.length) {
+                        $label = $field.closest('.col-lg-4, .col-6, .col-12, .col-md-4, .col-md-6').find('label');
+                    }
+                    if ($field.attr('type') === 'checkbox') {
+                        $label = $field.parent().find('label');
+                    }
+
+                    if ($label.length) {
+                        $label.css('color', '#28a745').addClass('modified-label');
+                        if (!$label.find('.modified-info-icon').length) {
+                            var $infoIcon = $('<span class="material-symbols-outlined modified-info-icon" style="font-size: 16px; vertical-align: middle; margin-left: 4px; color: #28a745; cursor: help;" data-toggle="tooltip">info</span>');
+                            $infoIcon.attr('title', 'Valor anterior: ' + oldVal);
+                            $label.append($infoIcon);
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Resaltar tabs/pestañas
+        modifiedTabs.forEach(function (tabName) {
+            var $tabBtn = $('.tab.' + tabName + ', .tab[class*="' + tabName + '"]');
+            if ($tabBtn.length) {
+                $tabBtn.css('color', '#28a745');
+                $tabBtn.find('span').css('color', '#28a745');
+                $tabBtn.addClass('modified-tab');
+                if (!$tabBtn.find('.modified-dot').length) {
+                    $tabBtn.append('<span class="modified-dot" style="color:#28a745;margin-left:4px;">●</span>');
+                }
+            }
+        });
+
+        // 3. Inicializar Tooltips
+        setTimeout(function() {
+            $('[data-toggle="tooltip"]').tooltip({ placement: 'top' });
+        }, 100);
+    }
 });
 
 function getDocuments(is_estatus_editable) {
