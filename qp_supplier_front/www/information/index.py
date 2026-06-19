@@ -17,8 +17,31 @@ def get_context(context):
     
     if supplier_id:
         
-        supplier = get_supplier(supplier_id)
-    
+        try:
+            supplier = get_supplier(supplier_id)
+        except frappe.DoesNotExistError:
+            frappe.local.flags.redirect_location = "/welcome?error=no_encontrado"
+            raise frappe.Redirect
+        
+        user = frappe.session.user
+        user_roles = frappe.get_roles(user)
+        context.is_alpla_admin = get_is_alpla_admin(user_roles)
+        
+        if not context.is_alpla_admin:
+            contact_name = frappe.get_value("Contact", {"user": user}, "name")
+            if not contact_name:
+                frappe.local.flags.redirect_location = "/welcome?error=sin_acceso"
+                raise frappe.Redirect
+            
+            contact = frappe.get_doc("Contact", contact_name)
+            is_allowed = any(
+                link.link_doctype == "Supplier" and link.link_name == supplier_id
+                for link in contact.links
+            )
+            if not is_allowed:
+                frappe.local.flags.redirect_location = "/welcome?error=sin_acceso"
+                raise frappe.Redirect
+        
         party = get_party(supplier)
         
         context.addresses = get_dynamic_link(supplier, "Address")
@@ -32,12 +55,6 @@ def get_context(context):
         document_settings = setup_document_settings(supplier.qp_documents)
     
         context.document_settings = document_settings
-        
-        user = frappe.session.user
-        
-        user_roles = frappe.get_roles(user)
-
-        context.is_alpla_admin = get_is_alpla_admin(user_roles)
         
         context.qp_preapproved = supplier.qp_preapproved
         

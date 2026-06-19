@@ -1,0 +1,48 @@
+{% extends "qp_supplier_front/templates/includes/container.html" %}
+
+{% block content_page %}
+<div class="row justify-content-center mt-5">
+    <div class="col-lg-8 col-md-10">
+
+        {% if error_message %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ error_message }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        {% endif %}
+
+        <div class="card shadow-sm">
+            <div class="card-body p-5 text-center">
+
+                {% if user_suppliers %}
+
+                <h2 class="mb-4">Bienvenido, selecciona un proveedor</h2>
+
+                <div class="d-flex flex-column align-items-center gap-3">
+                    {% for supplier in user_suppliers %}
+                    <a href="/information?supplier={{ supplier.name }}"
+                       class="btn btn-primary btn-lg w-50 mb-2">
+                        {{ supplier.supplier_name or supplier.name }}
+                    </a>
+                    {% endfor %}
+                </div>
+
+                {% else %}
+
+                <h2 class="mb-4">Bienvenido al Portal de Proveedores</h2>
+
+                <p class="mb-4">No tienes proveedores asociados. Para comenzar el proceso de registro, haz clic en el siguiente botón.</p>
+
+                <a href="/information" class="btn btn-primary btn-lg">
+                    Iniciar nuevo registro
+                </a>
+
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
