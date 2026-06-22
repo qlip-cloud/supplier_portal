@@ -71,6 +71,7 @@ def get_context(context):
             context.modified_fields = frappe.as_json(modified_fields)
             context.modified_tabs = frappe.as_json(modified_tabs)
         
+    
     context.is_estatus_editable = (not supplier or supplier.qp_status not in ("En revisión", "Aprobado")) and not context.is_alpla_admin
 
     setup_document_types(context, party)

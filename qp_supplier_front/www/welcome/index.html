@@ -1,8 +1,27 @@
 {% extends "qp_supplier_front/templates/includes/container.html" %}
 
 {% block content_page %}
-<div class="row justify-content-center mt-5">
-    <div class="col-lg-8 col-md-10">
+<style>
+    .card-body {
+        min-height: 180px;
+    }
+</style>
+<div class="row justify-content-center mt-4">
+    <div class="col-lg-10">
+
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h4 class="font-weight-normal mb-1">Portal de proveedores de Alpla</h4>
+                {% if user_suppliers %}
+                <p class="text-muted mb-0">Tus proveedores registrados</p>
+                {% else %}
+                <p class="text-muted mb-0">Comienza tu registro</p>
+                {% endif %}
+            </div>
+            <img src="https://alpla.qlip.cloud/files/ALPLA-FamilyOfPioneers_blau_RGB.png"
+                 alt="ALPLA"
+                 style="height: 80px;">
+        </div>
 
         {% if error_message %}
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -13,35 +32,49 @@
         </div>
         {% endif %}
 
-        <div class="card shadow-sm">
-            <div class="card-body p-5 text-center">
+        <div class="row">
 
-                {% if user_suppliers %}
-
-                <h2 class="mb-4">Bienvenido, selecciona un proveedor</h2>
-
-                <div class="d-flex flex-column align-items-center gap-3">
-                    {% for supplier in user_suppliers %}
-                    <a href="/information?supplier={{ supplier.name }}"
-                       class="btn btn-primary btn-lg w-50 mb-2">
-                        {{ supplier.supplier_name or supplier.name }}
-                    </a>
-                    {% endfor %}
-                </div>
-
-                {% else %}
-
-                <h2 class="mb-4">Bienvenido al Portal de Proveedores</h2>
-
-                <p class="mb-4">No tienes proveedores asociados. Para comenzar el proceso de registro, haz clic en el siguiente botón.</p>
-
-                <a href="/information" class="btn btn-primary btn-lg">
-                    Iniciar nuevo registro
+            <div class="col-md-6 col-lg-4 mb-4">
+                <a href="/information"
+                   class="card h-100 text-decoration-none shadow-sm border-0"
+                   style="transition: box-shadow .2s; cursor: pointer;">
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center text-center">
+                        <div class="display-1 text-muted mb-2">+</div>
+                        <h5 class="card-title text-muted">Iniciar nuevo registro</h5>
+                    </div>
                 </a>
-
-                {% endif %}
-
             </div>
+
+            {% for supplier in user_suppliers %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <a href="/information?supplier={{ supplier.name }}"
+                   class="card h-100 text-decoration-none shadow-sm border-0"
+                   style="transition: box-shadow .2s; cursor: pointer;">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title text-dark mb-3">{{ supplier.supplier_name }}</h5>
+                        <div class="text-muted small mb-1">
+                            <strong>DNI:</strong> {{ supplier.dni }}
+                        </div>
+                        {% if supplier.address %}
+                        <div class="text-muted small mb-1">
+                            <strong>Dirección:</strong> {{ supplier.address }}
+                        </div>
+                        {% endif %}
+                        {% if supplier.phone %}
+                        <div class="text-muted small mb-3">
+                            <strong>Teléfono:</strong> {{ supplier.phone }}
+                        </div>
+                        {% endif %}
+                        <div class="mt-auto">
+                            <span class="badge {{ status_classes.get(supplier.qp_status, 'badge-secondary') }}">
+                                {{ supplier.qp_status }}
+                            </span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+
         </div>
     </div>
 </div>

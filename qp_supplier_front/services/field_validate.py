@@ -102,7 +102,7 @@ def set_missing_fields(supplier, valid_code, dual_field=None, **kargs):
         
 def is_valid(value):
         
-        return value is not None and (str(value).strip() != "" and value != "0")
+        return value is not None and str(value).strip() != ""
     
 def validate_field_list(supplier,doctype, valid_code, fields_to_validate):
 
