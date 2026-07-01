@@ -93,20 +93,11 @@ doctype_js = {
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-#	}
-# }
-
-
-#doc_events = {
-# 	"Supplier": {
-# 		"before_save": "qp_supplier_front.uses_cases.information.complete.handler",
-#	}
-#}
+doc_events = {
+    "Sales Order": {
+        "before_insert": "qp_supplier_front.uses_cases.sales_order.set_name"
+    }
+}
 
 
 
