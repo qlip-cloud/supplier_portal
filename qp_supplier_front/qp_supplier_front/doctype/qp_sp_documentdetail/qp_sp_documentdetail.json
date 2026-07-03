@@ -1,0 +1,293 @@
+{
+ "actions": [],
+ "creation": "2026-07-03 10:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "document_sync_line",
+  "nvfac_cont",
+  "nvtip_docu",
+  "nvfac_nume",
+  "nvfac_cufe",
+  "nvpro_nomb",
+  "nvpro_ndoc",
+  "nvfac_fech",
+  "nvmon_codi",
+  "nvfac_totp",
+  "nvfac_esta",
+  "nvfac_rfec",
+  "nvfac_orde",
+  "nvfac_rece",
+  "nvfac_refe",
+  "nvsuc_codi",
+  "nvfac_venc",
+  "nvfac_viva",
+  "nvpro_ufac",
+  "nvfac_ueve",
+  "nvfac_stot",
+  "nvfac_vinc",
+  "nvfac_vicb",
+  "nvfac_vicl",
+  "nvfac_vinp",
+  "nvfac_vibu",
+  "nvfac_vicu",
+  "nvfac_vadv",
+  "nvfac_conv",
+  "nvfac_fpag",
+  "nvpro_cciu",
+  "nvpro_ciud",
+  "nvpro_cpai",
+  "nvpro_pais",
+  "nvpro_dire",
+  "nvfac_tota",
+  "nvfac_votr",
+  "detail_lines",
+  "attached_files"
+ ],
+ "fields": [
+  {
+   "fieldname": "document_sync_line",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Document Sync Line",
+   "options": "qp_SP_DocumentSyncLine",
+   "search_index": 1
+  },
+  {
+   "fieldname": "nvfac_cont",
+   "fieldtype": "Int",
+   "label": "Nvfac Cont"
+  },
+  {
+   "fieldname": "nvtip_docu",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nvtip Docu"
+  },
+  {
+   "fieldname": "nvfac_nume",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nvfac Nume"
+  },
+  {
+   "fieldname": "nvfac_cufe",
+   "fieldtype": "Data",
+   "label": "Nvfac Cufe"
+  },
+  {
+   "fieldname": "nvpro_nomb",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nvpro Nomb"
+  },
+  {
+   "fieldname": "nvpro_ndoc",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nvpro Ndoc"
+  },
+  {
+   "fieldname": "nvfac_fech",
+   "fieldtype": "Datetime",
+   "label": "Nvfac Fech"
+  },
+  {
+   "fieldname": "nvmon_codi",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nvmon Codi"
+  },
+  {
+   "fieldname": "nvfac_totp",
+   "fieldtype": "Float",
+   "label": "Nvfac Totp"
+  },
+  {
+   "fieldname": "nvfac_esta",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nvfac Esta"
+  },
+  {
+   "fieldname": "nvfac_rfec",
+   "fieldtype": "Datetime",
+   "label": "Nvfac Rfec"
+  },
+  {
+   "fieldname": "nvfac_orde",
+   "fieldtype": "Data",
+   "label": "Nvfac Orde"
+  },
+  {
+   "fieldname": "nvfac_rece",
+   "fieldtype": "Data",
+   "label": "Nvfac Rece"
+  },
+  {
+   "fieldname": "nvfac_refe",
+   "fieldtype": "Long Text",
+   "label": "Nvfac Refe"
+  },
+  {
+   "fieldname": "nvsuc_codi",
+   "fieldtype": "Data",
+   "label": "Nvsuc Codi"
+  },
+  {
+   "fieldname": "nvfac_venc",
+   "fieldtype": "Datetime",
+   "label": "Nvfac Venc"
+  },
+  {
+   "fieldname": "nvfac_viva",
+   "fieldtype": "Float",
+   "label": "Nvfac Viva"
+  },
+  {
+   "fieldname": "nvpro_ufac",
+   "fieldtype": "Datetime",
+   "label": "Nvpro Ufac"
+  },
+  {
+   "fieldname": "nvfac_ueve",
+   "fieldtype": "Data",
+   "label": "Nvfac Ueve"
+  },
+  {
+   "fieldname": "nvfac_stot",
+   "fieldtype": "Float",
+   "label": "Nvfac Stot"
+  },
+  {
+   "fieldname": "nvfac_vinc",
+   "fieldtype": "Float",
+   "label": "Nvfac Vinc"
+  },
+  {
+   "fieldname": "nvfac_vicb",
+   "fieldtype": "Float",
+   "label": "Nvfac Vicb"
+  },
+  {
+   "fieldname": "nvfac_vicl",
+   "fieldtype": "Float",
+   "label": "Nvfac Vicl"
+  },
+  {
+   "fieldname": "nvfac_vinp",
+   "fieldtype": "Float",
+   "label": "Nvfac Vinp"
+  },
+  {
+   "fieldname": "nvfac_vibu",
+   "fieldtype": "Float",
+   "label": "Nvfac Vibu"
+  },
+  {
+   "fieldname": "nvfac_vicu",
+   "fieldtype": "Float",
+   "label": "Nvfac Vicu"
+  },
+  {
+   "fieldname": "nvfac_vadv",
+   "fieldtype": "Float",
+   "label": "Nvfac Vadv"
+  },
+  {
+   "fieldname": "nvfac_conv",
+   "fieldtype": "Data",
+   "label": "Nvfac Conv"
+  },
+  {
+   "fieldname": "nvfac_fpag",
+   "fieldtype": "Data",
+   "label": "Nvfac Fpag"
+  },
+  {
+   "fieldname": "nvpro_cciu",
+   "fieldtype": "Data",
+   "label": "Nvpro Cciu"
+  },
+  {
+   "fieldname": "nvpro_ciud",
+   "fieldtype": "Data",
+   "label": "Nvpro Ciud"
+  },
+  {
+   "fieldname": "nvpro_cpai",
+   "fieldtype": "Data",
+   "label": "Nvpro Cpai"
+  },
+  {
+   "fieldname": "nvpro_pais",
+   "fieldtype": "Data",
+   "label": "Nvpro Pais"
+  },
+  {
+   "fieldname": "nvpro_dire",
+   "fieldtype": "Data",
+   "label": "Nvpro Dire"
+  },
+  {
+   "fieldname": "nvfac_tota",
+   "fieldtype": "Float",
+   "label": "Nvfac Tota"
+  },
+  {
+   "fieldname": "nvfac_votr",
+   "fieldtype": "Float",
+   "label": "Nvfac Votr"
+  },
+  {
+   "fieldname": "detail_lines",
+   "fieldtype": "Table",
+   "label": "Detail Lines",
+   "options": "qp_SP_DetailLine"
+  },
+  {
+   "fieldname": "attached_files",
+   "fieldtype": "Table",
+   "label": "Attached Files",
+   "options": "qp_SP_DocumentAttach"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-03 10:00:00",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_DocumentDetail",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

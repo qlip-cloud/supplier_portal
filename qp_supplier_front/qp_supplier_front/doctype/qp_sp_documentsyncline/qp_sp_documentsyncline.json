@@ -1,226 +1,240 @@
 {
- "actions": [],
- "creation": "2026-07-01 10:00:00",
- "doctype": "DocType",
- "editable_grid": 1,
- "engine": "InnoDB",
- "field_order": [
-  "document_sync_log",
-  "nvfac_cont",
-  "nvtip_docu",
-  "nvfac_nume",
-  "nvfac_cufe",
-  "nvpro_nomb",
-  "nvpro_ndoc",
-  "nvfac_fech",
-  "nvmon_codi",
-  "nvfac_totp",
-  "nvfac_esta",
-  "nvfac_rfec",
-  "nvfac_orde",
-  "nvfac_rece",
-  "nvfac_refe",
-  "nvsuc_codi",
-  "nvfac_venc",
-  "nvfac_viva",
-  "nvpro_ufac",
-  "nvfac_vinc",
-  "nvfac_vicb",
-  "nvfac_ueve",
-  "nvfac_stot",
-  "nvfac_vicl",
-  "nvfac_vinp",
-  "nvfac_vibu",
-  "nvfac_vicu",
-  "nvfac_vadv"
- ],
- "fields": [
-  {
-   "fieldname": "document_sync_log",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Document Sync Log",
-   "options": "qp_SP_DocumentSyncLog",
-   "search_index": 1
-  },
-  {
-   "fieldname": "nvfac_cont",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "Nvfac Cont"
-  },
-  {
-   "fieldname": "nvtip_docu",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Nvtip Docu"
-  },
-  {
-   "fieldname": "nvfac_nume",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Nvfac Nume"
-  },
-  {
-   "fieldname": "nvfac_cufe",
-   "fieldtype": "Data",
-   "label": "Nvfac Cufe"
-  },
-  {
-   "fieldname": "nvpro_nomb",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Nvpro Nomb"
-  },
-  {
-   "fieldname": "nvpro_ndoc",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Nvpro Ndoc"
-  },
-  {
-   "fieldname": "nvfac_fech",
-   "fieldtype": "Datetime",
-   "label": "Nvfac Fech"
-  },
-  {
-   "fieldname": "nvmon_codi",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Nvmon Codi"
-  },
-  {
-   "fieldname": "nvfac_totp",
-   "fieldtype": "Float",
-   "label": "Nvfac Totp"
-  },
-  {
-   "fieldname": "nvfac_esta",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Nvfac Esta"
-  },
-  {
-   "fieldname": "nvfac_rfec",
-   "fieldtype": "Datetime",
-   "label": "Nvfac Rfec"
-  },
-  {
-   "fieldname": "nvfac_orde",
-   "fieldtype": "Data",
-   "label": "Nvfac Orde"
-  },
-  {
-   "fieldname": "nvfac_rece",
-   "fieldtype": "Data",
-   "label": "Nvfac Rece"
-  },
-  {
-   "fieldname": "nvfac_refe",
-   "fieldtype": "Long Text",
-   "label": "Nvfac Refe"
-  },
-  {
-   "fieldname": "nvsuc_codi",
-   "fieldtype": "Data",
-   "label": "Nvsuc Codi"
-  },
-  {
-   "fieldname": "nvfac_venc",
-   "fieldtype": "Datetime",
-   "label": "Nvfac Venc"
-  },
-  {
-   "fieldname": "nvfac_viva",
-   "fieldtype": "Float",
-   "label": "Nvfac Viva"
-  },
-  {
-   "fieldname": "nvpro_ufac",
-   "fieldtype": "Datetime",
-   "label": "Nvpro Ufac"
-  },
-  {
-   "fieldname": "nvfac_vinc",
-   "fieldtype": "Float",
-   "label": "Nvfac Vinc"
-  },
-  {
-   "fieldname": "nvfac_vicb",
-   "fieldtype": "Float",
-   "label": "Nvfac Vicb"
-  },
-  {
-   "fieldname": "nvfac_ueve",
-   "fieldtype": "Data",
-   "label": "Nvfac Ueve"
-  },
-  {
-   "fieldname": "nvfac_stot",
-   "fieldtype": "Float",
-   "label": "Nvfac Stot"
-  },
-  {
-   "fieldname": "nvfac_vicl",
-   "fieldtype": "Float",
-   "label": "Nvfac Vicl"
-  },
-  {
-   "fieldname": "nvfac_vinp",
-   "fieldtype": "Float",
-   "label": "Nvfac Vinp"
-  },
-  {
-   "fieldname": "nvfac_vibu",
-   "fieldtype": "Float",
-   "label": "Nvfac Vibu"
-  },
-  {
-   "fieldname": "nvfac_vicu",
-   "fieldtype": "Float",
-   "label": "Nvfac Vicu"
-  },
-  {
-   "fieldname": "nvfac_vadv",
-   "fieldtype": "Float",
-   "label": "Nvfac Vadv"
-  }
- ],
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-07-02 15:54:42.116018",
- "modified_by": "Administrator",
- "module": "Qp Supplier Front",
- "name": "qp_SP_DocumentSyncLine",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1,
-   "write": 1
-  }
- ],
- "sort_field": "modified",
- "sort_order": "DESC",
- "track_changes": 1
+    "actions": [],
+    "creation": "2026-07-01 10:00:00",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "document_sync_log",
+        "nvfac_cont",
+        "nvtip_docu",
+        "nvfac_nume",
+        "nvfac_cufe",
+        "nvpro_nomb",
+        "nvpro_ndoc",
+        "nvfac_fech",
+        "nvmon_codi",
+        "nvfac_totp",
+        "nvfac_esta",
+        "nvfac_rfec",
+        "nvfac_orde",
+        "nvfac_rece",
+        "nvfac_refe",
+        "nvsuc_codi",
+        "nvfac_venc",
+        "nvfac_viva",
+        "nvpro_ufac",
+        "nvfac_vinc",
+        "nvfac_vicb",
+        "nvfac_ueve",
+        "nvfac_stot",
+        "nvfac_vicl",
+        "nvfac_vinp",
+        "nvfac_vibu",
+        "nvfac_vicu",
+        "nvfac_vadv",
+        "is_completed",
+        "sync_attempts"
+    ],
+    "fields": [
+        {
+            "fieldname": "document_sync_log",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "in_standard_filter": 1,
+            "label": "Document Sync Log",
+            "options": "qp_SP_DocumentSyncLog",
+            "search_index": 1
+        },
+        {
+            "fieldname": "nvfac_cont",
+            "fieldtype": "Int",
+            "in_list_view": 1,
+            "label": "Nvfac Cont"
+        },
+        {
+            "fieldname": "nvtip_docu",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Nvtip Docu"
+        },
+        {
+            "fieldname": "nvfac_nume",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Nvfac Nume"
+        },
+        {
+            "fieldname": "nvfac_cufe",
+            "fieldtype": "Data",
+            "label": "Nvfac Cufe"
+        },
+        {
+            "fieldname": "nvpro_nomb",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Nvpro Nomb"
+        },
+        {
+            "fieldname": "nvpro_ndoc",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Nvpro Ndoc"
+        },
+        {
+            "fieldname": "nvfac_fech",
+            "fieldtype": "Datetime",
+            "label": "Nvfac Fech"
+        },
+        {
+            "fieldname": "nvmon_codi",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Nvmon Codi"
+        },
+        {
+            "fieldname": "nvfac_totp",
+            "fieldtype": "Float",
+            "label": "Nvfac Totp"
+        },
+        {
+            "fieldname": "nvfac_esta",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Nvfac Esta"
+        },
+        {
+            "fieldname": "nvfac_rfec",
+            "fieldtype": "Datetime",
+            "label": "Nvfac Rfec"
+        },
+        {
+            "fieldname": "nvfac_orde",
+            "fieldtype": "Data",
+            "label": "Nvfac Orde"
+        },
+        {
+            "fieldname": "nvfac_rece",
+            "fieldtype": "Data",
+            "label": "Nvfac Rece"
+        },
+        {
+            "fieldname": "nvfac_refe",
+            "fieldtype": "Long Text",
+            "label": "Nvfac Refe"
+        },
+        {
+            "fieldname": "nvsuc_codi",
+            "fieldtype": "Data",
+            "label": "Nvsuc Codi"
+        },
+        {
+            "fieldname": "nvfac_venc",
+            "fieldtype": "Datetime",
+            "label": "Nvfac Venc"
+        },
+        {
+            "fieldname": "nvfac_viva",
+            "fieldtype": "Float",
+            "label": "Nvfac Viva"
+        },
+        {
+            "fieldname": "nvpro_ufac",
+            "fieldtype": "Datetime",
+            "label": "Nvpro Ufac"
+        },
+        {
+            "fieldname": "nvfac_vinc",
+            "fieldtype": "Float",
+            "label": "Nvfac Vinc"
+        },
+        {
+            "fieldname": "nvfac_vicb",
+            "fieldtype": "Float",
+            "label": "Nvfac Vicb"
+        },
+        {
+            "fieldname": "nvfac_ueve",
+            "fieldtype": "Data",
+            "label": "Nvfac Ueve"
+        },
+        {
+            "fieldname": "nvfac_stot",
+            "fieldtype": "Float",
+            "label": "Nvfac Stot"
+        },
+        {
+            "fieldname": "nvfac_vicl",
+            "fieldtype": "Float",
+            "label": "Nvfac Vicl"
+        },
+        {
+            "fieldname": "nvfac_vinp",
+            "fieldtype": "Float",
+            "label": "Nvfac Vinp"
+        },
+        {
+            "fieldname": "nvfac_vibu",
+            "fieldtype": "Float",
+            "label": "Nvfac Vibu"
+        },
+        {
+            "fieldname": "nvfac_vicu",
+            "fieldtype": "Float",
+            "label": "Nvfac Vicu"
+        },
+        {
+            "fieldname": "nvfac_vadv",
+            "fieldtype": "Float",
+            "label": "Nvfac Vadv"
+        },
+        {
+            "default": "0",
+            "fieldname": "is_completed",
+            "fieldtype": "Check",
+            "label": "Is Completed"
+        },
+        {
+            "fieldname": "sync_attempts",
+            "fieldtype": "Table",
+            "label": "Sync Attempts",
+            "options": "qp_SP_DetailSyncAttempt"
+        }
+    ],
+    "index_web_pages_for_search": 1,
+    "links": [],
+    "modified": "2026-07-03 15:54:42.116018",
+    "modified_by": "Administrator",
+    "module": "Qp Supplier Front",
+    "name": "qp_SP_DocumentSyncLine",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        },
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "All",
+            "share": 1,
+            "write": 1
+        }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "track_changes": 1
 }

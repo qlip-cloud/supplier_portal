@@ -81,3 +81,155 @@ def create_sync_line(log_name, doc_data):
 def create_sync_lines(log_name, ldocuments):
     for doc_data in ldocuments:
         create_sync_line(log_name, doc_data)
+
+
+def build_detail_params(nvpro_ndoc, nvfac_esta, nvfac_nume):
+    return (
+        "nvemp_nnit={nvpro_ndoc}"
+        "&nvfac_esta={nvfac_esta}"
+        "&nvfac_nume={nvfac_nume}"
+        "&nvpro_docu={nvpro_ndoc}"
+    ).format(nvpro_ndoc=nvpro_ndoc, nvfac_esta=nvfac_esta,
+             nvfac_nume=nvfac_nume)
+
+
+def get_uncompleted_lines():
+    import frappe
+    return frappe.get_all(
+        "qp_SP_DocumentSyncLine",
+        filters={"is_completed": 0},
+        fields=["name", "nvpro_ndoc", "nvfac_esta", "nvfac_nume"]
+    )
+
+
+def create_attached_file(detail_name, attached_item):
+    import frappe
+    import base64
+    file_name = attached_item.get("Nvdoc_nomb")
+    file_type = attached_item.get("Nvdoc_tipo")
+    file_content_b64 = attached_item.get("Nvdoc_file")
+
+    if not file_content_b64:
+        return None
+
+    content = base64.b64decode(file_content_b64)
+
+    file_doc = frappe.get_doc({
+        "doctype": "File",
+        "file_name": file_name,
+        "content": content,
+        "attached_to_doctype": "qp_SP_DocumentDetail",
+        "attached_to_name": detail_name,
+    })
+    file_doc.save()
+
+    return file_doc
+
+
+def create_detail_line(detalle_item):
+    import frappe
+    line = frappe.new_doc("qp_SP_DetailLine")
+    line.nvdet_cont = detalle_item.get("Nvdet_cont")
+    line.nvpro_codi = detalle_item.get("Nvpro_codi")
+    line.nvdet_desc = detalle_item.get("Nvdet_desc")
+    line.nvdet_tcan = detalle_item.get("Nvdet_tcan")
+    line.nvdet_valo = detalle_item.get("Nvdet_valo")
+    line.nvdet_stot = detalle_item.get("Nvdet_stot")
+    line.nvdet_orde = detalle_item.get("Nvdet_orde")
+    line.nvdet_rece = detalle_item.get("Nvdet_rece")
+    line.nvdet_vdes = detalle_item.get("Nvdet_vdes")
+    line.nvuni_desc = detalle_item.get("Nvuni_desc")
+    line.nvdet_nota = detalle_item.get("Nvdet_nota")
+
+    for impuesto in (detalle_item.get("lImpuestos") or []):
+        tax_line = line.append("impuestos")
+        tax_line.nvimp_cdia = impuesto.get("Nvimp_cdia")
+        tax_line.nvimp_desc = impuesto.get("Nvimp_desc")
+        tax_line.nvimp_base = impuesto.get("Nvimp_base")
+        tax_line.nvimp_valo = impuesto.get("Nvimp_valo")
+        tax_line.nvimp_porc = impuesto.get("Nvimp_porc")
+
+    return line
+
+
+def create_document_detail(document_sync_line_name, document_data, attached_list):
+    import frappe
+
+    detail = frappe.new_doc("qp_SP_DocumentDetail")
+    detail.document_sync_line = document_sync_line_name
+    detail.nvfac_cont = document_data.get("Nvfac_cont")
+    detail.nvtip_docu = document_data.get("Nvtip_docu")
+    detail.nvfac_nume = document_data.get("Nvfac_nume")
+    detail.nvfac_cufe = document_data.get("Nvfac_cufe")
+    detail.nvpro_nomb = document_data.get("Nvpro_nomb")
+    detail.nvpro_ndoc = document_data.get("Nvpro_ndoc")
+    detail.nvfac_fech = convert_to_mariadb_datetime(document_data.get("Nvfac_fech"))
+    detail.nvmon_codi = document_data.get("Nvmon_codi")
+    detail.nvfac_totp = document_data.get("Nvfac_totp")
+    detail.nvfac_esta = document_data.get("Nvfac_esta")
+    detail.nvfac_rfec = convert_to_mariadb_datetime(document_data.get("Nvfac_rfec"))
+    detail.nvfac_orde = document_data.get("Nvfac_orde")
+    detail.nvfac_rece = document_data.get("Nvfac_rece")
+    detail.nvfac_refe = document_data.get("Nvfac_refe")
+    detail.nvsuc_codi = document_data.get("Nvsuc_codi")
+    detail.nvfac_venc = convert_to_mariadb_datetime(document_data.get("Nvfac_venc"))
+    detail.nvfac_viva = document_data.get("Nvfac_viva")
+    detail.nvpro_ufac = convert_to_mariadb_datetime(document_data.get("Nvpro_ufac"))
+    detail.nvfac_ueve = document_data.get("Nvfac_ueve")
+    detail.nvfac_stot = document_data.get("Nvfac_stot")
+    detail.nvfac_vinc = document_data.get("Nvfac_vinc")
+    detail.nvfac_vicb = document_data.get("Nvfac_vicb")
+    detail.nvfac_vicl = document_data.get("Nvfac_vicl")
+    detail.nvfac_vinp = document_data.get("Nvfac_vinp")
+    detail.nvfac_vibu = document_data.get("Nvfac_vibu")
+    detail.nvfac_vicu = document_data.get("Nvfac_vicu")
+    detail.nvfac_vadv = document_data.get("Nvfac_vadv")
+    detail.nvfac_conv = document_data.get("Nvfac_conv")
+    detail.nvfac_fpag = document_data.get("Nvfac_fpag")
+    detail.nvpro_cciu = document_data.get("Nvpro_cciu")
+    detail.nvpro_ciud = document_data.get("Nvpro_ciud")
+    detail.nvpro_cpai = document_data.get("Nvpro_cpai")
+    detail.nvpro_pais = document_data.get("Nvpro_pais")
+    detail.nvpro_dire = document_data.get("Nvpro_dire")
+    detail.nvfac_tota = document_data.get("Nvfac_tota")
+    detail.nvfac_votr = document_data.get("Nvfac_votr")
+
+    for detalle_item in (document_data.get("Detalle") or []):
+        detail_line = create_detail_line(detalle_item)
+        detail.append("detail_lines", detail_line)
+
+    detail.insert()
+
+    for attached_item in (attached_list or []):
+        file_doc = create_attached_file(detail.name, attached_item)
+        if file_doc:
+            attach_row = detail.append("attached_files")
+            attach_row.file_name = attached_item.get("Nvdoc_nomb")
+            attach_row.file_type = attached_item.get("Nvdoc_tipo")
+            attach_row.file_url = file_doc.file_url
+            attach_row.file_id = file_doc.name
+
+    detail.save()
+
+    return detail
+
+
+def log_sync_attempt(line_name, status, error_message, response):
+    import frappe
+    import json
+    from datetime import datetime
+
+    line = frappe.get_doc("qp_SP_DocumentSyncLine", line_name)
+    attempt = line.append("sync_attempts")
+    attempt.attempt_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    attempt.status = status
+    attempt.error_message = error_message
+    attempt.response = json.dumps(response) if not isinstance(response, str) else response
+    line.save()
+
+
+def mark_line_completed(line_name):
+    import frappe
+    line = frappe.get_doc("qp_SP_DocumentSyncLine", line_name)
+    line.is_completed = 1
+    line.save()
