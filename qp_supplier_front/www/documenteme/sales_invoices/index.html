@@ -1,0 +1,239 @@
+{% extends "qp_supplier_front/templates/includes/container.html" %}
+
+{% block content_page %}
+<div class="row">
+    <div class="col-lg-12" id="area">
+
+        <div class="row row-line">
+            <div class="col-lg-2">
+                <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold filter-list"
+                    maxlength="140" data-fieldtype="Data" data-doctype="Issue" id="filtro_nit" placeholder="NIT">
+            </div>
+            <div class="col-lg-2">
+                <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold filter-list"
+                    maxlength="140" data-fieldtype="Data" data-doctype="Issue" id="filtro_factura" placeholder="Factura">
+            </div>
+            <div class="col-lg-2">
+                <input type="date" autocomplete="off" class="input-with-feedback form-control bold filter-list date"
+                    id="filtro_fecha" data-placeholder="Fecha">
+            </div>
+            <div class="col-lg-2">
+                <select class="form-control filter-list" name="status" id="filtro_estado" data-label="Estado" data-fieldtype="Select">
+                    <option value="0" selected="selected" class="custom-option">Estado</option>
+                    <option>Registrado</option>
+                    <option>Por Recibir</option>
+                    <option>Lista para Registro</option>
+                    <option>Rechazada</option>
+                </select>
+            </div>
+            <div class="col-lg-2">
+                <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold filter-list"
+                    maxlength="140" data-fieldtype="Data" data-doctype="Issue" id="filtro_asignado" placeholder="Asignado">
+            </div>
+            <div class="col-lg-2">
+                <div class="row">
+                    <div class="col-sm-3">
+                        <button type="button" class="btn btn-primary btn-sm">Asignar</button>
+                    </div>
+                    <div class="col-sm-3">
+                        <button type="button" class="btn btn-danger btn-sm">Rechazar</button>
+                    </div>
+                    <div class="col-sm-3">
+                        <button type="button" class="btn btn-primary btn-sm">Aprobar</button>
+                    </div>
+                    <div class="col-sm-3">
+                        <span class="material-symbols-outlined btn btn-primary" id="refresh_filter_list">refresh</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row row-line">
+            <table class="table table-striped table-bordered table-list">
+                <thead>
+                    <tr>
+                        <th class="text-center" style="width:40px"></th>
+                        <th class="text-center">NIT</th>
+                        <th class="text-center">Factura Proveedor</th>
+                        <th class="text-center">Factura Interna</th>
+                        <th class="text-center">Fecha</th>
+                        <th class="text-center">Orden de compra</th>
+                        <th class="text-center">Recepción</th>
+                        <th class="text-center">Subtotal</th>
+                        <th class="text-center">IVA</th>
+                        <th class="text-center">Total</th>
+                        <th class="text-center">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="accordion">
+                    {%- set status_class = {
+                        "Registrado": "status-paid",
+                        "Por Recibir": "status-open",
+                        "Lista para Registro": "status-open",
+                        "Rechazada": "status-cancelled"
+                    } -%}
+
+                    {% for row in facturas %}
+                    <tr class="card-header" data-toggle="collapse" data-target="#detail-{{ row.name }}" aria-expanded="false">
+                        <td class="text-center">
+                            <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()">
+                        </td>
+                        <td>{{ row.nit }}</td>
+                        <td>
+                            {{ row.factura_proveedor }}
+                            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">expand_more</span>
+                        </td>
+                        <td>{{ row.factura_interna or "" }}</td>
+                        <td>{{ frappe.utils.formatdate(row.fecha, "dd-MM-yyyy") if row.fecha else "" }}</td>
+                        <td>
+                            {% if row.orden_compra %}
+                                {{ row.orden_compra }}
+                            {% else %}
+                                <span class="material-symbols-outlined" style="color:#004D90;font-size:18px;cursor:pointer">add_circle</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.recepcion %}
+                                {{ row.recepcion }}
+                            {% else %}
+                                <span class="material-symbols-outlined" style="color:#004D90;font-size:18px;cursor:pointer">add_circle</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ frappe.utils.fmt_money(row.subtotal, currency="COP") }}</td>
+                        <td>{{ frappe.utils.fmt_money(row.iva, currency="COP") }}</td>
+                        <td>{{ frappe.utils.fmt_money(row.total, currency="COP") }}</td>
+                        <td>
+                            <span class="status-badge {{ status_class.get(row.estado, 'status-default') }}">{{ row.estado }}</span>
+                        </td>
+                    </tr>
+                    <tr class="collapse" id="detail-{{ row.name }}" data-parent="#accordion">
+                        <td colspan="11">
+                            <div class="row">
+                                <div class="col-lg-4">
+                                    <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Factura</h5>
+                                    <div style="color:#8a9099;font-size:12px;margin-bottom:8px">
+                                        Fecha Vencimiento: {{ frappe.utils.formatdate(row.fecha_vencimiento, "dd-MM-yyyy") if row.fecha_vencimiento else "-" }}
+                                    </div>
+                                    {% if row.productos_factura %}
+                                    <table class="table inner-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Código</th>
+                                                <th>UDM</th>
+                                                <th>Cantidad</th>
+                                                <th>Valor unitario</th>
+                                                <th>Valor total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for p in row.productos_factura %}
+                                            <tr>
+                                                <td>{{ p.codigo }}</td>
+                                                <td>{{ p.udm }}</td>
+                                                <td>{{ p.cantidad }}</td>
+                                                <td>{{ frappe.utils.fmt_money(p.valor_unitario, currency="COP") }}</td>
+                                                <td>{{ frappe.utils.fmt_money(p.valor_total, currency="COP") }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% else %}
+                                    <div style="color:#8a9099;font-size:12px">Sin datos</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-lg-4">
+                                    <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Orden de compra</h5>
+                                    <div style="color:#8a9099;font-size:12px;margin-bottom:8px">
+                                        {% if row.ordenes_compra %}
+                                        <select style="border:none;background:transparent;color:#004D90;font-size:12px">
+                                            {% for oc in row.ordenes_compra %}<option>{{ oc }}</option>{% endfor %}
+                                        </select>
+                                        {% else %}<span>-</span>{% endif %}
+                                    </div>
+                                    {% if row.productos_orden_compra %}
+                                    <table class="table inner-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Código</th>
+                                                <th>UDM</th>
+                                                <th>Cantidad</th>
+                                                <th>Valor unitario</th>
+                                                <th>Valor total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for p in row.productos_orden_compra %}
+                                            <tr>
+                                                <td>{{ p.codigo }}</td>
+                                                <td>{{ p.udm }}</td>
+                                                <td>{{ p.cantidad }}</td>
+                                                <td>{{ frappe.utils.fmt_money(p.valor_unitario, currency="COP") }}</td>
+                                                <td>{{ frappe.utils.fmt_money(p.valor_total, currency="COP") }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% else %}
+                                    <div style="color:#8a9099;font-size:12px">Sin datos</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-lg-4">
+                                    <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Recepción</h5>
+                                    <div style="color:#8a9099;font-size:12px;margin-bottom:8px">
+                                        {% if row.recepciones %}
+                                        <select style="border:none;background:transparent;color:#004D90;font-size:12px">
+                                            {% for rep in row.recepciones %}<option>{{ rep }}</option>{% endfor %}
+                                        </select>
+                                        {% else %}<span>-</span>{% endif %}
+                                    </div>
+                                    {% if row.productos_recepcion %}
+                                    <table class="table inner-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Código</th>
+                                                <th>UDM</th>
+                                                <th>Cantidad</th>
+                                                <th>Valor unitario</th>
+                                                <th>Valor total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for p in row.productos_recepcion %}
+                                            <tr>
+                                                <td>{{ p.codigo }}</td>
+                                                <td>{{ p.udm }}</td>
+                                                <td>{{ p.cantidad }}</td>
+                                                <td>{{ frappe.utils.fmt_money(p.valor_unitario, currency="COP") }}</td>
+                                                <td>{{ frappe.utils.fmt_money(p.valor_total, currency="COP") }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    {% else %}
+                                    <div style="color:#8a9099;font-size:12px">Sin datos</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="11" class="text-center" style="padding:24px;color:#8a9099">No hay facturas para mostrar.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="row row-line">
+            <div class="col-sm-12" style="display:none;" id="loading">
+                Buscando información...
+            </div>
+            <div class="col-sm-12" style="display:none;" id="no-more">
+                No hay más registros.
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
