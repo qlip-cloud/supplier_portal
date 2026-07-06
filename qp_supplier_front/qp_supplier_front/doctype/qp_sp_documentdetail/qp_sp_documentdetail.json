@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "autoname": "field:nvfac_nume",
  "creation": "2026-07-03 10:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -66,12 +67,14 @@
    "in_list_view": 1,
    "label": "Nvtip Docu"
   },
-  {
-   "fieldname": "nvfac_nume",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Nvfac Nume"
-  },
+   {
+    "fieldname": "nvfac_nume",
+    "fieldtype": "Data",
+    "in_list_view": 1,
+    "label": "Nvfac Nume",
+    "reqd": 1,
+    "unique": 1
+   },
   {
    "fieldname": "nvfac_cufe",
    "fieldtype": "Data",

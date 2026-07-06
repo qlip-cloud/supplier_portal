@@ -193,7 +193,7 @@ fixtures = [
             "Bank Account-qp_routing_code",
             "Contact-qp_contact_type"
         ]]]
-    }
+    },
 ]
 
 before_request = [

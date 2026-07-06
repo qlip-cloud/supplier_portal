@@ -182,9 +182,10 @@ $(document).ready(function () {
     })
 
     $("#refresh_filter_list").on("click", function () {
-        $(".filter-list").val("")
+        $(".filter-list").not("select").val("")
         $(".filter-list.filter-check").val("0")
         $(".filter-list.date").removeAttr("min").removeAttr("max");
+        $("select.filter-list").val("0");
 
         filter_init()
     })
@@ -303,7 +304,15 @@ $(document).ready(function () {
     }
     function filter_init() {
         currentPage = -1;
+        no_more = false;
         accordion = $("#accordion");
+
+        $(window).off('scroll');
+        $(window).scroll(function () {
+            if ($(window).scrollTop() + $(window).height() >= $(document).height()) {
+                loadMoreInvoices();
+            }
+        });
 
         clearTimeout(debounceTimer);
 

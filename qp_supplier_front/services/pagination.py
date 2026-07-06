@@ -35,3 +35,11 @@ def get_paginated(page, doctype, supplier_id, order_by, filters = {}):
     start = page * PAGE_LENGTH
     
     return frappe.get_list(doctype, filters = filters, fields = ["*"], start=start, page_length=PAGE_LENGTH, order_by = f"{order_by} desc")
+
+def get_paginated_filtered(page, doctype, order_by, filters=None):
+    
+    filters = filters or {}
+    
+    start = page * PAGE_LENGTH
+    
+    return frappe.get_list(doctype, filters=filters, fields=["*"], start=start, page_length=PAGE_LENGTH, order_by="{} desc, name desc".format(order_by))

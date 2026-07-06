@@ -145,7 +145,7 @@ label {
 /* Badges de estado */
 .status-badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 2px 10px;
     font-size: 10px;
     font-weight: bold;
     border-radius: 999px;
@@ -155,22 +155,32 @@ label {
 /* Colores personalizados */
 .status-open {
     border: 2px solid #3b82f6;
-    color: #3b82f6;
+    color: #1e40af;
+    background-color: #eff6ff;
 }
 
 .status-paid {
     border: 2px solid #22c55e;
-    color: #22c55e;
+    color: #166534;
+    background-color: #f0fdf4;
+}
+
+.status-ready {
+    border: 2px solid #f59e0b;
+    color: #92400e;
+    background-color: #fffbeb;
 }
 
 .status-cancelled {
     border: 2px solid #ef4444;
-    color: #ef4444;
+    color: #991b1b;
+    background-color: #fef2f2;
 }
 
 .status-default {
     border: 2px solid #d1d5db;
-    color: #d1d5db;
+    color: #6b7280;
+    background-color: #f9fafb;
 }
 
 .inner-table {
@@ -306,6 +316,11 @@ textarea {
 
 .material-symbols-outlined {
     cursor: pointer;
+}
+
+.btn .material-symbols-outlined {
+    font-size: 20px;
+    vertical-align: middle;
 }
 
 #page-rfq .sidebar-column.col-sm-2,

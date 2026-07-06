@@ -43,9 +43,7 @@ def convert_to_mariadb_datetime(value):
     return value
 
 
-def create_sync_line(log_name, doc_data):
-    import frappe
-    line = frappe.new_doc("qp_SP_DocumentSyncLine")
+def _set_sync_line_fields(line, log_name, doc_data):
     line.document_sync_log = log_name
     line.nvfac_cont = doc_data.get("Nvfac_cont")
     line.nvtip_docu = doc_data.get("Nvtip_docu")
@@ -74,6 +72,22 @@ def create_sync_line(log_name, doc_data):
     line.nvfac_vibu = doc_data.get("Nvfac_vibu")
     line.nvfac_vicu = doc_data.get("Nvfac_vicu")
     line.nvfac_vadv = doc_data.get("Nvfac_vadv")
+    return line
+
+
+def create_sync_line(log_name, doc_data):
+    import frappe
+
+    nvfac_nume = doc_data.get("Nvfac_nume")
+
+    if frappe.db.exists("qp_SP_DocumentSyncLine", nvfac_nume):
+        line = frappe.get_doc("qp_SP_DocumentSyncLine", nvfac_nume)
+        line = _set_sync_line_fields(line, log_name, doc_data)
+        line.save()
+        return line
+
+    line = frappe.new_doc("qp_SP_DocumentSyncLine")
+    line = _set_sync_line_fields(line, log_name, doc_data)
     line.insert()
     return line
 
@@ -152,47 +166,89 @@ def create_detail_line(detalle_item):
     return line
 
 
+def _set_document_detail_fields(doc, document_data):
+    doc.nvfac_cont = document_data.get("Nvfac_cont")
+    doc.nvtip_docu = document_data.get("Nvtip_docu")
+    doc.nvfac_nume = document_data.get("Nvfac_nume")
+    doc.nvfac_cufe = document_data.get("Nvfac_cufe")
+    doc.nvpro_nomb = document_data.get("Nvpro_nomb")
+    doc.nvpro_ndoc = document_data.get("Nvpro_ndoc")
+    doc.nvfac_fech = convert_to_mariadb_datetime(document_data.get("Nvfac_fech"))
+    doc.nvmon_codi = document_data.get("Nvmon_codi")
+    doc.nvfac_totp = document_data.get("Nvfac_totp")
+    doc.nvfac_esta = document_data.get("Nvfac_esta")
+    doc.nvfac_rfec = convert_to_mariadb_datetime(document_data.get("Nvfac_rfec"))
+    doc.nvfac_orde = document_data.get("Nvfac_orde")
+    doc.nvfac_rece = document_data.get("Nvfac_rece")
+    doc.nvfac_refe = document_data.get("Nvfac_refe")
+    doc.nvsuc_codi = document_data.get("Nvsuc_codi")
+    doc.nvfac_venc = convert_to_mariadb_datetime(document_data.get("Nvfac_venc"))
+    doc.nvfac_viva = document_data.get("Nvfac_viva")
+    doc.nvpro_ufac = convert_to_mariadb_datetime(document_data.get("Nvpro_ufac"))
+    doc.nvfac_ueve = document_data.get("Nvfac_ueve")
+    doc.nvfac_stot = document_data.get("Nvfac_stot")
+    doc.nvfac_vinc = document_data.get("Nvfac_vinc")
+    doc.nvfac_vicb = document_data.get("Nvfac_vicb")
+    doc.nvfac_vicl = document_data.get("Nvfac_vicl")
+    doc.nvfac_vinp = document_data.get("Nvfac_vinp")
+    doc.nvfac_vibu = document_data.get("Nvfac_vibu")
+    doc.nvfac_vicu = document_data.get("Nvfac_vicu")
+    doc.nvfac_vadv = document_data.get("Nvfac_vadv")
+    doc.nvfac_conv = document_data.get("Nvfac_conv")
+    doc.nvfac_fpag = document_data.get("Nvfac_fpag")
+    doc.nvpro_cciu = document_data.get("Nvpro_cciu")
+    doc.nvpro_ciud = document_data.get("Nvpro_ciud")
+    doc.nvpro_cpai = document_data.get("Nvpro_cpai")
+    doc.nvpro_pais = document_data.get("Nvpro_pais")
+    doc.nvpro_dire = document_data.get("Nvpro_dire")
+    doc.nvfac_tota = document_data.get("Nvfac_tota")
+    doc.nvfac_votr = document_data.get("Nvfac_votr")
+    return doc
+
+
 def create_document_detail(document_sync_line_name, document_data, attached_list):
     import frappe
 
+    nvfac_nume = document_data.get("Nvfac_nume")
+
+    if frappe.db.exists("qp_SP_DocumentDetail", nvfac_nume):
+        detail = frappe.get_doc("qp_SP_DocumentDetail", nvfac_nume)
+        detail = _set_document_detail_fields(detail, document_data)
+        detail.document_sync_line = document_sync_line_name
+
+        # Clean up old File docs before clearing child table
+        old_file_ids = frappe.db.sql_list(
+            "SELECT file_id FROM `tabqp_SP_DocumentAttach` WHERE parent=%s",
+            nvfac_nume
+        )
+        for file_id in old_file_ids:
+            if file_id:
+                frappe.delete_doc("File", file_id, ignore_permissions=True, force=True)
+
+        # Remove old child rows
+        frappe.db.sql("DELETE FROM `tabqp_SP_DetailLine` WHERE parent=%s", nvfac_nume)
+        frappe.db.sql("DELETE FROM `tabqp_SP_DocumentAttach` WHERE parent=%s", nvfac_nume)
+
+        # Re-populate detail lines
+        for detalle_item in (document_data.get("Detalle") or []):
+            detail.append("detail_lines", create_detail_line(detalle_item))
+
+        # Re-populate attached files
+        for attached_item in (attached_list or []):
+            file_doc = create_attached_file(nvfac_nume, attached_item)
+            if file_doc:
+                attach_row = detail.append("attached_files")
+                attach_row.file_name = attached_item.get("Nvdoc_nomb")
+                attach_row.file_type = attached_item.get("Nvdoc_tipo")
+                attach_row.file_url = file_doc.file_url
+                attach_row.file_id = file_doc.name
+
+        detail.save()
+        return detail
+
     detail = frappe.new_doc("qp_SP_DocumentDetail")
     detail.document_sync_line = document_sync_line_name
-    detail.nvfac_cont = document_data.get("Nvfac_cont")
-    detail.nvtip_docu = document_data.get("Nvtip_docu")
-    detail.nvfac_nume = document_data.get("Nvfac_nume")
-    detail.nvfac_cufe = document_data.get("Nvfac_cufe")
-    detail.nvpro_nomb = document_data.get("Nvpro_nomb")
-    detail.nvpro_ndoc = document_data.get("Nvpro_ndoc")
-    detail.nvfac_fech = convert_to_mariadb_datetime(document_data.get("Nvfac_fech"))
-    detail.nvmon_codi = document_data.get("Nvmon_codi")
-    detail.nvfac_totp = document_data.get("Nvfac_totp")
-    detail.nvfac_esta = document_data.get("Nvfac_esta")
-    detail.nvfac_rfec = convert_to_mariadb_datetime(document_data.get("Nvfac_rfec"))
-    detail.nvfac_orde = document_data.get("Nvfac_orde")
-    detail.nvfac_rece = document_data.get("Nvfac_rece")
-    detail.nvfac_refe = document_data.get("Nvfac_refe")
-    detail.nvsuc_codi = document_data.get("Nvsuc_codi")
-    detail.nvfac_venc = convert_to_mariadb_datetime(document_data.get("Nvfac_venc"))
-    detail.nvfac_viva = document_data.get("Nvfac_viva")
-    detail.nvpro_ufac = convert_to_mariadb_datetime(document_data.get("Nvpro_ufac"))
-    detail.nvfac_ueve = document_data.get("Nvfac_ueve")
-    detail.nvfac_stot = document_data.get("Nvfac_stot")
-    detail.nvfac_vinc = document_data.get("Nvfac_vinc")
-    detail.nvfac_vicb = document_data.get("Nvfac_vicb")
-    detail.nvfac_vicl = document_data.get("Nvfac_vicl")
-    detail.nvfac_vinp = document_data.get("Nvfac_vinp")
-    detail.nvfac_vibu = document_data.get("Nvfac_vibu")
-    detail.nvfac_vicu = document_data.get("Nvfac_vicu")
-    detail.nvfac_vadv = document_data.get("Nvfac_vadv")
-    detail.nvfac_conv = document_data.get("Nvfac_conv")
-    detail.nvfac_fpag = document_data.get("Nvfac_fpag")
-    detail.nvpro_cciu = document_data.get("Nvpro_cciu")
-    detail.nvpro_ciud = document_data.get("Nvpro_ciud")
-    detail.nvpro_cpai = document_data.get("Nvpro_cpai")
-    detail.nvpro_pais = document_data.get("Nvpro_pais")
-    detail.nvpro_dire = document_data.get("Nvpro_dire")
-    detail.nvfac_tota = document_data.get("Nvfac_tota")
-    detail.nvfac_votr = document_data.get("Nvfac_votr")
+    detail = _set_document_detail_fields(detail, document_data)
 
     for detalle_item in (document_data.get("Detalle") or []):
         detail_line = create_detail_line(detalle_item)
