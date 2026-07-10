@@ -11,7 +11,7 @@ def get_yesterday_date_str():
 
 
 def get_default_nvfac_esta():
-    return "T"
+    return "E"
 
 
 def get_default_nvfac_fini():

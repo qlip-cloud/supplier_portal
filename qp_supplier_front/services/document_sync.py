@@ -94,7 +94,8 @@ def create_sync_line(log_name, doc_data):
 
 def create_sync_lines(log_name, ldocuments):
     for doc_data in ldocuments:
-        create_sync_line(log_name, doc_data)
+        if not doc_data.get("Nvfac_ueve"):
+            create_sync_line(log_name, doc_data)
 
 
 def build_detail_params(nvpro_ndoc, nvfac_esta, nvfac_nume):

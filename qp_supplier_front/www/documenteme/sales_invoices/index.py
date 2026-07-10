@@ -15,13 +15,17 @@ def get_context(context):
 
     user_roles = frappe.get_roles()
     context.active_role = get_active_role(user_roles)
+    context.is_documenteme_admin = context.active_role is not None
 
     key = "documenteme_sales_invoices"
     doctype = "qp_SP_DocumentDetail"
     order_by = "nvfac_fech"
     date_key = "nvfac_fech"
 
-    documents = get_paginated_filtered(0, doctype, order_by, {})
+    documents = get_paginated_filtered(0, doctype, order_by, {
+        "nvfac_esta": "E",
+        "nvfac_ueve": ["is", "not set"],
+    })
 
     for doc in documents:
         doc["detail_lines"] = frappe.get_all(

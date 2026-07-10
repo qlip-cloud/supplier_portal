@@ -47,20 +47,22 @@ function petition_get_data(args, method, callresponse = null) {
         method,
         type: "POST",
         args,
-        success: function (r) { 
-            
-            let data = r.message;
+        callback: function (r) {
             if (callresponse) {
-                callresponse(data);            }
-             },
-        error: function (r) { console.error(r, "holaaaaa")},
-        always: function (r) {         
-            $('#custom-overlay').hide();
+                callresponse(r.message);
+            }
         },
-        //btn: opts.btn,
         freeze: true,
         freeze_message: "Esperando",
         async: true
+    }).fail(function(xhr, textStatus, errorThrown) {
+        if (callresponse) {
+            var error_msg = "Error en el servidor";
+            if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
+                error_msg = xhr.responseJSON.message.msg || error_msg;
+            }
+            callresponse({status: (xhr && xhr.status) || 400, error: true, msg: error_msg});
+        }
     });
 }
 function petition_send_data(formData, method, callback, request = "POST") {

@@ -1,5 +1,9 @@
 import frappe
-from qp_supplier_front.uses_cases.documents.sync_by_supplier import sync_by_supplier
+from qp_supplier_front.uses_cases.documents.sync_by_supplier import (
+    sync_by_supplier,
+    get_default_nvfac_fini,
+    get_default_nvfac_ffin,
+)
 from qp_supplier_front.uses_cases.documents.sync_detail import sync_detail
 from qp_supplier_front.services.document_sync import (
     create_sync_log,
@@ -18,6 +22,8 @@ def get_supplier_tax_id(supplier_name):
 
 @frappe.whitelist()
 def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
+    nvfac_fini = nvfac_fini if nvfac_fini is not None else get_default_nvfac_fini()
+    nvfac_ffin = nvfac_ffin if nvfac_ffin is not None else get_default_nvfac_ffin()
     try:
         suppliers = frappe.get_all("Supplier", pluck="name")
 
