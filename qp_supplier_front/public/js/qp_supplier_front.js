@@ -323,6 +323,8 @@ $(document).ready(function () {
             
         }, 300);
     }
+
+    window.loadMoreInvoices = loadMoreInvoices;
 });
 
 

@@ -1,5 +1,13 @@
 $(document).ready(function () {
 
+    $("#assign-document").on("click", function () {
+        frappe.msgprint("Funcionalidad aun no disponible");
+    });
+
+    $("#approve-document").on("click", function () {
+        frappe.msgprint("Funcionalidad aun no disponible");
+    });
+
     $("#reject-document").on("click", function () {
         var selected = $('tbody input[type="checkbox"]:checked');
         if (selected.length === 0) {
