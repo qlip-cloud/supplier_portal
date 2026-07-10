@@ -31,7 +31,7 @@ def create_sync_log(supplier_id, tax_id, endpoint_code, payload, response, statu
         log.error_message = get_response_description(response) or json.dumps(response)
 
     log.insert()
-    return log
+    return log.name
 
 
 def convert_to_mariadb_datetime(value):

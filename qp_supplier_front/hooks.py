@@ -96,6 +96,12 @@ doctype_js = {
 doc_events = {
     "Sales Order": {
         "before_insert": "qp_supplier_front.uses_cases.sales_order.set_name"
+    },
+    "Purchase Order": {
+        "validate": "qp_supplier_front.uses_cases.purchase_order.set_name"
+    },
+    "Purchase Receipt": {
+        "validate": "qp_supplier_front.uses_cases.receipts.set_name"
     }
 }
 

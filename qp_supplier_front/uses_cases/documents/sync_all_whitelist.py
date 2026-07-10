@@ -50,7 +50,7 @@ def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
         )
 
         return {"success": True, "suppliers_count": len(suppliers)}
-    except Exception:
+    except Exception as e:
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "sync_all")
         return {"success": False, "error": "Internal error"}
