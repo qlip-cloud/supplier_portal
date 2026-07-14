@@ -35,6 +35,7 @@
         "nvfac_vicu",
         "nvfac_vadv",
         "is_completed",
+        "assigned_to",
         "sync_attempts"
     ],
     "fields": [
@@ -198,6 +199,13 @@
             "label": "Is Completed"
         },
         {
+            "fieldname": "assigned_to",
+            "fieldtype": "Link",
+            "label": "Assigned To",
+            "options": "User",
+            "search_index": 1
+        },
+        {
             "fieldname": "sync_attempts",
             "fieldtype": "Table",
             "label": "Sync Attempts",
@@ -206,7 +214,7 @@
     ],
     "index_web_pages_for_search": 1,
     "links": [],
-    "modified": "2026-07-03 15:54:42.116018",
+    "modified": "2026-07-14 12:00:00.000000",
     "modified_by": "Administrator",
     "module": "Qp Supplier Front",
     "name": "qp_SP_DocumentSyncLine",

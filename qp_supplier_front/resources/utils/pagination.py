@@ -25,6 +25,22 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
                     filters={"parent": doc.name, "parenttype": doctype},
                     fields=["nvpro_codi", "nvuni_desc", "nvdet_tcan", "nvdet_valo", "nvdet_stot"]
                 )
+                doc["attached_files"] = frappe.get_all(
+                    "qp_SP_DocumentAttach",
+                    filters={"parent": doc.name, "parenttype": doctype},
+                    fields=["file_name", "file_type", "file_url", "file_id"]
+                )
+                doc["non_xml_count"] = len(
+                    [f for f in doc["attached_files"] if f.get("file_type", "").upper() != "XML"]
+                )
+                assignee_id = frappe.db.get_value(
+                    "qp_SP_DocumentSyncLine", doc.get("nvfac_nume"), "assigned_to"
+                )
+                doc["assigned_to_id"] = assignee_id
+                if assignee_id:
+                    doc["assigned_to_name"] = frappe.db.get_value("User", assignee_id, "full_name") or assignee_id
+                else:
+                    doc["assigned_to_name"] = None
                 doc["factura_interna"] = ""
                 doc["ordenes_compra"] = []
                 doc["recepciones"] = []
