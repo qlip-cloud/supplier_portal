@@ -124,6 +124,9 @@ scheduler_events = {
 		"0 12 * * *": [
 			"qp_supplier_front.taks.sync.all"
 		],
+		"0 1 * * *": [
+			"qp_supplier_front.uses_cases.purchase_invoice.sync_by_supplier.scheduled_sync_bc"
+		],
     },
  	"daily": [
     	"qp_supplier_front.uses_cases.information.tasks.daily"

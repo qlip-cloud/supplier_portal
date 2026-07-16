@@ -14,6 +14,14 @@ from qp_supplier_front.infrastructure.strategies.gp.persist_adapter import (
 )
 
 
+def build_bc_param(supplier_id, last_date=None, now=None):
+    if last_date:
+        return "$filter=Vendor_No eq '{}' and Posting_Date ge {} and Posting_Date le {}".format(
+            supplier_id, last_date, now
+        )
+    return "$filter=Vendor_No eq '{}'".format(supplier_id)
+
+
 BC_STRATEGY = {
     "name": "BC",
     "endpoints": {
@@ -31,6 +39,7 @@ BC_STRATEGY = {
     "request_key": "value",
     "request_key_id": "Document_No",
     "transform": build_invoices,
+    "build_param": build_bc_param,
     "persist": {
         "insert_invoices": insert_invoices,
         "insert_errors": insert_errors,

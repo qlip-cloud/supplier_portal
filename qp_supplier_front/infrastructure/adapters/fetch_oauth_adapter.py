@@ -21,9 +21,9 @@ def fetch_invoices(endpoint, param=None):
 
     token = get_token(environment.name)
     url = environment.get_url(endpoint_doc)
-    url += "&$top=10" if "?" in url else "?$top=10"
     if param:
-        url += "/" + str(param)
+        separator = "&" if "?" in url else "?"
+        url += separator + str(param)
 
     headers = {
         'Authorization': 'Bearer {}'.format(token)

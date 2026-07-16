@@ -8,7 +8,6 @@ Contiene las configuraciones especificas del flujo:
   - Campo de ordenamiento
   - Callbacks de transformacion y persistencia
 """
-
 from qp_supplier_front.constant.endpoint import (
     INVOICE_SUPPLIER_ID,
     INVOICE_SUPPLIER_DATE_RANGE,
@@ -21,6 +20,13 @@ from qp_supplier_front.infrastructure.strategies.gp.persist_adapter import (
     insert_invoices,
     insert_errors,
 )
+
+
+def build_gp_param(supplier_id, last_date=None, now=None):
+    if last_date:
+        return "{}/{}/{}".format(supplier_id, last_date, now)
+    return str(supplier_id)
+
 
 GP_STRATEGY = {
     "name": "GP",
@@ -39,6 +45,7 @@ GP_STRATEGY = {
     "request_key": "invoices",
     "request_key_id": "invoiceId",
     "transform": build_invoices,
+    "build_param": build_gp_param,
     "persist": {
         "insert_invoices": insert_invoices,
         "insert_errors": insert_errors,

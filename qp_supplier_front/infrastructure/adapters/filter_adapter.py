@@ -19,6 +19,10 @@ def get_last_creation(doctype, supplier_id, order_field):
     return latest[0] if latest else None
 
 
+def get_bc_suppliers():
+    return frappe.db.get_list("Supplier", pluck="name")
+
+
 def get_existing_ids(doctype, id_field, candidate_ids=None):
     if candidate_ids:
         return set(frappe.get_list(

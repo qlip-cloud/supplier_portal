@@ -41,7 +41,7 @@ def build_invoice_tuple(invoice, strategy_name, doc_id, now):
 
 
 def build_doc_id(invoice):
-    return invoice.get("Document_No") + ":" + invoice.get("Vendor_No")
+    return str(invoice.get("Entry_No")) + ":" + invoice.get("Vendor_No")
 
 
 def build_invoices(invoices_data, strategy_name, now):

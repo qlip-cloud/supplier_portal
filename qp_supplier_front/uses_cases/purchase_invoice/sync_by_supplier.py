@@ -14,6 +14,7 @@ from datetime import datetime
 from qp_supplier_front.uses_cases.purchase_invoice.sync_core import (
     sync_invoices,
     sync_all_invoices,
+    sync_all_suppliers_invoices,
 )
 from qp_supplier_front.infrastructure.adapters.fetch_adapter import (
     fetch_invoices as fetch_bearer,
@@ -26,6 +27,7 @@ from qp_supplier_front.infrastructure.adapters.fetch_oauth_adapter import (
 from qp_supplier_front.infrastructure.adapters.filter_adapter import (
     get_last_creation,
     get_existing_ids,
+    get_bc_suppliers,
 )
 from qp_supplier_front.infrastructure.adapters.commit_adapter import (
     commit,
@@ -111,4 +113,39 @@ def sync_all(flow="GP"):
             "success": False,
             "error": str(e),
         }
+
+
+@frappe.whitelist()
+def sync_all_suppliers(flow="BC"):
+    now = str(datetime.now())
+    fetch_fn = FETCH_MAP.get(flow, fetch_bearer)
+    try:
+        result = sync_all_suppliers_invoices(
+            flow=flow,
+            fetch_fn=fetch_fn,
+            get_suppliers_fn=get_bc_suppliers,
+            last_creation_fn=get_last_creation,
+            existing_ids_fn=get_existing_ids,
+            commit_fn=commit,
+            log_error_fn=log_error,
+            now=now,
+        )
+        return {
+            "success": True,
+            "synced_count": result["synced_count"],
+            "errors": result["errors"],
+        }
+    except Exception as e:
+        log_error(
+            message=frappe.get_traceback(),
+            title="Error sync all suppliers invoices ({})".format(flow),
+        )
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+def scheduled_sync_bc():
+    return sync_all_suppliers(flow="BC")
 

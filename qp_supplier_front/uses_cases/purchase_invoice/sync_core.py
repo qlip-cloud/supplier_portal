@@ -32,11 +32,12 @@ def sync_invoices(
         strategy["db_fields"]["order_field"],
     )
 
+    last_date_for_param = str(last_date) if last_date else None
+    param = strategy["build_param"](supplier_id, last_date=last_date_for_param, now=now[:10])
+
     if last_date:
-        param = "{}/{}/{}".format(supplier_id, last_date, now[:10])
         endpoint = strategy["endpoints"]["per_supplier_range"]
     else:
-        param = str(supplier_id)
         endpoint = strategy["endpoints"]["per_supplier"]
 
     result = fetch_fn(endpoint, param=param)
@@ -122,6 +123,52 @@ def sync_all_invoices(
     commit_fn()
 
     return len(docs)
+
+
+def sync_all_suppliers_invoices(
+    flow,
+    fetch_fn,
+    get_suppliers_fn,
+    last_creation_fn,
+    existing_ids_fn,
+    commit_fn,
+    log_error_fn,
+    now,
+):
+    supplier_ids = get_suppliers_fn()
+    synced_count = 0
+    errors = []
+
+    for supplier_id in supplier_ids:
+        try:
+            count = sync_invoices(
+                supplier_id=supplier_id,
+                flow=flow,
+                fetch_fn=fetch_fn,
+                last_creation_fn=last_creation_fn,
+                existing_ids_fn=existing_ids_fn,
+                commit_fn=commit_fn,
+                now=now,
+            )
+            synced_count += count
+        except ExceptionSyncNoNewRecords:
+            continue
+        except ExceptionSyncResponseEmpty:
+            continue
+        except Exception as e:
+            log_error_fn(
+                message="Supplier {}: {}".format(supplier_id, str(e)),
+                title="Error sync supplier invoices ({})".format(flow),
+            )
+            errors.append({
+                "supplier_id": supplier_id,
+                "error": str(e),
+            })
+
+    return {
+        "synced_count": synced_count,
+        "errors": errors,
+    }
 
 
 def _extract_ids(invoices_data, id_field):
