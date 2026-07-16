@@ -19,3 +19,10 @@ def get_active_role(user_roles):
 
 def has_any_documenteme_role(user_roles):
     return get_active_role(user_roles) is not None
+
+
+def update_website_context(context):
+    import frappe
+
+    user_roles = frappe.get_roles()
+    context["is_documenteme_admin"] = has_any_documenteme_role(user_roles)

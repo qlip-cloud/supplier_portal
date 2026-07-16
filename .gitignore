@@ -7,3 +7,6 @@ qp_supplier_front/docs/current
 AGENTS.md
 demo/get_detail_document.json
 demo/get_list_document.json
+.opencode/plans/ADD-BC-strategy.md
+.gitignore
+.opencode/plans/REFACTOR-sync_by_supplier.md

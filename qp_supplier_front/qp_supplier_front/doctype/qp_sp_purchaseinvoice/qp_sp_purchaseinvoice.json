@@ -4,19 +4,20 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
- "field_order": [
-  "invoice_id",
-  "status",
-  "create_date",
-  "registration_date",
-  "currency",
-  "subtotal",
-  "tax",
-  "total",
-  "detail",
-  "supplier",
-  "qp_is_error"
- ],
+  "field_order": [
+   "invoice_id",
+   "status",
+   "create_date",
+   "registration_date",
+   "currency",
+   "subtotal",
+   "tax",
+   "total",
+   "detail",
+   "supplier",
+   "qp_sync_flow",
+   "qp_is_error"
+  ],
  "fields": [
   {
    "fieldname": "invoice_id",
@@ -68,21 +69,29 @@
    "label": "detail"
   },
   {
-   "fieldname": "supplier",
-   "fieldtype": "Link",
-   "label": "supplier",
-   "options": "Supplier"
-  },
-  {
-   "default": "0",
-   "fieldname": "qp_is_error",
-   "fieldtype": "Check",
-   "label": "qp_is_error"
-  }
+    "fieldname": "supplier",
+    "fieldtype": "Link",
+    "label": "supplier",
+    "options": "Supplier"
+   },
+   {
+    "default": "GP",
+    "fieldname": "qp_sync_flow",
+    "fieldtype": "Data",
+    "in_list_view": 1,
+    "label": "Sync Flow",
+    "no_copy": 1
+   },
+   {
+    "default": "0",
+    "fieldname": "qp_is_error",
+    "fieldtype": "Check",
+    "label": "qp_is_error"
+   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-05 11:24:11.082522",
+  "modified": "2026-07-15 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_PurchaseInvoice",
