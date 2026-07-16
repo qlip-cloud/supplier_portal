@@ -21,6 +21,10 @@ app_license = "MIT"
 web_include_css = "/assets/qp_supplier_front/css/qp_supplier_front.css"
 web_include_js = ["/assets/qp_supplier_front/js/qp_supplier_front.js", "/assets/qp_supplier_front/js/api_connection.js"]
 
+update_website_context = [
+    "qp_supplier_front.services.role_resolver.update_website_context"
+]
+
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "qp_supplier_front/public/scss/website"
 
@@ -98,10 +102,10 @@ doc_events = {
         "before_insert": "qp_supplier_front.uses_cases.sales_order.set_name"
     },
     "Purchase Order": {
-        "validate": "qp_supplier_front.uses_cases.purchase_order.set_name"
+        "before_insert": "qp_supplier_front.uses_cases.purchase_order.set_name"
     },
     "Purchase Receipt": {
-        "validate": "qp_supplier_front.uses_cases.receipts.set_name"
+        "before_insert": "qp_supplier_front.uses_cases.receipts.set_name"
     }
 }
 
