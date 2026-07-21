@@ -54,56 +54,22 @@ def get_existing_suppliers(vendor_ids: list):
     return {s['tax_id']: s['name'] for s in suppliers}
 
 
-def get_suppliers_with_contacts(supplier_names: list):
+def get_existing_address_count(supplier_names):
     """
-    Obtiene un conjunto con los nombres de proveedores que ya tienen un contacto asociado.
-    """
-    if not supplier_names:
-        return set()
-    links = frappe.db.sql("""
-        SELECT dl.link_name 
-        FROM `tabDynamic Link` dl
-        INNER JOIN `tabContact` c ON dl.parent = c.name
-        WHERE dl.link_doctype = 'Supplier' 
-          AND dl.link_name IN %s
-          AND dl.parenttype = 'Contact'
-    """, (supplier_names,), as_dict=False)
-    return {l[0] for l in links} if links else set()
-
-
-def get_suppliers_with_addresses(supplier_names: list):
-    """
-    Obtiene un conjunto con los nombres de proveedores que ya tienen una dirección asociada.
+    Retorna {supplier_name: cantidad_de_direcciones} contando Dynamic Links.
     """
     if not supplier_names:
-        return set()
-    links = frappe.db.sql("""
-        SELECT dl.link_name 
+        return {}
+    rows = frappe.db.sql("""
+        SELECT dl.link_name, COUNT(*) as cnt
         FROM `tabDynamic Link` dl
         INNER JOIN `tabAddress` a ON dl.parent = a.name
-        WHERE dl.link_doctype = 'Supplier' 
+        WHERE dl.link_doctype = 'Supplier'
           AND dl.link_name IN %s
           AND dl.parenttype = 'Address'
-    """, (supplier_names,), as_dict=False)
-    return {l[0] for l in links} if links else set()
-
-
-def get_suppliers_with_bank_accounts(supplier_names: list):
-    """
-    Obtiene un conjunto con los nombres de proveedores que ya tienen una cuenta bancaria asociada.
-    """
-    if not supplier_names:
-        return set()
-    accounts = frappe.db.get_all(
-        'Bank Account',
-        filters={
-            'party_type': 'Supplier',
-            'party': ['in', supplier_names]
-        },
-        pluck='party'
-    )
-    return set(accounts)
-
+        GROUP BY dl.link_name
+    """, (supplier_names,), as_dict=True)
+    return {r.link_name: r.cnt for r in rows}
 
 
 
@@ -224,13 +190,65 @@ def create_contact_records(supplier_index: int, vendor_id: str, name: str, mail:
     return contact, dynamic_link
 
 
-def create_address_records(address_index: int, vendor_id: str, address_data: dict):
+_RESOLVED_STATE_CACHE = {}
+_RESOLVED_MUNICIPALITY_CACHE = {}
+
+
+def _resolve_state_code(state_name):
+    """Resuelve un nombre de departamento a su name (codigo) en qp_CO_State."""
+    if not state_name:
+        return "Otro-Otro"
+    cache_key = state_name.strip().lower()
+    if cache_key in _RESOLVED_STATE_CACHE:
+        return _RESOLVED_STATE_CACHE[cache_key]
+    state_doc = frappe.db.get_value("qp_CO_State",
+        {"state_name": state_name.strip()},
+        "name"
+    )
+    if not state_doc:
+        state_doc = "Otro-Otro"
+    _RESOLVED_STATE_CACHE[cache_key] = state_doc
+    return state_doc
+
+
+def _resolve_municipality_code(municipality_name, state_code):
+    """Resuelve un nombre de municipio a su name (codigo) en qp_CO_Municipality."""
+    if not municipality_name:
+        return "Otro-Otro"
+    cache_key = "{}|{}".format(municipality_name.strip().lower(), state_code or "")
+    if cache_key in _RESOLVED_MUNICIPALITY_CACHE:
+        return _RESOLVED_MUNICIPALITY_CACHE[cache_key]
+    filters = {"municipality_name": municipality_name.strip()}
+    if state_code:
+        filters["state_code"] = state_code
+    mun_doc = frappe.db.get_value("qp_CO_Municipality",
+        filters,
+        "name"
+    )
+    if not mun_doc:
+        mun_doc = "Otro-Otro"
+    _RESOLVED_MUNICIPALITY_CACHE[cache_key] = mun_doc
+    return mun_doc
+
+
+def create_address_records(address_index, vendor_id, address_data):
     """Construye las tuplas para Address y su Dynamic Link correspondiente."""
     type_address = frappe._("Billing")
-    address_name = f"{address_index}-{vendor_id}:{type_address}"
+    address_name = "{}-{}:{}".format(address_index, vendor_id, type_address)
+
+    # Resolver codigos de departamento y municipio desde la API de GP
+    gp_state = address_data.get('state', '')
+    gp_city = address_data.get('city', '')
+
+    resolved_state_code = _resolve_state_code(gp_state)
+    resolved_city_code = _resolve_municipality_code(gp_city, resolved_state_code)
+
     address = (
         address_name,
-        address_data['address'], address_data['city'], address_data['state'], address_data['country'],
+        address_data['address'],
+        resolved_state_code,       # city = qp_CO_State.name (departamento)
+        resolved_city_code,        # state = qp_CO_Municipality.name (municipio)
+        address_data['country'],
         "Billing",
         current_time, current_time, owner, owner
     )
@@ -262,13 +280,35 @@ def create_bank_account_record(vendor_id: str, eft_index: int, eft_data: dict):
     )
 
 
+def _delete_synced_addresses(supplier_name, vendor_id):
+    """Elimina direcciones sincronizadas previamente (identificadas por patron de nombre)."""
+    like_pattern = "%-{}:Billing".format(vendor_id)
+    address_names = frappe.db.sql("""
+        SELECT dl.parent
+        FROM `tabDynamic Link` dl
+        WHERE dl.link_doctype = 'Supplier'
+          AND dl.link_name = %s
+          AND dl.parenttype = 'Address'
+          AND dl.parent LIKE %s
+    """, (supplier_name, like_pattern), as_dict=False)
+    if not address_names:
+        return
+    names = [a[0] for a in address_names]
+    frappe.db.delete("Dynamic Link", {
+        "parent": ["in", names],
+        "parenttype": "Address"
+    })
+    frappe.db.delete("Address", {
+        "name": ["in", names]
+    })
+
+
 def build_records(
     suppliers_response: list,
     existing_suppliers: dict,
-    suppliers_with_contacts: set,
-    suppliers_with_addresses: set,
-    suppliers_with_bank_accounts: set,
-    eft_by_vendor: dict
+    eft_by_vendor: dict,
+    supplier_address_count=None,
+    force_supplier=None
 ):
     """
     Fase 2: Construir los registros de proveedores, contactos y direcciones en tuplas utilizando funciones atómicas.
@@ -279,11 +319,7 @@ def build_records(
     dynamic_links = []
     bank_accounts = []
 
-    # Copiamos localmente para evitar side effects y mejorar performance
     local_tax_ids = set(existing_suppliers.keys())
-    local_suppliers_with_contacts = set(suppliers_with_contacts)
-    local_suppliers_with_addresses = set(suppliers_with_addresses)
-    local_suppliers_with_bank_accounts = set(suppliers_with_bank_accounts)
 
     for supplier_index, supplier_response in enumerate(suppliers_response):
         vendor_id = supplier_response.get('vendorId')
@@ -298,30 +334,35 @@ def build_records(
         if vendor_id in local_tax_ids:
             supplier_name = existing_suppliers.get(vendor_id)
             if supplier_name:
-                # 1. Contacto
-                if mail and mail.strip() and supplier_name not in local_suppliers_with_contacts:
-                    contact, dynamic_link = create_contact_records(supplier_index, supplier_name, name, mail, phone)
+                # 1. Contacto (solo si tiene mail)
+                if mail and mail.strip():
+                    contact, dynamic_link = create_contact_records(supplier_index, vendor_id, name, mail, phone)
                     contacts.append(contact)
-                    dynamic_links.append(dynamic_link)
-                    local_suppliers_with_contacts.add(supplier_name)
+                    dynamic_links.append(dynamic_link[:2] + (supplier_name,) + dynamic_link[3:])
 
                 # 2. Direcciones
-                if supplier_name not in local_suppliers_with_addresses:
-                    address_list = supplier_response.get('address', [])
-                    for address_index, address_data in enumerate(address_list):
-                        address, dynamic_link = create_address_records(address_index, supplier_name, address_data)
-                        addresses.append(address)
-                        dynamic_links.append(dynamic_link)
-                    if address_list:
-                        local_suppliers_with_addresses.add(supplier_name)
+                address_list = supplier_response.get('address', [])
+
+                is_force = force_supplier and str(force_supplier) == str(vendor_id)
+                if is_force:
+                    _delete_synced_addresses(supplier_name, vendor_id)
+
+                existing_count = (supplier_address_count or {}).get(supplier_name, 0)
+                if is_force:
+                    existing_count = 0
+
+                for address_index, address_data in enumerate(address_list):
+                    if address_index < existing_count:
+                        continue
+                    address, dynamic_link = create_address_records(address_index, vendor_id, address_data)
+                    addresses.append(address)
+                    dynamic_links.append(dynamic_link[:2] + (supplier_name,) + dynamic_link[3:])
 
                 # 3. Cuentas bancarias
-                if supplier_name not in local_suppliers_with_bank_accounts:
-                    bank_list = eft_by_vendor.get(vendor_id, [])
-                    for eft_index, eft_data in enumerate(bank_list):
-                        bank_accounts.append(create_bank_account_record(supplier_name, eft_index, eft_data))
-                    if bank_list:
-                        local_suppliers_with_bank_accounts.add(supplier_name)
+                bank_list = eft_by_vendor.get(vendor_id, [])
+                for eft_index, eft_data in enumerate(bank_list):
+                    account = create_bank_account_record(vendor_id, eft_index, eft_data)
+                    bank_accounts.append(account[:6] + (supplier_name,) + account[7:])
             continue
 
         suppliers.append(create_supplier_record(vendor_id, name))
@@ -330,8 +371,6 @@ def build_records(
             contact, dynamic_link = create_contact_records(supplier_index, vendor_id, name, mail, phone)
             contacts.append(contact)
             dynamic_links.append(dynamic_link)
-            if vendor_id not in local_suppliers_with_contacts:
-                local_suppliers_with_contacts.add(vendor_id)
 
         for address_index, address_data in enumerate(supplier_response.get('address', [])):
             address, dynamic_link = create_address_records(address_index, vendor_id, address_data)
@@ -372,35 +411,51 @@ def bulk_insert_suppliers(suppliers: list):
 
 
 def bulk_insert_contacts(contacts: list):
-    """Inserta en lote los registros de Contact, evitando duplicados en la lista y base de datos."""
-    if contacts:
-        unique_contacts = {c[0]: c for c in contacts}
-        filtered_contacts = list(unique_contacts.values())
-        names = [c[0] for c in filtered_contacts]
-        existing_names = frappe.db.get_all("Contact", filters={"name": ["in", names]}, pluck="name")
-        filtered = [c for c in filtered_contacts if c[0] not in existing_names]
-        if filtered:
-            frappe.db.bulk_insert(
-                "Contact",
-                ["name", "first_name", "user", "mobile_no", "creation", "modified", "owner", "modified_by"],
-                filtered
-            )
+    """Inserta o actualiza registros de Contact usando upsert."""
+    if not contacts:
+        return
+    unique = {c[0]: c for c in contacts}
+    records = list(unique.values())
+    columns = ["name", "first_name", "user", "mobile_no", "creation", "modified", "owner", "modified_by"]
+    placeholders = ",".join(["%s"] * len(columns))
+    values_placeholder = ",".join(["({})".format(placeholders)] * len(records))
+    flat_values = []
+    for rec in records:
+        flat_values.extend(rec)
+    frappe.db.sql("""
+        INSERT INTO `tabContact`
+            (`name`, `first_name`, `user`, `mobile_no`, `creation`, `modified`, `owner`, `modified_by`)
+        VALUES {}
+        ON DUPLICATE KEY UPDATE
+            `first_name` = VALUES(`first_name`),
+            `mobile_no` = VALUES(`mobile_no`),
+            `modified` = VALUES(`modified`)
+    """.format(values_placeholder), flat_values)
 
 
 def bulk_insert_addresses(addresses: list):
-    """Inserta en lote los registros de Address, evitando duplicados en la lista y base de datos."""
-    if addresses:
-        unique_addresses = {a[0]: a for a in addresses}
-        filtered_addresses = list(unique_addresses.values())
-        names = [a[0] for a in filtered_addresses]
-        existing_names = frappe.db.get_all("Address", filters={"name": ["in", names]}, pluck="name")
-        filtered = [a for a in filtered_addresses if a[0] not in existing_names]
-        if filtered:
-            frappe.db.bulk_insert(
-                "Address",
-                ["name", "address_line1", "city", "state", "country", "address_type", "creation", "modified", "owner", "modified_by"],
-                filtered
-            )
+    """Inserta o actualiza registros de Address usando upsert."""
+    if not addresses:
+        return
+    unique = {a[0]: a for a in addresses}
+    records = list(unique.values())
+    columns = ["name", "address_line1", "city", "state", "country", "address_type", "creation", "modified", "owner", "modified_by"]
+    placeholders = ",".join(["%s"] * len(columns))
+    values_placeholder = ",".join(["({})".format(placeholders)] * len(records))
+    flat_values = []
+    for rec in records:
+        flat_values.extend(rec)
+    frappe.db.sql("""
+        INSERT INTO `tabAddress`
+            (`name`, `address_line1`, `city`, `state`, `country`, `address_type`, `creation`, `modified`, `owner`, `modified_by`)
+        VALUES {}
+        ON DUPLICATE KEY UPDATE
+            `address_line1` = VALUES(`address_line1`),
+            `city` = VALUES(`city`),
+            `state` = VALUES(`state`),
+            `country` = VALUES(`country`),
+            `modified` = VALUES(`modified`)
+    """.format(values_placeholder), flat_values)
 
 
 def bulk_insert_dynamic_links(dynamic_links: list):
@@ -420,25 +475,40 @@ def bulk_insert_dynamic_links(dynamic_links: list):
 
 
 def bulk_insert_bank_accounts(bank_accounts: list):
-    """Inserta en lote los registros de Bank Account, evitando duplicados en la lista y base de datos."""
-    if bank_accounts:
-        unique_accounts = {ba[0]: ba for ba in bank_accounts}
-        filtered_accounts = list(unique_accounts.values())
-        names = [ba[0] for ba in filtered_accounts]
-        existing_names = frappe.db.get_all("Bank Account", filters={"name": ["in", names]}, pluck="name")
-        filtered = [ba for ba in filtered_accounts if ba[0] not in existing_names]
-        if filtered:
-            frappe.db.bulk_insert(
-                "Bank Account",
-                [
-                    "name", "account_name", "bank", "account_type", "bank_account_no",
-                    "party_type", "party", "is_default",
-                    "qp_iban_number", "qp_routing_code",
-                    "qp_from_sync",
-                    "creation", "modified", "owner", "modified_by"
-                ],
-                filtered
-            )
+    """Inserta o actualiza registros de Bank Account usando upsert."""
+    if not bank_accounts:
+        return
+    unique = {ba[0]: ba for ba in bank_accounts}
+    records = list(unique.values())
+    columns = [
+        "name", "account_name", "bank", "account_type", "bank_account_no",
+        "party_type", "party", "is_default",
+        "qp_iban_number", "qp_routing_code",
+        "qp_from_sync",
+        "creation", "modified", "owner", "modified_by"
+    ]
+    placeholders = ",".join(["%s"] * len(columns))
+    values_placeholder = ",".join(["({})".format(placeholders)] * len(records))
+    flat_values = []
+    for rec in records:
+        flat_values.extend(rec)
+    frappe.db.sql("""
+        INSERT INTO `tabBank Account`
+            (`name`, `account_name`, `bank`, `account_type`, `bank_account_no`,
+             `party_type`, `party`, `is_default`,
+             `qp_iban_number`, `qp_routing_code`,
+             `qp_from_sync`,
+             `creation`, `modified`, `owner`, `modified_by`)
+        VALUES {}
+        ON DUPLICATE KEY UPDATE
+            `bank` = VALUES(`bank`),
+            `account_type` = VALUES(`account_type`),
+            `bank_account_no` = VALUES(`bank_account_no`),
+            `is_default` = VALUES(`is_default`),
+            `qp_iban_number` = VALUES(`qp_iban_number`),
+            `qp_routing_code` = VALUES(`qp_routing_code`),
+            `modified` = VALUES(`modified`)
+    """.format(values_placeholder), flat_values)
 
 
 
@@ -460,6 +530,7 @@ def handler():
 
     try:
         sync_datetime = frappe.db.get_single_value('qp_SP_MasterSetup', 'supplier_date_sync')
+        force_supplier = frappe.request.args.get('force_supplier')
 
         result, nuevo_sync_datetime = fetch_suppliers_from_api(sync_datetime)
 
@@ -468,19 +539,15 @@ def handler():
             vendor_ids = [s.get('vendorId') for s in suppliers_response if s.get('vendorId')]
             existing_suppliers = get_existing_suppliers(vendor_ids)
             supplier_names = list(existing_suppliers.values())
-            
-            suppliers_with_contacts = get_suppliers_with_contacts(supplier_names)
-            suppliers_with_addresses = get_suppliers_with_addresses(supplier_names)
-            suppliers_with_bank_accounts = get_suppliers_with_bank_accounts(supplier_names)
+            supplier_address_count = get_existing_address_count(supplier_names)
 
             eft_by_vendor = resolve_and_create_banks(suppliers_response)
             records = build_records(
                 suppliers_response,
                 existing_suppliers,
-                suppliers_with_contacts,
-                suppliers_with_addresses,
-                suppliers_with_bank_accounts,
-                eft_by_vendor
+                eft_by_vendor,
+                supplier_address_count=supplier_address_count,
+                force_supplier=force_supplier
             )
 
             if nuevo_sync_datetime:

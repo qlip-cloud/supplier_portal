@@ -27,6 +27,28 @@ def get_context(context):
         
         context.contacts = contacts
         
+        primary_phone = None
+        if contacts:
+            for contact in contacts:
+                phone = contact.mobile_no or (contact.phone_nos[0].phone if contact.phone_nos else None)
+                if contact.is_primary_contact and phone:
+                    primary_phone = phone
+                    break
+            if not primary_phone:
+                for contact in contacts:
+                    phone = contact.mobile_no or (contact.phone_nos[0].phone if contact.phone_nos else None)
+                    if phone:
+                        primary_phone = phone
+                        if not contact.is_primary_contact:
+                            for c in contacts:
+                                if c.is_primary_contact:
+                                    c.is_primary_contact = 0
+                                    c.save()
+                            contact.is_primary_contact = 1
+                            contact.save()
+                        break
+        context.primary_phone = primary_phone
+        
         context.bank_accounts = get_bank_accounts(supplier, "Bank Account")
         
         document_settings = setup_document_settings(supplier.qp_documents)
