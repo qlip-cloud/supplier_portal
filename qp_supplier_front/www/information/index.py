@@ -48,11 +48,13 @@ def get_context(context):
         # Snapshot comparison for Alpla admin during review
         context.modified_fields = "{}"
         context.modified_tabs = "[]"
+        context.modified_items = "{}"
         if supplier.qp_status == "En revisión" and context.is_alpla_admin:
             from qp_supplier_front.services.snapshot import compare_snapshot_with_current
-            modified_fields, modified_tabs = compare_snapshot_with_current(supplier_id)
+            modified_fields, modified_tabs, modified_items = compare_snapshot_with_current(supplier_id)
             context.modified_fields = frappe.as_json(modified_fields)
             context.modified_tabs = frappe.as_json(modified_tabs)
+            context.modified_items = frappe.as_json(modified_items)
         
     context.is_estatus_editable = (not supplier or supplier.qp_status not in ("En revisión", "Aprobado")) and not context.is_alpla_admin
 

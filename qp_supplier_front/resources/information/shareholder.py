@@ -4,11 +4,13 @@ from qp_supplier_front.uses_cases.information.shareholder.update import handler 
 from qp_supplier_front.uses_cases.information.shareholder.delete import handler as delete_shareholder
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.uses_cases.information.shareholder.get import get_shareholder
+from qp_supplier_front.util.uppercase_utils import sanitize_colombian_number
 
 
 @frappe.whitelist()
 def update(supplier_id, fullname, nationality, have_resident_another_country, have_american_visa, id_type, tax_id, market_share, doctype_id = None):
     method = frappe.local.request.method
+    market_share = sanitize_colombian_number(market_share)
     
     try:
         

@@ -209,11 +209,11 @@ def create_supplier_record(vendor_id: str, name: str):
     )
 
 
-def create_contact_records(supplier_index: int, vendor_id: str, name: str, mail: str):
+def create_contact_records(supplier_index: int, vendor_id: str, name: str, mail: str, phone=""):
     """Construye las tuplas para Contact y su Dynamic Link correspondiente."""
     contact_name = f"{supplier_index}-{vendor_id}"
     contact = (
-        contact_name, name, mail,
+        contact_name, name, mail, phone,
         current_time, current_time, owner, owner
     )
     dynamic_link = (
@@ -292,6 +292,7 @@ def build_records(
 
         name = supplier_response['name']
         mail = supplier_response.get('mail', '')
+        phone = supplier_response.get('phone', '')
 
         # Si el proveedor ya existe en la base de datos
         if vendor_id in local_tax_ids:
@@ -299,7 +300,7 @@ def build_records(
             if supplier_name:
                 # 1. Contacto
                 if mail and mail.strip() and supplier_name not in local_suppliers_with_contacts:
-                    contact, dynamic_link = create_contact_records(supplier_index, supplier_name, name, mail)
+                    contact, dynamic_link = create_contact_records(supplier_index, supplier_name, name, mail, phone)
                     contacts.append(contact)
                     dynamic_links.append(dynamic_link)
                     local_suppliers_with_contacts.add(supplier_name)
@@ -326,7 +327,7 @@ def build_records(
         suppliers.append(create_supplier_record(vendor_id, name))
 
         if mail and mail.strip():
-            contact, dynamic_link = create_contact_records(supplier_index, vendor_id, name, mail)
+            contact, dynamic_link = create_contact_records(supplier_index, vendor_id, name, mail, phone)
             contacts.append(contact)
             dynamic_links.append(dynamic_link)
             if vendor_id not in local_suppliers_with_contacts:
@@ -381,7 +382,7 @@ def bulk_insert_contacts(contacts: list):
         if filtered:
             frappe.db.bulk_insert(
                 "Contact",
-                ["name", "first_name", "user", "creation", "modified", "owner", "modified_by"],
+                ["name", "first_name", "user", "mobile_no", "creation", "modified", "owner", "modified_by"],
                 filtered
             )
 

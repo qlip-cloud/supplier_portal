@@ -22,7 +22,11 @@ def uppercase_form_inputs():
     tipo string enviados a los endpoints de qp_supplier_front.resources.information,
     y sanitiza los campos numéricos con formato colombiano.
     """
-    cmd = frappe.form_dict.get("cmd")
+    cmd = frappe.form_dict.get("cmd") or ""
+    if not cmd and frappe.request:
+        path = frappe.request.path or ""
+        if path.startswith("/api/method/"):
+            cmd = path[len("/api/method/"):]
     if cmd and cmd.startswith("qp_supplier_front.resources.information."):
         # Campos numéricos a los que se aplica la máscara de moneda colombiana
         financial_fields = {

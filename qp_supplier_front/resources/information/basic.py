@@ -1,11 +1,12 @@
 import frappe
 from qp_supplier_front.uses_cases.information.basic.update import handler as update_basic
 from qp_supplier_front.uses_cases.information.basic.save import handler as save_basic
+from qp_supplier_front.services.get_data import get_party, get_supplier
 from qp_supplier_front.resources.response import handler as response
 
 
 @frappe.whitelist()
-def update(supplier_id, supplier_name, id_type_name, tax_id, phone_number, business_type_name, qp_is_foreigner_supplier=None):
+def update(supplier_id, supplier_name, phone_number, business_type_name, id_type_name=None, tax_id=None, qp_is_foreigner_supplier=None):
     
     if supplier_name and len(str(supplier_name)) > 65:
         frappe.throw("El nombre excede los 65 caracteres.")
@@ -18,25 +19,25 @@ def update(supplier_id, supplier_name, id_type_name, tax_id, phone_number, busin
         
         msg = "Los datos han sido creados correctamente"
         msg_redirect = " <br> Sera redireccionado para completar la informacion de proveedor"
-        is_exist = frappe.db.exists("Supplier", {"tax_id": tax_id, "qp_asigned": False})
         
-        if method == "PUT" or is_exist:
-            
-            if (is_exist):
-            
-                msg += msg_redirect
-                
-                supplier_id = tax_id
-                
+        if method == "PUT":
+            supplier = get_supplier(supplier_id)
+            if tax_id is None:
+                tax_id = supplier.tax_id
+            if id_type_name is None:
+                party = get_party(supplier)
+                id_type_name = party.id_type if party else None
             result = update_basic(supplier_id, supplier_name, id_type_name, tax_id, phone_number, business_type_name, qp_is_foreigner_supplier)
             
-            
-                
         elif method == "POST":
-            
-            msg += msg_redirect
-            
-            result = save_basic(supplier_name, id_type_name, tax_id, phone_number, business_type_name, qp_is_foreigner_supplier)
+            is_exist = frappe.db.exists("Supplier", {"tax_id": tax_id, "qp_asigned": False})
+            if is_exist:
+                msg += msg_redirect
+                supplier_id = tax_id
+                result = update_basic(supplier_id, supplier_name, id_type_name, tax_id, phone_number, business_type_name, qp_is_foreigner_supplier)
+            else:
+                msg += msg_redirect
+                result = save_basic(supplier_name, id_type_name, tax_id, phone_number, business_type_name, qp_is_foreigner_supplier)
         
         response(200,  msg, result)
         

@@ -11,6 +11,7 @@ class TestSupplierSync(unittest.TestCase):
                 "vendorId": "1001",
                 "nit": "1001",
                 "name": "PROVEEDOR NUEVO",
+                "phone": "31155512340000",
                 "mail": "nuevo@example.com",
                 "address": [
                     {
@@ -27,6 +28,7 @@ class TestSupplierSync(unittest.TestCase):
                 "vendorId": "1002",
                 "nit": "1002",
                 "name": "PROVEEDOR EXISTENTE COMPLETO",
+                "phone": "32055556780000",
                 "mail": "existente_completo@example.com",
                 "address": [
                     {
@@ -43,6 +45,7 @@ class TestSupplierSync(unittest.TestCase):
                 "vendorId": "1003",
                 "nit": "1003",
                 "name": "PROVEEDOR EXISTENTE SIN NADA",
+                "phone": "",
                 "mail": "existente_sin_nada@example.com",
                 "address": [
                     {
@@ -119,6 +122,11 @@ class TestSupplierSync(unittest.TestCase):
         self.assertIn("nuevo@example.com", contact_emails)
         self.assertIn("existente_sin_nada@example.com", contact_emails)
         self.assertNotIn("existente_completo@example.com", contact_emails)
+
+        # 2b. Validar teléfono en contactos
+        contact_map = {c[2]: c[3] for c in records["contacts"]}
+        self.assertEqual(contact_map["nuevo@example.com"], "31155512340000")
+        self.assertEqual(contact_map["existente_sin_nada@example.com"], "")
 
         # 3. Validar direcciones creadas
         # Debe crear para 1001 (nuevo) y 1003 (existente sin nada).
