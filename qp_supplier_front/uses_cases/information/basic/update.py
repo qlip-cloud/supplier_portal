@@ -1,6 +1,6 @@
 import frappe
 from qp_supplier_front.services.get_data import get_party, get_supplier
-from qp_supplier_front.services.create_data import create_party, set_party
+from qp_supplier_front.services.create_data import create_party, set_party, update_primary_contact_phone
 from qp_supplier_front.services.create_data import create_party, create_first_contact
 
 from qp_supplier_front.services.field_validate import handler as validate_field, validar_supplier_name
@@ -19,6 +19,8 @@ def handler(supplier_id, supplier_name, id_type_name, tax_id, phone_number, busi
         create_first_contact(supplier)
     
     party = save_or_create_party(supplier, id_type_name, phone_number, business_type_name, tax_id)
+    
+    update_primary_contact_phone(supplier, phone_number)
     
     validate_field(supplier, "basic" , 0, None, supplier_name=supplier_name, id_type_name=id_type_name, tax_id=tax_id, phone_number=phone_number, business_type_name=business_type_name)
     

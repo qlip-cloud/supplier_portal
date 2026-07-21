@@ -146,31 +146,56 @@ def get_address(address):
     address_line1 = ""
     if address:
         
-        country = frappe.db.get_value('Country', address.country, 'gp_country')
+        country_name = address.country
+        if country_name and not frappe.db.exists('Country', country_name):
+            resolved_country = frappe.db.get_value('Country',
+                {'country_name': country_name}, 'name'
+            )
+            if resolved_country:
+                country_name = resolved_country
+        country = frappe.db.get_value('Country', country_name, 'gp_country')
         address_line1 = address.address_line1
     if country == "Colombia":
         
         municipality_code = ""
+        state_name_key = None
         
         if address.city:
             
-            if frappe.db.exists('qp_CO_State', address.city):
-            
-                state = frappe.get_doc('qp_CO_State', address.city)
-            
-                state_name = state.state_name
-            
-                state_code = state.state_code
+            state_code_found = frappe.db.get_value('qp_CO_State', address.city, 'state_code')
+            if state_code_found:
+                state_code = state_code_found
+                state_name_key = address.city
+                state_doc = frappe.get_doc('qp_CO_State', address.city)
+                state_name = state_doc.state_name
+            else:
+                # Fallback: buscar por state_name (datos legacy con nombre plano)
+                state_fallback = frappe.db.get_value('qp_CO_State',
+                    {'state_name': address.city}, ['name', 'state_name', 'state_code'], as_dict=True
+                )
+                if state_fallback:
+                    state_name = state_fallback.state_name
+                    state_code = state_fallback.state_code
+                    state_name_key = state_fallback.name
             
         if address.state:
             
-            if frappe.db.exists('qp_CO_Municipality', address.state):
-                
-                municipality = frappe.get_doc('qp_CO_Municipality', address.state)
-                                  
-                municipality_name = municipality.municipality_name
-                    
-                municipality_code = municipality.municipality_code
+            mun_code_found = frappe.db.get_value('qp_CO_Municipality', address.state, 'municipality_code')
+            if mun_code_found:
+                municipality_code = mun_code_found
+                mun_doc = frappe.get_doc('qp_CO_Municipality', address.state)
+                municipality_name = mun_doc.municipality_name
+            else:
+                # Fallback: buscar por municipality_name (datos legacy con nombre plano)
+                filters = {'municipality_name': address.state}
+                if state_name_key:
+                    filters['state_code'] = state_name_key
+                mun_fallback = frappe.db.get_value('qp_CO_Municipality',
+                    filters, ['municipality_name', 'municipality_code'], as_dict=True
+                )
+                if mun_fallback:
+                    municipality_name = mun_fallback.municipality_name
+                    municipality_code = mun_fallback.municipality_code
                 
         municipality_code = f"{state_code}{municipality_code}"
         

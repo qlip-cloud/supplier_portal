@@ -121,10 +121,67 @@ def create_snapshot(supplier_id):
     snapshot.insert(ignore_permissions=True)
     frappe.db.commit()
 
+FIELD_TO_TAB = {
+    # Basic
+    "supplier_name": "basic",
+    "id_type_name": "basic",
+    "tax_id": "basic",
+    "phone_number": "basic",
+    "business_type_name": "basic",
+    "qp_is_foreigner_supplier": "basic",
+    # Legal
+    "qp_legal_name": "legal",
+    "qp_legal_id_type": "legal",
+    "qp_legal_tax_id": "legal",
+    "qp_legal_place_expedition": "legal",
+    "qp_legal_date_expedition": "legal",
+    # Bank account complement (same tab as list)
+    "qp_public_resource_management": "bank_account",
+    "qp_public_activity": "bank_account",
+    "qp_public_recognition": "bank_account",
+    "qp_link_politically_exposed": "bank_account",
+    "qp_detail_politically_exposed": "bank_account",
+    # Tax
+    "qp_vat_officer": "tax",
+    "tax_regime": "tax",
+    "qp_industry_and_commerce_tax": "tax",
+    "qp_industry_and_commerce_rate": "tax",
+    "qp_self_retaining": "tax",
+    "qp_resolution_self_retaining": "tax",
+    "qp_major_contributor": "tax",
+    "qp_resolution": "tax",
+    "qp_vat_withholding_agent": "tax",
+    "ciiu_id": "tax",
+    # Financial
+    "qp_financial_assets": "financial",
+    "qp_financial_liabilities": "financial",
+    "qp_financial_equity": "financial",
+    "qp_financial_other_income": "financial",
+    "qp_financial_monthly_income": "financial",
+    "qp_financial_monthly_expenses": "financial",
+    "qp_financial_details_income": "financial",
+    # International
+    "qp_financial_currency_foreigner": "international",
+    "qp_financial_which_currency_foreigner": "international",
+    "qp_financial_other_operations": "international",
+    "qp_financial_item_foreigner": "international",
+    "qp_financial_account_currency_foreigner": "international",
+    "qp_financial_item_type": "international",
+    "qp_financial_item_number": "international",
+    "qp_financial_entity": "international",
+    "qp_financial_amount": "international",
+    "qp_financial_city": "international",
+    "qp_financial_country": "international",
+    "qp_financial_currency": "international",
+    # Document
+    "qp_has_quality_cert": "document",
+    "qp_quality_cert_detail": "document",
+}
+
 def compare_snapshot_with_current(supplier_id):
     """
     Compara el snapshot activo con la información actual y retorna
-    los campos y pestañas modificadas.
+    los campos modificados, pestañas con cambios, y detalle de ítems modificados.
     """
     snapshot_doc = frappe.get_all("qp_SP_SupplierSnapshot",
                                   filters={"supplier_id": supplier_id, "is_active": 1},
@@ -132,17 +189,19 @@ def compare_snapshot_with_current(supplier_id):
                                   order_by="creation desc",
                                   limit=1)
     if not snapshot_doc:
-        return {}, []
+        return {}, [], {}
 
     try:
         snapshot = frappe.parse_json(snapshot_doc[0].snapshot_data)
     except Exception:
-        return {}, []
+        return {}, [], {}
 
     current = get_supplier_data_dict(supplier_id)
 
     modified_fields = {}
     modified_tabs = set()
+    modified_items = {}
+    documents_modified = False
 
     # 1. Comparar Supplier
     snap_sup = snapshot.get("supplier", {})
@@ -176,35 +235,56 @@ def compare_snapshot_with_current(supplier_id):
         old_file = snap_docs.get(doc_setting)
         if file_path != old_file:
             doc_id = doc_setting.replace(" ", "-")
-            modified_fields[f"file_id_{doc_id}"] = "Archivo modificado o nuevo"
-            modified_fields[f"link-{doc_id}"] = "Archivo modificado o nuevo"
+            modified_fields["file_id_{}".format(doc_id)] = "Archivo modificado o nuevo"
+            modified_fields["link-{}".format(doc_id)] = "Archivo modificado o nuevo"
             modified_fields[doc_id] = "Modificado"
+            documents_modified = True
+
+    if documents_modified:
+        modified_tabs.add("document")
 
     # 4. Comparar Direcciones (Tab 2)
     snap_addrs = snapshot.get("addresses", [])
     curr_addrs = current.get("addresses", [])
-    if _has_list_changes(snap_addrs, curr_addrs, ["address_line1", "address_line2", "city", "state", "country"]):
+    addr_changes = _get_list_changes(snap_addrs, curr_addrs, ["address_line1", "address_line2", "city", "state", "country"])
+    if addr_changes:
         modified_tabs.add("address")
+        modified_items["address"] = addr_changes
 
     # 5. Comparar Contactos (Tab 3)
     snap_contacts = snapshot.get("contacts", [])
     curr_contacts = current.get("contacts", [])
-    if _has_list_changes(snap_contacts, curr_contacts, ["first_name", "qp_contact_type", "email_id", "phone"]):
+    contact_changes = _get_list_changes(snap_contacts, curr_contacts, ["first_name", "qp_contact_type", "email_id", "phone"])
+    if contact_changes:
         modified_tabs.add("contact")
+        modified_items["contact"] = contact_changes
 
     # 6. Comparar Cuentas Bancarias (Tab 5)
     snap_banks = snapshot.get("bank_accounts", [])
     curr_banks = current.get("bank_accounts", [])
-    if _has_list_changes(snap_banks, curr_banks, ["bank", "bank_account_no", "account_type", "currency", "qp_iban_number", "qp_routing_code"]):
+    bank_changes = _get_list_changes(snap_banks, curr_banks, ["bank", "bank_account_no", "account_type", "currency", "qp_iban_number", "qp_routing_code"])
+    if bank_changes:
         modified_tabs.add("bank_account")
+        modified_items["bank_account"] = bank_changes
 
     # 7. Comparar Accionistas (Tab 9)
     snap_sh = snapshot.get("shareholders", [])
     curr_sh = current.get("shareholders", [])
-    if _has_list_changes(snap_sh, curr_sh, ["fullname", "nationality", "have_resident_another_country", "have_american_visa", "id_type", "tax_id", "market_share"]):
+    sh_changes = _get_list_changes(snap_sh, curr_sh, ["fullname", "nationality", "have_resident_another_country", "have_american_visa", "id_type", "tax_id", "market_share"])
+    if sh_changes:
         modified_tabs.add("shareholder")
+        modified_items["shareholder"] = sh_changes
 
-    return modified_fields, list(modified_tabs)
+    # 8. Mapear campos modificados a sus tabs (para tabs de formulario no lista)
+    for field_name in modified_fields:
+        if field_name.startswith("file_id_") or field_name.startswith("link-"):
+            modified_tabs.add("document")
+            continue
+        tab_name = FIELD_TO_TAB.get(field_name)
+        if tab_name:
+            modified_tabs.add(tab_name)
+
+    return modified_fields, list(modified_tabs), modified_items
 
 def clear_snapshot(supplier_id):
     """
@@ -213,31 +293,68 @@ def clear_snapshot(supplier_id):
     frappe.db.set_value("qp_SP_SupplierSnapshot", {"supplier_id": supplier_id, "is_active": 1}, "is_active", 0)
     frappe.db.commit()
 
-def _has_list_changes(old_list, new_list, fields_to_compare):
-    if len(old_list) != len(new_list):
-        return True
+def _get_list_changes(old_list, new_list, fields_to_compare):
+    """
+    Compara dos listas de items y retorna una lista con los cambios detallados.
+
+    Cada cambio: {"name": str, "changes": {field: old_value}, "type": "modified"|"added"|"removed"}
+    """
+    result = []
 
     old_dict = {item["name"]: item for item in old_list if "name" in item}
     new_dict = {item["name"]: item for item in new_list if "name" in item}
 
-    if len(old_dict) != len(old_list) or len(new_dict) != len(new_list):
-        # Si no tienen IDs persistentes o coincidencia directa, comparación posicional simple
-        for i in range(len(old_list)):
-            for f in fields_to_compare:
-                if str(old_list[i].get(f) or "").strip() != str(new_list[i].get(f) or "").strip():
-                    return True
-        return False
+    has_all_names = (len(old_dict) == len(old_list) and
+                     len(new_dict) == len(new_list) and
+                     old_dict and new_dict)
 
+    if not has_all_names:
+        # Comparación posicional para items sin nombre persistente
+        max_len = max(len(old_list), len(new_list))
+        for i in range(max_len):
+            item_changes = {}
+            is_new = False
+            is_removed = False
+
+            if i >= len(old_list):
+                is_new = True
+            elif i >= len(new_list):
+                is_removed = True
+            else:
+                for f in fields_to_compare:
+                    old_v = old_list[i].get(f)
+                    new_v = new_list[i].get(f)
+                    if str(new_v or "").strip() != str(old_v or "").strip():
+                        item_changes[f] = old_v if old_v not in [None, ""] else "Ninguno"
+
+            name = new_list[i].get("name") if not is_removed and i < len(new_list) else (
+                old_list[i].get("name") if i < len(old_list) else "pos_{}".format(i)
+            )
+            if is_new:
+                result.append({"name": name, "changes": item_changes or {}, "type": "added"})
+            elif is_removed:
+                result.append({"name": old_list[i].get("name", "pos_{}".format(i)), "changes": {}, "type": "removed"})
+            elif item_changes:
+                result.append({"name": name, "changes": item_changes, "type": "modified"})
+        return result
+
+    # Comparación por nombre
     for name, new_item in new_dict.items():
         if name not in old_dict:
-            return True
+            result.append({"name": name, "changes": {}, "type": "added"})
+            continue
         old_item = old_dict[name]
+        item_changes = {}
         for f in fields_to_compare:
-            if str(new_item.get(f) or "").strip() != str(old_item.get(f) or "").strip():
-                return True
+            new_v = new_item.get(f)
+            old_v = old_item.get(f)
+            if str(new_v or "").strip() != str(old_v or "").strip():
+                item_changes[f] = old_v if old_v not in [None, ""] else "Ninguno"
+        if item_changes:
+            result.append({"name": name, "changes": item_changes, "type": "modified"})
 
     for name in old_dict:
         if name not in new_dict:
-            return True
+            result.append({"name": name, "changes": {}, "type": "removed"})
 
-    return False
+    return result

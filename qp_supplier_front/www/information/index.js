@@ -191,6 +191,7 @@ $(document).ready(function () {
 
     $("#tax_id").on("blur", function () {
 
+        if ($("#supplier_id").val()) return;
 
         tax_id = $(this).val()
 
@@ -232,6 +233,15 @@ $(document).ready(function () {
 
         var formData = new FormData(this);
 
+        // Sanitizar market_share de formato colombiano a float
+        if (formData.has('market_share')) {
+            var raw = formData.get('market_share');
+            if (raw && raw.indexOf(',') !== -1) {
+                formData.delete('market_share');
+                formData.append('market_share', raw.replace(/\./g, '').replace(',', '.'));
+            }
+        }
+
         supplier_id = $("#supplier_id").val();
 
         formData.append("supplier_id", supplier_id);
@@ -261,6 +271,7 @@ $(document).ready(function () {
                             render = data.render
 
                             $(`#${render.container}`).html(render.list)
+                            applyListRowHighlights();
                         }
                         if (data.is_bank_account) {
                             $(`#new-bank-account`).addClass("hidden disabled")
@@ -533,6 +544,7 @@ $(document).ready(function () {
                         frappe.msgprint(response.msg)
                         render = data.render
                         $(`#${render.container}`).html(render.list)
+                        applyListRowHighlights();
                     }
                     else {
                         msg = response.msg || "Hubo un error eliminando el contacto."
@@ -556,6 +568,7 @@ $(document).ready(function () {
                         frappe.msgprint(response.msg)
                         render = data.render
                         $(`#${render.container}`).html(render.list)
+                        applyListRowHighlights();
                     }
                     else {
                         $(`#status-${shareholder_id}`).text("Hubo un error eliminando el accionista");
@@ -592,6 +605,7 @@ $(document).ready(function () {
 
                         render = data.render
                         $(`#${render.container}`).html(render.list)
+                        applyListRowHighlights();
 
                         if (data.bank_accounts.length === 0) {
                             $(`#new-bank-account`).removeClass("hidden disabled")
@@ -828,6 +842,7 @@ $(document).ready(function () {
 
             $selectAddress_line1.val(address.address_line1);
 
+            applyModalFieldHighlights("address");
             $("#form-address").attr('method', 'PUT');
             $('#addres_modal').modal('show')
         }
@@ -879,6 +894,7 @@ $(document).ready(function () {
             $dataPhone.val(phone_number);
             $contactType.val(contact.qp_contact_type);
 
+            applyModalFieldHighlights("contact");
             $("#form-contact").attr('method', 'PUT');
             $('#contact_modal').modal('show')
         }
@@ -928,6 +944,7 @@ $(document).ready(function () {
             $ibanNumber.val(bank_account.qp_iban_number || "");
             $qp_routing_code.val(bank_account.qp_routing_code || "");
 
+            applyModalFieldHighlights("bank_account");
             const is_synced = bank_account.qp_from_sync === 1;
             const is_page_editable = !$("#qp_public_resource_management").prop("disabled");
 
@@ -1004,7 +1021,7 @@ $(document).ready(function () {
             const $selectHaveResidentAnotherCountry = $("#have_resident_another_country");
             const $selectHaveAmericanVisa = $("#have_american_visa");
             const $selectIdType = $("#id_type");
-            const $dataTaxId = $("#tax_id");
+            const $dataTaxId = $("#shareholder_tax_id");
             const $dataMarketShare = $("#market_share");
 
 
@@ -1017,7 +1034,16 @@ $(document).ready(function () {
             $selectIdType.val(shareholder.id_type);
             $dataTaxId.val(shareholder.tax_id);
             $dataMarketShare.val(shareholder.market_share);
+            var msVal = $dataMarketShare.val();
+            if (msVal) {
+                var num = parseFloat(msVal.replace(',', '.'));
+                if (!isNaN(num)) {
+                    var cents = Math.round(num * 100);
+                    $dataMarketShare.val(formatColombianCurrency(cents.toString()));
+                }
+            }
 
+            applyModalFieldHighlights("shareholder");
             $("#form-shareholder").attr('method', 'PUT');
             $('#shareholder_modal').modal('show')
         }
@@ -1133,9 +1159,11 @@ $(document).ready(function () {
     if ($modData.length) {
         var modifiedFields = {};
         var modifiedTabs = [];
+        window.modifiedItems = {};
         try {
             modifiedFields = JSON.parse($modData.attr('data-fields') || '{}');
             modifiedTabs = JSON.parse($modData.attr('data-tabs') || '[]');
+            window.modifiedItems = JSON.parse($modData.attr('data-items') || '{}');
         } catch (e) {
             console.error("Error parsing modified data", e);
         }
@@ -1200,8 +1228,138 @@ $(document).ready(function () {
         setTimeout(function() {
             $('[data-toggle="tooltip"]').tooltip({ placement: 'top' });
         }, 100);
+
+        // 4. Resaltar filas de listas
+        applyListRowHighlights();
     }
 });
+
+// Mapeo de nombres de campo snapshot a nombres de campo de formulario
+var MODAL_FIELD_MAP = {
+    "address": {
+        "address_line1": "address_line1",
+        "address_line2": "address_line2",
+        "city": "city",
+        "state": "state",
+        "country": "country"
+    },
+    "contact": {
+        "first_name": "first_name",
+        "qp_contact_type": "qp_contact_type",
+        "email_id": "email_id",
+        "phone": "phone"
+    },
+    "bank_account": {
+        "bank": "bank",
+        "bank_account_no": "bank_account_no",
+        "account_type": "account_type",
+        "currency": "currency",
+        "qp_iban_number": "iban",
+        "qp_routing_code": "qp_routing_code"
+    },
+    "shareholder": {
+        "fullname": "fullname",
+        "nationality": "nationality",
+        "have_resident_another_country": "have_resident_another_country",
+        "have_american_visa": "have_american_visa",
+        "id_type": "id_type",
+        "tax_id": "tax_id",
+        "market_share": "market_share"
+    }
+};
+
+function applyModalFieldHighlights(tabName) {
+    var items = window.modifiedItems || {};
+    var tabItems = items[tabName];
+    if (!tabItems || !tabItems.length) return;
+
+    var fieldMap = MODAL_FIELD_MAP[tabName];
+    if (!fieldMap) return;
+
+    // Build a lookup: item name -> item changes
+    var changesByItem = {};
+    tabItems.forEach(function(item) {
+        changesByItem[item.name] = item;
+    });
+
+    // Determine the item name from the modal's doctype_id input
+    var modalIds = {
+        "address": "#form-address [name='doctype_id']",
+        "contact": "#form-contact [name='doctype_id']",
+        "bank_account": "#form-bank-account [name='doctype_id']",
+        "shareholder": "#form-shareholder [name='doctype_id']"
+    };
+    var $doctypeId = $(modalIds[tabName]);
+    var itemName = $doctypeId.val();
+
+    var changeData = changesByItem[itemName];
+    if (!changeData || changeData.type !== "modified") return;
+
+    var changes = changeData.changes;
+    Object.keys(changes).forEach(function(snapshotField) {
+        var formFieldName = fieldMap[snapshotField];
+        if (!formFieldName) return;
+
+        var oldVal = changes[snapshotField];
+        var $field = $('[name="' + formFieldName + '"], #' + formFieldName);
+        if (!$field.length) return;
+
+        var id = $field.attr('id');
+        var $label = id ? $('label[for="' + id + '"]') : [];
+        if (!$label.length) {
+            $label = $field.closest('.col-lg-4, .col-6, .col-12, .col-md-4, .col-md-6').find('label');
+        }
+        if ($field.attr('type') === 'checkbox') {
+            $label = $field.parent().find('label');
+        }
+
+        if ($label.length && !$label.hasClass('modified-label')) {
+            $label.css('color', '#28a745').addClass('modified-label');
+            var $infoIcon = $('<span class="material-symbols-outlined modified-info-icon" style="font-size: 16px; vertical-align: middle; margin-left: 4px; color: #28a745; cursor: help;" data-toggle="tooltip">info</span>');
+            $infoIcon.attr('title', 'Valor anterior: ' + oldVal);
+            $label.append($infoIcon);
+        }
+    });
+}
+
+function applyListRowHighlights() {
+    var items = window.modifiedItems || {};
+
+    var listContainerMap = {
+        "address": "#address_list",
+        "contact": "#contact_list",
+        "bank_account": "#bank_account_list",
+        "shareholder": "#shareholder_list"
+    };
+
+    Object.keys(listContainerMap).forEach(function(tabName) {
+        var tabItems = items[tabName];
+        if (!tabItems || !tabItems.length) return;
+
+        var $container = $(listContainerMap[tabName]);
+        if (!$container.length) return;
+
+        tabItems.forEach(function(item) {
+            var rowSelector = "." + {
+                "address": "addres-id",
+                "contact": "contact-id",
+                "bank_account": "bank_account-id",
+                "shareholder": "shareholder-id"
+            }[tabName] + "[data-id='" + item.name + "']";
+
+            var $row = $container.find(rowSelector).closest(".list-item, tr");
+            if ($row.length) {
+                var bgColors = {
+                    "modified": "#e8f5e9",
+                    "added": "#e3f2fd",
+                    "removed": "#fce4ec"
+                };
+                var color = bgColors[item.type] || "#e8f5e9";
+                $row.css("background-color", color);
+            }
+        });
+    });
+}
 
 function getDocuments(is_estatus_editable) {
 

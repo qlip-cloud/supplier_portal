@@ -50,6 +50,28 @@ def get_context(context):
         
         context.contacts = contacts
         
+        primary_phone = None
+        if contacts:
+            for contact in contacts:
+                phone = contact.mobile_no or (contact.phone_nos[0].phone if contact.phone_nos else None)
+                if contact.is_primary_contact and phone:
+                    primary_phone = phone
+                    break
+            if not primary_phone:
+                for contact in contacts:
+                    phone = contact.mobile_no or (contact.phone_nos[0].phone if contact.phone_nos else None)
+                    if phone:
+                        primary_phone = phone
+                        if not contact.is_primary_contact:
+                            for c in contacts:
+                                if c.is_primary_contact:
+                                    c.is_primary_contact = 0
+                                    c.save()
+                            contact.is_primary_contact = 1
+                            contact.save()
+                        break
+        context.primary_phone = primary_phone
+        
         context.bank_accounts = get_bank_accounts(supplier, "Bank Account")
         
         document_settings = setup_document_settings(supplier.qp_documents)
@@ -65,11 +87,13 @@ def get_context(context):
         # Snapshot comparison for Alpla admin during review
         context.modified_fields = "{}"
         context.modified_tabs = "[]"
+        context.modified_items = "{}"
         if supplier.qp_status == "En revisión" and context.is_alpla_admin:
             from qp_supplier_front.services.snapshot import compare_snapshot_with_current
-            modified_fields, modified_tabs = compare_snapshot_with_current(supplier_id)
+            modified_fields, modified_tabs, modified_items = compare_snapshot_with_current(supplier_id)
             context.modified_fields = frappe.as_json(modified_fields)
             context.modified_tabs = frappe.as_json(modified_tabs)
+            context.modified_items = frappe.as_json(modified_items)
         
     
     context.is_estatus_editable = (not supplier or supplier.qp_status not in ("En revisión", "Aprobado")) and not context.is_alpla_admin

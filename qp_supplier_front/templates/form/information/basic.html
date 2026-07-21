@@ -8,7 +8,7 @@
         <div class="col-lg-4">
             <label for="id_type_name">Tipo Documento</label>
 
-            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }} name="id_type_name"
+            <select class="form-control" {{ "" if (is_estatus_editable and not supplier_id) else "disabled = 'true'" }} name="id_type_name"
                 id="status" data-label="Status" data-fieldtype="Select">
                 <option value="0" selected="selected" class="custom-option">Tipo Documento
                 </option>
@@ -22,7 +22,7 @@
         <div class="col-lg-4">
             <label for="tax_id">Documento</label>
             <input type="text" autocomplete="off" name="tax_id"
-                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
+                class="input-with-feedback form-control floating-input bold" {{ "" if (is_estatus_editable and not supplier_id)
                 else "disabled = 'true'" }} data-fieldtype="Data" data-doctype="Issue" id="tax_id"
                 value="{{supplier.tax_id or ''}}" placeholder="Documento" {{"maxlength=9" if
                 supplier.qp_legal_id_type=="NIT" else "maxlength=140" }}>
@@ -55,7 +55,7 @@
             <input type="text" autocomplete="off" name="phone_number"
                 class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
                 else "disabled = 'true'" }} maxlength="17" data-fieldtype="Data" data-doctype="Issue" id="phone_number"
-                value="{{party.phone_number or ''}}" placeholder="(000)0000000">
+                value="{{primary_phone or party.phone_number or ''}}" placeholder="(000)0000000">
             <div class="text-muted" style="font-size: 12px;">
                 <i>(Indicativo de ciudad) Número telefónico.</i>
             </div>

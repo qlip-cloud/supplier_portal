@@ -1,16 +1,30 @@
 # -*- coding: utf-8 -*-
 import unittest
+try:
+    from unittest.mock import patch
+except ImportError:
+    from mock import patch
+
+import qp_supplier_front.uses_cases.supplier.sync_all as sync_all
 from qp_supplier_front.uses_cases.supplier.sync_all import build_records
 
 class TestSupplierSync(unittest.TestCase):
 
     def setUp(self):
+        self.patchers = [
+            patch.object(sync_all, '_resolve_state_code', side_effect=lambda s: s),
+            patch.object(sync_all, '_resolve_municipality_code', side_effect=lambda c, s: c),
+        ]
+        for p in self.patchers:
+            p.start()
+
         # Datos de prueba para simular la respuesta de la API
         self.suppliers_response = [
             {
                 "vendorId": "1001",
                 "nit": "1001",
                 "name": "PROVEEDOR NUEVO",
+                "phone": "31155512340000",
                 "mail": "nuevo@example.com",
                 "address": [
                     {
@@ -27,6 +41,7 @@ class TestSupplierSync(unittest.TestCase):
                 "vendorId": "1002",
                 "nit": "1002",
                 "name": "PROVEEDOR EXISTENTE COMPLETO",
+                "phone": "32055556780000",
                 "mail": "existente_completo@example.com",
                 "address": [
                     {
@@ -43,6 +58,7 @@ class TestSupplierSync(unittest.TestCase):
                 "vendorId": "1003",
                 "nit": "1003",
                 "name": "PROVEEDOR EXISTENTE SIN NADA",
+                "phone": "",
                 "mail": "existente_sin_nada@example.com",
                 "address": [
                     {
@@ -61,15 +77,6 @@ class TestSupplierSync(unittest.TestCase):
         self.existing_suppliers = {
             "1002": "PROV-1002",
             "1003": "PROV-1003"
-        }
-        self.suppliers_with_contacts = {
-            "PROV-1002"
-        }
-        self.suppliers_with_addresses = {
-            "PROV-1002"
-        }
-        self.suppliers_with_bank_accounts = {
-            "PROV-1002"
         }
         self.eft_by_vendor = {
             "1002": [
@@ -96,14 +103,15 @@ class TestSupplierSync(unittest.TestCase):
             ]
         }
 
+    def tearDown(self):
+        for p in self.patchers:
+            p.stop()
+
     def test_build_records_creates_correct_structures(self):
-        # Ejecutar build_records con el nuevo conjunto de parámetros
+        # build_records ahora construye registros para TODOS los proveedores (upsert decide)
         records = build_records(
             self.suppliers_response,
             self.existing_suppliers,
-            self.suppliers_with_contacts,
-            self.suppliers_with_addresses,
-            self.suppliers_with_bank_accounts,
             self.eft_by_vendor
         )
 
@@ -111,26 +119,28 @@ class TestSupplierSync(unittest.TestCase):
         self.assertEqual(len(records["suppliers"]), 1)
         self.assertEqual(records["suppliers"][0][0], "1001")
 
-        # 2. Validar contactos creados
-        # Debe crear para 1001 (nuevo) y 1003 (existente sin nada).
-        # No para 1002 (existente completo que ya tiene contacto).
-        self.assertEqual(len(records["contacts"]), 2)
+        # 2. Validar contactos creados (ahora incluye existentes con mail)
+        self.assertEqual(len(records["contacts"]), 3)
         contact_emails = [c[2] for c in records["contacts"]]
         self.assertIn("nuevo@example.com", contact_emails)
+        self.assertIn("existente_completo@example.com", contact_emails)
         self.assertIn("existente_sin_nada@example.com", contact_emails)
-        self.assertNotIn("existente_completo@example.com", contact_emails)
 
-        # 3. Validar direcciones creadas
-        # Debe crear para 1001 (nuevo) y 1003 (existente sin nada).
-        # No para 1002 (existente completo que ya tiene dirección).
-        self.assertEqual(len(records["addresses"]), 2)
+        # 2b. Validar teléfono en contactos
+        contact_map = {c[2]: c[3] for c in records["contacts"]}
+        self.assertEqual(contact_map["nuevo@example.com"], "31155512340000")
+        self.assertEqual(contact_map["existente_completo@example.com"], "32055556780000")
+        self.assertEqual(contact_map["existente_sin_nada@example.com"], "")
+
+        # 3. Validar direcciones creadas (PK siempre usa vendor_id = tax_id)
+        self.assertEqual(len(records["addresses"]), 3)
         address_names = [a[0] for a in records["addresses"]]
         self.assertIn("0-1001:Billing", address_names)
-        self.assertIn("0-PROV-1003:Billing", address_names)
-        self.assertNotIn("0-PROV-1002:Billing", address_names)
+        self.assertIn("0-1002:Billing", address_names)
+        self.assertIn("0-1003:Billing", address_names)
 
-        # 4. Validar cuentas bancarias creadas
-        # Debe crear para 1003 (existente sin nada).
-        # No para 1002 (existente completo que ya tiene cuenta bancaria).
-        self.assertEqual(len(records["bank_accounts"]), 1)
-        self.assertEqual(records["bank_accounts"][0][0], "PROV-1003:67890")
+        # 4. Validar cuentas bancarias creadas (PK siempre usa vendor_id = tax_id)
+        self.assertEqual(len(records["bank_accounts"]), 2)
+        bank_names = [ba[0] for ba in records["bank_accounts"]]
+        self.assertIn("1002:12345", bank_names)
+        self.assertIn("1003:67890", bank_names)
