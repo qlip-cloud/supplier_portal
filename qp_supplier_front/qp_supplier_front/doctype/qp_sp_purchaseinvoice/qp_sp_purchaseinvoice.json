@@ -4,20 +4,21 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
-  "field_order": [
-   "invoice_id",
-   "status",
-   "create_date",
-   "registration_date",
-   "currency",
-   "subtotal",
-   "tax",
-   "total",
-   "detail",
-   "supplier",
-   "qp_sync_flow",
-   "qp_is_error"
-  ],
+   "field_order": [
+    "invoice_id",
+    "status",
+    "create_date",
+    "registration_date",
+    "currency",
+    "subtotal",
+    "tax",
+    "total",
+    "detail",
+    "purchase_order_id",
+    "supplier",
+    "qp_sync_flow",
+    "qp_is_error"
+   ],
  "fields": [
   {
    "fieldname": "invoice_id",
@@ -63,13 +64,21 @@
    "fieldtype": "Float",
    "label": "total"
   },
-  {
-   "fieldname": "detail",
-   "fieldtype": "Data",
-   "label": "detail"
-  },
-  {
-    "fieldname": "supplier",
+   {
+    "fieldname": "detail",
+    "fieldtype": "Data",
+    "label": "detail"
+   },
+   {
+    "fieldname": "purchase_order_id",
+    "fieldtype": "Data",
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "label": "Purchase Order ID",
+    "read_only": 1
+   },
+   {
+     "fieldname": "supplier",
     "fieldtype": "Link",
     "label": "supplier",
     "options": "Supplier"
@@ -91,7 +100,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
-  "modified": "2026-07-15 12:00:00.000000",
+  "modified": "2026-07-22 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_PurchaseInvoice",

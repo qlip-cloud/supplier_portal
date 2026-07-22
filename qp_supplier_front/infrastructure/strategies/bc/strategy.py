@@ -16,10 +16,10 @@ from qp_supplier_front.infrastructure.strategies.gp.persist_adapter import (
 
 def build_bc_param(supplier_id, last_date=None, now=None):
     if last_date:
-        return "$filter=Vendor_No eq '{}' and Posting_Date ge {} and Posting_Date le {}".format(
+        return "$filter=Vendor_No eq '{}' and Document_Type eq 'Invoice' and Posting_Date ge {} and Posting_Date le {}".format(
             supplier_id, last_date, now
         )
-    return "$filter=Vendor_No eq '{}'".format(supplier_id)
+    return "$filter=Vendor_No eq '{}' and Document_Type eq 'Invoice'".format(supplier_id)
 
 
 BC_STRATEGY = {

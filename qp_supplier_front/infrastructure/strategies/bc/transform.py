@@ -32,6 +32,7 @@ def build_invoice_tuple(invoice, strategy_name, doc_id, now):
         total,
         invoice.get("Vendor_No"),
         invoice.get("Description") or "",
+        invoice.get("LHCOrdenCompra") or "",
         strategy_name,
         now,
         now,
@@ -47,6 +48,8 @@ def build_doc_id(invoice):
 def build_invoices(invoices_data, strategy_name, now):
     docs = {}
     for invoice in invoices_data:
+        if invoice.get("Document_Type") != "Invoice":
+            continue
         doc_id = build_doc_id(invoice)
         docs[doc_id] = build_invoice_tuple(
             invoice, strategy_name, doc_id, now

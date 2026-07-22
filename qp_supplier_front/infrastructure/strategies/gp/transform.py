@@ -20,6 +20,7 @@ def build_invoice_tuple(invoice, strategy_name, doc_id, now):
         invoice.get("total"),
         invoice.get("vendor"),
         invoice.get("detail"),
+        "",
         strategy_name,
         now,
         now,

@@ -1,6 +1,5 @@
 <td colspan="4">
-
-
+    {% if list_detail %}
     <div class="row">
         <div class="col-lg-12">
             <table class="table inner-table">
@@ -30,5 +29,11 @@
     </div>
 
     {% include "qp_supplier_front/templates/paginator/control.html" %}
-
+    {% else %}
+    <div class="row">
+        <div class="col-lg-12 text-center">
+            <span class="text-muted">No hay información disponible</span>
+        </div>
+    </div>
+    {% endif %}
 </td>

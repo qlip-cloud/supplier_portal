@@ -16,7 +16,7 @@ def insert_invoices(docs, now):
     doc_fields = (
         "(name, invoice_id, status, create_date, registration_date, "
         "currency, subtotal, tax, total, supplier, detail, "
-        "qp_sync_flow, creation, modified, modified_by, owner)"
+        "purchase_order_id, qp_sync_flow, creation, modified, modified_by, owner)"
     )
     create_doc(docs, doc_fields, table)
 

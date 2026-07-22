@@ -1,8 +1,10 @@
 import frappe
 import json
-from qp_supplier_front.services.pagination import get_paginated, get_paginated_filtered
-from qp_supplier_front.uses_cases.payment_receipt.sync_by_supplier import sync_by_supplier, sync_all
+from qp_supplier_front.services.pagination import get_paginated
+from qp_supplier_front.uses_cases.payment_receipt.sync_by_supplier import sync_by_supplier
 from qp_supplier_front.services.get_data import has_recent_news, get_has_dispatch_permission
+from qp_supplier_front.services.flow_config import is_flow_configured
+
 
 def get_context(context):
 
@@ -11,20 +13,21 @@ def get_context(context):
     query_params = frappe.request.args
 
     supplier_id = query_params.get("supplier")
-    flow = query_params.get("flow", "GP")
 
     context.supplier_id = supplier_id
-    context.flow = flow
 
-    try:
-        if flow == "BC":
-            sync_all(flow="BC")
-        else:
+    for flow in ("GP", "BC"):
+        if not is_flow_configured(flow, domain="receipt"):
+            continue
+        try:
             sync_by_supplier(supplier_id, flow=flow)
 
-    except Exception as e:
+        except Exception as e:
 
-        frappe.log_error(message=frappe.get_traceback(), title="Error sync payment receipts: {} ({})".format(supplier_id, flow))
+            frappe.log_error(
+                message=frappe.get_traceback(),
+                title="Error sync payment receipts: {} ({})".format(supplier_id, flow),
+            )
 
     context.has_dispatch_permission = get_has_dispatch_permission(supplier_id)
 
@@ -38,13 +41,7 @@ def get_context(context):
 
     order_by = "qp_posting_date"
 
-    if flow == "BC":
-        context.receipts = get_paginated_filtered(
-            0, doctype, order_by,
-            filters={"qp_sync_flow": "BC"}
-        )
-    else:
-        context.receipts = get_paginated(0, doctype, supplier_id, order_by)
+    context.receipts = get_paginated(0, doctype, supplier_id, order_by)
 
     context.key = key
 

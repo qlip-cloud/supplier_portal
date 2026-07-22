@@ -3,6 +3,7 @@
 
 <tr class="card-header" id="heading-{{ invoice.qp_invoice_id }}">
     <td>{{ invoice.invoice_id }}</td>
+    <td class="text-center">{{ invoice.purchase_order_id }}</td>
     <td class="text-left">
         <span class="status-badge
           {% if invoice.status == 'Abierto' %} status-open
@@ -24,7 +25,7 @@
 </tr>
 <tr id="collapse-{{ invoice.qp_invoice_id }}" class="collapse" aria-labelledby="heading-{{ invoice.qp_invoice_id }}"
     data-parent="#accordion" data-sync="0">
-    <td colspan="9">
+    <td colspan="10">
         Buscando información...
     </td>
 </tr>
@@ -32,7 +33,7 @@
 {% endfor %}
 {% elif show_result %}
 <tr>
-    <td colspan="9">No hay resultados</td>
+    <td colspan="10">No hay resultados</td>
 </tr>
 
 {% endif %}

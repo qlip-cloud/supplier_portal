@@ -122,15 +122,15 @@ $(document).ready(function () {
 
             var nav = $(this).closest('nav');
 
-            action = $(nav.data("reference"));
+            let action = $(nav.data("reference"));
 
-            page = $(this).data("page")
+            let page = $(this).data("page")
 
-            target = $(action).data("target")
+            let target = $(action).data("target")
 
-            url = `qp_supplier_front.resources.utils.pagination.render_detail`;
+            let url = `qp_supplier_front.resources.utils.pagination.render_detail`;
 
-            data = {
+            let data = {
                 "key": $(action).data("key"),
                 "parent_doctype": $(action).data("parent-doctype"),
                 "doctype": $(action).data("doctype"),
@@ -138,11 +138,11 @@ $(document).ready(function () {
                 page
             }
 
-            callresponse = (response) => {
+            let callresponse = (response) => {
 
                 loading = false
 
-                if (response.data.trim() === "") {
+                if (!response.data || response.data.trim() === "") {
 
                     return;
                 }
@@ -191,31 +191,28 @@ $(document).ready(function () {
     })
 
     $("#accordion").on("click", ".detail-row", function () {
+                    console.log("loading", loading)
 
         if (loading == false) {
+            let target = $(this).data("target");
 
-
+            $(target).collapse('toggle');
             if ($(this).hasClass("empty-data")) {
 
                 loading = true;
 
-                target = $(this).data("target");
+                let url = `qp_supplier_front.resources.utils.pagination.render_detail`;
 
-                $(target).collapse('toggle');
-
-                url = `qp_supplier_front.resources.utils.pagination.render_detail`;
-
-                data = {
+                let data = {
                     "key": $(this).data("key"),
                     "parent_doctype": $(this).data("parent-doctype"),
                     "doctype": $(this).data("doctype"),
                     "name": $(this).data("name")
                 }
 
-                callresponse = (response) => {
+                let callresponse = (response) => {
                     loading = false;
-
-                    if (response.data.trim() === "") {
+                    if (!response.data || response.data.trim() === "") {
                         return;
                     }
 
@@ -257,14 +254,14 @@ $(document).ready(function () {
 
                 $("#loading").show()
 
-                accordion = $("#accordion");
+                let accordion = $("#accordion");
 
-                supplier_id = $("#supplier_id").val();
+                let supplier_id = $("#supplier_id").val();
 
-                url = `qp_supplier_front.resources.utils.pagination.render_pagination`;
-                filters = getValidInputs();
+                let url = `qp_supplier_front.resources.utils.pagination.render_pagination`;
+                let filters = getValidInputs();
 
-                data = {
+                let data = {
                     'page': currentPage,
                     "key": accordion.data("key"),
                     "doctype": accordion.data("doctype"),
@@ -275,10 +272,10 @@ $(document).ready(function () {
                     filters
                 }
 
-                callresponse = (response) => {
+                let callresponse = (response) => {
                     loading = false;
 
-                    if (response.data.trim() === "") {
+                    if (!response.data || response.data.trim() === "") {
                         // No more data to load
                         $(window).off('scroll');
                         no_more = true;
@@ -305,7 +302,7 @@ $(document).ready(function () {
     function filter_init() {
         currentPage = -1;
         no_more = false;
-        accordion = $("#accordion");
+        let accordion = $("#accordion");
 
         $(window).off('scroll');
         $(window).scroll(function () {
@@ -334,7 +331,7 @@ function getValidInputs() {
 
     let $start_date = $("#start_date")
     let $end_date = $("#end_date")
-    date_key = $start_date.data("date_key")
+    let date_key = $start_date.data("date_key")
     
     if ($start_date.val()){
         if ($start_date.val().trim() && $end_date.val().trim()) {

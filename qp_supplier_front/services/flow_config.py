@@ -1,8 +1,8 @@
 """
 flow_config.py
 ===============
-Verifica si un flujo de sincronizacion (GP, BC) tiene las credenciales
-y configuracion necesarias para operar.
+Verifica si un flujo de sincronizacion (GP, BC) para un dominio
+especifico tiene las credenciales y configuracion necesarias.
 
 Cada flujo requiere una cadena de Doctypes:
   GP: qp_auth_Endpoint -> qp_auth_Setup -> qp_auth_Enviroment
@@ -10,20 +10,31 @@ Cada flujo requiere una cadena de Doctypes:
 """
 
 
-def is_flow_configured(flow):
+ENDPOINT_CODES = {
+    ("GP", "invoice"): "invoice_supplier_id",
+    ("GP", "receipt"): "payment_supplier_id",
+    ("BC", "invoice"): "list_purchase_invoice",
+    ("BC", "receipt"): "list_payment_receipt",
+}
+
+
+def is_flow_configured(flow, domain="invoice"):
+    endpoint_code = ENDPOINT_CODES.get((flow, domain))
+    if not endpoint_code:
+        return False
     if flow == "GP":
-        return _is_gp_configured()
+        return _check_gp(endpoint_code)
     elif flow == "BC":
-        return _is_bc_configured()
+        return _check_bc(endpoint_code)
     return False
 
 
-def _is_gp_configured():
+def _check_gp(endpoint_code):
     import frappe
     try:
-        if not frappe.db.exists("qp_auth_Endpoint", "invoice_supplier_id"):
+        if not frappe.db.exists("qp_auth_Endpoint", endpoint_code):
             return False
-        endpoint = frappe.get_doc("qp_auth_Endpoint", "invoice_supplier_id")
+        endpoint = frappe.get_doc("qp_auth_Endpoint", endpoint_code)
         if not endpoint.setup:
             return False
         if not frappe.db.exists("qp_auth_Setup", endpoint.setup):
@@ -41,12 +52,12 @@ def _is_gp_configured():
         return False
 
 
-def _is_bc_configured():
+def _check_bc(endpoint_code):
     import frappe
     try:
-        if not frappe.db.exists("qp_md_Endpoint", "list_purchase_invoice"):
+        if not frappe.db.exists("qp_md_Endpoint", endpoint_code):
             return False
-        endpoint = frappe.get_doc("qp_md_Endpoint", "list_purchase_invoice")
+        endpoint = frappe.get_doc("qp_md_Endpoint", endpoint_code)
         if not endpoint.setup:
             return False
         if not frappe.db.exists("qp_md_Setup", endpoint.setup):
