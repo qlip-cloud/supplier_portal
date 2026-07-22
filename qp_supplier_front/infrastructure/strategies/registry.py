@@ -9,11 +9,18 @@ El resolver recibe un nombre de estrategia y retorna su configuracion.
 
 from qp_supplier_front.infrastructure.strategies.gp.strategy import GP_STRATEGY
 from qp_supplier_front.infrastructure.strategies.bc.strategy import BC_STRATEGY
+from qp_supplier_front.infrastructure.strategies.gp.receipt_strategy import GP_RECEIPT_STRATEGY
+from qp_supplier_front.infrastructure.strategies.bc.receipt_strategy import BC_RECEIPT_STRATEGY
 
 
 STRATEGIES = {
     "GP": GP_STRATEGY,
     "BC": BC_STRATEGY,
+}
+
+PAYMENT_STRATEGIES = {
+    "GP": GP_RECEIPT_STRATEGY,
+    "BC": BC_RECEIPT_STRATEGY,
 }
 
 
@@ -25,4 +32,14 @@ def get_strategy(strategy_name):
             )
         )
     return STRATEGIES[strategy_name]
+
+
+def get_payment_strategy(strategy_name):
+    if strategy_name not in PAYMENT_STRATEGIES:
+        raise ValueError(
+            "Estrategia de pago desconocida: {}. Opciones: {}".format(
+                strategy_name, ", ".join(sorted(PAYMENT_STRATEGIES.keys()))
+            )
+        )
+    return PAYMENT_STRATEGIES[strategy_name]
 

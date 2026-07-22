@@ -1,0 +1,55 @@
+{
+ "actions": [],
+ "creation": "2025-07-22 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "qp_document_no_factura",
+  "qp_sequence",
+  "qp_amount",
+  "qp_external_document_no"
+ ],
+ "fields": [
+  {
+   "fieldname": "qp_document_no_factura",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Document No Factura"
+  },
+  {
+   "fieldname": "qp_sequence",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Sequence"
+  },
+  {
+   "fieldname": "qp_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Amount"
+  },
+  {
+   "fieldname": "qp_external_document_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "External Document No"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-22 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_PaymentReceiptItem",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

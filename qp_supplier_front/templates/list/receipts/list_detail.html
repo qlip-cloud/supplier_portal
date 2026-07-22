@@ -16,10 +16,10 @@
                     {% for reference in list_detail %}
     
                     <tr>
-                        <td class="">{{reference.qp_aptovcnm}}</td>
-                        <td class="text-left">{{reference.qp_aptodcnm}}</td>
-                        <td class="text-left">{{reference.qp_seq}}</td>
-                        <td class="text-left">{{frappe.format_value(reference.qp_appldamt, "Currency") }}</td>
+                        <td class="">{{reference.qp_document_no_factura}}</td>
+                        <td class="text-left">{{reference.qp_external_document_no}}</td>
+                        <td class="text-left">{{reference.qp_sequence}}</td>
+                        <td class="text-left">{{frappe.format_value(reference.qp_amount, "Currency") }}</td>
     
                     </tr>
                     {% endfor %}

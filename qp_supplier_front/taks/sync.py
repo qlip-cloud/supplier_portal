@@ -1,5 +1,5 @@
 import frappe
-from qp_supplier_front.uses_cases.receipts.sync_by_supplier import handler_all as sync_by_receipts
+from qp_supplier_front.uses_cases.payment_receipt.sync_by_supplier import sync_all as sync_by_receipts
 from qp_supplier_front.uses_cases.purchase_invoice.sync_by_supplier import sync_all as sync_by_invoice
 from qp_supplier_front.uses_cases.sales_order.sync_by_supplier import handler_all as sync_by_order
 from qp_supplier_front.uses_cases.item.sync_all import handler as sync_item_all

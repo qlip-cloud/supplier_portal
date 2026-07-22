@@ -9,9 +9,6 @@
     <div id="mySidenav" class="sidenav">
         <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
         <a href="/welcome" class="sidebar-menu">Inicio</a>
-        {% if is_documenteme_admin %}
-        <a href="/purchase_invoices?flow=BC" class="sidebar-menu">Facturas de Compra (BC)</a>
-        {% endif %}
         {% if supplier_id %}
         <a href="/information?supplier={{supplier_id}}" class="sidebar-menu active">Información</a>
         <a href="/purchase_invoices?supplier={{supplier_id}}" class="sidebar-menu">Facturas de Compra</a>
