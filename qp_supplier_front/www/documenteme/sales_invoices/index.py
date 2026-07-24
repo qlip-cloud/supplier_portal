@@ -23,7 +23,6 @@ def get_context(context):
     date_key = "nvfac_fech"
 
     documents = get_paginated_filtered(0, doctype, order_by, {
-        "nvfac_esta": "E",
         "nvfac_ueve": ["is", "not set"],
     })
 
@@ -31,7 +30,7 @@ def get_context(context):
         doc["detail_lines"] = frappe.get_all(
             "qp_SP_DetailLine",
             filters={"parent": doc.name, "parenttype": doctype},
-            fields=["nvpro_codi", "nvuni_desc", "nvdet_tcan", "nvdet_valo", "nvdet_stot"]
+            fields=["nvpro_codi", "nvuni_desc", "nvdet_tcan", "nvdet_valo", "nvdet_vdes", "nvdet_stot"]
         )
         doc["attached_files"] = frappe.get_all(
             "qp_SP_DocumentAttach",

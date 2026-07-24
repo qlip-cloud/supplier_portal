@@ -1,3 +1,9 @@
+{%- set tipo_doc_labels = {
+    "F": "FAC",
+    "C": "NC",
+    "D": "ND"
+} -%}
+
 {%- set status_class = {
     "A": "status-paid",
     "E": "status-open",
@@ -21,6 +27,8 @@
         <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()">
     </td>
     <td>{{ row.nvpro_ndoc }}</td>
+    <td>{{ row.nvpro_nomb or "" }}</td>
+    <td class="text-center">{{ tipo_doc_labels.get(row.nvtip_docu, "") }}</td>
     <td>
         {{ row.nvfac_nume }}
         <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">expand_more</span>
@@ -60,7 +68,7 @@
     </td>
 </tr>
 <tr class="collapse" id="detail-{{ row.name }}" data-parent="#accordion">
-    <td colspan="12">
+    <td colspan="14">
         <div class="row">
             <div class="col-lg-4">
                 <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Factura</h5>
@@ -84,8 +92,13 @@
                             <td>{{ p.nvpro_codi }}</td>
                             <td>{{ p.nvuni_desc }}</td>
                             <td>{{ p.nvdet_tcan }}</td>
-                            <td>{{ frappe.utils.fmt_money(p.nvdet_valo, currency="COP") }}</td>
-                            <td>{{ frappe.utils.fmt_money(p.nvdet_stot, currency="COP") }}</td>
+                            <td style="text-align:right !important">
+                                {{ frappe.utils.fmt_money(p.nvdet_valo, currency="COP") }}
+                                {% if p.nvdet_vdes | int > 0 %}
+                                <br><span style="color:#dc3545;font-size:11px; text-align: right;">-{{ frappe.utils.fmt_money(p.nvdet_vdes, currency="COP") }}</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:right !important">{{ frappe.utils.fmt_money(p.nvdet_stot, currency="COP") }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -172,6 +185,6 @@
 {% endfor %}
 {% elif show_result %}
 <tr>
-    <td colspan="12" class="text-center" style="padding:24px;color:#8a9099">No hay facturas para mostrar.</td>
+    <td colspan="14" class="text-center" style="padding:24px;color:#8a9099">No hay facturas para mostrar.</td>
 </tr>
 {% endif %}

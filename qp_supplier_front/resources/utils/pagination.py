@@ -12,18 +12,16 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
         parsed_filters = json.loads(filters) if filters else {}
         
         if doctype == "qp_SP_DocumentDetail":
-            base_filters = {
-                "nvfac_esta": "E",
-                "nvfac_ueve": ["is", "not set"],
-            }
+            base_filters = {}
             base_filters.update(parsed_filters)
+            base_filters["nvfac_ueve"] = ["is", "not set"]
             pagination = get_paginated_filtered(int(page), doctype, order_by, base_filters)
 
             for doc in pagination:
                 doc["detail_lines"] = frappe.get_all(
                     "qp_SP_DetailLine",
                     filters={"parent": doc.name, "parenttype": doctype},
-                    fields=["nvpro_codi", "nvuni_desc", "nvdet_tcan", "nvdet_valo", "nvdet_stot"]
+                    fields=["nvpro_codi", "nvuni_desc", "nvdet_tcan", "nvdet_valo", "nvdet_vdes", "nvdet_stot"]
                 )
                 doc["attached_files"] = frappe.get_all(
                     "qp_SP_DocumentAttach",

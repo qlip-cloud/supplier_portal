@@ -59,7 +59,7 @@ def sync_all_by_year(year, tax_id=None):
             try:
                 for supplier_id in suppliers:
                     sync_by_supplier(
-                        nvfac_esta="E",
+                        nvfac_esta="T",
                         supplier_id=supplier_id,
                         get_tax_id_fn=get_supplier_tax_id,
                         send_request_fn=send_request_status,

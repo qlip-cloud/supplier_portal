@@ -551,8 +551,8 @@ class TestSyncBySupplierEdgeCases(unittest.TestCase):
 
 class TestDefaultFunctions(unittest.TestCase):
 
-    def test_get_default_nvfac_esta_returns_E(self):
-        self.assertEqual(get_default_nvfac_esta(), "E")
+    def test_get_default_nvfac_esta_returns_T(self):
+        self.assertEqual(get_default_nvfac_esta(), "T")
 
     def test_get_yesterday_date_str_format(self):
         """get_yesterday_date_str retorna fecha con formato DD/MM/YYYY."""
