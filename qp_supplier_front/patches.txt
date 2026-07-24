@@ -1,1 +1,2 @@
 qp_supplier_front.patches.add_documenteme_shortcut_to_home
+qp_supplier_front.patches.add_documenteme_roles
