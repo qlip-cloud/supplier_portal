@@ -240,13 +240,13 @@ $(document).ready(function () {
 
     function loadMoreInvoices(is_filter = false) {
 
-        currentPage++;
-
         if ($("#no-load").length === 0) {
 
 
 
             if (is_filter || (loading == false && no_more == false)) {
+
+                currentPage++;
 
                 $("#no-more").hide()
 
@@ -333,7 +333,7 @@ function getValidInputs() {
     let $end_date = $("#end_date")
     let date_key = $start_date.data("date_key")
     
-    if ($start_date.val()){
+    if ($start_date.val() && $end_date.val()) {
         if ($start_date.val().trim() && $end_date.val().trim()) {
             inputs[date_key] = ["between", [$start_date.val(), $end_date.val()]]
         } else {
@@ -383,7 +383,7 @@ function getValidInputs() {
 
     });
 
-    if (filterNotIn){
+    if (filterNotIn.length > 0){
         inputs["name"] = ["Not In", filterNotIn];
     }
 
