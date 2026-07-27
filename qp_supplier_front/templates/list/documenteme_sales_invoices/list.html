@@ -101,6 +101,13 @@
                             <td style="text-align:right !important">{{ frappe.utils.fmt_money(p.nvdet_stot, currency="COP") }}</td>
                         </tr>
                         {% endfor %}
+                        {% for ac in row.allowance_charges %}
+                        <tr>
+                            <td colspan="3" style="font-size:11px">{{ ac.reason }}</td>
+                            <td style="text-align:right !important;font-size:11px;color:{% if ac.signed_amount < 0 %}#dc3545{% endif %}">{{ frappe.utils.fmt_money(ac.signed_amount, currency="COP") }}</td>
+                            <td style="text-align:right !important;font-size:11px">{{ frappe.utils.fmt_money(ac.running_total, currency="COP") }}</td>
+                        </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
                 {% else %}

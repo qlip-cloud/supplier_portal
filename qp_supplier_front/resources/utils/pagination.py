@@ -2,6 +2,7 @@ import frappe
 import json
 from qp_supplier_front.services.pagination import get_paginated, get_paginated_filtered, get_detail
 from qp_supplier_front.resources.response import handler as response
+from qp_supplier_front.services.enrich_document_detail import enrich_document_detail
 
 @frappe.whitelist()
 def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by, filters = {}):
@@ -23,6 +24,24 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
                     filters={"parent": doc.name, "parenttype": doctype},
                     fields=["nvpro_codi", "nvuni_desc", "nvdet_tcan", "nvdet_valo", "nvdet_vdes", "nvdet_stot"]
                 )
+                allowance_charges = frappe.get_all(
+                    "qp_SP_AllowanceCharge",
+                    filters={"parent": doc.name, "parenttype": doctype},
+                    fields=["reason", "amount", "charge_indicator"]
+                )
+                doc["allowance_charges"] = []
+                base_total = sum(dl["nvdet_stot"] or 0 for dl in doc["detail_lines"])
+                running_total = base_total
+                for ac in allowance_charges:
+                    if not ac.get("amount"):
+                        continue
+                    signed_amount = ac["amount"] if ac.get("charge_indicator") else -ac["amount"]
+                    running_total += signed_amount
+                    doc["allowance_charges"].append({
+                        "reason": ac.get("reason") or "Descuento/Cargo",
+                        "signed_amount": signed_amount,
+                        "running_total": running_total
+                    })
                 doc["attached_files"] = frappe.get_all(
                     "qp_SP_DocumentAttach",
                     filters={"parent": doc.name, "parenttype": doctype},
@@ -39,11 +58,7 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
                     doc["assigned_to_name"] = frappe.db.get_value("User", assignee_id, "full_name") or assignee_id
                 else:
                     doc["assigned_to_name"] = None
-                doc["factura_interna"] = ""
-                doc["ordenes_compra"] = []
-                doc["recepciones"] = []
-                doc["productos_orden_compra"] = []
-                doc["productos_recepcion"] = []
+                enrich_document_detail(doc)
         else:
             pagination = get_paginated(int(page), doctype, supplier_id, order_by, parsed_filters)
             frappe.enqueue(f"qp_supplier_front.uses_cases.{key}.sync_by_supplier.handler", supplier_id=supplier_id, queue='long', is_async=True, timeout=14400, job_name=f"send sync {doctype} {supplier_id}")

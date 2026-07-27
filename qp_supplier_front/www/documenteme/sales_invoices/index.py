@@ -2,6 +2,7 @@ import frappe
 from qp_supplier_front.services.pagination import get_paginated_filtered
 from qp_supplier_front.services.get_data import has_recent_news, get_has_dispatch_permission
 from qp_supplier_front.services.role_resolver import get_active_role
+from qp_supplier_front.services.enrich_document_detail import enrich_document_detail
 
 def get_context(context):
     context.no_cache = True
@@ -32,6 +33,24 @@ def get_context(context):
             filters={"parent": doc.name, "parenttype": doctype},
             fields=["nvpro_codi", "nvuni_desc", "nvdet_tcan", "nvdet_valo", "nvdet_vdes", "nvdet_stot"]
         )
+        allowance_charges = frappe.get_all(
+            "qp_SP_AllowanceCharge",
+            filters={"parent": doc.name, "parenttype": doctype},
+            fields=["reason", "amount", "charge_indicator"]
+        )
+        doc["allowance_charges"] = []
+        base_total = sum(dl["nvdet_stot"] or 0 for dl in doc["detail_lines"])
+        running_total = base_total
+        for ac in allowance_charges:
+            if not ac.get("amount"):
+                continue
+            signed_amount = ac["amount"] if ac.get("charge_indicator") else -ac["amount"]
+            running_total += signed_amount
+            doc["allowance_charges"].append({
+                "reason": ac.get("reason") or "Descuento/Cargo",
+                "signed_amount": signed_amount,
+                "running_total": running_total
+            })
         doc["attached_files"] = frappe.get_all(
             "qp_SP_DocumentAttach",
             filters={"parent": doc.name, "parenttype": doctype},
@@ -48,11 +67,7 @@ def get_context(context):
             doc["assigned_to_name"] = frappe.db.get_value("User", assignee_id, "full_name") or assignee_id
         else:
             doc["assigned_to_name"] = None
-        doc["factura_interna"] = ""
-        doc["ordenes_compra"] = []
-        doc["recepciones"] = []
-        doc["productos_orden_compra"] = []
-        doc["productos_recepcion"] = []
+        enrich_document_detail(doc)
 
     context.documenteme_sales_invoices = documents
     context.key = key

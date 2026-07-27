@@ -17,6 +17,7 @@ def insert_payments(docs, now):
         "(name, qp_receipt_id, supplier, qp_supplier_name, "
         "qp_posting_date, qp_amount, qp_description, "
         "qp_sync_flow, qp_external_document_no, qp_payment_type, "
+        "qp_document_no_factura, "
         "creation, modified, modified_by, owner)"
     )
     create_doc(docs, doc_fields, table)

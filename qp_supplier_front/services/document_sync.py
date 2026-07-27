@@ -228,7 +228,6 @@ def _create_allowance_charges_from_xml(detail, attached_list):
             row.currency = charge.get("currency")
             row.base_amount = charge.get("base_amount")
 
-
 def create_document_detail(document_sync_line_name, document_data, attached_list):
     import frappe
 

@@ -25,6 +25,7 @@ def build_payment_tuple(payment, strategy_name, doc_id, now):
         strategy_name,
         _strip(payment.get("External_Document_No_") or ""),
         _strip(payment.get("Document_Type_Pago") or ""),
+        _strip(payment.get("External_Document_No_") or ""),
         now,
         now,
         "Administrator",

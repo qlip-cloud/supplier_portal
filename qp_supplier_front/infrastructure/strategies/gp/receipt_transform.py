@@ -26,6 +26,7 @@ def build_payment_tuple(payment, strategy_name, doc_id, now):
         strategy_name,
         "",
         "",
+        "",
         now,
         now,
         "Administrator",
