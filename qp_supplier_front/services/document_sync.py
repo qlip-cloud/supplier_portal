@@ -207,6 +207,28 @@ def _set_document_detail_fields(doc, document_data):
     return doc
 
 
+def _create_allowance_charges_from_xml(detail, attached_list):
+    import base64
+    from qp_supplier_front.services.xml_allowance_charge import extract_document_allowance_charges
+
+    for attached_item in (attached_list or []):
+        if attached_item.get("Nvdoc_tipo") != "XML":
+            continue
+        file_content_b64 = attached_item.get("Nvdoc_file")
+        if not file_content_b64:
+            continue
+        xml_content = base64.b64decode(file_content_b64)
+        for charge in extract_document_allowance_charges(xml_content):
+            row = detail.append("allowance_charges", {})
+            row.charge_indicator = charge.get("charge_indicator", 0)
+            row.reason_code = charge.get("reason_code")
+            row.reason = charge.get("reason")
+            row.multiplier_factor = charge.get("multiplier_factor")
+            row.amount = charge.get("amount")
+            row.currency = charge.get("currency")
+            row.base_amount = charge.get("base_amount")
+
+
 def create_document_detail(document_sync_line_name, document_data, attached_list):
     import frappe
 
@@ -229,6 +251,7 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
         # Remove old child rows
         frappe.db.sql("DELETE FROM `tabqp_SP_DetailLine` WHERE parent=%s", nvfac_nume)
         frappe.db.sql("DELETE FROM `tabqp_SP_DocumentAttach` WHERE parent=%s", nvfac_nume)
+        frappe.db.sql("DELETE FROM `tabqp_SP_AllowanceCharge` WHERE parent=%s", nvfac_nume)
 
         # Re-populate detail lines
         for detalle_item in (document_data.get("Detalle") or []):
@@ -243,6 +266,8 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
                 attach_row.file_type = attached_item.get("Nvdoc_tipo")
                 attach_row.file_url = file_doc.file_url
                 attach_row.file_id = file_doc.name
+
+        _create_allowance_charges_from_xml(detail, attached_list)
 
         detail.save()
         return detail
@@ -265,6 +290,8 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
             attach_row.file_type = attached_item.get("Nvdoc_tipo")
             attach_row.file_url = file_doc.file_url
             attach_row.file_id = file_doc.name
+
+    _create_allowance_charges_from_xml(detail, attached_list)
 
     detail.save()
 

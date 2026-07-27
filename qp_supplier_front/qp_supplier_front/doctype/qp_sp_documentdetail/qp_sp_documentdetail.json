@@ -45,9 +45,10 @@
    "nvpro_dire",
    "nvfac_tota",
    "nvfac_votr",
-   "detail_lines",
-   "attached_files",
-   "event_logs"
+    "detail_lines",
+    "attached_files",
+    "event_logs",
+    "allowance_charges"
   ],
  "fields": [
   {
@@ -269,13 +270,19 @@
    "label": "Attached Files",
    "options": "qp_SP_DocumentAttach"
   },
-  {
-   "fieldname": "event_logs",
-   "fieldtype": "Table",
-   "label": "Event Logs",
-   "options": "qp_SP_EventLog"
-  }
- ],
+   {
+    "fieldname": "event_logs",
+    "fieldtype": "Table",
+    "label": "Event Logs",
+    "options": "qp_SP_EventLog"
+   },
+   {
+    "fieldname": "allowance_charges",
+    "fieldtype": "Table",
+    "label": "Allowance Charges",
+    "options": "qp_SP_AllowanceCharge"
+   }
+  ],
  "index_web_pages_for_search": 1,
  "links": [],
  "modified": "2026-07-08 10:00:00",
