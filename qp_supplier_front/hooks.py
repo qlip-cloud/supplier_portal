@@ -109,7 +109,9 @@ doc_events = {
     }
 }
 
-
+on_session_creation = [
+    "qp_supplier_front.redirect.login.on_session_creation_redirect"
+]
 
 get_website_user_home_page = "qp_supplier_front.redirect.login.get_home_page"
 

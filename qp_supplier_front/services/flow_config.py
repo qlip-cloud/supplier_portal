@@ -13,8 +13,10 @@ Cada flujo requiere una cadena de Doctypes:
 ENDPOINT_CODES = {
     ("GP", "invoice"): "invoice_supplier_id",
     ("GP", "receipt"): "payment_supplier_id",
+    ("GP", "supplier"): "supplier_find",
     ("BC", "invoice"): "list_purchase_invoice",
     ("BC", "receipt"): "list_payment_receipt",
+    ("BC", "supplier"): "supplier_find",
 }
 
 

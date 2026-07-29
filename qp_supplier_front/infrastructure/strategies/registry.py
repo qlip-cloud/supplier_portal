@@ -11,6 +11,8 @@ from qp_supplier_front.infrastructure.strategies.gp.strategy import GP_STRATEGY
 from qp_supplier_front.infrastructure.strategies.bc.strategy import BC_STRATEGY
 from qp_supplier_front.infrastructure.strategies.gp.receipt_strategy import GP_RECEIPT_STRATEGY
 from qp_supplier_front.infrastructure.strategies.bc.receipt_strategy import BC_RECEIPT_STRATEGY
+from qp_supplier_front.infrastructure.strategies.gp.supplier_strategy import GP_SUPPLIER_STRATEGY
+from qp_supplier_front.infrastructure.strategies.bc.supplier_strategy import BC_SUPPLIER_STRATEGY
 
 
 STRATEGIES = {
@@ -21,6 +23,11 @@ STRATEGIES = {
 PAYMENT_STRATEGIES = {
     "GP": GP_RECEIPT_STRATEGY,
     "BC": BC_RECEIPT_STRATEGY,
+}
+
+SUPPLIER_STRATEGIES = {
+    "GP": GP_SUPPLIER_STRATEGY,
+    "BC": BC_SUPPLIER_STRATEGY,
 }
 
 
@@ -42,4 +49,14 @@ def get_payment_strategy(strategy_name):
             )
         )
     return PAYMENT_STRATEGIES[strategy_name]
+
+
+def get_supplier_strategy(strategy_name):
+    if strategy_name not in SUPPLIER_STRATEGIES:
+        raise ValueError(
+            "Estrategia de proveedor desconocida: {}. Opciones: {}".format(
+                strategy_name, ", ".join(sorted(SUPPLIER_STRATEGIES.keys()))
+            )
+        )
+    return SUPPLIER_STRATEGIES[strategy_name]
 

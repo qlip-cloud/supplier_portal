@@ -16,30 +16,3 @@
    
 </div>
 
-<div class="row row-line justify-content-between">
-    {% if not supplier.qp_is_foreigner_supplier %}
-    <div class="col-4 text-left">
-        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab8')" id="save">
-            <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 2px;">
-                arrow_back_ios
-            </span>
-            Operaciones Internacionales</button>
-    </div>
-    {% else %}
-    <div class="col-4 text-left">
-        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab7')" id="save">
-            <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 2px;">
-                arrow_back_ios
-            </span>
-            Información Financiera</button>
-    </div>
-    {% endif %}
-    <div class="col-4 text-right">
-        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save" onclick="showTab('tab10')" id="save">
-            Continuar
-            <span class="material-symbols-outlined" style="font-size: 14px; margin-left: 2px;">
-                arrow_forward_ios
-            </span>
-        </button>
-    </div>
-</div>

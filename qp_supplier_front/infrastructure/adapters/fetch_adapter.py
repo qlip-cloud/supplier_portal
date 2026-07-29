@@ -11,3 +11,7 @@ from qp_authorization.use_case.bearer.authorize import send_request
 def fetch_invoices(endpoint, param=None):
     return send_request(endpoint, param=param)
 
+
+def fetch_supplier(endpoint, **kwargs):
+    return send_request(endpoint, **kwargs)
+

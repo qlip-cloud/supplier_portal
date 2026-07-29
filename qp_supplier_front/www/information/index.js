@@ -450,6 +450,15 @@ $(document).ready(function () {
         $form.submit();
     });
 
+    $(document).on('click', '.tab-nav-btn', function () {
+        var $tabContent = $(this).closest('.tab-content');
+        var $form = $tabContent.find('form');
+        if ($form.length) {
+            $form.submit();
+        } else {
+            showTab($(this).data('control'));
+        }
+    });
 
     $(".open_folder").on("click", function () {
 

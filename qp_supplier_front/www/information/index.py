@@ -1,5 +1,5 @@
 import frappe
-from qp_supplier_front.services.get_data import get_party, get_supplier, get_document_types, get_business_types, get_dynamic_link,get_bank_accounts, get_regimes, get_ciius, has_recent_news, get_has_dispatch_permission
+from qp_supplier_front.services.get_data import get_party, get_supplier, get_document_types, get_business_types, get_dynamic_link, get_bank_accounts, get_regimes, get_ciius, has_recent_news, get_has_dispatch_permission
 
 def get_context(context):
     
@@ -137,13 +137,18 @@ def get_context(context):
     
     context.supplier_id = supplier_id
 
+    config = frappe.get_single("qp_SP_MasterSetup")
+    context.show_terms_conditions = config.show_terms_conditions
+    context.terms_content = config.terms_content
+    context.conditions_content = config.conditions_content
+
     context.has_recent_news = has_recent_news()
     
     setup_wizard_tabs(context)
      
 def setup_wizard_tabs(context):
     
-    sections = frappe.get_list(
+    sections = frappe.get_all(
         "qp_SP_FieldSection",
         filters={"is_active": 1},
         fields=["code", "tab_label", "tab_group", "tab_order", "show_in_wizard", "has_finish_button", "number_valid"],
@@ -221,6 +226,10 @@ def setup_wizard_tabs(context):
     
     for idx, tab in enumerate(wizard_tabs):
         tab["tab_id"] = "tab{}".format(idx + 1)
+        tab["prev_tab_id"] = wizard_tabs[idx - 1]["tab_id"] if idx > 0 else None
+        tab["prev_tab_label"] = wizard_tabs[idx - 1]["label"] if idx > 0 else None
+        tab["next_tab_id"] = wizard_tabs[idx + 1]["tab_id"] if idx < len(wizard_tabs) - 1 else None
+        tab["next_tab_label"] = wizard_tabs[idx + 1]["label"] if idx < len(wizard_tabs) - 1 else None
     
     context.wizard_tabs = wizard_tabs
     
