@@ -227,13 +227,54 @@ $(document).ready(function () {
 
     })
 
+    function afterFormSaveCallback(response, $form, submitter, saveCallback) {
+
+        data = response.data
+
+        if (response.status == 200) {
+
+            if (data.redirect_to) {
+                window.location.href = data.redirect_to
+                return
+            }
+
+            if ($form.hasClass("form-modal")) {
+
+                $('.modal').modal('hide')
+
+                if (data.render) {
+
+                    render = data.render
+
+                    $('#' + render.container).html(render.list)
+                    applyListRowHighlights();
+                }
+                if (data.is_bank_account) {
+                    $('#new-bank-account').addClass("hidden disabled")
+                }
+
+            } else {
+                showTab(submitter.data("control"))
+            }
+
+            $form.attr('method', $form.data("method-default"));
+        } else {
+            frappe.msgprint(response.msg)
+        }
+
+        if (saveCallback) {
+            saveCallback(response, $form, submitter)
+        }
+
+        document.getElementById("overlay").style.display = 'none';
+    }
+
     $('.form-estandar').on('submit', function (event) {
 
-        event.preventDefault(); // Evita el envío del formulario
+        event.preventDefault();
 
         var formData = new FormData(this);
 
-        // Sanitizar market_share de formato colombiano a float
         if (formData.has('market_share')) {
             var raw = formData.get('market_share');
             if (raw && raw.indexOf(',') !== -1) {
@@ -247,57 +288,41 @@ $(document).ready(function () {
         formData.append("supplier_id", supplier_id);
 
         const submitter = $(document.activeElement);
+        const isFinish = submitter.hasClass('finish');
 
-        if (!supplier_id || submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal")) {
+        if (!supplier_id || submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal") || isFinish) {
 
             document.getElementById("overlay").style.display = 'block';
 
             callresponse = (response) => {
+                afterFormSaveCallback(response, $(this), submitter, isFinish ? function () {
+                    petition_get_data(
+                        { supplier_id: supplier_id },
+                        "qp_supplier_front.resources.information.complete.check",
+                        function (finishResponse) {
+                            data = finishResponse.data;
+                            supplier = data.supplier;
 
-                data = response.data
+                            var has_incompleted = showFinishValidation(supplier);
+                            msg_error = has_incompleted ? "<p>Hay secciones sin completar, las cuales se indican en rojo. Para continuar con el proceso de validación, debe completar todos los campos.</p>" : "";
+                            msg = finishResponse.msg ? "<p>" + finishResponse.msg + "</p>" : "";
+                            msg = msg + msg_error;
 
-                if (response.status == 200) {
+                            if (!has_incompleted) {
+                                location.reload(true);
+                            }
+                            frappe.msgprint(msg);
 
-                    if (data.redirect_to) {
-                        window.location.href = data.redirect_to
-                    }
-
-                    if ($(this).hasClass("form-modal")) {
-
-                        $('.modal').modal('hide')
-
-                        if (data.render) {
-
-                            render = data.render
-
-                            $(`#${render.container}`).html(render.list)
-                            applyListRowHighlights();
+                            setup_button(supplier);
+                            document.getElementById("overlay").style.display = 'none';
                         }
-                        if (data.is_bank_account) {
-                            $(`#new-bank-account`).addClass("hidden disabled")
-
-                        }
-
-                    } else {
-                        if (!$(this).hasClass("form-modal")) {
-
-                            showTab(submitter.data("control"))
-                        }
-                    }
-
-                    $(this).attr('method', $(this).data("method-default"));
-                } else {
-                    frappe.msgprint(response.msg)
-
-
-                }
-
-                document.getElementById("overlay").style.display = 'none';
+                    );
+                } : null);
             }
             petition_send_data(formData, $(this).attr('action'), callresponse, $(this).attr('method'))
+
         } else {
             showTab(submitter.data("control"))
-
             document.getElementById("overlay").style.display = 'none';
         }
 
@@ -305,15 +330,16 @@ $(document).ready(function () {
 
     $('#form-document').on('submit', function (event) {
 
-        event.preventDefault(); // Evita el envío del formulario
+        event.preventDefault();
 
         const submitter = $(document.activeElement);
 
         is_estatus_editable = submitter.hasClass('is_estatus_editable');
+        const isFinish = submitter.hasClass('finish');
 
         const formData = getDocuments(is_estatus_editable);
 
-        if (submitter.hasClass('is_estatus_editable') || submitter.hasClass('finish')) {
+        if (submitter.hasClass('is_estatus_editable') || isFinish) {
 
             document.getElementById("overlay").style.display = 'block';
 
@@ -323,82 +349,19 @@ $(document).ready(function () {
 
                 supplier = data.supplier
 
-                if (submitter.hasClass("finish")) {
-                    // Indicar en rojo los campos incompletos en cada tab
+                if (isFinish) {
 
-                    $('.tab').css('color', 'black');
-
-                    // Limpiar clase status-cancelled de todos los campos
-                    $('input, select, textarea').removeClass('status-cancelled');
-
-                    has_incompleted = false
-
-                    // Agrupar validaciones por tab
-                    var tabValidations = {};
-
-                    $.each(supplier.qp_field_validations, function (index, validation) {
-
-                        // Buscar tabs que contengan la clase del field_section
-                        const $tabs = $(`.tab[class*="${validation.field_section}"]`);
-
-                        $tabs.each(function () {
-                            const tabClasses = $(this).attr('class');
-
-                            if (!tabValidations[tabClasses]) {
-                                tabValidations[tabClasses] = {
-                                    $tab: $(this),
-                                    allCompleted: true
-                                };
-                            }
-
-                            // Si alguna validación está incompleta, marcar el tab como incompleto
-                            if (validation.is_completed === 0) {
-                                tabValidations[tabClasses].allCompleted = false;
-
-                                // Marcar campos faltantes con status-cancelled
-                                if (validation.missing_fields) {
-                                    const missingFields = validation.missing_fields.split(',');
-                                    missingFields.forEach(function (fieldId) {
-                                        const trimmedId = fieldId.trim();
-                                        if (trimmedId) {
-                                            // Buscar por ID o por name
-                                            const $field = $(`#${trimmedId}, [name="${trimmedId}"]`);
-                                            $field.addClass('status-cancelled');
-                                        }
-                                    });
-                                }
-                            }
-                        });
-                    });
-
-                    // Aplicar estilos basados en el estado acumulado
-                    $.each(tabValidations, function (tabClasses, tabData) {
-
-                        if (!tabData.allCompleted) {
-                            has_incompleted = true
-                            tabData.$tab.css('color', 'red');
-                            tabData.$tab.find('span').css('color', 'red');
-                            tabData.$tab.addClass('incomplete-tab');
-                        } else {
-                            tabData.$tab.css('color', '#999');
-                            tabData.$tab.find('span').css('color', '#999');
-                            tabData.$tab.removeClass('incomplete-tab');
-                        }
-                    });
+                    var has_incompleted = showFinishValidation(supplier);
                     msg_error = has_incompleted ? "<p>Hay secciones sin completar, las cuales se indican en rojo. Para continuar con el proceso de validación, debe completar todos los campos.</p>" : "";
-
-                    msg = `<p>${response.msg}</p> ${msg_error}`;
+                    msg = response.msg ? "<p>" + response.msg + "</p>" : "";
+                    msg = msg + msg_error;
 
                     if (!has_incompleted) {
                         location.reload(true);
                     }
-
                     frappe.msgprint(msg);
 
-
-                }
-                if (submitter.hasClass('is_estatus_editable')) {
-
+                } else {
                     showTab(submitter.data("control"))
                 }
 
@@ -415,6 +378,76 @@ $(document).ready(function () {
 
         }
 
+    });
+
+    function showFinishValidation(supplier) {
+
+        $('.tab').css('color', 'black');
+
+        $('input, select, textarea').removeClass('status-cancelled');
+
+        var has_incompleted = false
+
+        var tabValidations = {};
+
+        $.each(supplier.qp_field_validations, function (index, validation) {
+
+            const $tabs = $(`.tab[class*="${validation.field_section}"]`);
+
+            $tabs.each(function () {
+                const tabClasses = $(this).attr('class');
+
+                if (!tabValidations[tabClasses]) {
+                    tabValidations[tabClasses] = {
+                        $tab: $(this),
+                        allCompleted: true
+                    };
+                }
+
+                if (validation.is_completed === 0) {
+                    tabValidations[tabClasses].allCompleted = false;
+
+                    if (validation.missing_fields) {
+                        const missingFields = validation.missing_fields.split(',');
+                        missingFields.forEach(function (fieldId) {
+                            const trimmedId = fieldId.trim();
+                            if (trimmedId) {
+                                const $field = $(`#${trimmedId}, [name="${trimmedId}"]`);
+                                $field.addClass('status-cancelled');
+                            }
+                        });
+                    }
+                }
+            });
+        });
+
+        $.each(tabValidations, function (tabClasses, tabData) {
+
+            if (!tabData.allCompleted) {
+                has_incompleted = true
+                tabData.$tab.css('color', 'red');
+                tabData.$tab.find('span').css('color', 'red');
+                tabData.$tab.addClass('incomplete-tab');
+            } else {
+                tabData.$tab.css('color', '#999');
+                tabData.$tab.find('span').css('color', '#999');
+                tabData.$tab.removeClass('incomplete-tab');
+            }
+        });
+
+        return has_incompleted;
+    }
+
+    $(document).on('click', '.finish', function () {
+
+        var $tabContent = $(this).closest('.tab-content');
+        var $form = $tabContent.find('form');
+
+        if (!$form.length) {
+            return;
+        }
+
+        $form.submit();
     });
 
 
