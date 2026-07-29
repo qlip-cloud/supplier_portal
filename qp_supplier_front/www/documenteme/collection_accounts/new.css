@@ -1,0 +1,61 @@
+.doc-upload-option {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 12px;
+    padding: 15px 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    margin-top: 25px;
+    transition: all 0.3s ease;
+}
+
+.doc-upload-option:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.doc-icon {
+    font-size: 30px;
+    color: #007bff;
+    margin-right: 15px;
+}
+
+.doc-info {
+    flex-grow: 1;
+}
+
+.doc-title {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.doc-subtext {
+    color: #666;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.doc-action {
+    margin-left: 20px;
+}
+
+.upload-btn,
+.view-btn {
+    background: #f0f0f0;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+    color: #333;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.upload-btn:hover,
+.view-btn:hover {
+    background: #e0e0e0;
+}
+
+.upload-btn input {
+    display: none;
+}
