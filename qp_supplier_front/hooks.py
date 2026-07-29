@@ -210,6 +210,9 @@ fixtures = [
             "Contact-qp_contact_type"
         ]]]
     },
+    {"doctype": "Custom DocPerm", "filters": [
+        ["role", "=", "Customer"]
+    ]},
 ]
 
 before_request = [
