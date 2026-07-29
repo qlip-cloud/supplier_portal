@@ -3,7 +3,8 @@ receipt_strategy.py (BC)
 =========================
 Estrategia BC para recibos de pago.
 Usa endpoint list_payment_receipt de BC via OAuth2.
-Sin items (BC no trae referencias a facturas).
+Agrupa lineas por Document_No_Pago: 1 padre + N hijos
+(qp_SP_PaymentReceiptItem) con datos de facturas asociadas.
 Reusa persist adapter de GP (mismo doctype).
 """
 

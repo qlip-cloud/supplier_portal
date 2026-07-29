@@ -6,4 +6,5 @@ def set_name(doc, method):
         doc.name = doc.order_confirmation_no
         doc.qp_order_confirmation_no = doc.order_confirmation_no
         doc.qp_order_id = doc.order_confirmation_no
+        doc.qp_create_date = doc.transaction_date
         doc.flags.name_set = True

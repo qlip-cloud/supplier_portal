@@ -42,10 +42,25 @@ def _enrich_purchase_orders(document, purchase_order_number):
 
 
 def _enrich_payment_receipts(document, purchase_order_number):
+    child_items = frappe.get_all(
+        "qp_SP_PaymentReceiptItem",
+        filters={
+            "qp_document_no_factura": purchase_order_number,
+        },
+        fields=["parent"]
+    )
+
+    if not child_items:
+        document["recepciones"] = []
+        document["productos_recepcion"] = []
+        return
+
+    parent_names = list(set(item.parent for item in child_items))
+
     payment_receipts = frappe.get_all(
         "qp_SP_PaymentReceipt",
         filters={
-            "qp_document_no_factura": purchase_order_number,
+            "name": ["in", parent_names],
         },
         fields=["name", "qp_receipt_id", "qp_amount", "qp_posting_date", "qp_description"]
     )

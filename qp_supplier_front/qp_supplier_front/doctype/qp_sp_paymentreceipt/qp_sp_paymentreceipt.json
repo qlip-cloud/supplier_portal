@@ -11,11 +11,9 @@
   "qp_posting_date",
   "qp_amount",
   "qp_description",
-  "qp_sync_flow",
-   "qp_external_document_no",
-   "qp_payment_type",
-   "qp_document_no_factura",
-   "qp_references",
+   "qp_sync_flow",
+    "qp_payment_type",
+    "qp_references",
   "qp_is_error"
  ],
  "fields": [
@@ -64,24 +62,12 @@
    "no_copy": 1,
    "options": "GP\nBC"
   },
-  {
-   "fieldname": "qp_external_document_no",
-   "fieldtype": "Data",
-   "label": "External Document No"
-  },
    {
-    "fieldname": "qp_payment_type",
-    "fieldtype": "Data",
-    "label": "Payment Type"
-   },
-   {
-    "fieldname": "qp_document_no_factura",
-    "fieldtype": "Data",
-    "in_list_view": 1,
-    "in_preview": 1,
-    "label": "Document No Factura"
-   },
-   {
+     "fieldname": "qp_payment_type",
+     "fieldtype": "Data",
+     "label": "Payment Type"
+    },
+    {
    "fieldname": "qp_references",
    "fieldtype": "Table",
    "label": "References",

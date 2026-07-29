@@ -16,14 +16,16 @@ def build_invoice_tuple(invoice, strategy_name, doc_id, now):
     currency = invoice.get("Currency_Code")
     if not currency:
         currency = "COP"
+    remaining_amt_lcy = invoice.get("Remaining_Amt_LCY") or 0
 
     tax = lhi_iva + lhi_rete_fuente + lhi_rete_iva + lhi_rete_ica
     total = amount_lcy - (lhi_rete_fuente + lhi_rete_iva + lhi_rete_ica)
+    status = "Pagado" if remaining_amt_lcy == 0 else "Abierto"
 
     return (
         doc_id,
         invoice.get("Document_No"),
-        "Pagado",
+        status,
         invoice.get("Posting_Date"),
         invoice.get("Document_Date"),
         currency,
