@@ -28,7 +28,8 @@ def insert_payment_items(items, now):
     table = "`tabqp_SP_PaymentReceiptItem`"
     item_fields = (
         "(name, qp_document_no_factura, qp_sequence, qp_amount, "
-        "qp_external_document_no, parent, parentfield, parenttype, "
+        "qp_external_document_no, qp_iva, qp_rete_fuente, "
+        "qp_rete_ica, qp_rete_iva, parent, parentfield, parenttype, "
         "creation, modified, modified_by, owner)"
     )
     create_doc(items, item_fields, table)

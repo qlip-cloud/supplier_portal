@@ -5,10 +5,13 @@
             <table class="table inner-table">
                 <thead>
     
-                    <th class="text-left">Referencia</th>
-                    <th class="text-left">Documento</th>
-                    <th class="text-left">Secuencia</th>
-                    <th class="text-left">Monto</th>
+                    <th class="text-center">Referencia</th>
+                    <th class="text-center">Documento</th>
+                    <th class="text-center">Secuencia</th>
+                    <th class="text-center">Ret. Fuente</th>
+                    <th class="text-center">Ret. ICA</th>
+                    <th class="text-center">Ret. IVA</th>
+                    <th class="text-center">Monto</th>
     
                 </thead>
                 <tbody>
@@ -18,7 +21,10 @@
                         <td class="">{{reference.qp_document_no_factura}}</td>
                         <td class="text-left">{{reference.qp_external_document_no}}</td>
                         <td class="text-left">{{reference.qp_sequence}}</td>
-                        <td class="text-left">{{frappe.format_value(reference.qp_amount, "Currency") }}</td>
+                        <td class="text-right">{{frappe.format_value(reference.qp_rete_fuente, "Currency") }}</td>
+                        <td class="text-right">{{frappe.format_value(reference.qp_rete_ica, "Currency") }}</td>
+                        <td class="text-right">{{frappe.format_value(reference.qp_rete_iva, "Currency") }}</td>
+                        <td class="text-right">{{frappe.format_value(reference.qp_amount, "Currency") }}</td>
     
                     </tr>
                     {% endfor %}
