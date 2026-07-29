@@ -15,6 +15,7 @@ from qp_supplier_front.constant.endpoint import (
 )
 from qp_supplier_front.infrastructure.strategies.gp.transform import (
     build_invoices,
+    filter_invoices,
 )
 from qp_supplier_front.infrastructure.strategies.gp.persist_adapter import (
     insert_invoices,
@@ -45,6 +46,7 @@ GP_STRATEGY = {
     "request_key": "invoices",
     "request_key_id": "invoiceId",
     "transform": build_invoices,
+    "filter": filter_invoices,
     "build_param": build_gp_param,
     "persist": {
         "insert_invoices": insert_invoices,

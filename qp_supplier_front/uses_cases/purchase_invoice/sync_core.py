@@ -23,6 +23,7 @@ def sync_invoices(
     existing_ids_fn,
     commit_fn,
     now,
+    log_skipped_fn=None,
 ):
     strategy = get_strategy(flow)
 
@@ -62,6 +63,12 @@ def sync_invoices(
         strategy["request_key_id"],
     )
 
+    new_invoices, skipped = strategy["filter"](new_invoices)
+
+    if log_skipped_fn:
+        for skip in skipped:
+            log_skipped_fn(skip)
+
     if not new_invoices:
         raise ExceptionSyncNoNewRecords(strategy["doctype"])
 
@@ -84,6 +91,7 @@ def sync_all_invoices(
     existing_ids_fn,
     commit_fn,
     now,
+    log_skipped_fn=None,
 ):
     strategy = get_strategy(flow)
 
@@ -108,6 +116,12 @@ def sync_all_invoices(
         existing_ids,
         strategy["request_key_id"],
     )
+
+    new_invoices, skipped = strategy["filter"](new_invoices)
+
+    if log_skipped_fn:
+        for skip in skipped:
+            log_skipped_fn(skip)
 
     if not new_invoices:
         raise ExceptionSyncNoNewRecords(strategy["doctype"])
@@ -134,6 +148,7 @@ def sync_all_suppliers_invoices(
     commit_fn,
     log_error_fn,
     now,
+    log_skipped_fn=None,
 ):
     supplier_ids = get_suppliers_fn()
     synced_count = 0
@@ -149,6 +164,7 @@ def sync_all_suppliers_invoices(
                 existing_ids_fn=existing_ids_fn,
                 commit_fn=commit_fn,
                 now=now,
+                log_skipped_fn=log_skipped_fn,
             )
             synced_count += count
         except ExceptionSyncNoNewRecords:

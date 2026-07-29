@@ -29,6 +29,10 @@ def build_invoice_tuple(invoice, strategy_name, doc_id, now):
     )
 
 
+def filter_invoices(invoices_data, max_length=140):
+    return invoices_data, []
+
+
 def build_doc_id(invoice):
     return invoice.get("invoiceId") + ":" + invoice.get("vendor")
 

@@ -45,6 +45,20 @@ FETCH_MAP = {
 }
 
 
+def _log_skipped(skip):
+    frappe.log_error(
+        message="Document_No={doc_no}, Entry_No={entry}, Vendor_No={vendor}, "
+                "LHCOrdenCompra='{value}' ({length} chars)".format(
+                    doc_no=skip.get("Document_No"),
+                    entry=skip.get("Entry_No"),
+                    vendor=skip.get("Vendor_No"),
+                    value=skip.get("LHCOrdenCompra"),
+                    length=skip.get("length"),
+                ),
+        title="BC Sync - LHCOrdenCompra excede limite",
+    )
+
+
 @frappe.whitelist()
 def sync_by_supplier(supplier_id, flow="GP"):
     now = str(datetime.now())
@@ -58,6 +72,7 @@ def sync_by_supplier(supplier_id, flow="GP"):
             existing_ids_fn=get_existing_ids,
             commit_fn=commit,
             now=now,
+            log_skipped_fn=_log_skipped,
         )
         return {
             "success": True,
@@ -93,6 +108,7 @@ def sync_all(flow="GP"):
             existing_ids_fn=get_existing_ids,
             commit_fn=commit,
             now=now,
+            log_skipped_fn=_log_skipped,
         )
         return {
             "success": True,
@@ -129,6 +145,7 @@ def sync_all_suppliers(flow="BC"):
             commit_fn=commit,
             log_error_fn=log_error,
             now=now,
+            log_skipped_fn=_log_skipped,
         )
         return {
             "success": True,

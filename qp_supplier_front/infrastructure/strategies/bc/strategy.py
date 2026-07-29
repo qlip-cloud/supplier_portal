@@ -7,6 +7,7 @@ Reusa el persist adapter de GP porque persiste en el mismo doctype.
 
 from qp_supplier_front.infrastructure.strategies.bc.transform import (
     build_invoices,
+    filter_invoices,
 )
 from qp_supplier_front.infrastructure.strategies.gp.persist_adapter import (
     insert_invoices,
@@ -39,6 +40,7 @@ BC_STRATEGY = {
     "request_key": "value",
     "request_key_id": "Document_No",
     "transform": build_invoices,
+    "filter": filter_invoices,
     "build_param": build_bc_param,
     "persist": {
         "insert_invoices": insert_invoices,

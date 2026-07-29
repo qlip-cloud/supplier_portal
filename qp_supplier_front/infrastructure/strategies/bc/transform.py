@@ -47,6 +47,24 @@ def build_doc_id(invoice):
     return str(invoice.get("Entry_No")) + ":" + invoice.get("Vendor_No")
 
 
+def filter_invoices(invoices_data, max_length=140):
+    valid = []
+    skipped = []
+    for inv in invoices_data:
+        orden_compra = inv.get("LHCOrdenCompra") or ""
+        if len(orden_compra) > max_length:
+            skipped.append({
+                "Document_No": inv.get("Document_No"),
+                "Entry_No": inv.get("Entry_No"),
+                "Vendor_No": inv.get("Vendor_No"),
+                "LHCOrdenCompra": orden_compra,
+                "length": len(orden_compra),
+            })
+        else:
+            valid.append(inv)
+    return valid, skipped
+
+
 def build_invoices(invoices_data, strategy_name, now):
     docs = {}
     for invoice in invoices_data:
