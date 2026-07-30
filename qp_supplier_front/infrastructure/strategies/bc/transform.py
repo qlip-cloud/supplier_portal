@@ -20,7 +20,7 @@ def build_invoice_tuple(invoice, strategy_name, doc_id, now):
 
     tax = lhi_iva + lhi_rete_fuente + lhi_rete_iva + lhi_rete_ica
     total = amount_lcy - (lhi_rete_fuente + lhi_rete_iva + lhi_rete_ica)
-    status = "Pagado" if remaining_amt_lcy == 0 else "Abierto"
+    status = "Historico" if remaining_amt_lcy == 0 else "Abierto"
 
     return (
         doc_id,

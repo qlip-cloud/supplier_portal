@@ -7,7 +7,7 @@
     <td class="text-left">
         <span class="status-badge
           {% if invoice.status == 'Abierto' %} status-open
-          {% elif invoice.status == 'Pagado' %} status-paid
+          {% elif invoice.status == 'Historico' %} status-paid
           {% elif invoice.status == 'Cancelado' %} status-cancelled
           {% else %} status-default
           {% endif %}">
