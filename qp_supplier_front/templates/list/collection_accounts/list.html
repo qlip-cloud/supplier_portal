@@ -1,0 +1,17 @@
+{% if collection_accounts %}
+{% for collection_account in collection_accounts %}
+<tr>
+    <td>{{ collection_account.name }}</td>
+    <td>{{ collection_account.purchase_order }}</td>
+    <td>{{ collection_account.status or "-" }}</td>
+    <td>{{ frappe.format_date(collection_account.creation_date, "dd/MM/yyyy") if collection_account.creation_date else "-" }}</td>
+    <td class="text-right">{{ frappe.format_value(collection_account.total_due or 0, "Currency", currency = "COP") }}</td>
+    <td class="text-right">{{ frappe.format_value(collection_account.available_amount or 0, "Currency", currency = "COP") }}</td>
+    <td class="text-right">{{ frappe.format_value(collection_account.amount_payable or 0, "Currency", currency = "COP") }}</td>
+</tr>
+{% endfor %}
+{% elif show_result %}
+<tr>
+    <td colspan="6">No hay resultados</td>
+</tr>
+{% endif %}
