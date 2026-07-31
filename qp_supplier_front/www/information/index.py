@@ -226,9 +226,9 @@ def setup_wizard_tabs(context):
     
     for idx, tab in enumerate(wizard_tabs):
         tab["tab_id"] = "tab{}".format(idx + 1)
-        tab["prev_tab_id"] = wizard_tabs[idx - 1]["tab_id"] if idx > 0 else None
+        tab["prev_tab_id"] = "tab{}".format(idx) if idx > 0 else None
         tab["prev_tab_label"] = wizard_tabs[idx - 1]["label"] if idx > 0 else None
-        tab["next_tab_id"] = wizard_tabs[idx + 1]["tab_id"] if idx < len(wizard_tabs) - 1 else None
+        tab["next_tab_id"] = "tab{}".format(idx + 2) if idx < len(wizard_tabs) - 1 else None
         tab["next_tab_label"] = wizard_tabs[idx + 1]["label"] if idx < len(wizard_tabs) - 1 else None
     
     context.wizard_tabs = wizard_tabs

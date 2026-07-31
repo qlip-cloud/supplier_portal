@@ -88,11 +88,11 @@
                                     {% set template_path = "qp_supplier_front/templates/form/information/" ~ template_name ~ ".html" %}
                                     {% include template_path %}
                                 {% endfor %}
-                                {% if is_estatus_editable %}
+                                {% if supplier_id or is_estatus_editable %}
                                 <div class="row row-line justify-content-between">
                                     {% if tab.prev_tab_id %}
                                     <div class="col-4 text-left">
-                                        <button class="btn btn-primary btn-sm primary-action is_estatus_editable button-save tab-nav-btn"
+                                        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save tab-nav-btn"
                                             data-control="{{ tab.prev_tab_id }}">
                                             <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 2px;">arrow_back_ios</span>
                                             {{ tab.prev_tab_label }}
@@ -101,9 +101,11 @@
                                     {% endif %}
                                     <div class="col-{% if tab.prev_tab_id %}4{% else %}12{% endif %} text-right">
                                         {% if tab.has_finish_button %}
+                                        {% if is_estatus_editable %}
                                         <button class="btn btn-primary btn-sm primary-action finish button-save">Finalizar</button>
+                                        {% endif %}
                                         {% elif tab.next_tab_id %}
-                                        <button class="btn btn-primary btn-sm primary-action is_estatus_editable button-save tab-nav-btn"
+                                        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save tab-nav-btn"
                                             data-control="{{ tab.next_tab_id }}">
                                             {{ tab.next_tab_label }}
                                             <span class="material-symbols-outlined" style="font-size: 14px; margin-left: 2px;">arrow_forward_ios</span>
