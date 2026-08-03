@@ -1,3 +1,20 @@
+function formatPhoneNumber(raw) {
+    let val = String(raw || '').replace(/\D/g, '');
+    if (val.length > 10) {
+        val = val.substring(0, 10);
+    }
+
+    let formatted = '';
+    if (val.length > 0) {
+        formatted += '(' + val.substring(0, 3);
+        if (val.length > 3) {
+            formatted += ')' + val.substring(3);
+        }
+    }
+
+    return formatted;
+}
+
 function saveShowTab(tabId) {
 
     document.getElementById("overlay").style.display = 'block';
@@ -210,6 +227,8 @@ $(document).ready(function () {
                 } else {
 
                     $("#supplier_name").val(supplier.supplier_name)
+
+                    $("#phone_number").val(formatPhoneNumber(supplier.phone_number))
                 }
             } else {
                 $("#supplier_name").val()
@@ -699,18 +718,7 @@ $(document).ready(function () {
         let cursor = this.selectionStart;
         let originalLen = this.value.length;
 
-        let val = this.value.replace(/\D/g, '');
-        if (val.length > 10) {
-            val = val.substring(0, 10);
-        }
-
-        let formatted = '';
-        if (val.length > 0) {
-            formatted += '(' + val.substring(0, 3);
-            if (val.length > 3) {
-                formatted += ')' + val.substring(3);
-            }
-        }
+        let formatted = formatPhoneNumber(this.value);
 
         this.value = formatted;
 
