@@ -101,7 +101,7 @@ def set_contact(doctype, contact, supplier, email_id, phone = None):
         })
         contact.mobile_no = phone
     
-    links = {link.link_doctype + ":" + link.link_name for link in contact.links}
+    links = {link.link_doctype + ":" + link.link_name for link in contact.get("links") or []}
     
     if supplier.doctype + ":" + supplier.name not in links:
         contact.append("links", {
