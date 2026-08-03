@@ -54,7 +54,8 @@ def  create_contact(supplier, doctype, first_name,email_id, qp_contact_type=None
     
     contact.first_name = first_name
     
-    contact.user = user
+    if user and frappe.db.exists("User", user):
+        contact.user = user
     
     contact.qp_contact_type = qp_contact_type
     
@@ -68,21 +69,23 @@ def create_first_contact(supplier, email = None):
     
     doctype = "Contact"
     
-    user = email if email else frappe.session.user
+    candidate = email if email else frappe.session.user
     
-    contact_name = frappe.get_value(doctype, filters = {"user": user})
+    user = candidate if frappe.db.exists("User", candidate) else None
+    
+    contact_name = frappe.get_value(doctype, filters = {"user": user}) if user else None
     
     if contact_name:
     
         contact = frappe.get_doc(doctype, contact_name)
         
-        set_contact(doctype, contact, supplier, user)
+        set_contact(doctype, contact, supplier, candidate)
         
         contact.save()
         
         return contact
         
-    contact = create_contact(supplier, doctype, supplier.supplier_name, user, qp_contact_type=None,user = user)
+    contact = create_contact(supplier, doctype, supplier.supplier_name, candidate, qp_contact_type=None, user=user)
     
     return contact
 
@@ -127,11 +130,6 @@ def update_primary_contact_phone(supplier, phone_number):
         target = contacts[0]
         for c in contacts:
             if c.name != target.name and c.is_primary_contact:
-                contact_doc = frappe.get_doc("Contact", c.name)
-                contact_doc.is_primary_contact = 0
-                contact_doc.save()
-    contact = frappe.get_doc("Contact", target.name)
-    contact.mobile_no = phone_number
-    if not contact.is_primary_contact:
-        contact.is_primary_contact = 1
-    contact.save()
+                frappe.db.set_value("Contact", c.name, "is_primary_contact", 0)
+        frappe.db.set_value("Contact", target.name, "is_primary_contact", 1)
+    frappe.db.set_value("Contact", target.name, "mobile_no", phone_number)

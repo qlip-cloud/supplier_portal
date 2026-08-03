@@ -42,10 +42,8 @@ def get_context(context):
                         if not contact.is_primary_contact:
                             for c in contacts:
                                 if c.is_primary_contact:
-                                    c.is_primary_contact = 0
-                                    c.save()
-                            contact.is_primary_contact = 1
-                            contact.save()
+                                    frappe.db.set_value("Contact", c.name, "is_primary_contact", 0)
+                            frappe.db.set_value("Contact", contact.name, "is_primary_contact", 1)
                         break
         context.primary_phone = primary_phone
         
