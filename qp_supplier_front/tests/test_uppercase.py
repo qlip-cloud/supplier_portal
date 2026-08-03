@@ -170,4 +170,44 @@ class TestUppercaseMiddleware(unittest.TestCase):
         self.assertEqual(captured["qp_financial_amount"], "8651.22")
         self.assertEqual(captured["qp_financial_entity"], "Banco X")
 
+    def test_tax_update_sanitizes_industry_and_commerce_rate(self):
+        from qp_supplier_front.resources.information import tax
+
+        captured = {}
+        original_handler = tax.update_tax
+        original_response = tax.response
+
+        def fake_handler(supplier_id, qp_vat_officer, tax_regime, qp_industry_and_commerce_tax,
+                         qp_industry_and_commerce_rate, qp_self_retaining, qp_major_contributor,
+                         qp_vat_withholding_agent, ciiu_id, qp_resolution, qp_resolution_self_retaining):
+            captured["qp_industry_and_commerce_rate"] = qp_industry_and_commerce_rate
+            return {"supplier": {}}
+
+        def fake_response(status, msg, data=None):
+            captured["status"] = status
+
+        tax.update_tax = fake_handler
+        tax.response = fake_response
+
+        try:
+            tax.update(
+                supplier_id="SUP-0001",
+                qp_vat_officer="SI",
+                tax_regime="COMUN",
+                qp_industry_and_commerce_tax="SI",
+                qp_industry_and_commerce_rate="1.234,56",
+                qp_self_retaining="SI",
+                qp_major_contributor="NO",
+                qp_vat_withholding_agent="NO",
+                ciiu_id="0111",
+                qp_resolution="RES-001",
+                qp_resolution_self_retaining=""
+            )
+        finally:
+            tax.update_tax = original_handler
+            tax.response = original_response
+
+        self.assertEqual(captured["status"], 200)
+        self.assertEqual(captured["qp_industry_and_commerce_rate"], "1234.56")
+
 
