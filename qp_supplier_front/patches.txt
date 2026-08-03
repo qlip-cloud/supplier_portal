@@ -1,0 +1,1 @@
+qp_supplier_front.patches.remove_duplicate_dynamic_links
