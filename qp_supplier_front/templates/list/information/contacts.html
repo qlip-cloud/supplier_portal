@@ -23,7 +23,7 @@
                 <td>{{contact.first_name}}
 
                 </td>
-                <td>{{contact.qp_contact_type}}</td>
+                <td>{{contact.qp_contact_type or ""}}</td>
                 <td>{{contact.email_ids[0].email_id if contact.email_ids else contact.user}}</td>
                 <td>{{contact.phone_nos[0].phone if contact.phone_nos else "" }}</td>
 

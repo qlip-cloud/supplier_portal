@@ -48,6 +48,7 @@ def  update_contact(doctype_id, doctype, first_name, email_id, qp_contact_type ,
     })
     
     
+    contact.flags.ignore_links = True
     contact.save()
     
     return contact

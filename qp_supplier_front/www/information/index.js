@@ -1,3 +1,20 @@
+function formatPhoneNumber(raw) {
+    let val = String(raw || '').replace(/\D/g, '');
+    if (val.length > 10) {
+        val = val.substring(0, 10);
+    }
+
+    let formatted = '';
+    if (val.length > 0) {
+        formatted += '(' + val.substring(0, 3);
+        if (val.length > 3) {
+            formatted += ')' + val.substring(3);
+        }
+    }
+
+    return formatted;
+}
+
 function saveShowTab(tabId) {
 
     document.getElementById("overlay").style.display = 'block';
@@ -210,6 +227,8 @@ $(document).ready(function () {
                 } else {
 
                     $("#supplier_name").val(supplier.supplier_name)
+
+                    $("#phone_number").val(formatPhoneNumber(supplier.phone_number))
                 }
             } else {
                 $("#supplier_name").val()
@@ -741,18 +760,7 @@ $(document).ready(function () {
         let cursor = this.selectionStart;
         let originalLen = this.value.length;
 
-        let val = this.value.replace(/\D/g, '');
-        if (val.length > 10) {
-            val = val.substring(0, 10);
-        }
-
-        let formatted = '';
-        if (val.length > 0) {
-            formatted += '(' + val.substring(0, 3);
-            if (val.length > 3) {
-                formatted += ')' + val.substring(3);
-            }
-        }
+        let formatted = formatPhoneNumber(this.value);
 
         this.value = formatted;
 
@@ -878,11 +886,15 @@ $(document).ready(function () {
 
             $selectCountry.val(address.country);
 
-            $selectCity.val(address.city);
+            const mappingResult = { needsSave: false, notFound: false };
 
-            $selectState.val(address.state);
+            mapAddressField($selectCity, cities, address.city, address.raw_city, "state_name", mappingResult);
+
+            mapAddressField($selectState, states, address.state, address.raw_state, "municipality_name", mappingResult);
 
             $selectAddress_line1.val(address.address_line1);
+
+            renderAddressAlerts(mappingResult);
 
             applyModalFieldHighlights("address");
             $("#form-address").attr('method', 'PUT');
@@ -895,6 +907,7 @@ $(document).ready(function () {
     $("#new-address").on("click", function () {
         $("#form-address")[0].reset();
         $("#form-address").find("input[type='text'], select").val("").trigger('change');
+        $("#address-alerts").empty();
         $("#form-address").attr('method', 'POST');
     });
     $("#contact_list").on("click", ".contact-id", function () {
@@ -1519,6 +1532,81 @@ function setOptionStates(states_list) {
         const optionText = `${state.name} (${state.municipality_name})`;
         $selectElement.append(new Option(optionText, state.name));
     });
+}
+
+function normalizeValue(value) {
+    return (value || "").toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function mapAddressField($select, options, resolvedValue, rawValue, nameKey, result) {
+    const resolved = normalizeValue(resolvedValue);
+    const raw = normalizeValue(rawValue);
+
+    if (!resolved) {
+        return;
+    }
+
+    const hasOption = (value) => $select.find(`option[value="${value}"]`).length > 0;
+
+    if (resolvedValue && hasOption(resolvedValue)) {
+        $select.val(resolvedValue);
+
+        if (resolved !== raw) {
+            result.needsSave = true;
+        }
+        return;
+    }
+
+    const found = (options || []).find((option) =>
+        normalizeValue(option.name) === resolved ||
+        normalizeValue(option.name) === raw ||
+        normalizeValue(option[nameKey]) === resolved ||
+        normalizeValue(option[nameKey]) === raw
+    );
+
+    if (found) {
+        $select.val(found.name);
+        result.needsSave = true;
+        return;
+    }
+
+    if (!hasOption("Otro-Otro")) {
+        $select.append(new Option("Otros", "Otro-Otro"));
+    }
+
+    $select.val("Otro-Otro");
+    result.notFound = true;
+}
+
+function renderAddressAlerts(result) {
+    const $container = $("#address-alerts");
+
+    $container.empty();
+
+    if (!result || (!result.needsSave && !result.notFound)) {
+        return;
+    }
+
+    let type = "warning";
+    let message;
+
+    if (result.needsSave && result.notFound) {
+        message = "Es requerido guardar la información. No fue posible conseguir el departamento o municipio; se seleccionó \"Otros\".";
+    } else if (result.needsSave) {
+        message = "Es requerido guardar la información para actualizar los datos del departamento y municipio.";
+    } else {
+        type = "info";
+        message = "No fue posible conseguir el departamento o municipio. Se seleccionó \"Otros\".";
+    }
+
+    $container.append(
+        `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>`
+    );
 }
 
 

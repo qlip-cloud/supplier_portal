@@ -1,3 +1,4 @@
 qp_supplier_front.patches.add_documenteme_shortcut_to_home
 qp_supplier_front.patches.add_documenteme_roles
 qp_supplier_front.patches.migrate_fieldsection_wizard_config
+qp_supplier_front.patches.remove_duplicate_dynamic_links
