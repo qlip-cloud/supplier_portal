@@ -168,3 +168,44 @@ class TestSupplierSync(unittest.TestCase):
         bank_names = [ba[0] for ba in records["bank_accounts"]]
         self.assertIn("1002:12345", bank_names)
         self.assertIn("1003:67890", bank_names)
+
+    def test_get_first_aba_code_returns_matching_eft_aba(self):
+        response = [
+            {
+                "vendorId": "2001",
+                "eftInformation": [
+                    {"bankName": "BANCO A", "swiftCode": "SW1", "abaCode": "ABA-1"},
+                    {"bankName": "BANCO B", "swiftCode": "SW2", "abaCode": ""},
+                ]
+            },
+            {
+                "vendorId": "2002",
+                "eftInformation": [
+                    {"bankName": "BANCO A", "swiftCode": "SW1", "abaCode": "ABA-1-DUPLICADO"},
+                ]
+            }
+        ]
+        result = sync_all._get_first_aba_code(response, "BANCO A", "SW1")
+        self.assertEqual(result, "ABA-1")
+
+    def test_get_first_aba_code_returns_empty_when_no_match(self):
+        response = [
+            {
+                "vendorId": "2001",
+                "eftInformation": [
+                    {"bankName": "BANCO A", "swiftCode": "SW1", "abaCode": ""},
+                ]
+            }
+        ]
+        result = sync_all._get_first_aba_code(response, "BANCO Z", "SW9")
+        self.assertEqual(result, "")
+
+    def test_get_first_aba_code_ignores_blank_efts(self):
+        response = [
+            {
+                "vendorId": "2001",
+                "eftInformation": [None, {"bankName": "BANCO A", "swiftCode": "SW1", "abaCode": "ABA-3"}]
+            }
+        ]
+        result = sync_all._get_first_aba_code(response, "BANCO A", "SW1")
+        self.assertEqual(result, "ABA-3")
