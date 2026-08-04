@@ -334,8 +334,8 @@ def build_records(
         if vendor_id in local_tax_ids:
             supplier_name = existing_suppliers.get(vendor_id)
             if supplier_name:
-                # 1. Contacto (solo si tiene mail)
-                if mail and mail.strip():
+                # 1. Contacto (si tiene mail o teléfono)
+                if (mail and mail.strip()) or phone:
                     contact, dynamic_link = create_contact_records(supplier_index, vendor_id, name, mail, phone)
                     contacts.append(contact)
                     dynamic_links.append(dynamic_link[:2] + (supplier_name,) + dynamic_link[3:])

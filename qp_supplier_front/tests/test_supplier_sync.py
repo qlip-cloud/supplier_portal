@@ -70,13 +70,31 @@ class TestSupplierSync(unittest.TestCase):
                     }
                 ],
                 "eftInformation": None
+            },
+            {
+                "vendorId": "1004",
+                "nit": "1004",
+                "name": "PROVEEDOR EXISTENTE SOLO TELEFONO",
+                "phone": "60123456789000",
+                "mail": "",
+                "address": [
+                    {
+                        "country": "COLOMBIA",
+                        "state": "BOGOTA",
+                        "city": "BOGOTA",
+                        "codCity": None,
+                        "address": "Calle Telefono 101"
+                    }
+                ],
+                "eftInformation": None
             }
         ]
 
         # Simular base de datos
         self.existing_suppliers = {
             "1002": "PROV-1002",
-            "1003": "PROV-1003"
+            "1003": "PROV-1003",
+            "1004": "PROV-1004"
         }
         self.eft_by_vendor = {
             "1002": [
@@ -119,8 +137,8 @@ class TestSupplierSync(unittest.TestCase):
         self.assertEqual(len(records["suppliers"]), 1)
         self.assertEqual(records["suppliers"][0][0], "1001")
 
-        # 2. Validar contactos creados (ahora incluye existentes con mail)
-        self.assertEqual(len(records["contacts"]), 3)
+        # 2. Validar contactos creados (ahora incluye existentes con mail o telefono)
+        self.assertEqual(len(records["contacts"]), 4)
         contact_emails = [c[2] for c in records["contacts"]]
         self.assertIn("nuevo@example.com", contact_emails)
         self.assertIn("existente_completo@example.com", contact_emails)
@@ -131,13 +149,19 @@ class TestSupplierSync(unittest.TestCase):
         self.assertEqual(contact_map["nuevo@example.com"], "31155512340000")
         self.assertEqual(contact_map["existente_completo@example.com"], "32055556780000")
         self.assertEqual(contact_map["existente_sin_nada@example.com"], "")
+        self.assertEqual(contact_map[""], "60123456789000")
+
+        # 2c. Proveedor existente solo con teléfono genera contacto (sin mail)
+        phone_contact = [c for c in records["contacts"] if c[3] == "60123456789000"]
+        self.assertEqual(len(phone_contact), 1)
 
         # 3. Validar direcciones creadas (PK siempre usa vendor_id = tax_id)
-        self.assertEqual(len(records["addresses"]), 3)
+        self.assertEqual(len(records["addresses"]), 4)
         address_names = [a[0] for a in records["addresses"]]
         self.assertIn("0-1001:Billing", address_names)
         self.assertIn("0-1002:Billing", address_names)
         self.assertIn("0-1003:Billing", address_names)
+        self.assertIn("0-1004:Billing", address_names)
 
         # 4. Validar cuentas bancarias creadas (PK siempre usa vendor_id = tax_id)
         self.assertEqual(len(records["bank_accounts"]), 2)
