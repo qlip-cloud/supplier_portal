@@ -74,6 +74,30 @@ def get_existing_address_count(supplier_names):
 
 
 
+def _get_first_aba_code(suppliers_response: list, raw_bank_name: str, swift_code: str):
+    """Retorna el primer abaCode encontrado para el par (bankName, swiftCode)."""
+    for supplier_item in suppliers_response:
+        for eft in (supplier_item.get('eftInformation') or []):
+            if eft and (eft.get('bankName', '') or '').strip() == raw_bank_name and (eft.get('swiftCode', '') or '').strip() == swift_code:
+                return (eft.get('abaCode', '') or '').strip()
+    return ""
+
+
+def _update_bank_swift_aba(bank_name: str, swift_code: str, aba_code: str):
+    """Actualiza swift/aba de un Bank existente cuando GP envia valores nuevos."""
+    bank_doc = frappe.get_doc("Bank", bank_name)
+    has_changes = False
+    if swift_code and bank_doc.qp_swift_number != swift_code:
+        bank_doc.qp_swift_number = swift_code
+        has_changes = True
+    if aba_code and bank_doc.qp_aba_number != aba_code:
+        bank_doc.qp_aba_number = aba_code
+        has_changes = True
+    if has_changes:
+        bank_doc.save(ignore_permissions=True)
+        frappe.db.commit()
+
+
 def resolve_and_create_banks(suppliers_response: list):
     """
     Fase 1: Recolectar todos los eftInformation de proveedores
@@ -101,27 +125,22 @@ def resolve_and_create_banks(suppliers_response: list):
     for raw_bank_name, swift_code in sorted(unique_banks):
         resolved_bank = resolve_bank_name(raw_bank_name, swift_code)
 
+        # Buscar el primer eft correspondiente para extraer el abaCode si existe
+        aba_code = _get_first_aba_code(suppliers_response, raw_bank_name, swift_code)
+
         # Si el banco no existe en la base de datos, crearlo
         if not frappe.db.exists("Bank", resolved_bank):
             new_bank = frappe.new_doc("Bank")
             new_bank.bank_name = resolved_bank
             if swift_code:
                 new_bank.qp_swift_number = swift_code
-            
-            # Buscar el primer eft correspondiente para extraer el abaCode si existe
-            aba_code = ""
-            for supplier_item in suppliers_response:
-                for eft in (supplier_item.get('eftInformation') or []):
-                    if eft and (eft.get('bankName', '') or '').strip() == raw_bank_name and (eft.get('swiftCode', '') or '').strip() == swift_code:
-                        aba_code = (eft.get('abaCode', '') or '').strip()
-                        break
-                if aba_code:
-                    break
-
             if aba_code:
                 new_bank.qp_aba_number = aba_code
             new_bank.insert(ignore_permissions=True)
             frappe.db.commit()
+        else:
+            # Si existe, actualizar swift/aba con los datos mas recientes de GP
+            _update_bank_swift_aba(resolved_bank, swift_code, aba_code)
 
         resolved_mapping[(raw_bank_name, swift_code)] = resolved_bank
 
@@ -334,8 +353,8 @@ def build_records(
         if vendor_id in local_tax_ids:
             supplier_name = existing_suppliers.get(vendor_id)
             if supplier_name:
-                # 1. Contacto (solo si tiene mail)
-                if mail and mail.strip():
+                # 1. Contacto (si tiene mail o teléfono)
+                if (mail and mail.strip()) or phone:
                     contact, dynamic_link = create_contact_records(supplier_index, vendor_id, name, mail, phone)
                     contacts.append(contact)
                     dynamic_links.append(dynamic_link[:2] + (supplier_name,) + dynamic_link[3:])
