@@ -53,9 +53,23 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
                 assignee_id = frappe.db.get_value(
                     "qp_SP_DocumentSyncLine", doc.get("nvfac_nume"), "assigned_to"
                 )
+                assigned_user_ids = [
+                    row.get("user")
+                    for row in frappe.get_all(
+                        "qp_SP_SyncLineAssignedUser",
+                        filters={"parent": doc.get("nvfac_nume"), "parenttype": "qp_SP_DocumentSyncLine"},
+                        fields=["user"]
+                    )
+                ]
+                if not assigned_user_ids and assignee_id:
+                    assigned_user_ids = [assignee_id]
                 doc["assigned_to_id"] = assignee_id
-                if assignee_id:
-                    doc["assigned_to_name"] = frappe.db.get_value("User", assignee_id, "full_name") or assignee_id
+                doc["assigned_to_ids"] = assigned_user_ids
+                if assigned_user_ids:
+                    names = []
+                    for user_id in assigned_user_ids:
+                        names.append(frappe.db.get_value("User", user_id, "full_name") or user_id)
+                    doc["assigned_to_name"] = ", ".join(names)
                 else:
                     doc["assigned_to_name"] = None
                 enrich_document_detail(doc)

@@ -36,6 +36,7 @@
         "nvfac_vadv",
         "is_completed",
         "assigned_to",
+        "assigned_users",
         "sync_attempts"
     ],
     "fields": [
@@ -206,6 +207,12 @@
             "search_index": 1
         },
         {
+            "fieldname": "assigned_users",
+            "fieldtype": "Table",
+            "label": "Assigned Users",
+            "options": "qp_SP_SyncLineAssignedUser"
+        },
+        {
             "fieldname": "sync_attempts",
             "fieldtype": "Table",
             "label": "Sync Attempts",
@@ -214,7 +221,7 @@
     ],
     "index_web_pages_for_search": 1,
     "links": [],
-    "modified": "2026-07-14 12:00:00.000000",
+    "modified": "2026-08-06 19:50:00.000000",
     "modified_by": "Administrator",
     "module": "Qp Supplier Front",
     "name": "qp_SP_DocumentSyncLine",

@@ -1,0 +1,146 @@
+import frappe
+from qp_supplier_front.resources.response import handler as response
+from qp_supplier_front.uses_cases.documenteme.auto_assign import (
+    auto_assign as auto_assign_core,
+    resolve_assignee_emails,
+)
+
+
+def run_auto_assign():
+    return auto_assign_core(
+        candidates_fn=get_candidates,
+        get_oc_context_fn=get_oc_context,
+        get_receipt_total_fn=get_receipt_total,
+        resolve_emails_fn=get_assignee_emails,
+        resolve_users_fn=resolve_assignee_users,
+        add_assignees_fn=add_assignees,
+    )
+
+
+@frappe.whitelist()
+def auto_assign():
+    try:
+        assigned = run_auto_assign()
+        frappe.db.commit()
+        response(200, "Asignacion automatica exitosa", {"assigned": assigned})
+
+    except Exception as error:
+        frappe.db.rollback()
+        response(500, "Error en asignacion automatica: {}".format(str(error)))
+
+
+def get_candidates():
+    docs = frappe.get_all(
+        "qp_SP_DocumentDetail",
+        filters={"nvfac_ueve": ["is", "not set"]},
+        fields=["name", "nvfac_nume", "nvfac_orde", "nvfac_totp", "nvfac_esta", "document_sync_line"],
+    )
+
+    candidates = []
+    for doc in docs:
+        sync_line = doc.get("document_sync_line") or doc.get("nvfac_nume")
+        if not sync_line or not frappe.db.exists("qp_SP_DocumentSyncLine", sync_line):
+            continue
+
+        assigned_to = frappe.db.get_value("qp_SP_DocumentSyncLine", sync_line, "assigned_to")
+        has_assigned_users = bool(frappe.db.exists("qp_SP_SyncLineAssignedUser", {
+            "parent": sync_line,
+            "parenttype": "qp_SP_DocumentSyncLine",
+        }))
+
+        candidates.append({
+            "name": doc.get("name"),
+            "nvfac_nume": sync_line,
+            "nvfac_orde": doc.get("nvfac_orde"),
+            "nvfac_totp": doc.get("nvfac_totp"),
+            "assigned_to": assigned_to,
+            "has_assigned_users": has_assigned_users,
+            "in_queue": True,
+        })
+
+    return candidates
+
+
+def get_oc_context(purchase_order_number):
+    if not purchase_order_number:
+        return None
+
+    if not frappe.db.exists("Purchase Order", purchase_order_number):
+        return None
+
+    values = frappe.db.get_value(
+        "Purchase Order",
+        purchase_order_number,
+        ["qp_oc_type", "qp_headquarter"],
+    )
+    if values is None:
+        return None
+
+    return {"oc_type": values[0], "headquarter": values[1]}
+
+
+def get_receipt_total(purchase_order_number):
+    if not purchase_order_number:
+        return None
+
+    child_items = frappe.get_all(
+        "qp_SP_PaymentReceiptItem",
+        filters={"qp_document_no_factura": purchase_order_number},
+        fields=["qp_amount"],
+    )
+
+    if not child_items:
+        return None
+
+    return sum(item.get("qp_amount") or 0 for item in child_items)
+
+
+def get_assignee_emails(oc_type, headquarter):
+    oc_type_rows = frappe.get_all("qp_SP_OCType", fields=["oc_type", "is_inventariable"])
+    assignment_rows = _load_assignment_rows()
+    return resolve_assignee_emails(oc_type, headquarter, oc_type_rows, assignment_rows)
+
+
+def _load_assignment_rows():
+    configs = frappe.get_all(
+        "qp_SP_AssignmentConfig",
+        fields=["name", "headquarter", "oc_type"],
+    )
+
+    rows = []
+    for config in configs:
+        child_rows = frappe.get_all(
+            "qp_SP_AssignmentConfigUser",
+            filters={"parent": config["name"], "parenttype": "qp_SP_AssignmentConfig"},
+            fields=["user_email"],
+        )
+        rows.append({
+            "headquarter": config.get("headquarter"),
+            "oc_type": config.get("oc_type"),
+            "user_emails": [row.get("user_email") for row in child_rows],
+        })
+
+    return rows
+
+
+def resolve_assignee_users(emails):
+    users = []
+    for email in (emails or []):
+        if not email:
+            continue
+        if frappe.db.exists("User", email) and frappe.db.get_value("User", email, "enabled"):
+            if email not in users:
+                users.append(email)
+    return users
+
+
+def add_assignees(sync_line_name, users):
+    line = frappe.get_doc("qp_SP_DocumentSyncLine", sync_line_name)
+    existing = {row.user for row in line.assigned_users}
+
+    for user in (users or []):
+        if user in existing:
+            continue
+        line.append("assigned_users", {"user": user})
+
+    line.save()

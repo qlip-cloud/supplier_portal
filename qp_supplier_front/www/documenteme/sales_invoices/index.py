@@ -3,9 +3,17 @@ from qp_supplier_front.services.pagination import get_paginated_filtered
 from qp_supplier_front.services.get_data import has_recent_news, get_has_dispatch_permission
 from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.services.enrich_document_detail import enrich_document_detail
+from qp_supplier_front.resources.documenteme.auto_assign import run_auto_assign
 
 def get_context(context):
     context.no_cache = True
+
+    try:
+        run_auto_assign()
+        frappe.db.commit()
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "documenteme auto_assign")
 
     query_params = frappe.request.args
     supplier_id = query_params.get("supplier")
@@ -62,9 +70,23 @@ def get_context(context):
         assignee_id = frappe.db.get_value(
             "qp_SP_DocumentSyncLine", doc.get("nvfac_nume"), "assigned_to"
         )
+        assigned_user_ids = [
+            row.get("user")
+            for row in frappe.get_all(
+                "qp_SP_SyncLineAssignedUser",
+                filters={"parent": doc.get("nvfac_nume"), "parenttype": "qp_SP_DocumentSyncLine"},
+                fields=["user"]
+            )
+        ]
+        if not assigned_user_ids and assignee_id:
+            assigned_user_ids = [assignee_id]
         doc["assigned_to_id"] = assignee_id
-        if assignee_id:
-            doc["assigned_to_name"] = frappe.db.get_value("User", assignee_id, "full_name") or assignee_id
+        doc["assigned_to_ids"] = assigned_user_ids
+        if assigned_user_ids:
+            names = []
+            for user_id in assigned_user_ids:
+                names.append(frappe.db.get_value("User", user_id, "full_name") or user_id)
+            doc["assigned_to_name"] = ", ".join(names)
         else:
             doc["assigned_to_name"] = None
         enrich_document_detail(doc)
