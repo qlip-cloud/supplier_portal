@@ -50,6 +50,26 @@ frappe.ui.form.on('qp_SP_MasterSetup', {
 					}
 				}, __("Sincronizar"));
 
+				frm.add_custom_button(__('Recibos'), function() {
+					if (!frm.is_dirty()){
+						sync(frm.doc.name, 'qp_supplier_front.uses_cases.payment_receipt.sync_by_supplier.sync_full',
+							`Sincronización general de recibos ejecutada en segundo plano, revise el Sync Log`);
+					}
+					else{
+						show_alert (__("Unable to sync, <br> There are unsaved changes"))
+					}
+				}, __("Sincronizar"));
+
+				frm.add_custom_button(__('Facturas'), function() {
+					if (!frm.is_dirty()){
+						sync(frm.doc.name, 'qp_supplier_front.uses_cases.purchase_invoice.sync_by_supplier.sync_full',
+							`Sincronización general de facturas ejecutada en segundo plano, revise el Sync Log`);
+					}
+					else{
+						show_alert (__("Unable to sync, <br> There are unsaved changes"))
+					}
+				}, __("Sincronizar"));
+
 				frm.add_custom_button(__('Productos'), function(){
 					if (!frm.is_dirty()){
 						sync_items(frm, frm.doc.name)

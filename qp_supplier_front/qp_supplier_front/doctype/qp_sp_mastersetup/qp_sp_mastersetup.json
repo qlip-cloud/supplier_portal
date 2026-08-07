@@ -4,9 +4,11 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
- "field_order": [
+  "field_order": [
    "supplier_date_sync",
    "init_fiscal_year",
+   "invoices_date_sync",
+   "receipts_date_sync",
    "section_break_redirect",
    "redirect_to_welcome",
    "column_break_welcome_content",
@@ -27,6 +29,18 @@
     "fieldname": "init_fiscal_year",
     "fieldtype": "Int",
     "label": "init_fiscal_year"
+   },
+   {
+    "fieldname": "invoices_date_sync",
+    "fieldtype": "Datetime",
+    "label": "Facturas BC - \u00faltima fecha sincronizada",
+    "description": "Fecha de inicio del full sync de facturas BC. Se actualiza automaticamente a la \u00faltima fecha sincronizada."
+   },
+   {
+    "fieldname": "receipts_date_sync",
+    "fieldtype": "Datetime",
+    "label": "Recibos BC - \u00faltima fecha sincronizada",
+    "description": "Fecha de inicio del full sync de recibos BC. Se actualiza automaticamente a la \u00faltima fecha sincronizada."
    },
    {
     "fieldname": "section_break_redirect",
@@ -78,7 +92,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-29 12:00:00.000000",
+ "modified": "2026-08-06 19:55:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_MasterSetup",

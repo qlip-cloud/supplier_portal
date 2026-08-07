@@ -1,0 +1,145 @@
+{
+ "actions": [],
+ "creation": "2026-08-06 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sync_type",
+  "supplier",
+  "flow",
+  "sync_mode",
+  "sync_date",
+  "window_start",
+  "window_end",
+  "status",
+  "records_found",
+  "records_inserted",
+  "records_skipped",
+  "duration_ms",
+  "error_message"
+ ],
+ "fields": [
+  {
+   "fieldname": "sync_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sync Type",
+   "options": "Order\nReceipt"
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Supplier",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "flow",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Flow",
+   "options": "GP\nBC"
+  },
+  {
+   "fieldname": "sync_mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sync Mode",
+   "options": "full\nincremental"
+  },
+  {
+   "fieldname": "sync_date",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Sync Date"
+  },
+  {
+   "fieldname": "window_start",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Window Start"
+  },
+  {
+   "fieldname": "window_end",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Window End"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Status"
+  },
+  {
+   "fieldname": "records_found",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Records Found"
+  },
+  {
+   "fieldname": "records_inserted",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Records Inserted"
+  },
+  {
+   "fieldname": "records_skipped",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Records Skipped"
+  },
+  {
+   "fieldname": "duration_ms",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Duration (ms)"
+  },
+  {
+   "fieldname": "error_message",
+   "fieldtype": "Long Text",
+   "label": "Error Message"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-06 19:50:00.000000",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_SyncLog",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

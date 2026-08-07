@@ -6,7 +6,11 @@ No tiene imports a Frappe. Todas las dependencias de infraestructura
 (API, DB, commit, log) son inyectadas como callbacks.
 
 Sigue el patron de documents/sync_by_supplier.py (Clean Architecture / DI).
+Incluye sync_invoices_window para sincronizar por ventanas de fechas
+sin depender del endpoint global sin filtros.
 """
+
+import time
 
 from qp_supplier_front.exception.sync import (
     ExceptionSyncResponseEmpty,
@@ -185,6 +189,159 @@ def sync_all_suppliers_invoices(
         "synced_count": synced_count,
         "errors": errors,
     }
+
+
+def sync_invoices_window(
+    supplier_id,
+    flow,
+    window_start,
+    window_end,
+    fetch_fn,
+    existing_ids_fn,
+    commit_fn,
+    log_sync_fn,
+    now,
+    log_skipped_fn=None,
+    scope="supplier",
+):
+    strategy = get_strategy(flow)
+    started_at = time.time()
+
+    _safe_log(
+        log_sync_fn,
+        "In Progress",
+        window_start,
+        window_end,
+    )
+    commit_fn()
+
+    if scope == "global":
+        param = strategy["build_all_range_param"](
+            str(window_start), str(window_end)[:10]
+        )
+        endpoint = strategy["endpoints"]["all_range"]
+    else:
+        param = strategy["build_param"](
+            supplier_id,
+            last_date=str(window_start),
+            now=str(window_end)[:10],
+        )
+        endpoint = strategy["endpoints"]["per_supplier_range"]
+
+    result = fetch_fn(endpoint, param=param)
+
+    if strategy["request_key"] not in result:
+        raise ExceptionSyncResponseEmpty(strategy["request_key"])
+
+    invoices_data = result.get(strategy["request_key"]) or []
+
+    if not invoices_data:
+        _safe_log(
+            log_sync_fn,
+            "NoNewRecords",
+            window_start,
+            window_end,
+            records_found=0,
+            records_inserted=0,
+            records_skipped=0,
+            duration_ms=_elapsed(started_at),
+        )
+        commit_fn()
+        return {
+            "status": "NoNewRecords",
+            "found": 0,
+            "inserted": 0,
+            "skipped": 0,
+        }
+
+    candidate_ids = _extract_ids(invoices_data, strategy["request_key_id"])
+
+    existing_ids = existing_ids_fn(
+        strategy["doctype"],
+        strategy["db_fields"]["id_field"],
+        candidate_ids,
+    )
+
+    new_invoices = _filter_new(
+        invoices_data,
+        existing_ids,
+        strategy["request_key_id"],
+    )
+
+    new_invoices, skipped = strategy["filter"](new_invoices)
+
+    if log_skipped_fn:
+        for skip in skipped:
+            _safe(log_skipped_fn, skip)
+
+    if not new_invoices:
+        _safe_log(
+            log_sync_fn,
+            "NoNewRecords",
+            window_start,
+            window_end,
+            records_found=len(invoices_data),
+            records_inserted=0,
+            records_skipped=len(invoices_data),
+            duration_ms=_elapsed(started_at),
+        )
+        commit_fn()
+        return {
+            "status": "NoNewRecords",
+            "found": len(invoices_data),
+            "inserted": 0,
+            "skipped": len(invoices_data),
+        }
+
+    docs = strategy["transform"](
+        new_invoices,
+        strategy["name"],
+        now,
+    )
+
+    strategy["persist"]["insert_invoices"](docs, now)
+
+    _safe_log(
+        log_sync_fn,
+        "Success",
+        window_start,
+        window_end,
+        records_found=len(invoices_data),
+        records_inserted=len(docs),
+        records_skipped=len(invoices_data) - len(new_invoices),
+        duration_ms=_elapsed(started_at),
+    )
+    commit_fn()
+
+    return {
+        "status": "Success",
+        "found": len(invoices_data),
+        "inserted": len(docs),
+        "skipped": len(invoices_data) - len(new_invoices),
+    }
+
+
+def _safe_log(log_sync_fn, status, window_start, window_end, **kwargs):
+    try:
+        log_sync_fn(
+            status=status,
+            window_start=window_start,
+            window_end=window_end,
+            **kwargs
+        )
+    except Exception:
+        pass
+
+
+def _safe(fn, *args, **kwargs):
+    try:
+        fn(*args, **kwargs)
+    except Exception:
+        pass
+
+
+def _elapsed(started_at):
+    return int((time.time() - started_at) * 1000)
 
 
 def _extract_ids(invoices_data, id_field):

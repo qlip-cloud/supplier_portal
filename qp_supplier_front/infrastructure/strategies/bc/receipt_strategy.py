@@ -11,6 +11,7 @@ Reusa persist adapter de GP (mismo doctype).
 from qp_supplier_front.infrastructure.strategies.bc.receipt_transform import (
     build_payments,
 )
+from qp_supplier_front.infrastructure.strategies.bc.odata import to_odata_date
 from qp_supplier_front.infrastructure.strategies.gp.receipt_persist_adapter import (
     insert_payments,
     insert_payment_items,
@@ -21,9 +22,15 @@ from qp_supplier_front.infrastructure.strategies.gp.receipt_persist_adapter impo
 def build_bc_param(supplier_id, last_date=None, now=None):
     if last_date:
         return "$filter=Vendor_No_ eq '{}' and Posting_Date ge {} and Posting_Date le {}".format(
-            supplier_id, last_date, now
+            supplier_id, to_odata_date(last_date), to_odata_date(now)
         )
     return "$filter=Vendor_No_ eq '{}'".format(supplier_id)
+
+
+def build_bc_all_range_param(window_start, window_end):
+    return "$filter=Posting_Date ge {} and Posting_Date le {}".format(
+        to_odata_date(window_start), to_odata_date(window_end)
+    )
 
 
 BC_RECEIPT_STRATEGY = {
@@ -32,6 +39,7 @@ BC_RECEIPT_STRATEGY = {
         "per_supplier": "list_payment_receipt",
         "per_supplier_range": "list_payment_receipt",
         "all": "list_payment_receipt",
+        "all_range": "list_payment_receipt",
     },
     "db_fields": {
         "id_field": "qp_receipt_id",
@@ -45,6 +53,7 @@ BC_RECEIPT_STRATEGY = {
     "request_key_id": "Document_No_Pago",
     "transform": build_payments,
     "build_param": build_bc_param,
+    "build_all_range_param": build_bc_all_range_param,
     "persist": {
         "insert_payments": insert_payments,
         "insert_items": insert_payment_items,

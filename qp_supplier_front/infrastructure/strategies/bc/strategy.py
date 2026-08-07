@@ -9,6 +9,7 @@ from qp_supplier_front.infrastructure.strategies.bc.transform import (
     build_invoices,
     filter_invoices,
 )
+from qp_supplier_front.infrastructure.strategies.bc.odata import to_odata_date
 from qp_supplier_front.infrastructure.strategies.gp.persist_adapter import (
     insert_invoices,
     insert_errors,
@@ -18,9 +19,15 @@ from qp_supplier_front.infrastructure.strategies.gp.persist_adapter import (
 def build_bc_param(supplier_id, last_date=None, now=None):
     if last_date:
         return "$filter=Vendor_No eq '{}' and Document_Type eq 'Invoice' and Posting_Date ge {} and Posting_Date le {}".format(
-            supplier_id, last_date, now
+            supplier_id, to_odata_date(last_date), to_odata_date(now)
         )
     return "$filter=Vendor_No eq '{}' and Document_Type eq 'Invoice'".format(supplier_id)
+
+
+def build_bc_all_range_param(window_start, window_end):
+    return "$filter=Document_Type eq 'Invoice' and Posting_Date ge {} and Posting_Date le {}".format(
+        to_odata_date(window_start), to_odata_date(window_end)
+    )
 
 
 BC_STRATEGY = {
@@ -29,6 +36,7 @@ BC_STRATEGY = {
         "per_supplier": "list_purchase_invoice",
         "per_supplier_range": "list_purchase_invoice",
         "all": "list_purchase_invoice",
+        "all_range": "list_purchase_invoice",
     },
     "db_fields": {
         "id_field": "invoice_id",
@@ -42,6 +50,7 @@ BC_STRATEGY = {
     "transform": build_invoices,
     "filter": filter_invoices,
     "build_param": build_bc_param,
+    "build_all_range_param": build_bc_all_range_param,
     "persist": {
         "insert_invoices": insert_invoices,
         "insert_errors": insert_errors,

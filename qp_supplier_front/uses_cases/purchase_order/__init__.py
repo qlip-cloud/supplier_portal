@@ -1,7 +1,5 @@
-import frappe
-
-
 def set_name(doc, method):
+    import frappe
     if doc.is_new() and doc.order_confirmation_no:
         doc.name = doc.order_confirmation_no
         doc.qp_order_confirmation_no = doc.order_confirmation_no
