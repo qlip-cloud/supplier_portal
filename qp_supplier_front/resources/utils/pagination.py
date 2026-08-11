@@ -69,7 +69,7 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
                     names = []
                     for user_id in assigned_user_ids:
                         names.append(frappe.db.get_value("User", user_id, "full_name") or user_id)
-                    doc["assigned_to_name"] = ", ".join(names)
+                    doc["assigned_to_name"] = "Asignado a:\n" + "\n".join("- " + name for name in names)
                 else:
                     doc["assigned_to_name"] = None
                 enrich_document_detail(doc)

@@ -14,10 +14,21 @@ from qp_supplier_front.services.document_sync import (
     mark_line_completed,
 )
 from qp_authorization.use_case.basic.authorize import send_request_status
+from qp_supplier_front.resources.documenteme.auto_assign import run_auto_assign
 
 
 def get_supplier_tax_id(supplier_name):
     return frappe.get_doc("Supplier", supplier_name).tax_id
+
+
+def run_documenteme_auto_assign():
+    try:
+        run_auto_assign()
+        frappe.db.commit()
+
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "documenteme auto_assign sync_all")
 
 
 @frappe.whitelist()
@@ -48,6 +59,8 @@ def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
             mark_line_completed_fn=mark_line_completed,
             commit_fn=lambda: frappe.db.commit(),
         )
+
+        run_documenteme_auto_assign()
 
         return {"success": True, "suppliers_count": len(suppliers)}
     except Exception as e:

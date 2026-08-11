@@ -64,7 +64,7 @@
         <button type="button" class="btn-control-download" style="color:{{ '#28a745' if row.non_xml_count > 0 else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{% if row.non_xml_count > 0 %}Descargar documentos{% else %}Sin documentos{% endif %}" data-name="{{ row.name }}" data-nvfac-nume="{{ row.nvfac_nume }}">
             <span class="material-symbols-outlined" style="font-size:22px">download</span>
         </button>
-        <button type="button" class="btn-control-assign" style="color:{{ '#007bff' if row.assigned_to_name else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ 'Asignado a: ' ~ row.assigned_to_name if row.assigned_to_name else 'Asignado a' }}" data-name="{{ row.name }}">
+        <button type="button" class="btn-control-assign" style="color:{{ '#007bff' if row.assigned_to_name else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ row.assigned_to_name or 'Asignado a' }}" data-name="{{ row.name }}">
             <span class="material-symbols-outlined" style="font-size:22px">assignment_ind</span>
         </button>
     </td>

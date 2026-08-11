@@ -154,7 +154,7 @@ $(document).ready(function () {
                 $('tbody input[type="checkbox"]:checked').each(function () {
                     var $btn = $(this).closest("tr").find(".btn-control-assign");
                     $btn.css("color", "#007bff");
-                    $btn.attr("title", "Asignado a: " + userName);
+                    $btn.attr("title", "Asignado a:\n- " + userName);
                 });
                 $('tbody input[type="checkbox"]:checked').prop("checked", false);
             }
