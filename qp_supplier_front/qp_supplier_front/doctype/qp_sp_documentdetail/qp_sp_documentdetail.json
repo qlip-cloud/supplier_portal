@@ -16,9 +16,10 @@
    "nvfac_fech",
    "nvmon_codi",
    "nvfac_totp",
-   "nvfac_esta",
-   "qp_motive",
-   "qp_is_event_completed",
+    "nvfac_esta",
+    "qp_motive",
+    "qp_is_event_completed",
+    "qp_auto_reject_rule",
    "nvfac_rfec",
    "nvfac_orde",
    "nvfac_rece",
@@ -123,11 +124,16 @@
    "fieldtype": "Long Text",
    "label": "Motivo"
   },
-  {
-   "fieldname": "qp_is_event_completed",
-   "fieldtype": "Check",
-   "label": "Eventos completados"
-  },
+   {
+    "fieldname": "qp_is_event_completed",
+    "fieldtype": "Check",
+    "label": "Eventos completados"
+   },
+   {
+    "fieldname": "qp_auto_reject_rule",
+    "fieldtype": "Data",
+    "label": "Regla de rechazo autom\u00e1tico"
+   },
   {
    "fieldname": "nvfac_rfec",
    "fieldtype": "Datetime",

@@ -6,6 +6,7 @@
  "engine": "InnoDB",
   "field_order": [
    "supplier_date_sync",
+   "auto_reject",
    "init_fiscal_year",
    "invoices_date_sync",
    "receipts_date_sync",
@@ -24,6 +25,13 @@
     "fieldname": "supplier_date_sync",
     "fieldtype": "Datetime",
     "label": "supplier_date_sync"
+   },
+   {
+    "fieldname": "auto_reject",
+    "fieldtype": "Link",
+    "label": "Rechazo autom\u00e1tico por defecto",
+    "description": "Regla de rechazo autom\u00e1tico aplicada a proveedores sin configuraci\u00f3n propia. Campo vac\u00edo = No configurado.",
+    "options": "qp_SP_AutoRejectRule"
    },
    {
     "fieldname": "init_fiscal_year",

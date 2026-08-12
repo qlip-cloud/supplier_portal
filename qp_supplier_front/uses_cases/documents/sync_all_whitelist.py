@@ -15,6 +15,7 @@ from qp_supplier_front.services.document_sync import (
 )
 from qp_authorization.use_case.basic.authorize import send_request_status
 from qp_supplier_front.resources.documenteme.auto_assign import run_auto_assign
+from qp_supplier_front.resources.documenteme.auto_reject import run_auto_reject
 
 
 def get_supplier_tax_id(supplier_name):
@@ -29,6 +30,16 @@ def run_documenteme_auto_assign():
     except Exception:
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "documenteme auto_assign sync_all")
+
+
+def run_documenteme_auto_reject():
+    try:
+        run_auto_reject()
+        frappe.db.commit()
+
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "documenteme auto_reject sync_all")
 
 
 @frappe.whitelist()
@@ -61,6 +72,7 @@ def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
         )
 
         run_documenteme_auto_assign()
+        run_documenteme_auto_reject()
 
         return {"success": True, "suppliers_count": len(suppliers)}
     except Exception as e:

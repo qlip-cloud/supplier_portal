@@ -14,6 +14,7 @@ from qp_supplier_front.uses_cases.documents.sync_by_supplier import (
     sync_by_supplier,
 )
 from qp_supplier_front.uses_cases.documents.sync_detail import sync_detail
+from qp_supplier_front.resources.documenteme.auto_reject import run_auto_reject
 
 
 def get_supplier_tax_id(supplier_name):
@@ -90,6 +91,16 @@ def sync_all_by_year(year, tax_id=None):
                         nvfac_fini, nvfac_ffin, str(chunk_error)
                     )
                 )
+
+        try:
+            run_auto_reject()
+            frappe.db.commit()
+        except Exception as auto_reject_error:
+            frappe.db.rollback()
+            frappe.log_error(
+                frappe.get_traceback(),
+                "sync_all_by_year auto_reject",
+            )
 
         return {
             "success": True,
