@@ -5,6 +5,7 @@ from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.services.enrich_document_detail import enrich_document_detail
 from qp_supplier_front.resources.documenteme.auto_assign import run_auto_assign
 from qp_supplier_front.resources.documenteme.auto_reject import run_auto_reject
+from qp_supplier_front.resources.documenteme.auto_approve import run_auto_approve
 
 def get_context(context):
     context.no_cache = True
@@ -22,6 +23,13 @@ def get_context(context):
     except Exception:
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "documenteme auto_reject")
+
+    try:
+        run_auto_approve()
+        frappe.db.commit()
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "documenteme auto_approve")
 
     query_params = frappe.request.args
     supplier_id = query_params.get("supplier")

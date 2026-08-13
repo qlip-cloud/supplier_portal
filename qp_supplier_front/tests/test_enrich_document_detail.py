@@ -12,8 +12,8 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 from qp_supplier_front.services.enrich_document_detail import (
+    build_alert_tooltip,
     build_po_products,
-    sum_amounts_by_parent,
     build_receipt_products,
     enrich_document_detail,
 )
@@ -40,27 +40,12 @@ class TestPureHelpers(unittest.TestCase):
     def test_build_po_products_sin_items(self):
         self.assertEqual(build_po_products([]), [])
 
-    def test_sum_amounts_by_parent_agrupa_y_suma(self):
-        child_items = [
-            {"parent": "REC1:9001", "qp_amount": 1000},
-            {"parent": "REC2:9001", "qp_amount": 500},
-            {"parent": "REC1:9001", "qp_amount": 250},
-            {"parent": "REC3:9001", "qp_amount": None},
-        ]
-        result = sum_amounts_by_parent(child_items)
-        self.assertEqual(result, {
-            "REC1:9001": 1250,
-            "REC2:9001": 500,
-            "REC3:9001": 0,
-        })
-
-    def test_build_receipt_products_usa_monto_por_factura(self):
+    def test_build_receipt_products_usa_total_por_recibo(self):
         receipts = [
-            {"name": "REC1:9001", "qp_receipt_id": "REC1"},
-            {"name": "REC2:9001", "qp_receipt_id": "REC2"},
+            {"name": "REC1:9001", "supplier_delivery_note": "REC1", "total": 1250},
+            {"name": "REC2:9001", "supplier_delivery_note": "REC2", "total": 500},
         ]
-        applied_by_parent = {"REC1:9001": 1250, "REC2:9001": 500}
-        products = build_receipt_products(receipts, applied_by_parent)
+        products = build_receipt_products(receipts)
         self.assertEqual(products, [
             {"codigo": "REC1", "udm": "", "cantidad": 1,
              "valor_unitario": 1250, "valor_total": 1250},
@@ -68,10 +53,32 @@ class TestPureHelpers(unittest.TestCase):
              "valor_unitario": 500, "valor_total": 500},
         ])
 
-    def test_build_receipt_products_recibo_sin_monto(self):
-        receipts = [{"name": "REC1:9001", "qp_receipt_id": "REC1"}]
-        products = build_receipt_products(receipts, {})
+    def test_build_receipt_products_recibo_sin_total(self):
+        receipts = [{"name": "REC1:9001", "supplier_delivery_note": "REC1"}]
+        products = build_receipt_products(receipts)
         self.assertEqual(products[0]["valor_total"], 0)
+
+    def test_build_receipt_products_sin_delivery_note_usa_name(self):
+        receipts = [{"name": "REC1:9001", "total": 100}]
+        products = build_receipt_products(receipts)
+        self.assertEqual(products[0]["codigo"], "REC1:9001")
+
+
+class TestBuildAlertTooltip(unittest.TestCase):
+
+    def test_sin_alertas_retorna_none(self):
+        self.assertIsNone(build_alert_tooltip([]))
+
+    def test_arma_tooltip_multilinea(self):
+        alerts = [
+            {"alert_date": "2026-08-13 10:00:00", "alert_message": "Error en BC"},
+            {"alert_date": "2026-08-13 11:00:00", "alert_message": "Ya existe"},
+        ]
+        tooltip = build_alert_tooltip(alerts)
+        self.assertIn("Alertas:", tooltip)
+        self.assertIn("2026-08-13 10:00", tooltip)
+        self.assertIn("Error en BC", tooltip)
+        self.assertIn("Ya existe", tooltip)
 
 
 class TestEnrichDocumentDetail(unittest.TestCase):
@@ -86,27 +93,25 @@ class TestEnrichDocumentDetail(unittest.TestCase):
             "nvfac_esta": nvfac_esta,
         }
 
-    def _mock_frappe(self, po_exists=True, po_items=None, child_items=None, receipts=None):
+    def _mock_frappe(self, po_exists=True, po_items=None, receipts=None, alerts=None):
         frappe_mock = MagicMock()
         frappe_mock.db.exists.return_value = po_exists
         po_items = po_items if po_items is not None else [
             {"item_code": "SH00086", "uom": "UN", "qty": 1, "rate": 1000, "amount": 1000}
         ]
-        child_items = child_items if child_items is not None else [
-            {"parent": "REC1:9001", "qp_amount": 1000}
-        ]
         receipts = receipts if receipts is not None else [
-            {"name": "REC1:9001", "qp_receipt_id": "REC1",
-             "qp_posting_date": "2026-07-16", "qp_description": "pago"}
+            {"name": "REC1:9001", "supplier_delivery_note": "REC1",
+             "posting_date": "2026-07-16", "total": 1000}
         ]
+        alerts = alerts if alerts is not None else []
 
-        def _get_all(doctype, filters=None, fields=None):
+        def _get_all(doctype, filters=None, fields=None, order_by=None):
             if doctype == "Purchase Order Item":
                 return po_items
-            if doctype == "qp_SP_PaymentReceiptItem":
-                return child_items
-            if doctype == "qp_SP_PaymentReceipt":
+            if doctype == "Purchase Receipt":
                 return receipts
+            if doctype == "qp_SP_Alert":
+                return alerts
             return []
 
         frappe_mock.get_all.side_effect = _get_all
@@ -128,6 +133,24 @@ class TestEnrichDocumentDetail(unittest.TestCase):
         self.assertEqual(document["recepciones"], ["REC1"])
         self.assertEqual(document["productos_recepcion"][0]["valor_total"], 1000)
 
+    def test_con_alertas_abiertas_muestra_tooltip(self):
+        frappe_mock = self._mock_frappe(alerts=[
+            {"alert_date": "2026-08-13 10:00:00", "alert_message": "Error en BC"},
+        ])
+        document = self._make_document()
+        self._run(document, frappe_mock)
+
+        self.assertTrue(document["has_alert"])
+        self.assertIn("Error en BC", document["alert_tooltip"])
+
+    def test_sin_alertas_no_muestra_tooltip(self):
+        frappe_mock = self._mock_frappe(alerts=[])
+        document = self._make_document()
+        self._run(document, frappe_mock)
+
+        self.assertFalse(document["has_alert"])
+        self.assertIsNone(document["alert_tooltip"])
+
     def test_sin_oc_registrada_no_se_muestra_oc(self):
         frappe_mock = self._mock_frappe(po_exists=False)
         document = self._make_document(nvfac_orde="OC111", nvfac_totp=1000, nvfac_esta="E")
@@ -138,7 +161,7 @@ class TestEnrichDocumentDetail(unittest.TestCase):
         frappe_mock.db.exists.assert_called_once_with("Purchase Order", "OC111")
 
     def test_sin_recibos_asociados(self):
-        frappe_mock = self._mock_frappe(child_items=[])
+        frappe_mock = self._mock_frappe(receipts=[])
         document = self._make_document(nvfac_orde="OC111", nvfac_totp=1000, nvfac_esta="E")
         self._run(document, frappe_mock)
 
@@ -157,33 +180,44 @@ class TestEnrichDocumentDetail(unittest.TestCase):
         self.assertEqual(document["productos_orden_compra"], [])
         self.assertEqual(document["productos_recepcion"], [])
 
-    def test_se_pasa_a_registrado_cuando_sumatoria_cubre_total(self):
+    def test_se_define_lista_para_registro_cuando_total_recibos_igual_a_factura(self):
         frappe_mock = self._mock_frappe(
             po_items=[],
-            child_items=[
-                {"parent": "REC1:9001", "qp_amount": 600},
-                {"parent": "REC2:9001", "qp_amount": 400},
-            ],
             receipts=[
-                {"name": "REC1:9001", "qp_receipt_id": "REC1",
-                 "qp_posting_date": "2026-07-16", "qp_description": "pago"},
-                {"name": "REC2:9001", "qp_receipt_id": "REC2",
-                 "qp_posting_date": "2026-07-17", "qp_description": "pago"},
+                {"name": "REC1:9001", "supplier_delivery_note": "REC1",
+                 "posting_date": "2026-07-16", "total": 600},
+                {"name": "REC2:9001", "supplier_delivery_note": "REC2",
+                 "posting_date": "2026-07-17", "total": 400},
             ],
         )
         document = self._make_document(nvfac_orde="OC111", nvfac_totp=1000, nvfac_esta="E")
         self._run(document, frappe_mock)
 
-        self.assertEqual(document["nvfac_esta"], "A")
+        self.assertEqual(document["nvfac_esta"], "V")
         frappe_mock.db.set_value.assert_called_once_with(
-            "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "A"
+            "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "V"
         )
 
-    def test_no_cambia_estado_cuando_sumatoria_no_cubre_total(self):
+    def test_no_cambia_estado_cuando_total_recibos_no_cubre_total(self):
         frappe_mock = self._mock_frappe(
             po_items=[],
-            child_items=[
-                {"parent": "REC1:9001", "qp_amount": 400},
+            receipts=[
+                {"name": "REC1:9001", "supplier_delivery_note": "REC1",
+                 "posting_date": "2026-07-16", "total": 400},
+            ],
+        )
+        document = self._make_document(nvfac_orde="OC111", nvfac_totp=1000, nvfac_esta="E")
+        self._run(document, frappe_mock)
+
+        self.assertEqual(document["nvfac_esta"], "E")
+        frappe_mock.db.set_value.assert_not_called()
+
+    def test_no_registra_cuando_total_recibos_supera_factura(self):
+        frappe_mock = self._mock_frappe(
+            po_items=[],
+            receipts=[
+                {"name": "REC1:9001", "supplier_delivery_note": "REC1",
+                 "posting_date": "2026-07-16", "total": 1200},
             ],
         )
         document = self._make_document(nvfac_orde="OC111", nvfac_totp=1000, nvfac_esta="E")
@@ -195,8 +229,9 @@ class TestEnrichDocumentDetail(unittest.TestCase):
     def test_no_reescribe_estado_registrado(self):
         frappe_mock = self._mock_frappe(
             po_items=[],
-            child_items=[
-                {"parent": "REC1:9001", "qp_amount": 1000},
+            receipts=[
+                {"name": "REC1:9001", "supplier_delivery_note": "REC1",
+                 "posting_date": "2026-07-16", "total": 1000},
             ],
         )
         document = self._make_document(nvfac_orde="OC111", nvfac_totp=1000, nvfac_esta="A")

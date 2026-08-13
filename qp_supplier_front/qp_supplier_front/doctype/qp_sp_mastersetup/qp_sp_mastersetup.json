@@ -7,6 +7,7 @@
   "field_order": [
    "supplier_date_sync",
    "auto_reject",
+   "auto_approve",
    "init_fiscal_year",
    "invoices_date_sync",
    "receipts_date_sync",
@@ -32,6 +33,13 @@
     "label": "Rechazo autom\u00e1tico por defecto",
     "description": "Regla de rechazo autom\u00e1tico aplicada a proveedores sin configuraci\u00f3n propia. Campo vac\u00edo = No configurado.",
     "options": "qp_SP_AutoRejectRule"
+   },
+   {
+    "default": "0",
+    "fieldname": "auto_approve",
+    "fieldtype": "Check",
+    "label": "Aprobaci\u00f3n autom\u00e1tica de facturas",
+    "description": "Env\u00eda a BC autom\u00e1ticamente las facturas en estado 'Lista para Registro' (V). Si est\u00e1 apagado, quedan en V hasta aprobaci\u00f3n manual."
    },
    {
     "fieldname": "init_fiscal_year",

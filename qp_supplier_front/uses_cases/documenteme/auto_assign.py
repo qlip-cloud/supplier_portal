@@ -47,7 +47,7 @@ def should_auto_assign(invoice):
     has_receipt = invoice.get("receipt_total") is not None
     receipt_total = invoice.get("receipt_total") or 0
     invoice_total = invoice.get("nvfac_totp") or 0
-    not_covered = receipt_total < invoice_total
+    not_covered = receipt_total != invoice_total
     not_assigned = not invoice.get("assigned_to") and not invoice.get("has_assigned_users")
     in_queue = invoice.get("in_queue", True)
     return (

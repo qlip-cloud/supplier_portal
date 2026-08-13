@@ -2,6 +2,7 @@ import frappe
 from frappe import parse_json
 from datetime import datetime
 from qp_supplier_front.resources.response import handler as response
+from qp_supplier_front.resources.documenteme._alerts import resolve_open_alerts
 from qp_supplier_front.uses_cases.documenteme.reject import reject_document
 from qp_supplier_front.services.role_resolver import get_active_role
 
@@ -41,5 +42,6 @@ def run_reject(doc_names_raw, motive, is_invoice_error_raw, send_request_fn):
             get_company_tax_id_fn=_get_company_tax_id,
             now_fn=_make_now,
         )
+        resolve_open_alerts(doc_name)
 
     response(200, "Factura(s) rechazada(s) correctamente")

@@ -71,9 +71,12 @@ def get_oc_context(purchase_order_number):
     values = frappe.db.get_value(
         "Purchase Order",
         purchase_order_number,
-        ["qp_oc_type", "qp_headquarter"],
+        ["qp_oc_type", "qp_headquarter", "qp_order_confirmation_no"],
     )
     if values is None:
+        return None
+
+    if values[2] != purchase_order_number:
         return None
 
     return {"oc_type": values[0], "headquarter": values[1]}
@@ -83,16 +86,16 @@ def get_receipt_total(purchase_order_number):
     if not purchase_order_number:
         return None
 
-    child_items = frappe.get_all(
-        "qp_SP_PaymentReceiptItem",
-        filters={"qp_document_no_factura": purchase_order_number},
-        fields=["qp_amount"],
+    receipts = frappe.get_all(
+        "Purchase Receipt",
+        filters={"qp_supplier_oc": purchase_order_number},
+        fields=["total"],
     )
 
-    if not child_items:
+    if not receipts:
         return None
 
-    return sum(item.get("qp_amount") or 0 for item in child_items)
+    return sum(receipt.get("total") or 0 for receipt in receipts)
 
 
 def get_assignee_emails(oc_type, headquarter):

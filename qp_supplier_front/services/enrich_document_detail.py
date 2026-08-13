@@ -7,10 +7,42 @@ def enrich_document_detail(document):
     document["productos_orden_compra"] = []
     document["productos_recepcion"] = []
 
+    _enrich_alerts(document)
+
     if purchase_order_number:
         _enrich_purchase_orders(document, purchase_order_number)
-        _enrich_payment_receipts(document, purchase_order_number)
+        _enrich_purchase_receipts(document, purchase_order_number)
         _update_status_if_fully_paid(document)
+
+
+def build_alert_tooltip(alerts):
+    if not alerts:
+        return None
+    lines = ["Alertas:"]
+    for alert in alerts:
+        date = (alert.get("alert_date") or "")[:16]
+        message = alert.get("alert_message") or ""
+        lines.append("- [{}] {}".format(date, message))
+    return "\n".join(lines)
+
+
+def _enrich_alerts(document):
+    import frappe
+
+    alerts = frappe.get_all(
+        "qp_SP_Alert",
+        filters={
+            "parent": document.get("name"),
+            "parenttype": "qp_SP_DocumentDetail",
+            "status": "Abierta",
+        },
+        fields=["alert_date", "alert_message"],
+        order_by="alert_date desc",
+    )
+
+    document["alertas"] = alerts
+    document["has_alert"] = bool(alerts)
+    document["alert_tooltip"] = build_alert_tooltip(alerts)
 
 
 def _enrich_purchase_orders(document, purchase_order_number):
@@ -45,57 +77,33 @@ def build_po_products(items):
     return products
 
 
-def _enrich_payment_receipts(document, purchase_order_number):
+def _enrich_purchase_receipts(document, purchase_order_number):
     import frappe
 
-    child_items = frappe.get_all(
-        "qp_SP_PaymentReceiptItem",
-        filters={
-            "qp_document_no_factura": purchase_order_number,
-        },
-        fields=["parent", "qp_amount"]
+    receipts = frappe.get_all(
+        "Purchase Receipt",
+        filters={"qp_supplier_oc": purchase_order_number},
+        fields=["name", "supplier_delivery_note", "posting_date", "total"],
     )
 
-    if not child_items:
-        document["recepciones"] = []
-        document["productos_recepcion"] = []
-        return
-
-    applied_by_parent = sum_amounts_by_parent(child_items)
-
-    parent_names = list(applied_by_parent.keys())
-
-    payment_receipts = frappe.get_all(
-        "qp_SP_PaymentReceipt",
-        filters={
-            "name": ["in", parent_names],
-        },
-        fields=["name", "qp_receipt_id", "qp_posting_date", "qp_description"]
-    )
-
-    document["recepciones"] = [receipt.get("qp_receipt_id") for receipt in payment_receipts]
-    document["productos_recepcion"] = build_receipt_products(payment_receipts, applied_by_parent)
+    document["recepciones"] = [
+        receipt.get("supplier_delivery_note") or receipt.get("name")
+        for receipt in receipts
+    ]
+    document["productos_recepcion"] = build_receipt_products(receipts)
 
 
-def sum_amounts_by_parent(child_items):
-    applied_by_parent = {}
-    for item in child_items:
-        parent = item.get("parent")
-        amount = item.get("qp_amount") or 0
-        applied_by_parent[parent] = applied_by_parent.get(parent, 0) + amount
-    return applied_by_parent
-
-
-def build_receipt_products(payment_receipts, applied_by_parent):
+def build_receipt_products(receipts):
     products = []
-    for receipt in payment_receipts:
-        applied_amount = applied_by_parent.get(receipt.get("name"), 0)
+    for receipt in receipts:
+        amount = receipt.get("total") or 0
+        codigo = receipt.get("supplier_delivery_note") or receipt.get("name")
         products.append({
-            "codigo": receipt.get("qp_receipt_id"),
+            "codigo": codigo,
             "udm": "",
             "cantidad": 1,
-            "valor_unitario": applied_amount,
-            "valor_total": applied_amount,
+            "valor_unitario": amount,
+            "valor_total": amount,
         })
     return products
 
@@ -110,11 +118,12 @@ def _update_status_if_fully_paid(document):
 
     document_total = document.get("nvfac_totp") or 0
 
-    if total_receipt_amount >= document_total and document.get("nvfac_esta") != "A":
+    if (total_receipt_amount == document_total
+            and document.get("nvfac_esta") not in ("A", "R", "V")):
         frappe.db.set_value(
             "qp_SP_DocumentDetail",
             document.get("name"),
             "nvfac_esta",
-            "A",
+            "V",
         )
-        document["nvfac_esta"] = "A"
+        document["nvfac_esta"] = "V"

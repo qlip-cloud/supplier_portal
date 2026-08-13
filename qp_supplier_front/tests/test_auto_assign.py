@@ -107,11 +107,11 @@ class TestShouldAutoAssign(unittest.TestCase):
     def test_sin_recibos(self):
         self.assertFalse(should_auto_assign(self._invoice(receipt_total=None)))
 
-    def test_recepciones_cubren_total(self):
+    def test_recepciones_cubren_total_no_asigna(self):
         self.assertFalse(should_auto_assign(self._invoice(receipt_total=1000)))
 
-    def test_recepciones_mayores_al_total(self):
-        self.assertFalse(should_auto_assign(self._invoice(receipt_total=1200)))
+    def test_recepciones_mayores_al_total_asigna(self):
+        self.assertTrue(should_auto_assign(self._invoice(receipt_total=1200)))
 
     def test_ya_asignada(self):
         self.assertFalse(should_auto_assign(self._invoice(assigned_to="admin@x.com")))

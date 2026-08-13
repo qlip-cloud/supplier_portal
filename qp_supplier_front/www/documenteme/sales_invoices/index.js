@@ -1,6 +1,11 @@
 $(document).ready(function () {
 
+    var assignTargetDoc = null;
+
     $("#assign-document").on("click", function () {
+        assignTargetDoc = null;
+        $("#assign_invoice_modal_label").text("Asignar Facturas");
+
         var selected = $('tbody input[type="checkbox"]:checked');
         if (selected.length === 0) {
             frappe.msgprint("Seleccione al menos una factura");
@@ -44,7 +49,39 @@ $(document).ready(function () {
     });
 
     $("#approve-document").on("click", function () {
-        frappe.msgprint("Funcionalidad aun no disponible");
+        var selected = $('tbody input[type="checkbox"]:checked');
+        if (selected.length === 0) {
+            frappe.msgprint("Seleccione al menos una factura");
+            return;
+        }
+
+        var doc_names = [];
+        selected.each(function () {
+            doc_names.push($(this).val());
+        });
+
+        var overlayEl = document.getElementById("overlay");
+        var savedOnClick = overlayEl.onclick;
+        overlayEl.onclick = null;
+        overlayEl.style.display = "block";
+
+        var url = "qp_supplier_front.resources.documenteme.approve.approve";
+
+        callresponse = (response) => {
+            overlayEl.onclick = savedOnClick;
+            overlayEl.style.display = "none";
+            frappe.msgprint(response.msg);
+            if (response.status === 200) {
+                $('tbody input[type="checkbox"]:checked').each(function () {
+                    $(this).closest("tr").remove();
+                });
+                loadMoreInvoices(true);
+            }
+        };
+
+        petition_get_data({
+            doc_names: JSON.stringify(doc_names)
+        }, url, callresponse);
     });
 
     $("#reject-document").on("click", function () {
@@ -69,7 +106,38 @@ $(document).ready(function () {
     });
 
     $(document).on("click", ".btn-control-assign", function () {
-        frappe.msgprint("Funcionalidad de asignación por implementar");
+        assignTargetDoc = $(this).data("name");
+        $("#assign_invoice_modal_label").text("Asignar Factura");
+
+        var $tbody = $("#assign-table-body");
+        $tbody.empty();
+
+        var $select = $("#assign-user-select");
+        $select.prop("disabled", true).html('<option value="">Cargando usuarios...</option>');
+
+        petition_get_data({}, "qp_supplier_front.resources.documenteme.assign.get_users", function (response) {
+            $select.prop("disabled", false).html('<option value="">Seleccione un usuario</option>');
+            if (response.data && response.data.length > 0) {
+                response.data.forEach(function (u) {
+                    var fullName = u.first_name + " " + (u.last_name || "");
+                    $select.append('<option value="' + u.name + '">' + fullName.trim() + '</option>');
+                });
+            }
+        });
+
+        petition_get_data({
+            doc_names: JSON.stringify([assignTargetDoc])
+        }, "qp_supplier_front.resources.documenteme.assign.get_document_data", function (response) {
+            if (response.data && response.data.length > 0) {
+                response.data.forEach(function (doc) {
+                    $tbody.append(
+                        "<tr><td>" + (doc.nvfac_nume || "") + "</td><td>" + (doc.nvfac_orde || "") + "</td><td>" + (doc.nvfac_rece || "") + "</td></tr>"
+                    );
+                });
+            }
+        });
+
+        $("#assign_invoice_modal").modal("show");
     });
 
     $(document).on("click", ".btn-control-download", function () {
@@ -129,9 +197,14 @@ $(document).ready(function () {
         }
 
         var doc_names = [];
-        $('tbody input[type="checkbox"]:checked').each(function () {
-            doc_names.push($(this).val());
-        });
+        var targetDoc = assignTargetDoc;
+        if (targetDoc) {
+            doc_names.push(targetDoc);
+        } else {
+            $('tbody input[type="checkbox"]:checked').each(function () {
+                doc_names.push($(this).val());
+            });
+        }
 
         var userName = $("#assign-user-select option:selected").text();
 
@@ -151,19 +224,30 @@ $(document).ready(function () {
             $("#confirm-assign").prop("disabled", false);
             frappe.msgprint(response.msg);
             if (response.status === 200) {
-                $('tbody input[type="checkbox"]:checked').each(function () {
-                    var $btn = $(this).closest("tr").find(".btn-control-assign");
+                if (targetDoc) {
+                    var $btn = $('.btn-control-assign[data-name="' + targetDoc + '"]');
                     $btn.css("color", "#007bff");
                     $btn.attr("title", "Asignado a:\n- " + userName);
-                });
-                $('tbody input[type="checkbox"]:checked').prop("checked", false);
+                } else {
+                    $('tbody input[type="checkbox"]:checked').each(function () {
+                        var $btn = $(this).closest("tr").find(".btn-control-assign");
+                        $btn.css("color", "#007bff");
+                        $btn.attr("title", "Asignado a:\n- " + userName);
+                    });
+                    $('tbody input[type="checkbox"]:checked').prop("checked", false);
+                }
             }
+            assignTargetDoc = null;
         };
 
         petition_get_data({
             doc_names: JSON.stringify(doc_names),
             user: user
         }, url, callresponse);
+    });
+
+    $("#assign_invoice_modal").on("hidden.bs.modal", function () {
+        assignTargetDoc = null;
     });
 
 });

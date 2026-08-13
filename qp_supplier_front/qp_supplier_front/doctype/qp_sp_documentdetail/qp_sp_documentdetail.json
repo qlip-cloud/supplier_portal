@@ -46,11 +46,12 @@
    "nvpro_dire",
    "nvfac_tota",
    "nvfac_votr",
-    "detail_lines",
-    "attached_files",
-    "event_logs",
-    "allowance_charges"
-  ],
+     "detail_lines",
+     "attached_files",
+     "event_logs",
+     "allowance_charges",
+     "alertas"
+   ],
  "fields": [
   {
    "fieldname": "document_sync_line",
@@ -287,6 +288,12 @@
     "fieldtype": "Table",
     "label": "Allowance Charges",
     "options": "qp_SP_AllowanceCharge"
+   },
+   {
+    "fieldname": "alertas",
+    "fieldtype": "Table",
+    "label": "Alertas",
+    "options": "qp_SP_Alert"
    }
   ],
  "index_web_pages_for_search": 1,

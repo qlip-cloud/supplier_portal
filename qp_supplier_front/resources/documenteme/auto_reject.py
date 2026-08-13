@@ -29,6 +29,7 @@ from qp_authorization.use_case.basic.authorize import (
     get_headers,
 )
 from qp_supplier_front.constant.endpoint import DOCUMENTEME_EVENT_DOCUMENT
+from qp_supplier_front.resources.documenteme._alerts import resolve_open_alerts
 from qp_supplier_front.resources.documenteme.auto_assign import get_receipt_total
 from qp_supplier_front.uses_cases.documenteme.auto_reject import (
     auto_reject as auto_reject_core,
@@ -262,6 +263,7 @@ def apply_batch_results(docs_by_name, results):
             doc.qp_is_event_completed = 1
             doc.nvfac_ueve = "031"
             doc.qp_auto_reject_rule = meta["rule"]
+            resolve_open_alerts(doc.name)
         doc.save()
 
 

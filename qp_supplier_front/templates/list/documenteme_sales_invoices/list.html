@@ -58,7 +58,7 @@
         <span class="status-badge {{ status_class.get(row.nvfac_esta, 'status-default') }}">{{ estado_labels.get(row.nvfac_esta, "") }}</span>
     </td>
     <td class="text-center" style="white-space:nowrap">
-        <button type="button" class="btn-control-alert" style="color:#6c757d;border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="Alerta" data-name="{{ row.name }}">
+        <button type="button" class="btn-control-alert" style="color:{{ '#ff8c00' if row.has_alert else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ row.alert_tooltip or 'Alerta' }}" data-name="{{ row.name }}">
             <span class="material-symbols-outlined" style="font-size:22px">warning</span>
         </button>
         <button type="button" class="btn-control-download" style="color:{{ '#28a745' if row.non_xml_count > 0 else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{% if row.non_xml_count > 0 %}Descargar documentos{% else %}Sin documentos{% endif %}" data-name="{{ row.name }}" data-nvfac-nume="{{ row.nvfac_nume }}">
