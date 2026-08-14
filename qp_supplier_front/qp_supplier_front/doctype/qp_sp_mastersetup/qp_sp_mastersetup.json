@@ -8,6 +8,7 @@
    "supplier_date_sync",
    "auto_reject",
    "auto_approve",
+   "sede_source_doctype",
    "init_fiscal_year",
    "invoices_date_sync",
    "receipts_date_sync",
@@ -40,6 +41,14 @@
     "fieldtype": "Check",
     "label": "Aprobaci\u00f3n autom\u00e1tica de facturas",
     "description": "Env\u00eda a BC autom\u00e1ticamente las facturas en estado 'Lista para Registro' (V). Si est\u00e1 apagado, quedan en V hasta aprobaci\u00f3n manual."
+   },
+   {
+    "default": "qp_md_headquarter",
+    "description": "Doctype del cual se leen los datos de sedes para la asignaci\u00f3n autom\u00e1tica. El doctype debe tener un campo 'code' con el c\u00f3digo de la sede.",
+    "fieldname": "sede_source_doctype",
+    "fieldtype": "Select",
+    "label": "Origen de datos de sedes",
+    "options": "\nqp_md_headquarter"
    },
    {
     "fieldname": "init_fiscal_year",

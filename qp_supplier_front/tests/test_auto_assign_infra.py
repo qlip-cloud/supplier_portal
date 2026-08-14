@@ -83,5 +83,57 @@ class TestGetOCContext(unittest.TestCase):
         self.assertIsNone(self._run(frappe_mock, "OC111"))
 
 
+class TestGetAssigneeEmails(unittest.TestCase):
+
+    OC_TYPE_ROWS = [
+        {"oc_type": "01", "is_inventariable": 1},
+        {"oc_type": "03", "is_inventariable": 0},
+    ]
+
+    ASSIGNMENT_ROWS = [
+        {"headquarter": "BOG", "oc_type": None, "user_emails": ["a@x.com", "b@x.com"]},
+        {"headquarter": None, "oc_type": "03", "user_emails": ["c@x.com"]},
+    ]
+
+    def _run(self, frappe_mock, oc_type, headquarter):
+        with patch.object(infra, "frappe", frappe_mock), \
+                patch.object(infra, "_load_assignment_rows", return_value=self.ASSIGNMENT_ROWS):
+            return infra.get_assignee_emails(oc_type, headquarter)
+
+    def test_inventariable_sede_valida_retorna_emails(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = self.OC_TYPE_ROWS
+        with patch.object(infra, "sede_exists", return_value=True) as sede_exists_mock:
+            emails = self._run(frappe_mock, "01", "BOG")
+
+        self.assertEqual(emails, ["a@x.com", "b@x.com"])
+        sede_exists_mock.assert_called_once_with("BOG")
+
+    def test_inventariable_sede_inexistente_retorna_none(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = self.OC_TYPE_ROWS
+        with patch.object(infra, "sede_exists", return_value=False):
+            emails = self._run(frappe_mock, "01", "BOG")
+
+        self.assertIsNone(emails)
+
+    def test_no_inventariable_no_valida_sede(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = self.OC_TYPE_ROWS
+        with patch.object(infra, "sede_exists", return_value=False) as sede_exists_mock:
+            emails = self._run(frappe_mock, "03", "BOG")
+
+        self.assertEqual(emails, ["c@x.com"])
+        sede_exists_mock.assert_not_called()
+
+    def test_oc_type_sin_configurar_retorna_none(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = self.OC_TYPE_ROWS
+        with patch.object(infra, "sede_exists", return_value=True):
+            emails = self._run(frappe_mock, "99", "BOG")
+
+        self.assertIsNone(emails)
+
+
 if __name__ == "__main__":
     unittest.main()

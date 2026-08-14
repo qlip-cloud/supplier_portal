@@ -1,7 +1,9 @@
 import frappe
 from qp_supplier_front.resources.response import handler as response
+from qp_supplier_front.services.sede_source import sede_exists
 from qp_supplier_front.uses_cases.documenteme.auto_assign import (
     auto_assign as auto_assign_core,
+    is_inventariable_oc_type,
     resolve_assignee_emails,
 )
 
@@ -100,6 +102,10 @@ def get_receipt_total(purchase_order_number):
 
 def get_assignee_emails(oc_type, headquarter):
     oc_type_rows = frappe.get_all("qp_SP_OCType", fields=["oc_type", "is_inventariable"])
+
+    if is_inventariable_oc_type(oc_type, oc_type_rows) and headquarter and not sede_exists(headquarter):
+        return None
+
     assignment_rows = _load_assignment_rows()
     return resolve_assignee_emails(oc_type, headquarter, oc_type_rows, assignment_rows)
 

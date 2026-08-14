@@ -27,15 +27,17 @@ def insert_alert(parent_name, message, now):
         (parent_name, "qp_SP_DocumentDetail"),
     )
     idx = int(last[0][0] or 0) + 1
+    alert_name = frappe.generate_hash(length=10)
 
     frappe.db.sql(
         """
         INSERT INTO `tabqp_SP_Alert`
-        (parent, parentfield, parenttype, idx, alert_date, alert_message, status,
+        (name, parent, parentfield, parenttype, idx, alert_date, alert_message, status,
          creation, modified, modified_by, owner)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
+            alert_name,
             parent_name,
             "alertas",
             "qp_SP_DocumentDetail",

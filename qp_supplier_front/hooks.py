@@ -218,6 +218,7 @@ fixtures = [
     {"doctype": "Custom DocPerm", "filters": [
         ["role", "=", "Customer"]
     ]},
+    {"dt": "qp_SP_OCType"},
 ]
 
 before_request = [
