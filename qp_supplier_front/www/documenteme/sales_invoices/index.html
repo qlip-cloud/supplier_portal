@@ -45,9 +45,11 @@
                 </select>
             </div>
             <div class="col-lg-3 text-right">
+                {% if not is_sede_documenteme %}
                 <button type="button" class="btn btn-primary btn-sm rounded" id="assign-document" title="Asignar">
                     <span class="material-symbols-outlined">assignment_ind</span>
                 </button>
+                {% endif %}
                 <button type="button" class="btn btn-danger btn-sm rounded" id="reject-document" title="Rechazar">
                     <span class="material-symbols-outlined">block</span>
                 </button>

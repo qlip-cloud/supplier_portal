@@ -3,6 +3,11 @@ import json
 from qp_supplier_front.services.pagination import get_paginated, get_paginated_filtered, get_detail
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.services.enrich_document_detail import enrich_document_detail
+from qp_supplier_front.services.documenteme_access import (
+    get_assigned_sync_lines_filters,
+    get_assigned_sync_line_names,
+    is_sede_documenteme,
+)
 
 @frappe.whitelist()
 def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by, filters = {}):
@@ -15,6 +20,9 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
         if doctype == "qp_SP_DocumentDetail":
             base_filters = {}
             base_filters.update(parsed_filters)
+            base_filters = get_assigned_sync_lines_filters(
+                frappe.get_roles(), frappe.session.user, get_assigned_sync_line_names, base_filters
+            )
             pagination = get_paginated_filtered(int(page), doctype, order_by, base_filters)
 
             for doc in pagination:
@@ -77,7 +85,8 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
             frappe.enqueue(f"qp_supplier_front.uses_cases.{key}.sync_by_supplier.handler", supplier_id=supplier_id, queue='long', is_async=True, timeout=14400, job_name=f"send sync {doctype} {supplier_id}")
 
         template = frappe.render_template(f"qp_supplier_front/templates/list/{key}/list.html", {
-                    key: pagination, "doctype_detail":doctype_detail, "key": key, "doctype": doctype
+                    key: pagination, "doctype_detail":doctype_detail, "key": key, "doctype": doctype,
+                    "is_sede_documenteme": is_sede_documenteme(frappe.get_roles())
                 })
         
         response(200,  msg, template)

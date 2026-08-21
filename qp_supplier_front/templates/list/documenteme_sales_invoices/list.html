@@ -66,9 +66,11 @@
         <button type="button" class="btn-control-download" style="color:{{ '#28a745' if row.non_xml_count > 0 else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{% if row.non_xml_count > 0 %}Descargar documentos{% else %}Sin documentos{% endif %}" data-name="{{ row.name }}" data-nvfac-nume="{{ row.nvfac_nume }}">
             <span class="material-symbols-outlined" style="font-size:22px">download</span>
         </button>
+        {% if not is_sede_documenteme %}
         <button type="button" class="btn-control-assign" style="color:{{ '#007bff' if row.assigned_to_name else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ row.assigned_to_name or 'Asignado a' }}" data-name="{{ row.name }}">
             <span class="material-symbols-outlined" style="font-size:22px">assignment_ind</span>
         </button>
+        {% endif %}
         {% if row.nvfac_esta == "P" %}
         <button type="button" class="btn-control-reject-retry" style="color:{{ '#28a745' if row.qp_reject_retry_enabled else '#dc3545' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ 'Activos' if row.qp_reject_retry_enabled else 'Reintentos detenidos. Haz clic para reactivar' }}" data-name="{{ row.name }}" data-enabled="{{ 1 if row.qp_reject_retry_enabled else 0 }}">
             <span class="material-symbols-outlined" style="font-size:22px">{{ 'play_arrow' if row.qp_reject_retry_enabled else 'pause' }}</span>

@@ -3,6 +3,11 @@ from qp_supplier_front.services.pagination import get_paginated_filtered
 from qp_supplier_front.services.get_data import has_recent_news, get_has_dispatch_permission
 from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.services.enrich_document_detail import enrich_document_detail
+from qp_supplier_front.services.documenteme_access import (
+    get_assigned_sync_lines_filters,
+    get_assigned_sync_line_names,
+    is_sede_documenteme,
+)
 from qp_supplier_front.uses_cases.documents.sync_all_whitelist import (
     refresh_documents,
 )
@@ -24,6 +29,7 @@ def get_context(context):
     user_roles = frappe.get_roles()
     context.active_role = get_active_role(user_roles)
     context.is_documenteme_admin = context.active_role is not None
+    context.is_sede_documenteme = is_sede_documenteme(user_roles)
 
     key = "documenteme_sales_invoices"
     doctype = "qp_SP_DocumentDetail"
@@ -33,6 +39,10 @@ def get_context(context):
     filters = {}
     if supplier_id:
         filters["nvpro_ndoc"] = supplier_id
+
+    filters = get_assigned_sync_lines_filters(
+        user_roles, frappe.session.user, get_assigned_sync_line_names, filters
+    )
 
     documents = get_paginated_filtered(0, doctype, order_by, filters)
 
