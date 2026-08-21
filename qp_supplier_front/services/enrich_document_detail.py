@@ -57,7 +57,7 @@ def _enrich_purchase_orders(document, purchase_order_number):
             "parent": purchase_order_number,
             "parenttype": "Purchase Order",
         },
-        fields=["item_code", "uom", "qty", "rate", "amount"]
+        fields=["item_code", "uom", "qty", "qp_unit_cost", "qp_extd_cost"]
     )
 
     document["ordenes_compra"] = [purchase_order_number]
@@ -71,8 +71,8 @@ def build_po_products(items):
             "codigo": item.get("item_code"),
             "udm": item.get("uom"),
             "cantidad": item.get("qty"),
-            "valor_unitario": item.get("rate"),
-            "valor_total": item.get("amount"),
+            "valor_unitario": item.get("qp_unit_cost"),
+            "valor_total": item.get("qp_extd_cost"),
         })
     return products
 
@@ -86,24 +86,37 @@ def _enrich_purchase_receipts(document, purchase_order_number):
         fields=["name", "supplier_delivery_note", "posting_date", "total"],
     )
 
+    receipt_names = [
+        receipt.get("name")
+        for receipt in receipts
+    ]
+
     document["recepciones"] = [
         receipt.get("supplier_delivery_note") or receipt.get("name")
         for receipt in receipts
     ]
-    document["productos_recepcion"] = build_receipt_products(receipts)
+
+    items = frappe.get_all(
+        "Purchase Receipt Item",
+        filters={
+            "parent": ["in", receipt_names],
+            "parenttype": "Purchase Receipt",
+        },
+        fields=["item_code", "uom", "qty", "rate", "amount"],
+        order_by="parent, idx",
+    )
+    document["productos_recepcion"] = build_receipt_products(items)
 
 
-def build_receipt_products(receipts):
+def build_receipt_products(items):
     products = []
-    for receipt in receipts:
-        amount = receipt.get("total") or 0
-        codigo = receipt.get("supplier_delivery_note") or receipt.get("name")
+    for item in items:
         products.append({
-            "codigo": codigo,
-            "udm": "",
-            "cantidad": 1,
-            "valor_unitario": amount,
-            "valor_total": amount,
+            "codigo": item.get("item_code"),
+            "udm": item.get("uom"),
+            "cantidad": item.get("qty"),
+            "valor_unitario": item.get("rate"),
+            "valor_total": item.get("amount"),
         })
     return products
 

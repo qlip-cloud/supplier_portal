@@ -24,8 +24,8 @@ class TestPureHelpers(unittest.TestCase):
 
     def test_build_po_products_mapea_campos(self):
         items = [
-            {"item_code": "SH00086", "uom": "UN", "qty": 1, "rate": 1000, "amount": 1000},
-            {"item_code": "SH00087", "uom": "CAJA", "qty": 2, "rate": 500, "amount": 1000},
+            {"item_code": "SH00086", "uom": "UN", "qty": 1, "qp_unit_cost": 1000, "qp_extd_cost": 1000},
+            {"item_code": "SH00087", "uom": "CAJA", "qty": 2, "qp_unit_cost": 500, "qp_extd_cost": 1000},
         ]
         products = build_po_products(items)
         self.assertEqual(len(products), 2)
@@ -41,28 +41,23 @@ class TestPureHelpers(unittest.TestCase):
     def test_build_po_products_sin_items(self):
         self.assertEqual(build_po_products([]), [])
 
-    def test_build_receipt_products_usa_total_por_recibo(self):
-        receipts = [
-            {"name": "REC1:9001", "supplier_delivery_note": "REC1", "total": 1250},
-            {"name": "REC2:9001", "supplier_delivery_note": "REC2", "total": 500},
+    def test_build_receipt_products_usa_rate_y_amount_por_item(self):
+        items = [
+            {"item_code": "SH00086", "uom": "UN", "qty": 1, "rate": 1000, "amount": 1000},
+            {"item_code": "SH00087", "uom": "CAJA", "qty": 2, "rate": 500, "amount": 1000},
         ]
-        products = build_receipt_products(receipts)
+        products = build_receipt_products(items)
         self.assertEqual(products, [
-            {"codigo": "REC1", "udm": "", "cantidad": 1,
-             "valor_unitario": 1250, "valor_total": 1250},
-            {"codigo": "REC2", "udm": "", "cantidad": 1,
-             "valor_unitario": 500, "valor_total": 500},
+            {"codigo": "SH00086", "udm": "UN", "cantidad": 1,
+             "valor_unitario": 1000, "valor_total": 1000},
+            {"codigo": "SH00087", "udm": "CAJA", "cantidad": 2,
+             "valor_unitario": 500, "valor_total": 1000},
         ])
 
-    def test_build_receipt_products_recibo_sin_total(self):
-        receipts = [{"name": "REC1:9001", "supplier_delivery_note": "REC1"}]
-        products = build_receipt_products(receipts)
-        self.assertEqual(products[0]["valor_total"], 0)
-
-    def test_build_receipt_products_sin_delivery_note_usa_name(self):
-        receipts = [{"name": "REC1:9001", "total": 100}]
-        products = build_receipt_products(receipts)
-        self.assertEqual(products[0]["codigo"], "REC1:9001")
+    def test_build_receipt_products_sin_amount_retorna_none(self):
+        items = [{"item_code": "SH00086", "uom": "UN", "qty": 1, "rate": 1000}]
+        products = build_receipt_products(items)
+        self.assertIsNone(products[0]["valor_total"])
 
 
 class TestBuildAlertTooltip(unittest.TestCase):
@@ -102,16 +97,23 @@ class TestEnrichDocumentDetail(unittest.TestCase):
             "nvfac_esta": nvfac_esta,
         }
 
-    def _mock_frappe(self, po_exists=True, po_items=None, receipts=None, alerts=None):
+    def _mock_frappe(self, po_exists=True, po_items=None, receipts=None, alerts=None, receipt_items=None):
         frappe_mock = MagicMock()
         frappe_mock.db.exists.return_value = po_exists
         po_items = po_items if po_items is not None else [
-            {"item_code": "SH00086", "uom": "UN", "qty": 1, "rate": 1000, "amount": 1000}
+            {"item_code": "SH00086", "uom": "UN", "qty": 1, "qp_unit_cost": 1000, "qp_extd_cost": 1000}
         ]
         receipts = receipts if receipts is not None else [
             {"name": "REC1:9001", "supplier_delivery_note": "REC1",
              "posting_date": "2026-07-16", "total": 1000}
         ]
+        if receipt_items is None:
+            receipt_items = [
+                {"item_code": "SH00086", "uom": "UN", "qty": 1,
+                 "rate": receipt.get("total") or 0,
+                 "amount": receipt.get("total") or 0}
+                for receipt in receipts
+            ]
         alerts = alerts if alerts is not None else []
 
         def _get_all(doctype, filters=None, fields=None, order_by=None):
@@ -119,6 +121,8 @@ class TestEnrichDocumentDetail(unittest.TestCase):
                 return po_items
             if doctype == "Purchase Receipt":
                 return receipts
+            if doctype == "Purchase Receipt Item":
+                return receipt_items
             if doctype == "qp_SP_Alert":
                 return alerts
             return []
