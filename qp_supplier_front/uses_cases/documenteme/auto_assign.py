@@ -5,9 +5,9 @@ Nucleo puro de asignacion automatica de facturas a usuarios.
 No tiene imports a Frappe. Todas las dependencias de infraestructura
 (DB, configuracion, persistencia) son inyectadas como callbacks.
 
-La asignacion aplica cuando una factura tiene orden de compra y recibo
-de pago asociado, pero la sumatoria de las recepciones no cubre el total
-de la factura. El destinatario se resuelve segun el tipo de OC:
+La asignacion aplica cuando una factura tiene orden de compra y no
+tiene recibo de compra asociado, o la sumatoria de las recepciones no
+cubre el total de la factura. El destinatario se resuelve segun el tipo de OC:
 - Inventariable: el par exacto (oc_type, sede) configurado en
   qp_SP_AssignmentConfig. La orden determina ambas dimensiones.
 - No inventariable: solo el oc_type; la sede de la orden no se valida.
@@ -66,9 +66,9 @@ def _dedupe(items):
 
 def should_auto_assign(invoice):
     has_purchase_order = bool(invoice.get("nvfac_orde"))
-    has_receipt = invoice.get("receipt_total") is not None
-    receipt_total = invoice.get("receipt_total") or 0
+    receipt_total = invoice.get("receipt_total")
     invoice_total = invoice.get("nvfac_totp") or 0
+    no_receipt = receipt_total is None
     not_covered = receipt_total != invoice_total
     not_assigned = not invoice.get("assigned_to") and not invoice.get("has_assigned_users")
     in_queue = invoice.get("in_queue", True)
@@ -76,8 +76,7 @@ def should_auto_assign(invoice):
         in_queue
         and not_assigned
         and has_purchase_order
-        and has_receipt
-        and not_covered
+        and (no_receipt or not_covered)
     )
 
 

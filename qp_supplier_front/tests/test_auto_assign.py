@@ -114,7 +114,7 @@ class TestShouldAutoAssign(unittest.TestCase):
         self.assertFalse(should_auto_assign(self._invoice(nvfac_orde=None)))
 
     def test_sin_recibos(self):
-        self.assertFalse(should_auto_assign(self._invoice(receipt_total=None)))
+        self.assertTrue(should_auto_assign(self._invoice(receipt_total=None)))
 
     def test_recepciones_cubren_total_no_asigna(self):
         self.assertFalse(should_auto_assign(self._invoice(receipt_total=1000)))
@@ -176,6 +176,28 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         calls, callbacks = self._callbacks(
             oc_context={"oc_type": "01", "headquarter": "BOG"},
             receipt_total=400,
+            emails=["a@x.com", "b@x.com"],
+            users=["a@x.com", "b@x.com"],
+            candidates=candidates,
+        )
+
+        assigned = auto_assign(**callbacks)
+
+        self.assertEqual(assigned, ["FAC001"])
+        self.assertEqual(calls, [("FAC001", ["a@x.com", "b@x.com"])])
+
+    def test_asigna_sin_recibo_de_compra(self):
+        candidates = [{
+            "nvfac_nume": "FAC001",
+            "nvfac_orde": "OC001",
+            "nvfac_totp": 1000,
+            "assigned_to": None,
+            "has_assigned_users": False,
+            "in_queue": True,
+        }]
+        calls, callbacks = self._callbacks(
+            oc_context={"oc_type": "01", "headquarter": "BOG"},
+            receipt_total=None,
             emails=["a@x.com", "b@x.com"],
             users=["a@x.com", "b@x.com"],
             candidates=candidates,
