@@ -8,7 +8,7 @@ from qp_supplier_front.uses_cases.documenteme.auto_assign import (
 )
 
 
-def run_auto_assign():
+def run_auto_assign(doc_names=None):
     return auto_assign_core(
         candidates_fn=get_candidates,
         get_oc_context_fn=get_oc_context,
@@ -16,6 +16,7 @@ def run_auto_assign():
         resolve_emails_fn=get_assignee_emails,
         resolve_users_fn=resolve_assignee_users,
         add_assignees_fn=add_assignees,
+        doc_names=doc_names,
     )
 
 
@@ -31,10 +32,14 @@ def auto_assign():
         response(500, "Error en asignacion automatica: {}".format(str(error)))
 
 
-def get_candidates():
+def get_candidates(doc_names=None):
+    filters = {"nvfac_ueve": ["is", "not set"]}
+    if doc_names:
+        filters["name"] = ["in", list(doc_names)]
+
     docs = frappe.get_all(
         "qp_SP_DocumentDetail",
-        filters={"nvfac_ueve": ["is", "not set"]},
+        filters=filters,
         fields=["name", "nvfac_nume", "nvfac_orde", "nvfac_totp", "nvfac_esta", "document_sync_line"],
     )
 

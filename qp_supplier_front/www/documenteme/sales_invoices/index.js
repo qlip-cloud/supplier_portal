@@ -72,10 +72,19 @@ $(document).ready(function () {
             overlayEl.style.display = "none";
             frappe.msgprint(response.msg);
             if (response.status === 200) {
-                $('tbody input[type="checkbox"]:checked').each(function () {
-                    $(this).closest("tr").remove();
+                var approvedNames = (response.data && response.data.approved || []).map(function (item) {
+                    return item.name;
                 });
-                loadMoreInvoices(true);
+                $('tbody input[type="checkbox"]:checked').each(function () {
+                    var $row = $(this).closest("tr");
+                    if (approvedNames.indexOf($(this).val()) !== -1) {
+                        $row.find(".status-badge")
+                            .removeClass("status-open status-ready status-cancelled status-default")
+                            .addClass("status-paid")
+                            .text("Registrado");
+                    }
+                    $(this).prop("checked", false);
+                });
             }
         };
 
@@ -176,9 +185,12 @@ $(document).ready(function () {
             frappe.msgprint(response.msg);
             if (response.status === 200) {
                 $('tbody input[type="checkbox"]:checked').each(function () {
-                    $(this).closest("tr").remove();
+                    $(this).closest("tr").find(".status-badge")
+                        .removeClass("status-open status-ready status-paid status-default")
+                        .addClass("status-cancelled")
+                        .text("Rechazada");
+                    $(this).prop("checked", false);
                 });
-                loadMoreInvoices(true);
             }
         };
 
@@ -248,6 +260,47 @@ $(document).ready(function () {
 
     $("#assign_invoice_modal").on("hidden.bs.modal", function () {
         assignTargetDoc = null;
+    });
+
+    $("#refresh_filter_list").off("click");
+    $("#refresh_filter_list").on("click", function () {
+        var $btn = $(this);
+        $btn.prop("disabled", true);
+
+        frappe.confirm(
+            "Se realizar\u00e1 la sincronizaci\u00f3n de facturas. Puede tardar unos segundos. \u00bfDesea continuar?",
+            function () {
+                var overlayEl = document.getElementById("overlay");
+                var savedOnClick = overlayEl.onclick;
+                overlayEl.onclick = null;
+                overlayEl.style.display = "block";
+
+                var url = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.sync_all";
+
+                var callresponse = (response) => {
+                    overlayEl.onclick = savedOnClick;
+                    overlayEl.style.display = "none";
+                    $btn.prop("disabled", false);
+                    if (response && response.success) {
+                        $(".filter-list").not("select").val("");
+                        $(".filter-list.filter-check").val("0");
+                        $(".filter-list.date").removeAttr("min").removeAttr("max");
+                        $("select.filter-list").val("0");
+                        window.filter_init();
+                        frappe.msgprint("Sincronizaci\u00f3n completada.");
+                    } else if (response && response.skipped) {
+                        frappe.msgprint("Ya hay una sincronizaci\u00f3n en curso.");
+                    } else {
+                        frappe.msgprint(response && response.error ? response.error : "Error en la sincronizaci\u00f3n de facturas.");
+                    }
+                };
+
+                petition_get_data({}, url, callresponse);
+            },
+            function () {
+                $btn.prop("disabled", false);
+            }
+        );
     });
 
 });

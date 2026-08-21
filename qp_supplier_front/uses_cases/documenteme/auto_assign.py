@@ -8,8 +8,9 @@ No tiene imports a Frappe. Todas las dependencias de infraestructura
 La asignacion aplica cuando una factura tiene orden de compra y recibo
 de pago asociado, pero la sumatoria de las recepciones no cubre el total
 de la factura. El destinatario se resuelve segun el tipo de OC:
-- Inventariable: usuarios configurados para la sede de la orden de compra.
-- No inventariable: usuarios configurados para el tipo de OC.
+- Inventariable: el par exacto (oc_type, sede) configurado en
+  qp_SP_AssignmentConfig. La orden determina ambas dimensiones.
+- No inventariable: solo el oc_type; la sede de la orden no se valida.
 """
 
 
@@ -20,17 +21,38 @@ def is_inventariable_oc_type(oc_type, oc_type_rows):
     return None
 
 
+def _match_inventariable(row, oc_type, headquarter):
+    return row.get("oc_type") == oc_type and row.get("headquarter") == headquarter
+
+
+def _match_no_inventariable(row, oc_type, headquarter):
+    return row.get("oc_type") == oc_type
+
+
+_MATCHERS = {
+    True: _match_inventariable,
+    False: _match_no_inventariable,
+}
+
+
 def resolve_assignee_emails(oc_type, headquarter, oc_type_rows, assignment_rows):
     inventariable = is_inventariable_oc_type(oc_type, oc_type_rows)
+
     if inventariable is None:
         return None
-    if inventariable:
-        matching = [row for row in (assignment_rows or []) if row.get("headquarter") == headquarter]
-    else:
-        matching = [row for row in (assignment_rows or []) if row.get("oc_type") == oc_type]
-    emails = []
-    for row in matching:
-        emails.extend(row.get("user_emails") or [])
+
+    matcher = _MATCHERS[inventariable]
+    matching = [
+        row for row in (assignment_rows or [])
+        if matcher(row, oc_type, headquarter)
+    ]
+
+    emails = [
+        email
+        for row in matching
+        for email in (row.get("user_emails") or [])
+    ]
+
     return _dedupe(emails)
 
 
@@ -66,9 +88,11 @@ def auto_assign(
     resolve_emails_fn,
     resolve_users_fn,
     add_assignees_fn,
+    doc_names=None,
 ):
     assigned = []
-    for invoice in candidates_fn():
+    candidates = candidates_fn() if doc_names is None else candidates_fn(doc_names)
+    for invoice in candidates:
         invoice["receipt_total"] = get_receipt_total_fn(invoice.get("nvfac_orde"))
 
         if not should_auto_assign(invoice):

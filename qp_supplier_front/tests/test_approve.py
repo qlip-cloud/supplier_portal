@@ -45,10 +45,12 @@ def _doc(**overrides):
 def _line(**overrides):
     data = {
         "name": "LINE1",
-        "nvpro_codi": "M000455",
-        "nvdet_tcan": 10,
-        "nvdet_valo": 5000.0,
-        "nvdet_stot": 50000,
+        "item_code": "M000455",
+        "qty": 10,
+        "qp_unit_cost": 5000.0,
+        "idx": 1,
+        "receiving_no": "R108349",
+        "order_no": "45238",
     }
     data.update(overrides)
     return data
@@ -157,15 +159,18 @@ class TestValidateRegistrables(unittest.TestCase):
 
 class TestBuildPayload(unittest.TestCase):
 
-    def _get_lines(self, doc_name):
+    def _get_lines(self, purchase_order):
         return [_line()]
 
-    def _receipt_line_map(self, purchase_order):
-        return {"M000455": "20000"}
+    def _multi_lines(self, purchase_order):
+        return [
+            _line(name="LINE1", item_code="M000455", idx=2),
+            _line(name="LINE2", item_code="M000456", idx=5),
+        ]
 
     def test_construye_array_con_una_factura_por_doc(self):
         docs = [_doc()]
-        payload = build_payload(docs, self._get_lines, self._receipt_line_map)
+        payload = build_payload(docs, self._get_lines)
         self.assertEqual(len(payload), 1)
 
         factura = payload[0]
@@ -175,6 +180,7 @@ class TestBuildPayload(unittest.TestCase):
         self.assertEqual(factura["postingDate"], "2026-07-09")
         self.assertEqual(factura["tipoFacturaDoc"], "Estándar")
         self.assertEqual(factura["Cufe"], "")
+        self.assertEqual(factura["formaPago"], "")
         self.assertEqual(factura["dimensionSetLines"], [
             {"code": "TERCERO", "valueCode": "050633410"}
         ])
@@ -183,27 +189,35 @@ class TestBuildPayload(unittest.TestCase):
         self.assertEqual(line["NoProducto"], "M000455")
         self.assertEqual(line["cantidad"], 10)
         self.assertEqual(line["Precio"], 5000.0)
-        self.assertEqual(line["NoLineaRecepcion"], "20000")
+        self.assertEqual(line["NoLineaRecepcion"], "1")
         self.assertEqual(line["NoRecepcion"], "R108349")
         self.assertEqual(line["NoPedido"], "45238")
 
-    def test_cufe_y_forma_pago_desde_el_doc(self):
-        docs = [_doc(nvfac_cufe="CUFE123", nvfac_fpag="30")]
-        payload = build_payload(docs, self._get_lines, self._receipt_line_map)
+    def test_no_linea_recepcion_usa_el_idx_del_item(self):
+        payload = build_payload([_doc()], self._multi_lines)
+        lines = payload[0]["vendorInvoiceLine"]
+        self.assertEqual(
+            [line["NoLineaRecepcion"] for line in lines],
+            ["2", "5"],
+        )
+
+    def test_cufe_desde_el_doc(self):
+        docs = [_doc(nvfac_cufe="CUFE123")]
+        payload = build_payload(docs, self._get_lines)
         self.assertEqual(payload[0]["Cufe"], "CUFE123")
-        self.assertEqual(payload[0]["formaPago"], "30")
+        self.assertEqual(payload[0]["formaPago"], "")
 
     def test_varias_facturas_y_varias_lineas(self):
         docs = [_doc(name="DOC1", nvfac_nume="FAC001"), _doc(name="DOC2", nvfac_nume="FAC002")]
-        payload = build_payload(docs, self._get_lines, self._receipt_line_map)
+        payload = build_payload(docs, self._get_lines)
         self.assertEqual(
             [p["NoFacturaProveedor"] for p in payload],
             ["FAC001", "FAC002"],
         )
 
-    def test_sin_linea_de_recepcion_deja_vacio(self):
-        payload = build_payload([_doc()], self._get_lines, lambda po: {})
-        self.assertEqual(payload[0]["vendorInvoiceLine"][0]["NoLineaRecepcion"], "")
+    def test_sin_lineas_de_recepcion_deja_array_vacio(self):
+        payload = build_payload([_doc()], lambda po: [])
+        self.assertEqual(payload[0]["vendorInvoiceLine"], [])
 
 
 class TestIsErrorResponse(unittest.TestCase):
@@ -250,11 +264,8 @@ class TestApproveDocuments(unittest.TestCase):
         def get_docs_fn(doc_names):
             return [d for d in docs if d.get("name") in doc_names]
 
-        def get_lines_fn(doc_name):
+        def get_lines_fn(purchase_order):
             return [_line()]
-
-        def get_receipt_line_map_fn(purchase_order):
-            return {"M000455": "20000"}
 
         def po_exists_fn(purchase_order):
             return bool(purchase_order)
@@ -288,7 +299,6 @@ class TestApproveDocuments(unittest.TestCase):
         return calls, {
             "get_docs_fn": get_docs_fn,
             "get_lines_fn": get_lines_fn,
-            "get_receipt_line_map_fn": get_receipt_line_map_fn,
             "po_exists_fn": po_exists_fn,
             "receipts_total_fn": receipts_total_fn,
             "send_request_fn": send_request_fn,

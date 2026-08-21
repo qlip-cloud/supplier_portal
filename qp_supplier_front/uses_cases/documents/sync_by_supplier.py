@@ -10,16 +10,24 @@ def get_yesterday_date_str():
     return (datetime.now() - timedelta(days=1)).strftime("%d/%m/%Y")
 
 
+def get_day_before_yesterday_date_str():
+    return (datetime.now() - timedelta(days=2)).strftime("%d/%m/%Y")
+
+
+def get_today_date_str():
+    return datetime.now().strftime("%d/%m/%Y")
+
+
 def get_default_nvfac_esta():
     return "T"
 
 
 def get_default_nvfac_fini():
-    return get_yesterday_date_str()
+    return get_day_before_yesterday_date_str()
 
 
 def get_default_nvfac_ffin():
-    return get_yesterday_date_str()
+    return get_today_date_str()
 
 
 def sync_by_supplier(

@@ -3,34 +3,15 @@ from qp_supplier_front.services.pagination import get_paginated_filtered
 from qp_supplier_front.services.get_data import has_recent_news, get_has_dispatch_permission
 from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.services.enrich_document_detail import enrich_document_detail
-from qp_supplier_front.resources.documenteme.auto_assign import run_auto_assign
-from qp_supplier_front.resources.documenteme.auto_reject import run_auto_reject
-from qp_supplier_front.resources.documenteme.auto_approve import run_auto_approve
+from qp_supplier_front.uses_cases.documents.sync_all_whitelist import sync_all
+from qp_supplier_front.resources.documenteme.simulation import is_simulation_enabled
+
 
 def get_context(context):
     context.no_cache = True
 
-    try:
-        run_auto_assign()
-        frappe.db.commit()
-    except Exception:
-        frappe.db.rollback()
-        frappe.log_error(frappe.get_traceback(), "documenteme auto_assign")
-
-    try:
-        run_auto_reject()
-        frappe.db.commit()
-    except Exception:
-        frappe.db.rollback()
-        frappe.log_error(frappe.get_traceback(), "documenteme auto_reject")
-
-    try:
-        run_auto_approve()
-        frappe.db.commit()
-    except Exception:
-        frappe.db.rollback()
-        frappe.log_error(frappe.get_traceback(), "documenteme auto_approve")
-
+    context.simulation_mode = is_simulation_enabled()
+    context.sync_result = sync_all()
     query_params = frappe.request.args
     supplier_id = query_params.get("supplier")
     context.supplier_id = supplier_id
@@ -47,9 +28,11 @@ def get_context(context):
     order_by = "nvfac_fech"
     date_key = "nvfac_fech"
 
-    documents = get_paginated_filtered(0, doctype, order_by, {
-        "nvfac_ueve": ["is", "not set"],
-    })
+    filters = {}
+    if supplier_id:
+        filters["nvpro_ndoc"] = supplier_id
+
+    documents = get_paginated_filtered(0, doctype, order_by, filters)
 
     for doc in documents:
         doc["detail_lines"] = frappe.get_all(

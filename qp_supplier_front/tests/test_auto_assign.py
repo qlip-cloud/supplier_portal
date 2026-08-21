@@ -49,21 +49,30 @@ class TestResolveAssigneeEmails(unittest.TestCase):
     ]
 
     ASSIGNMENT_ROWS = [
-        {"headquarter": "BOG", "oc_type": None, "user_emails": ["a@x.com", "b@x.com"]},
-        {"headquarter": None, "oc_type": "03", "user_emails": ["c@x.com"]},
+        {"headquarter": "BOG", "oc_type": "01", "user_emails": ["a@x.com", "b@x.com"]},
+        {"headquarter": "CAL", "oc_type": "01", "user_emails": ["e@x.com"]},
+        {"headquarter": "BOG", "oc_type": "03", "user_emails": ["c@x.com"]},
         {"headquarter": None, "oc_type": "04", "user_emails": ["d@x.com"]},
     ]
 
-    def test_inventariable_busca_por_sede(self):
+    def test_inventariable_busca_par_exacto_sede(self):
         emails = resolve_assignee_emails("01", "BOG", self.OC_TYPE_ROWS, self.ASSIGNMENT_ROWS)
         self.assertEqual(emails, ["a@x.com", "b@x.com"])
 
-    def test_inventariable_sin_sede_configurada_retorna_vacio(self):
+    def test_inventariable_tipo_con_varias_sedes_elige_par_exacto(self):
         emails = resolve_assignee_emails("01", "CAL", self.OC_TYPE_ROWS, self.ASSIGNMENT_ROWS)
+        self.assertEqual(emails, ["e@x.com"])
+
+    def test_inventariable_sin_sede_configurada_retorna_vacio(self):
+        emails = resolve_assignee_emails("02", "CAL", self.OC_TYPE_ROWS, self.ASSIGNMENT_ROWS)
         self.assertEqual(emails, [])
 
     def test_no_inventariable_busca_por_oc_type(self):
         emails = resolve_assignee_emails("03", "BOG", self.OC_TYPE_ROWS, self.ASSIGNMENT_ROWS)
+        self.assertEqual(emails, ["c@x.com"])
+
+    def test_no_inventariable_ignora_sede_de_la_fila(self):
+        emails = resolve_assignee_emails("03", "CAL", self.OC_TYPE_ROWS, self.ASSIGNMENT_ROWS)
         self.assertEqual(emails, ["c@x.com"])
 
     def test_oc_type_no_inventariable_sin_config_retorna_vacio(self):
@@ -76,10 +85,10 @@ class TestResolveAssigneeEmails(unittest.TestCase):
 
     def test_dedupe_emails_repetidos(self):
         rows = [
-            {"headquarter": "BOG", "oc_type": None, "user_emails": ["a@x.com", "b@x.com"]},
-            {"headquarter": "BOG", "oc_type": None, "user_emails": ["a@x.com"]},
+            {"headquarter": "BOG", "oc_type": "01", "user_emails": ["a@x.com", "b@x.com"]},
+            {"headquarter": "BOG", "oc_type": "01", "user_emails": ["a@x.com"]},
         ]
-        emails = resolve_assignee_emails("02", "BOG", self.OC_TYPE_ROWS, rows)
+        emails = resolve_assignee_emails("01", "BOG", self.OC_TYPE_ROWS, rows)
         self.assertEqual(emails, ["a@x.com", "b@x.com"])
 
 

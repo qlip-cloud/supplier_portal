@@ -117,8 +117,11 @@ def auto_reject(
     resolve_rule_fn,
     po_exists_fn,
     receipt_for_po_fn,
+    doc_names=None,
 ):
-    candidates = [doc for doc in candidates_fn() if is_eligible_doc(doc)]
+    candidates = []
+    raw = candidates_fn() if doc_names is None else candidates_fn(doc_names)
+    candidates = [doc for doc in raw if is_eligible_doc(doc)]
     rejectable = collect_rejectable(
         candidates, resolve_rule_fn, po_exists_fn, receipt_for_po_fn
     )

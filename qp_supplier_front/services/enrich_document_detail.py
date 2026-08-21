@@ -20,7 +20,7 @@ def build_alert_tooltip(alerts):
         return None
     lines = ["Alertas:"]
     for alert in alerts:
-        date = (alert.get("alert_date") or "")[:16]
+        date = str(alert.get("alert_date") or "")[:16]
         message = alert.get("alert_message") or ""
         lines.append("- [{}] {}".format(date, message))
     return "\n".join(lines)

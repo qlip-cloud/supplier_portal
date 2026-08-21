@@ -83,24 +83,18 @@ def _to_date(value):
     return value.strftime("%Y-%m-%d")
 
 
-def _receipt_line_number(line, receipt_line_map):
-    if not receipt_line_map:
-        return ""
-    return receipt_line_map.get(line.get("nvpro_codi")) or ""
-
-
-def _build_vendor_invoice_line(line, doc, receipt_line_map):
+def _build_vendor_invoice_line(line):
     return {
-        "NoProducto": line.get("nvpro_codi"),
-        "cantidad": line.get("nvdet_tcan"),
-        "Precio": line.get("nvdet_valo"),
-        "NoLineaRecepcion": _receipt_line_number(line, receipt_line_map),
-        "NoRecepcion": doc.get("nvfac_rece") or "",
-        "NoPedido": doc.get("nvfac_orde") or "",
+        "NoProducto": line.get("item_code") or "",
+        "cantidad": line.get("qty") or 0,
+        "Precio": line.get("qp_unit_cost") or 0,
+        "NoLineaRecepcion": str(line.get("idx") or "") ,
+        "NoRecepcion": line.get("receiving_no") or "",
+        "NoPedido": line.get("order_no") or "",
     }
 
 
-def _build_invoice(doc, lines, receipt_line_map):
+def _build_invoice(doc, lines):
     invoice_date = _to_date(doc.get("nvfac_fech"))
     return {
         "invoiceDate": invoice_date,
@@ -110,30 +104,35 @@ def _build_invoice(doc, lines, receipt_line_map):
         "NoFacturaProveedor": doc.get("nvfac_nume"),
         "Cufe": doc.get("nvfac_cufe") or "",
         "tipoFacturaDoc": "Estándar",
-        "formaPago": doc.get("nvfac_fpag") or "",
+        "formaPago": "",
         "dimensionSetLines": [
             {"code": "TERCERO", "valueCode": doc.get("nvpro_ndoc")}
         ],
         "vendorInvoiceLine": [
-            _build_vendor_invoice_line(line, doc, receipt_line_map)
+            _build_vendor_invoice_line(line)
             for line in (lines or [])
         ],
     }
 
 
-def build_payload(docs, get_lines_fn, get_receipt_line_map_fn):
-    """Construye el payload de BC como array de facturas (una por doc)."""
+def build_payload(docs, get_lines_fn):
+    """Construye el payload de BC como array de facturas (una por doc).
+
+    Cada linea se origina de las recepciones (Purchase Receipt / Item) y
+    NoLineaRecepcion es el idx del Purchase Receipt Item.
+    """
     payload = []
     for doc in (docs or []):
-        lines = get_lines_fn(doc.get("name"))
-        receipt_line_map = get_receipt_line_map_fn(doc.get("nvfac_orde"))
-        payload.append(_build_invoice(doc, lines, receipt_line_map))
+        lines = get_lines_fn(doc.get("nvfac_orde"))
+        payload.append(_build_invoice(doc, lines))
     return payload
 
 
 def get_error_message(response):
     if not isinstance(response, dict):
         return str(response)
+    if "#text" in response:
+        return get_error_message(response.get("#text"))
     return (
         response.get("Description")
         or response.get("Message")
@@ -175,7 +174,6 @@ def approve_documents(
     doc_names,
     get_docs_fn,
     get_lines_fn,
-    get_receipt_line_map_fn,
     po_exists_fn,
     receipts_total_fn,
     send_request_fn,
@@ -202,7 +200,7 @@ def approve_documents(
     if not valid:
         return {"approved": [], "errors": errors}
 
-    payload = build_payload(valid, get_lines_fn, get_receipt_line_map_fn)
+    payload = build_payload(valid, get_lines_fn)
 
     try:
         response, status = send_request_fn(
@@ -236,6 +234,7 @@ def approve_documents(
             _record_error(errors, mark_error_fn, doc, str(e))
             continue
         approved.append({
+            "name": doc.get("name"),
             "nvfac_nume": doc.get("nvfac_nume"),
             "doc_number": doc_number or "",
         })

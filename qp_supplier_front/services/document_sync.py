@@ -20,7 +20,8 @@ def create_sync_log(supplier_id, tax_id, endpoint_code, payload, response, statu
     import frappe
     import json
     log = frappe.new_doc("qp_SP_DocumentSyncLog")
-    log.supplier = supplier_id
+    if supplier_id and frappe.db.exists("Supplier", supplier_id):
+        log.supplier = supplier_id
     log.tax_id = tax_id
     log.endpoint_code = endpoint_code
     log.payload = payload
@@ -98,14 +99,21 @@ def create_sync_lines(log_name, ldocuments):
             create_sync_line(log_name, doc_data)
 
 
-def build_detail_params(nvpro_ndoc, nvfac_esta, nvfac_nume):
+def build_detail_params(nvemp_nnit, nvpro_ndoc, nvfac_esta, nvfac_nume):
     return (
-        "nvemp_nnit={nvpro_ndoc}"
+        "nvemp_nnit={nvemp_nnit}"
         "&nvfac_esta={nvfac_esta}"
         "&nvfac_nume={nvfac_nume}"
-        "&nvpro_docu={nvpro_ndoc}"
-    ).format(nvpro_ndoc=nvpro_ndoc, nvfac_esta=nvfac_esta,
-             nvfac_nume=nvfac_nume)
+        "&nvpro_docu={nvpro_docu}"
+    ).format(nvemp_nnit=nvemp_nnit, nvfac_esta=nvfac_esta,
+             nvfac_nume=nvfac_nume, nvpro_docu=nvpro_ndoc)
+
+
+def get_log_company_tax_id(log_name):
+    import frappe
+    if not log_name:
+        return None
+    return frappe.db.get_value("qp_SP_DocumentSyncLog", log_name, "tax_id")
 
 
 def get_uncompleted_lines():
@@ -113,7 +121,7 @@ def get_uncompleted_lines():
     return frappe.get_all(
         "qp_SP_DocumentSyncLine",
         filters={"is_completed": 0},
-        fields=["name", "nvpro_ndoc", "nvfac_esta", "nvfac_nume"]
+        fields=["name", "document_sync_log", "nvpro_ndoc", "nvfac_esta", "nvfac_nume"]
     )
 
 

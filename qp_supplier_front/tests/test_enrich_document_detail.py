@@ -9,6 +9,7 @@ Ejecutar con: python -m pytest qp_supplier_front/tests/test_enrich_document_deta
 """
 import sys
 import unittest
+from datetime import datetime
 from unittest.mock import patch, MagicMock
 
 from qp_supplier_front.services.enrich_document_detail import (
@@ -79,6 +80,14 @@ class TestBuildAlertTooltip(unittest.TestCase):
         self.assertIn("2026-08-13 10:00", tooltip)
         self.assertIn("Error en BC", tooltip)
         self.assertIn("Ya existe", tooltip)
+
+    def test_arma_tooltip_con_alert_date_datetime(self):
+        alerts = [
+            {"alert_date": datetime(2026, 8, 13, 10, 0, 0), "alert_message": "Error en BC"},
+        ]
+        tooltip = build_alert_tooltip(alerts)
+        self.assertIn("2026-08-13 10:00", tooltip)
+        self.assertIn("Error en BC", tooltip)
 
 
 class TestEnrichDocumentDetail(unittest.TestCase):

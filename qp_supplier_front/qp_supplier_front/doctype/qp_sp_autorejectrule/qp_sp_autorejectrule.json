@@ -1,6 +1,6 @@
 {
  "actions": [],
- "creation": "2026-08-12 10:00:00.000000",
+ "creation": "2026-08-12 10:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -15,6 +15,7 @@
    "fieldname": "rule_name",
    "fieldtype": "Data",
    "in_list_view": 1,
+   "in_preview": 1,
    "in_standard_filter": 1,
    "label": "Nombre de la regla",
    "reqd": 1,
@@ -25,7 +26,7 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Código de la regla",
+   "label": "C\u00f3digo de la regla",
    "reqd": 1,
    "unique": 1
   },
@@ -40,12 +41,12 @@
   {
    "fieldname": "motive",
    "fieldtype": "Small Text",
-   "label": "Motivo automático"
+   "label": "Motivo autom\u00e1tico"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-12 10:00:00.000000",
+ "modified": "2026-08-20 16:11:30.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_AutoRejectRule",
@@ -78,5 +79,6 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
+ "title_field": "rule_name",
  "track_changes": 1
 }

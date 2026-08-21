@@ -13,15 +13,24 @@ def sync_detail(
     log_sync_attempt_fn,
     mark_line_completed_fn,
     commit_fn,
+    get_company_tax_id_fn=None,
 ):
     lines = get_uncompleted_lines_fn()
+
+    created_names = []
 
     for line in lines:
         nvpro_ndoc = line.get("nvpro_ndoc")
         nvfac_esta = line.get("nvfac_esta")
         nvfac_nume = line.get("nvfac_nume")
 
-        param = build_detail_params(nvpro_ndoc, nvfac_esta, nvfac_nume)
+        nvemp_nnit = nvpro_ndoc
+        if get_company_tax_id_fn:
+            tax_id = get_company_tax_id_fn(line.get("document_sync_log"))
+            if tax_id:
+                nvemp_nnit = tax_id
+
+        param = build_detail_params(nvemp_nnit, nvpro_ndoc, nvfac_esta, nvfac_nume)
 
         response, status = send_request_fn(
             endpoint_code=DOCUMENT_DETAIL_DOCUMENT,
@@ -33,9 +42,11 @@ def sync_detail(
             document_data = response.get("Document", {})
             attached_list = response.get("lAttached", [])
 
-            create_document_detail_fn(
+            doc = create_document_detail_fn(
                 line["name"], document_data, attached_list
             )
+            if doc and doc.name:
+                created_names.append(doc.name)
 
             log_sync_attempt_fn(
                 line["name"], "Success", None, response
@@ -50,3 +61,5 @@ def sync_detail(
             )
 
     commit_fn()
+
+    return created_names

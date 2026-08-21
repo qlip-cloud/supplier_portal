@@ -15,7 +15,6 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
         if doctype == "qp_SP_DocumentDetail":
             base_filters = {}
             base_filters.update(parsed_filters)
-            base_filters["nvfac_ueve"] = ["is", "not set"]
             pagination = get_paginated_filtered(int(page), doctype, order_by, base_filters)
 
             for doc in pagination:

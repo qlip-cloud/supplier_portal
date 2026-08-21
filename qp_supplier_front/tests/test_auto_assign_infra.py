@@ -91,8 +91,8 @@ class TestGetAssigneeEmails(unittest.TestCase):
     ]
 
     ASSIGNMENT_ROWS = [
-        {"headquarter": "BOG", "oc_type": None, "user_emails": ["a@x.com", "b@x.com"]},
-        {"headquarter": None, "oc_type": "03", "user_emails": ["c@x.com"]},
+        {"headquarter": "BOG", "oc_type": "01", "user_emails": ["a@x.com", "b@x.com"]},
+        {"headquarter": "BOG", "oc_type": "03", "user_emails": ["c@x.com"]},
     ]
 
     def _run(self, frappe_mock, oc_type, headquarter):

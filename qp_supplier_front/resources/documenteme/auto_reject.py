@@ -30,6 +30,7 @@ from qp_authorization.use_case.basic.authorize import (
 )
 from qp_supplier_front.constant.endpoint import DOCUMENTEME_EVENT_DOCUMENT
 from qp_supplier_front.resources.documenteme._alerts import resolve_open_alerts
+from qp_supplier_front.resources.documenteme import simulation
 from qp_supplier_front.resources.documenteme.auto_assign import get_receipt_total
 from qp_supplier_front.uses_cases.documenteme.auto_reject import (
     auto_reject as auto_reject_core,
@@ -47,19 +48,18 @@ MAX_HTTP_WORKERS = 5
 REJECT_JOB_METHOD = "qp_supplier_front.resources.documenteme.auto_reject.reject_batch_job"
 
 
-def run_auto_reject(http_fn=None):
+def run_auto_reject(http_fn=None, enqueue=True, doc_names=None):
     rejects = auto_reject_core(
         candidates_fn=get_candidates,
         resolve_rule_fn=resolve_rule,
         po_exists_fn=po_exists,
         receipt_for_po_fn=receipt_for_po,
+        doc_names=doc_names,
     )
     frappe.db.commit()
 
     if rejects:
-        if http_fn is not None:
-            reject_batch_job(rejects, http_fn=http_fn)
-        else:
+        if enqueue and http_fn is None:
             frappe.enqueue(
                 REJECT_JOB_METHOD,
                 rejects=rejects,
@@ -67,6 +67,8 @@ def run_auto_reject(http_fn=None):
                 timeout=14400,
                 job_name="auto reject documents",
             )
+        else:
+            reject_batch_job(rejects, http_fn=http_fn)
 
     return {"rejected": [reject["doc"] for reject in rejects]}
 
@@ -86,13 +88,17 @@ def auto_reject():
 # =========================================================================
 # Callbacks de infraestructura (scan)
 # =========================================================================
-def get_candidates():
+def get_candidates(doc_names=None):
+    filters = {
+        "nvfac_ueve": ["is", "not set"],
+        "nvfac_esta": "E",
+    }
+    if doc_names:
+        filters["name"] = ["in", list(doc_names)]
+
     return frappe.get_all(
         "qp_SP_DocumentDetail",
-        filters={
-            "nvfac_ueve": ["is", "not set"],
-            "nvfac_esta": "E",
-        },
+        filters=filters,
         fields=[
             "name",
             "nvfac_nume",
@@ -165,6 +171,12 @@ def receipt_for_po(purchase_order_number):
 # Rechazo (job de fondo con HTTP paralelo) — replica de reject_document
 # =========================================================================
 def reject_batch_job(rejects, http_fn=None):
+    if http_fn is None:
+        http_fn = (
+            simulation.http_event
+            if simulation.is_simulation_enabled()
+            else None
+        )
     docs_by_name = {}
     doc_tasks = []
     company_tax_id = get_company_tax_id()

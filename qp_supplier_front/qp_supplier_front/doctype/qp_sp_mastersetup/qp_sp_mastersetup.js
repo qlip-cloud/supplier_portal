@@ -5,6 +5,10 @@
 frappe.ui.form.on('qp_SP_MasterSetup', {
 	refresh: function(frm) {
 
+		if (!frappe.user.has_role('Administrator')) {
+			frm.toggle_display('documenteme_simulation', false);
+		}
+
 		if (!(frm.is_new())){
 
 				frm.add_custom_button(__('Facturas'), function() {

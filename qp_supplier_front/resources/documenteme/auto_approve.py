@@ -37,13 +37,17 @@ def is_auto_approve_enabled():
     return bool(frappe.db.get_single_value("qp_SP_MasterSetup", "auto_approve"))
 
 
-def get_analysis_candidates():
+def get_analysis_candidates(doc_names=None):
+    filters = {
+        "nvfac_ueve": ["is", "not set"],
+        "nvfac_esta": ["in", ANALYSIS_STATES],
+    }
+    if doc_names:
+        filters["name"] = ["in", list(doc_names)]
+
     return frappe.get_all(
         "qp_SP_DocumentDetail",
-        filters={
-            "nvfac_ueve": ["is", "not set"],
-            "nvfac_esta": ["in", ANALYSIS_STATES],
-        },
+        filters=filters,
         fields=[
             "name",
             "nvfac_nume",
@@ -56,9 +60,9 @@ def get_analysis_candidates():
     )
 
 
-def promote_eligible_to_v():
+def promote_eligible_to_v(doc_names=None):
     promoted = []
-    for doc in get_analysis_candidates():
+    for doc in get_analysis_candidates(doc_names):
         ok, _ = validate_registrable(doc, po_exists, receipts_total)
         if ok and doc.get("nvfac_esta") != "V":
             frappe.db.set_value(
@@ -72,40 +76,52 @@ def promote_eligible_to_v():
     return promoted
 
 
-def get_v_doc_names():
+def get_v_doc_names(doc_names=None):
+    filters = {
+        "nvfac_ueve": ["is", "not set"],
+        "nvfac_esta": "V",
+    }
+    if doc_names:
+        filters["name"] = ["in", list(doc_names)]
+
     return frappe.get_all(
         "qp_SP_DocumentDetail",
-        filters={
-            "nvfac_ueve": ["is", "not set"],
-            "nvfac_esta": "V",
-        },
+        filters=filters,
         pluck="name",
     )
 
 
-def run_auto_approve():
+def run_auto_approve(enqueue=True, doc_names=None):
     if not is_auto_approve_enabled():
         return {"approved": [], "errors": [], "skipped": True}
 
-    promoted = promote_eligible_to_v()
+    promoted = promote_eligible_to_v(doc_names)
 
-    doc_names = get_v_doc_names()
+    doc_names = get_v_doc_names(doc_names)
     if not doc_names:
         return {"approved": [], "errors": [], "skipped": False}
 
-    frappe.enqueue(
-        AUTO_APPROVE_JOB_METHOD,
-        doc_names=doc_names,
-        queue="long",
-        timeout=14400,
-        job_name="auto approve documents",
-    )
+    if enqueue:
+        frappe.enqueue(
+            AUTO_APPROVE_JOB_METHOD,
+            doc_names=doc_names,
+            queue="long",
+            timeout=14400,
+            job_name="auto approve documents",
+        )
+        return {
+            "approved": [],
+            "errors": [],
+            "skipped": False,
+            "enqueued": len(doc_names),
+            "promoted": promoted,
+        }
 
+    result = approve_batch_job(doc_names)
     return {
-        "approved": [],
-        "errors": [],
+        "approved": result.get("approved", []),
+        "errors": result.get("errors", []),
         "skipped": False,
-        "enqueued": len(doc_names),
         "promoted": promoted,
     }
 

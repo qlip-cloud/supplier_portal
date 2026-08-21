@@ -15,6 +15,7 @@ from qp_supplier_front.resources.documenteme._alerts import (
     insert_alert,
     resolve_open_alerts,
 )
+from qp_supplier_front.resources.documenteme import simulation
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.uses_cases.documenteme.approve import (
@@ -62,33 +63,33 @@ def get_docs(doc_names):
     )
 
 
-def get_lines(doc_name):
-    return frappe.get_all(
-        "qp_SP_DetailLine",
-        filters={"parent": doc_name, "parenttype": "qp_SP_DocumentDetail"},
-        fields=["name", "nvpro_codi", "nvdet_tcan", "nvdet_valo", "nvdet_stot"],
-    )
-
-
-def get_receipt_line_map(purchase_order):
+def get_lines(purchase_order):
     if not purchase_order:
-        return {}
+        return []
     receipts = frappe.get_all(
         "Purchase Receipt",
         filters={"qp_supplier_oc": purchase_order},
         pluck="name",
     )
     if not receipts:
-        return {}
+        return []
     items = frappe.get_all(
         "Purchase Receipt Item",
         filters={"parent": ["in", receipts], "parenttype": "Purchase Receipt"},
-        fields=["item_code", "qp_seq"],
+        fields=["parent", "item_code", "qty", "qp_unit_cost", "idx"],
+        order_by="parent, idx",
     )
-    return {
-        item.get("item_code"): str(item.get("qp_seq") or "")
+    return [
+        {
+            "item_code": item.get("item_code"),
+            "qty": item.get("qty"),
+            "qp_unit_cost": item.get("qp_unit_cost"),
+            "idx": item.get("idx") or 0,
+            "receiving_no": item.get("parent") or "",
+            "order_no": purchase_order,
+        }
         for item in items
-    }
+    ]
 
 
 def po_exists(purchase_order):
@@ -216,6 +217,26 @@ def send_purchase_invoice_request(endpoint_code, payload):
         payload=payload,
         endpoint_code=endpoint_code,
     )
+    try:
+        import html
+
+        from qp_supplier_front.services.utils import add_log
+
+        raw_response = None
+        log_response = response
+        if isinstance(response, dict) and response.get("raw_response") is not None:
+            raw_response = html.unescape(response.get("raw_response") or "")
+            log_response = dict(response)
+            log_response.pop("raw_response", None)
+
+        add_log(
+            title="Aprobacion documenteme -> BC ({})".format(endpoint_code),
+            payload=payload,
+            response=log_response,
+            raw_response=raw_response,
+        )
+    except Exception:
+        pass
     return response, 200
 
 
@@ -223,11 +244,16 @@ def send_purchase_invoice_request(endpoint_code, payload):
 # Orquestacion compartida
 # =========================================================================
 def approve_documents_core(doc_names, send_request_fn=None):
+    if send_request_fn is None:
+        send_request_fn = (
+            simulation.send_purchase_invoice_request
+            if simulation.is_simulation_enabled()
+            else send_purchase_invoice_request
+        )
     return approve_documents(
         doc_names,
         get_docs_fn=get_docs,
         get_lines_fn=get_lines,
-        get_receipt_line_map_fn=get_receipt_line_map,
         po_exists_fn=po_exists,
         receipts_total_fn=receipts_total,
         send_request_fn=send_request_fn or send_purchase_invoice_request,
@@ -250,5 +276,23 @@ def run_approve(doc_names_raw, send_request_fn=None):
 
     result = approve_documents_core(doc_names, send_request_fn=send_request_fn)
     frappe.db.commit()
+
+    errors = result.get("errors") or []
+
+    for err in errors:
+        frappe.log_error(
+            message="Factura {}: {}".format(
+                err.get("nvfac_nume"), err.get("error")
+            ),
+            title="Aprobar documenteme - error",
+        )
+
+    if errors:
+        detail = ", ".join(
+            "{}: {}".format(err.get("nvfac_nume"), err.get("error"))
+            for err in errors
+        )
+        response(500, "Error al aprobar: {}".format(detail))
+        return
 
     response(200, "Factura(s) aprobada(s) correctamente", result)

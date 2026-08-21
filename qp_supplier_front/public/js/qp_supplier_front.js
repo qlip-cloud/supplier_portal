@@ -322,6 +322,7 @@ $(document).ready(function () {
     }
 
     window.loadMoreInvoices = loadMoreInvoices;
+    window.filter_init = filter_init;
 });
 
 

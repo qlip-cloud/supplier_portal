@@ -16,5 +16,10 @@ def handler(status ,msg, data = None):
         frappe.db.rollback()
 
         traceback.print_exc()
-        
-        frappe.log_error(message=frappe.get_traceback(), title = data or msg)       
+
+        title = data or msg
+
+        if title and len(str(title)) > 140:
+            title = str(title)[:140]
+
+        frappe.log_error(message=frappe.get_traceback(), title = title)       

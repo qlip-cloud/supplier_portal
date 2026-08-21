@@ -7,6 +7,7 @@ from qp_supplier_front.services.document_sync import (
     create_sync_lines,
     create_sync_log,
     get_uncompleted_lines,
+    get_log_company_tax_id,
     log_sync_attempt,
     mark_line_completed,
 )
@@ -14,11 +15,15 @@ from qp_supplier_front.uses_cases.documents.sync_by_supplier import (
     sync_by_supplier,
 )
 from qp_supplier_front.uses_cases.documents.sync_detail import sync_detail
+from qp_supplier_front.services import sync_lock
 from qp_supplier_front.resources.documenteme.auto_reject import run_auto_reject
+from qp_supplier_front.resources.documenteme.auto_approve import run_auto_approve
+
+DOCUMENTS_LOCK_DOMAIN = "documents"
 
 
-def get_supplier_tax_id(supplier_name):
-    return frappe.get_doc("Supplier", supplier_name).tax_id
+def get_company_tax_id(company_name):
+    return frappe.get_doc("Company", company_name).tax_id
 
 
 def generate_date_chunks(start_year):
@@ -39,30 +44,38 @@ def generate_date_chunks(start_year):
     return chunks
 
 
-def get_suppliers_by_tax_id(tax_id):
-    return frappe.get_all("Supplier", filters={"tax_id": tax_id}, pluck="name")
+def get_companies_by_tax_id(tax_id):
+    return frappe.get_all("Company", filters={"tax_id": tax_id}, pluck="name")
 
 
 @frappe.whitelist()
 def sync_all_by_year(year, tax_id=None):
+    if not sync_lock.acquire(DOCUMENTS_LOCK_DOMAIN):
+        return {
+            "success": False,
+            "skipped": True,
+            "error": "Ya hay una sincronización en curso",
+        }
+
     try:
         chunks = generate_date_chunks(int(year))
 
         if tax_id:
-            suppliers = get_suppliers_by_tax_id(tax_id)
+            companies = get_companies_by_tax_id(tax_id)
         else:
-            suppliers = frappe.get_all("Supplier", pluck="name")
+            companies = frappe.get_all("Company", pluck="name")
 
         chunks_failed = 0
         errors = []
+        created_names = []
 
         for nvfac_fini, nvfac_ffin in chunks:
             try:
-                for supplier_id in suppliers:
+                for company_id in companies:
                     sync_by_supplier(
                         nvfac_esta="T",
-                        supplier_id=supplier_id,
-                        get_tax_id_fn=get_supplier_tax_id,
+                        supplier_id=company_id,
+                        get_tax_id_fn=get_company_tax_id,
                         send_request_fn=send_request_status,
                         create_log_fn=create_sync_log,
                         create_lines_fn=create_sync_lines,
@@ -71,14 +84,15 @@ def sync_all_by_year(year, tax_id=None):
                         nvfac_ffin=nvfac_ffin,
                     )
 
-                sync_detail(
+                created_names.extend(sync_detail(
                     get_uncompleted_lines_fn=get_uncompleted_lines,
                     send_request_fn=send_request_status,
                     create_document_detail_fn=create_document_detail,
                     log_sync_attempt_fn=log_sync_attempt,
                     mark_line_completed_fn=mark_line_completed,
                     commit_fn=lambda: frappe.db.commit(),
-                )
+                    get_company_tax_id_fn=get_log_company_tax_id,
+                ) or [])
             except Exception as chunk_error:
                 frappe.db.rollback()
                 frappe.log_error(
@@ -92,8 +106,10 @@ def sync_all_by_year(year, tax_id=None):
                     )
                 )
 
+        reject_result = None
+        approve_result = None
         try:
-            run_auto_reject()
+            reject_result = run_auto_reject(enqueue=False, doc_names=created_names)
             frappe.db.commit()
         except Exception as auto_reject_error:
             frappe.db.rollback()
@@ -102,14 +118,29 @@ def sync_all_by_year(year, tax_id=None):
                 "sync_all_by_year auto_reject",
             )
 
+        try:
+            approve_result = run_auto_approve(enqueue=False, doc_names=created_names)
+            frappe.db.commit()
+        except Exception as auto_approve_error:
+            frappe.db.rollback()
+            frappe.log_error(
+                frappe.get_traceback(),
+                "sync_all_by_year auto_approve",
+            )
+
         return {
             "success": True,
-            "suppliers_count": len(suppliers),
+            "companies_count": len(companies),
             "chunks_total": len(chunks),
             "chunks_failed": chunks_failed,
             "errors": errors,
+            "created_count": len(created_names),
+            "rejected": (reject_result or {}).get("rejected") or [],
+            "approved": (approve_result or {}).get("approved") or [],
         }
     except Exception as e:
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "sync_all_by_year")
         return {"success": False, "error": "Internal error"}
+    finally:
+        sync_lock.release(DOCUMENTS_LOCK_DOMAIN)

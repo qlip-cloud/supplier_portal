@@ -2,6 +2,7 @@ import frappe
 from qp_supplier_front.uses_cases.documents.sync_detail import sync_detail
 from qp_supplier_front.services.document_sync import (
     get_uncompleted_lines,
+    get_log_company_tax_id,
     create_document_detail,
     log_sync_attempt,
     mark_line_completed,
@@ -19,6 +20,7 @@ def sync_detail_whitelist():
             log_sync_attempt_fn=log_sync_attempt,
             mark_line_completed_fn=mark_line_completed,
             commit_fn=lambda: frappe.db.commit(),
+            get_company_tax_id_fn=get_log_company_tax_id,
         )
         return {"success": True}
     except Exception:
