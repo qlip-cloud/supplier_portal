@@ -186,9 +186,9 @@ $(document).ready(function () {
             if (response.status === 200) {
                 $('tbody input[type="checkbox"]:checked').each(function () {
                     $(this).closest("tr").find(".status-badge")
-                        .removeClass("status-open status-ready status-paid status-default")
-                        .addClass("status-cancelled")
-                        .text("Rechazada");
+                        .removeClass("status-open status-ready status-paid status-default status-cancelled")
+                        .addClass("status-progress")
+                        .text("En proceso de rechazo");
                     $(this).prop("checked", false);
                 });
             }
@@ -199,6 +199,25 @@ $(document).ready(function () {
             motive: motive,
             is_invoice_error: JSON.stringify(is_invoice_error)
         }, url, callresponse);
+    });
+
+    $(document).on("click", ".btn-control-reject-retry", function () {
+        var $btn = $(this);
+        var doc_name = $btn.data("name");
+
+        petition_get_data({
+            doc_name: doc_name
+        }, "qp_supplier_front.resources.documenteme.auto_reject.toggle_reject_retry", function (response) {
+            if (response && response.success) {
+                var enabled = response.enabled;
+                $btn.css("color", enabled ? "#28a745" : "#dc3545");
+                $btn.find("span").text(enabled ? "play_arrow" : "pause");
+                $btn.attr("title", enabled ? "Activos" : "Reintentos detenidos. Haz clic para reactivar");
+                frappe.msgprint(enabled ? "Reintentos de rechazo activados." : "Reintentos de rechazo detenidos.");
+            } else {
+                frappe.msgprint(response && response.error ? response.error : "Error al actualizar los reintentos.");
+            }
+        });
     });
 
     $("#confirm-assign").on("click", function () {
@@ -275,7 +294,7 @@ $(document).ready(function () {
                 overlayEl.onclick = null;
                 overlayEl.style.display = "block";
 
-                var url = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.sync_all";
+                var url = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.refresh_documents";
 
                 var callresponse = (response) => {
                     overlayEl.onclick = savedOnClick;

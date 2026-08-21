@@ -29,6 +29,10 @@ RULE_CODES = (RULE_NO_PO, RULE_NO_RECEIPT, RULE_NO_PO_NO_RECEIPT)
 
 FINAL_STATES = ("A", "R")
 
+import qp_supplier_front.uses_cases.documenteme.reject_retry
+
+REJECT_PENDING_STATES = qp_supplier_front.uses_cases.documenteme.reject_retry.REJECT_PENDING_STATES
+
 DEFAULT_MOTIVES = {
     RULE_NO_PO: (
         "Rechazo automático: la factura no coincide con ninguna "
@@ -93,15 +97,24 @@ def should_auto_reject(po_match, receipt_match, rule_code):
 
 
 def is_eligible_doc(doc):
+    """Candidato a rechazo: sin evento final aplicado y en estado pendiente
+    (E = evaluar regla, P = en proceso de rechazo)."""
     return (
         not doc.get("nvfac_ueve")
-        and doc.get("nvfac_esta") == "E"
+        and doc.get("nvfac_esta") in REJECT_PENDING_STATES
     )
 
 
 def collect_rejectable(candidates, resolve_rule_fn, po_exists_fn, receipt_for_po_fn):
     rejectable = []
     for doc in candidates:
+        if doc.get("nvfac_esta") == "P":
+            rejectable.append({
+                "doc": doc,
+                "rule": None,
+                "pending": True,
+            })
+            continue
         rule = resolve_rule_fn(doc)
         if not is_active_rule(rule):
             continue
@@ -128,8 +141,9 @@ def auto_reject(
     return [
         {
             "doc": item["doc"].get("nvfac_nume") or item["doc"].get("name"),
-            "motive": get_reject_motive(item["rule"]),
-            "rule": item["rule"].get("rule_name"),
+            "motive": get_reject_motive(item["rule"]) if item.get("rule") else None,
+            "rule": item["rule"].get("rule_name") if item.get("rule") else None,
+            "pending": item.get("pending", False),
         }
         for item in rejectable
     ]

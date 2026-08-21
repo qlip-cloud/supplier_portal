@@ -120,7 +120,7 @@ get_website_user_home_page = "qp_supplier_front.redirect.login.get_home_page"
 
 scheduler_events = {
  	"cron": {
-		"5 0 * * *": [
+		"*/30 * * * *": [
 			"qp_supplier_front.uses_cases.documents.sync_all_whitelist.sync_all"
 		],
 		"0 12 * * *": [

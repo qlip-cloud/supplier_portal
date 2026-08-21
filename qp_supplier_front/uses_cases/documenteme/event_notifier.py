@@ -14,17 +14,19 @@ def _get_last_event_idx(logs):
     return last_idx
 
 
-def _get_nvfac_esta(doc, event_code, event_config):
+def _get_nvfac_esta(doc, event_code, event_config, base_state=None):
     override = event_config.get(event_code, {})
-    return override.get("nvfac_esta", doc.nvfac_esta)
+    if override.get("nvfac_esta"):
+        return override.get("nvfac_esta")
+    return base_state if base_state is not None else doc.nvfac_esta
 
 
-def _build_payload(doc, event_code, event_config, company_tax_id):
+def _build_payload(doc, event_code, event_config, company_tax_id, base_state=None):
     return {
         "Nvemp_nnit": company_tax_id,
         "Nvpro_ndoc": doc.nvpro_ndoc,
         "Nvfac_cont": doc.nvfac_cont,
-        "Nvfac_esta": _get_nvfac_esta(doc, event_code, event_config),
+        "Nvfac_esta": _get_nvfac_esta(doc, event_code, event_config, base_state),
         "Nveve_dian": event_code,
         "Nvint_desc": event_config.get(event_code, {}).get(
             "nvint_desc", "Rechazo por error de factura"

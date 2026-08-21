@@ -9,6 +9,7 @@
     "E": "status-open",
     "V": "status-ready",
     "R": "status-cancelled",
+    "P": "status-progress",
     "T": "status-default"
 } -%}
 
@@ -17,6 +18,7 @@
     "E": "Por Recibir",
     "V": "Lista para Registro",
     "R": "Rechazada",
+    "P": "En proceso de rechazo",
     "T": ""
 } -%}
 
@@ -67,6 +69,11 @@
         <button type="button" class="btn-control-assign" style="color:{{ '#007bff' if row.assigned_to_name else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ row.assigned_to_name or 'Asignado a' }}" data-name="{{ row.name }}">
             <span class="material-symbols-outlined" style="font-size:22px">assignment_ind</span>
         </button>
+        {% if row.nvfac_esta == "P" %}
+        <button type="button" class="btn-control-reject-retry" style="color:{{ '#28a745' if row.qp_reject_retry_enabled else '#dc3545' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ 'Activos' if row.qp_reject_retry_enabled else 'Reintentos detenidos. Haz clic para reactivar' }}" data-name="{{ row.name }}" data-enabled="{{ 1 if row.qp_reject_retry_enabled else 0 }}">
+            <span class="material-symbols-outlined" style="font-size:22px">{{ 'play_arrow' if row.qp_reject_retry_enabled else 'pause' }}</span>
+        </button>
+        {% endif %}
     </td>
 </tr>
 <tr class="collapse" id="detail-{{ row.name }}" data-parent="#accordion">

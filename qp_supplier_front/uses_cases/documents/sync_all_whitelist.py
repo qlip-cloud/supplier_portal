@@ -27,6 +27,67 @@ def get_company_tax_id(company_name):
     return frappe.get_doc("Company", company_name).tax_id
 
 
+def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
+                    doc_names=None):
+    """Fase SINCRONA del flujo documenteme (no depende de workers).
+
+    Descarga lineas + detalles (trae las facturas), luego asigna y aprueba
+    de forma sincrona. NO lanza el auto-rechazo aqui.
+
+    Retorna {"created": [..], "approved": [..]}.
+    """
+    companies = frappe.get_all("Company", pluck="name")
+
+    for company_id in companies:
+        sync_by_supplier(
+            supplier_id=company_id,
+            get_tax_id_fn=get_company_tax_id,
+            send_request_fn=send_request_status,
+            create_log_fn=create_sync_log,
+            create_lines_fn=create_sync_lines,
+            commit_fn=lambda: frappe.db.commit(),
+            nvfac_esta=nvfac_esta,
+            nvfac_fini=nvfac_fini,
+            nvfac_ffin=nvfac_ffin,
+        )
+
+    created_names = sync_detail(
+        get_uncompleted_lines_fn=get_uncompleted_lines,
+        send_request_fn=send_request_status,
+        create_document_detail_fn=create_document_detail,
+        log_sync_attempt_fn=log_sync_attempt,
+        mark_line_completed_fn=mark_line_completed,
+        commit_fn=lambda: frappe.db.commit(),
+        get_company_tax_id_fn=get_log_company_tax_id,
+    )
+
+    created_names = created_names or []
+    run_documenteme_auto_assign(doc_names or created_names)
+    approve_result = run_documenteme_auto_approve(doc_names or created_names)
+
+    return {
+        "created": created_names,
+        "approved": (approve_result or {}).get("approved") or [],
+    }
+
+
+def _launch_reject(doc_names):
+    """Lanza el auto-rechazo EN SEGUNDO PLANO (job de fondo).
+
+    Marcamos las facturas a rechazar como "P" (En proceso) de forma
+    sincrona y encolamos el job. Aunque ya haya un job de rechazo en
+    ejecucion, este llama encola con los documentos nuevos recibidos.
+    """
+    try:
+        result = run_auto_reject(enqueue=True, doc_names=doc_names)
+        frappe.db.commit()
+        return result
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "documenteme auto_reject sync_all")
+        return None
+
+
 def run_documenteme_auto_assign(doc_names=None):
     try:
         run_auto_assign(doc_names=doc_names)
@@ -38,15 +99,7 @@ def run_documenteme_auto_assign(doc_names=None):
 
 
 def run_documenteme_auto_reject(doc_names=None):
-    try:
-        result = run_auto_reject(enqueue=False, doc_names=doc_names)
-        frappe.db.commit()
-        return result
-
-    except Exception:
-        frappe.db.rollback()
-        frappe.log_error(frappe.get_traceback(), "documenteme auto_reject sync_all")
-        return None
+    return _launch_reject(doc_names)
 
 
 def run_documenteme_auto_approve(doc_names=None):
@@ -63,6 +116,12 @@ def run_documenteme_auto_approve(doc_names=None):
 
 @frappe.whitelist()
 def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
+    """Sincronizacion programada (cron */30).
+
+    La descarga de facturas es SINCRONA dentro del lock (para no pisar a
+    otro cron en curso). Al final se lanza el auto-rechazo en segundo plano
+    sobre las facturas nuevas.
+    """
     nvfac_fini = nvfac_fini if nvfac_fini is not None else get_default_nvfac_fini()
     nvfac_ffin = nvfac_ffin if nvfac_ffin is not None else get_default_nvfac_ffin()
 
@@ -74,41 +133,20 @@ def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
         }
 
     try:
-        companies = frappe.get_all("Company", pluck="name")
-
-        for company_id in companies:
-            sync_by_supplier(
-                supplier_id=company_id,
-                get_tax_id_fn=get_company_tax_id,
-                send_request_fn=send_request_status,
-                create_log_fn=create_sync_log,
-                create_lines_fn=create_sync_lines,
-                commit_fn=lambda: frappe.db.commit(),
-                nvfac_esta=nvfac_esta,
-                nvfac_fini=nvfac_fini,
-                nvfac_ffin=nvfac_ffin,
-            )
-
-        created_names = sync_detail(
-            get_uncompleted_lines_fn=get_uncompleted_lines,
-            send_request_fn=send_request_status,
-            create_document_detail_fn=create_document_detail,
-            log_sync_attempt_fn=log_sync_attempt,
-            mark_line_completed_fn=mark_line_completed,
-            commit_fn=lambda: frappe.db.commit(),
-            get_company_tax_id_fn=get_log_company_tax_id,
+        sync_result = _sync_documents(
+            nvfac_esta=nvfac_esta,
+            nvfac_fini=nvfac_fini,
+            nvfac_ffin=nvfac_ffin,
         )
-
-        run_documenteme_auto_assign(created_names)
-        reject_result = run_documenteme_auto_reject(created_names)
-        approve_result = run_documenteme_auto_approve(created_names)
+        created_names = sync_result["created"]
+        reject_result = _launch_reject(created_names)
 
         return {
             "success": True,
-            "companies_count": len(companies),
-            "created_count": len(created_names or []),
+            "companies_count": len(frappe.get_all("Company", pluck="name")),
+            "created_count": len(created_names),
             "rejected": (reject_result or {}).get("rejected") or [],
-            "approved": (approve_result or {}).get("approved") or [],
+            "approved": sync_result["approved"],
         }
     except Exception as e:
         frappe.db.rollback()
@@ -116,3 +154,35 @@ def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
         return {"success": False, "error": "Internal error"}
     finally:
         sync_lock.release(DOCUMENTS_LOCK_DOMAIN)
+
+
+@frappe.whitelist()
+def refresh_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
+    """Refresco manual (boton) — SIEMPRE trae facturas.
+
+    Descarga de forma sincrona SIN tomar el lock global (para que, aunque
+    el cron este corriendo, el usuario siempre pueda traer las facturas
+    nuevas). Luego asigna, aprueba y lanza el auto-rechazo en segundo plano
+    sobre las facturas nuevas.
+    """
+    try:
+        sync_result = _sync_documents(
+            nvfac_esta=nvfac_esta,
+            nvfac_fini=nvfac_fini,
+            nvfac_ffin=nvfac_ffin,
+        )
+        created_names = sync_result["created"]
+        # Siempre lanza el rechazo en fondo (encola), aunque ya haya otro job.
+        reject_result = _launch_reject(created_names)
+
+        return {
+            "success": True,
+            "companies_count": len(frappe.get_all("Company", pluck="name")),
+            "created_count": len(created_names),
+            "rejected": (reject_result or {}).get("rejected") or [],
+            "approved": sync_result["approved"],
+        }
+    except Exception as e:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "refresh_documents")
+        return {"success": False, "error": "Internal error"}

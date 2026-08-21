@@ -109,7 +109,7 @@ def sync_all_by_year(year, tax_id=None):
         reject_result = None
         approve_result = None
         try:
-            reject_result = run_auto_reject(enqueue=False, doc_names=created_names)
+            reject_result = run_auto_reject(enqueue=True, doc_names=created_names)
             frappe.db.commit()
         except Exception as auto_reject_error:
             frappe.db.rollback()

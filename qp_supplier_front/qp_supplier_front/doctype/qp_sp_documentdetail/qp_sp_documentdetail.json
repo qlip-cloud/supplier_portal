@@ -20,6 +20,9 @@
     "qp_motive",
     "qp_is_event_completed",
     "qp_auto_reject_rule",
+    "qp_reject_orig_state",
+    "qp_reject_is_invoice_error",
+    "qp_reject_retry_enabled",
    "nvfac_rfec",
    "nvfac_orde",
    "nvfac_rece",
@@ -130,13 +133,31 @@
     "fieldtype": "Check",
     "label": "Eventos completados"
    },
+    {
+     "fieldname": "qp_auto_reject_rule",
+     "fieldtype": "Data",
+     "label": "Regla de rechazo autom\u00e1tico"
+    },
+    {
+     "fieldname": "qp_reject_orig_state",
+     "fieldtype": "Data",
+     "label": "Estado previo al rechazo"
+    },
+    {
+     "default": "0",
+     "fieldname": "qp_reject_is_invoice_error",
+     "fieldtype": "Check",
+     "label": "Rechazo por error de factura"
+    },
+    {
+     "default": "1",
+     "fieldname": "qp_reject_retry_enabled",
+     "fieldtype": "Check",
+     "label": "Reintentos de rechazo habilitados",
+     "description": "Si se desmarca, este documento deja de reintentar el rechazo hacia documenteme aunque quede en proceso."
+    },
    {
-    "fieldname": "qp_auto_reject_rule",
-    "fieldtype": "Data",
-    "label": "Regla de rechazo autom\u00e1tico"
-   },
-  {
-   "fieldname": "nvfac_rfec",
+    "fieldname": "nvfac_rfec",
    "fieldtype": "Datetime",
    "label": "Nvfac Rfec"
   },
@@ -298,7 +319,7 @@
   ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-13 18:02:52.000000",
+  "modified": "2026-08-21 09:30:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DocumentDetail",

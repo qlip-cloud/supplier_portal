@@ -47,7 +47,7 @@ def _line(**overrides):
         "name": "LINE1",
         "item_code": "M000455",
         "qty": 10,
-        "qp_unit_cost": 5000.0,
+        "rate": 5000.0,
         "idx": 1,
         "receiving_no": "R108349",
         "order_no": "45238",

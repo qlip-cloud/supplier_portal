@@ -3,7 +3,6 @@ from frappe import parse_json
 from datetime import datetime
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.resources.documenteme._alerts import resolve_open_alerts
-from qp_supplier_front.uses_cases.documenteme.reject import reject_document
 from qp_supplier_front.services.role_resolver import get_active_role
 
 ALLOWED_ROLES = {"Administrador Documenteme", "Administrador Sede Documenteme"}
@@ -24,6 +23,17 @@ def _make_now():
 
 
 def run_reject(doc_names_raw, motive, is_invoice_error_raw, send_request_fn):
+    """Rechazo manual ASINCRONO.
+
+    Marca cada factura como "P" (En proceso de rechazo) persistiendo el
+    motivo y el indicador de error, y encola el job de fondo que envia la
+    secuencia 030 -> 032 -> 031 con reintentos hacia documenteme. No
+    bloquea el servicio ni depende de la velocidad del servidor externo.
+    """
+    from qp_supplier_front.resources.documenteme.auto_reject import (
+        REJECT_JOB_METHOD,
+    )
+
     doc_names = parse_json(doc_names_raw)
     is_invoice_error = parse_json(is_invoice_error_raw)
 
@@ -31,17 +41,32 @@ def run_reject(doc_names_raw, motive, is_invoice_error_raw, send_request_fn):
         response(403, "No tiene permisos para rechazar facturas")
         return
 
-    for doc_name in doc_names:
-        reject_document(
-            doc_name,
-            motive,
-            is_invoice_error,
-            get_doc_fn=frappe.get_doc,
-            send_request_fn=send_request_fn,
-            commit_fn=frappe.db.commit,
-            get_company_tax_id_fn=_get_company_tax_id,
-            now_fn=_make_now,
-        )
-        resolve_open_alerts(doc_name)
+    rejects = []
+    for idx, doc_name in enumerate(doc_names):
+        doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
+        doc.nvfac_esta = "P"
+        doc.qp_reject_orig_state = "E"
+        doc.qp_motive = motive
+        doc.qp_reject_is_invoice_error = is_invoice_error
+        doc.save()
+        rejects.append({
+            "doc": doc_name,
+            "motive": motive,
+            "rule": doc.qp_auto_reject_rule or None,
+        })
 
-    response(200, "Factura(s) rechazada(s) correctamente")
+    frappe.db.commit()
+
+    frappe.enqueue(
+        REJECT_JOB_METHOD,
+        rejects=rejects,
+        queue="long",
+        timeout=14400,
+        job_name="reject documents ({})".format(len(rejects)),
+    )
+
+    if len(doc_names) == 1:
+        message = "Rechazo en proceso para la factura"
+    else:
+        message = "Rechazo en proceso para las {} facturas".format(len(doc_names))
+    response(200, message)

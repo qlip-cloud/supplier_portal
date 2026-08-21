@@ -87,7 +87,7 @@ def _build_vendor_invoice_line(line):
     return {
         "NoProducto": line.get("item_code") or "",
         "cantidad": line.get("qty") or 0,
-        "Precio": line.get("qp_unit_cost") or 0,
+        "Precio": line.get("rate") or 0,
         "NoLineaRecepcion": str(line.get("idx") or "") ,
         "NoRecepcion": line.get("receiving_no") or "",
         "NoPedido": line.get("order_no") or "",

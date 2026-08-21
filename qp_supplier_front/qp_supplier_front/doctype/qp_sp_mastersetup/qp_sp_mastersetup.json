@@ -7,6 +7,9 @@
 "field_order": [
     "supplier_date_sync",
     "auto_reject",
+    "reject_retry_max_attempts",
+    "reject_retry_interval_seconds",
+    "reject_event_delay_seconds",
     "auto_approve",
     "documenteme_simulation",
     "sede_source_doctype",
@@ -29,13 +32,34 @@
     "fieldtype": "Datetime",
     "label": "supplier_date_sync"
    },
-   {
-    "fieldname": "auto_reject",
-    "fieldtype": "Link",
-    "label": "Rechazo autom\u00e1tico por defecto",
-    "description": "Regla de rechazo autom\u00e1tico aplicada a proveedores sin configuraci\u00f3n propia. Campo vac\u00edo = No configurado.",
-    "options": "qp_SP_AutoRejectRule"
-   },
+    {
+     "fieldname": "auto_reject",
+     "fieldtype": "Link",
+     "label": "Rechazo autom\u00e1tico por defecto",
+     "description": "Regla de rechazo autom\u00e1tico aplicada a proveedores sin configuraci\u00f3n propia. Campo vac\u00edo = No configurado.",
+     "options": "qp_SP_AutoRejectRule"
+    },
+    {
+     "default": "5",
+     "fieldname": "reject_retry_max_attempts",
+     "fieldtype": "Int",
+     "label": "Rechazo - m\u00e1ximo de intentos",
+     "description": "N\u00famero de intentos de la secuencia 030 -> 032 -> 031 por ciclo antes de marcar la factura como no rechazada."
+    },
+    {
+     "default": "60",
+     "fieldname": "reject_retry_interval_seconds",
+     "fieldtype": "Int",
+     "label": "Rechazo - segundos entre intentos",
+     "description": "Espera entre un intento fallido y el siguiente (por defecto 60 segundos)."
+    },
+    {
+     "default": "60",
+     "fieldname": "reject_event_delay_seconds",
+     "fieldtype": "Int",
+     "label": "Rechazo - segundos entre eventos",
+     "description": "Espera entre cada evento de la secuencia 030 -> 032 -> 031 dentro de un mismo intento (el servidor externo tarda en aplicar los cambios)."
+    },
    {
     "default": "0",
     "fieldname": "auto_approve",
@@ -126,7 +150,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-08-20 16:11:30.000000",
+  "modified": "2026-08-21 09:30:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_MasterSetup",

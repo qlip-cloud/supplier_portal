@@ -42,7 +42,7 @@ class TestSyncAllByCompany(unittest.TestCase):
             patch.object(saw, "sync_detail", return_value=["DOC-NEW-1", "DOC-NEW-2"]),
             patch.object(saw, "send_request_status", return_value=({}, 200)),
             patch.object(saw, "run_documenteme_auto_assign", side_effect=fake_assign),
-            patch.object(saw, "run_documenteme_auto_reject", return_value=self.reject_results),
+            patch.object(saw, "_launch_reject", return_value=self.reject_results),
             patch.object(saw, "run_documenteme_auto_approve", return_value=self.approve_results),
         ]
         for p in self.patches:
@@ -95,6 +95,58 @@ class TestSyncAllByCompany(unittest.TestCase):
         self.assertEqual(result["created_count"], 2)
         self.assertEqual(result["rejected"], ["F1"])
         self.assertEqual(result["approved"], [{"nvfac_nume": "F2"}])
+
+
+class TestRefreshDocuments(unittest.TestCase):
+    """El boton refrescar trae facturas de forma sincrona sin lock global y
+    lanza el auto-rechazo en segundo plano sobre las nuevas."""
+
+    def setUp(self):
+        self.frappe_mock = MagicMock()
+        self.frappe_mock.get_all.return_value = ["COMP-A", "COMP-B"]
+        self.sync_calls = []
+        self.assign_calls = []
+        self.reject_calls = []
+
+        def fake_sync_by_supplier(**kwargs):
+            self.sync_calls.append(kwargs)
+
+        def fake_assign(doc_names=None):
+            self.assign_calls.append(doc_names)
+
+        def fake_reject(doc_names):
+            self.reject_calls.append(doc_names)
+            return {"rejected": ["F1"]}
+
+        self.patches = [
+            patch.object(saw, "frappe", self.frappe_mock),
+            patch.object(saw, "sync_by_supplier", side_effect=fake_sync_by_supplier),
+            patch.object(saw, "sync_detail", return_value=["DOC-NEW-1", "DOC-NEW-2"]),
+            patch.object(saw, "send_request_status", return_value=({}, 200)),
+            patch.object(saw, "run_documenteme_auto_assign", side_effect=fake_assign),
+            patch.object(saw, "_launch_reject", side_effect=fake_reject),
+            patch.object(saw, "run_documenteme_auto_approve", return_value={"approved": []}),
+        ]
+        for p in self.patches:
+            p.start()
+            self.addCleanup(p.stop)
+
+    def test_refresh_documents_no_usa_lock_global(self):
+        with patch.object(saw, "sync_lock") as lock_mock:
+            result = saw.refresh_documents()
+        self.assertTrue(result["success"])
+        self.assertTrue(self.sync_calls)
+        lock_mock.acquire.assert_not_called()
+
+    def test_refresh_lanza_rechazo_en_fondo_con_nuevos(self):
+        saw.refresh_documents()
+        self.assertEqual(self.reject_calls, [["DOC-NEW-1", "DOC-NEW-2"]])
+        self.assertEqual(self.assign_calls[-1], ["DOC-NEW-1", "DOC-NEW-2"])
+
+    def test_refresh_siempre_encola_el_rechazo(self):
+        saw.refresh_documents()
+        # El refresh siempre lanza el rechazo aunque exista otro job.
+        self.assertEqual(len(self.reject_calls), 1)
 
     def test_sync_all_error_returns_internal_error(self):
         self.frappe_mock.get_all.side_effect = RuntimeError("boom")

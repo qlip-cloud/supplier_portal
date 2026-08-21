@@ -239,6 +239,27 @@ class TestCollectRejectable(unittest.TestCase):
         )
         self.assertEqual(rejectable, [])
 
+    def test_estado_P_es_pendiente_sin_resolver_regla(self):
+        # Un doc en "P" (en proceso de rechazo) se incluye como pendiente
+        # sin importar la regla y sin recalcular coincidencias.
+        resolve_was_called = []
+
+        def resolve(doc):
+            resolve_was_called.append(doc)
+            return None
+
+        rejectable = collect_rejectable(
+            [_invoice(name="DOC1", nvfac_esta="P")],
+            resolve,
+            lambda o: False,
+            lambda o: None,
+        )
+        self.assertEqual(len(rejectable), 1)
+        self.assertTrue(rejectable[0]["pending"])
+        self.assertEqual(rejectable[0]["rule"], None)
+        # No se evaluo la regla para un doc pendiente
+        self.assertEqual(resolve_was_called, [])
+
 
 class TestAutoReject(unittest.TestCase):
 
@@ -275,6 +296,21 @@ class TestAutoReject(unittest.TestCase):
             lambda o: None,
         )
         self.assertEqual([r["doc"] for r in result], ["DOC1"])
+
+    def test_incluye_pendientes_en_P(self):
+        candidates = [
+            _invoice(name="DOC1", nvfac_esta="P"),
+            _invoice(name="DOC2", nvfac_esta="E", nvfac_nume="DOC2"),
+        ]
+        result = self._run(
+            candidates,
+            _rule(RULE_NO_PO),
+            lambda o: False,
+            lambda o: None,
+        )
+        self.assertEqual([r["doc"] for r in result], ["DOC1", "DOC2"])
+        pending = [r for r in result if r.get("pending")]
+        self.assertEqual([r["doc"] for r in pending], ["DOC1"])
 
     def test_sin_candidatos_retorna_vacio(self):
         result = self._run([], _rule(RULE_NO_PO), lambda o: False, lambda o: None)

@@ -76,14 +76,14 @@ def get_lines(purchase_order):
     items = frappe.get_all(
         "Purchase Receipt Item",
         filters={"parent": ["in", receipts], "parenttype": "Purchase Receipt"},
-        fields=["parent", "item_code", "qty", "qp_unit_cost", "idx"],
+        fields=["parent", "item_code", "qty", "rate", "idx"],
         order_by="parent, idx",
     )
     return [
         {
             "item_code": item.get("item_code"),
             "qty": item.get("qty"),
-            "qp_unit_cost": item.get("qp_unit_cost"),
+            "rate": item.get("rate"),
             "idx": item.get("idx") or 0,
             "receiving_no": item.get("parent") or "",
             "order_no": purchase_order,

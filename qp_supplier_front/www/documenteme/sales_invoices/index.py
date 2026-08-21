@@ -3,7 +3,9 @@ from qp_supplier_front.services.pagination import get_paginated_filtered
 from qp_supplier_front.services.get_data import has_recent_news, get_has_dispatch_permission
 from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.services.enrich_document_detail import enrich_document_detail
-from qp_supplier_front.uses_cases.documents.sync_all_whitelist import sync_all
+from qp_supplier_front.uses_cases.documents.sync_all_whitelist import (
+    refresh_documents,
+)
 from qp_supplier_front.resources.documenteme.simulation import is_simulation_enabled
 
 
@@ -11,7 +13,7 @@ def get_context(context):
     context.no_cache = True
 
     context.simulation_mode = is_simulation_enabled()
-    context.sync_result = sync_all()
+    context.sync_result = refresh_documents()
     query_params = frappe.request.args
     supplier_id = query_params.get("supplier")
     context.supplier_id = supplier_id
