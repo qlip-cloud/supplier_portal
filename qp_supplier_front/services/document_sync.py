@@ -236,13 +236,16 @@ def _create_allowance_charges_from_xml(detail, attached_list):
             row.currency = charge.get("currency")
             row.base_amount = charge.get("base_amount")
 
-def _get_existing_detail_name(nvfac_nume):
+def _get_existing_detail_name(nvfac_nume, nvpro_ndoc=None):
     import frappe
     if not nvfac_nume:
         return None
+    filters = {"nvfac_nume": nvfac_nume}
+    if nvpro_ndoc:
+        filters["nvpro_ndoc"] = nvpro_ndoc
     names = frappe.get_all(
         "qp_SP_DocumentDetail",
-        filters={"nvfac_nume": nvfac_nume},
+        filters=filters,
         pluck="name",
         limit=1,
     )
@@ -253,7 +256,8 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
     import frappe
 
     nvfac_nume = document_data.get("Nvfac_nume")
-    detail_name = _get_existing_detail_name(nvfac_nume)
+    nvpro_ndoc = document_data.get("Nvpro_ndoc")
+    detail_name = _get_existing_detail_name(nvfac_nume, nvpro_ndoc)
 
     if detail_name:
         detail = frappe.get_doc("qp_SP_DocumentDetail", detail_name)
