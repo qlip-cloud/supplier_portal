@@ -3,6 +3,16 @@ from qp_supplier_front.constant.endpoint import DOCUMENTEME_EVENT_DOCUMENT
 
 EVENT_ORDER = ["030", "032", "031"]
 
+# Estados validos de documenteme por evento. Documenteme solo reconoce
+# E (Registrado), A (Aprobado), R (Rechazado), V. Los estados internos
+# (BCC, PA, PR) nunca deben salir en los payloads de notificacion.
+DOCUMENTEME_EVENT_STATES = {
+    "030": "E",
+    "032": "E",
+    "031": "R",
+    "033": "A",
+}
+
 
 def _get_last_event_idx(logs):
     last_idx = -1
@@ -15,6 +25,8 @@ def _get_last_event_idx(logs):
 
 
 def _get_nvfac_esta(doc, event_code, event_config, base_state=None):
+    if event_code in DOCUMENTEME_EVENT_STATES:
+        return DOCUMENTEME_EVENT_STATES[event_code]
     override = event_config.get(event_code, {})
     if override.get("nvfac_esta"):
         return override.get("nvfac_esta")

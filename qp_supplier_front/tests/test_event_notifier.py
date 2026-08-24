@@ -13,6 +13,8 @@ import unittest
 from qp_supplier_front.uses_cases.documenteme.event_notifier import (
     send_event_sequence,
     _get_last_event_idx,
+    _get_nvfac_esta,
+    DOCUMENTEME_EVENT_STATES,
     EVENT_ORDER,
 )
 from qp_supplier_front.uses_cases.documenteme.reject import reject_document
@@ -157,6 +159,42 @@ class TestGetLastEventIdx(unittest.TestCase):
             {"event_code": "999", "status": 200},
         ]
         self.assertEqual(_get_last_event_idx(logs), 0)
+
+
+# ============================================================================
+# _get_nvfac_esta — estados validos de documenteme por evento
+# ============================================================================
+class TestDocumentemeEventStates(unittest.TestCase):
+
+    def test_mapeo_estados_documenteme(self):
+        self.assertEqual(DOCUMENTEME_EVENT_STATES, {
+            "030": "E",
+            "032": "E",
+            "031": "R",
+            "033": "A",
+        })
+
+    def test_030_y_032_siempre_e(self):
+        doc = _make_doc(nvfac_esta="PA")
+        self.assertEqual(_get_nvfac_esta(doc, "030", {}, base_state="BCC"), "E")
+        self.assertEqual(_get_nvfac_esta(doc, "032", {}, base_state="BCC"), "E")
+
+    def test_031_siempre_r(self):
+        doc = _make_doc(nvfac_esta="PR")
+        self.assertEqual(_get_nvfac_esta(doc, "031", {}, base_state=None), "R")
+
+    def test_033_siempre_a(self):
+        doc = _make_doc(nvfac_esta="BCC")
+        self.assertEqual(_get_nvfac_esta(doc, "033", {}, base_state="BCC"), "A")
+
+    def test_evento_desconocido_cae_a_override(self):
+        doc = _make_doc(nvfac_esta="V")
+        event_config = {"999": {"nvfac_esta": "X"}}
+        self.assertEqual(_get_nvfac_esta(doc, "999", event_config, None), "X")
+
+    def test_evento_desconocido_cae_a_base_state(self):
+        doc = _make_doc(nvfac_esta="V")
+        self.assertEqual(_get_nvfac_esta(doc, "999", {}, "BCC"), "BCC")
 
 
 # ============================================================================

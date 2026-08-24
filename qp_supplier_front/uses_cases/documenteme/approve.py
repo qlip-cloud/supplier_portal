@@ -6,12 +6,20 @@ Nucleo puro de la aprobacion (registro en BC) de facturas documenteme.
 No tiene imports a Frappe. Todas las dependencias de infraestructura
 (DB, API, persistencia) son inyectadas como callbacks.
 
-Modelo de estados:
-- Estados definitivos: "A" (Registrado) y "R" (Rechazada). Nunca se aprueban.
+Modelo de estados (tabla de estatus actual):
+- "E": Registrado.
+- "V": Analisis / no definitivo (Nvfac_ueve != 031/033).
+- "A": Aprobado (final, tras notificar 033 a documenteme).
+- "R": Rechazado (final).
+- "BCC": Creada en BC (tras crear la factura en BC, esperando confirmacion).
+- "PA": En proceso de Aprobacion en documenteme.
+- "PR": En proceso de Rechazo en documenteme.
 - Analisis: toda factura no definitiva que cumpla la regla
   factura - orden - recepcion y la suma de montos pasa a estado "V".
-- Aprobacion: las facturas en "V" se envian a BC (en lote, un solo payload
-  con array) y pasan a estado "A".
+- Creacion en BC: las facturas en "V" se envian a BC (en lote, un solo payload
+  con array) y pasan a estado "BCC". La aprobacion final ("A") se alcanza
+  cuando el servicio de confirmacion guarda el confirmation_id y se notifica
+  la secuencia 030 -> 032 -> 033 a documenteme.
 
 Sirve tanto para la aprobacion manual (recurso approve) como para la
 automatica (recurso auto_approve), replicando el patron del rechazo.
@@ -187,9 +195,9 @@ def approve_documents(
     """Aprueba en lote las facturas: un solo envio a BC con array.
 
     BC devuelve un resultado por factura (doc_number o error) en el mismo
-    orden del payload. Las que traen doc_number se persisten y marcan "A";
-    las que fallan (error global o por factura) quedan en "V" para reintentar
-    y se registra una alerta (mark_error_fn) en la factura.
+    orden del payload. Las que traen doc_number se persisten y marcan "BCC"
+    (Creada en BC); las que fallan (error global o por factura) quedan en "V"
+    para reintentar y se registra una alerta (mark_error_fn) en la factura.
 
     Retorna {"approved": [...], "errors": [...]}.
     """

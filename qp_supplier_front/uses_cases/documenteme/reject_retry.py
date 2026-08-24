@@ -26,7 +26,7 @@ from qp_supplier_front.uses_cases.documenteme.event_notifier import (
     _is_error,
 )
 
-REJECT_PENDING_STATES = ("E", "P")
+REJECT_PENDING_STATES = ("E", "PR")
 REJECT_FINAL_STATE = "R"
 
 
@@ -143,9 +143,8 @@ def build_retry_events(doc, event_config, company_tax_id, resume_index,
                        base_state=None):
     """Eventos pendientes desde resume_index hasta el final de la secuencia.
 
-    `base_state` conserva el Nvfac_esta original (el estado previo al
-    rechazo) para que los payloads 030/032 no lleven el estado intermedio
-    "P" cuando el documento ya esta en proceso.
+    Los estados de los payloads se rigen por la regla documenteme
+    (DOCUMENTEME_EVENT_STATES): 030/032 -> E, 031 -> R.
     """
     events = []
     for idx, event_code in enumerate(EVENT_ORDER):

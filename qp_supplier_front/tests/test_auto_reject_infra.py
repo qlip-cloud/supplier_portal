@@ -181,7 +181,7 @@ class TestGetCandidates(unittest.TestCase):
         self.assertEqual(len(candidates), 1)
         filters = frappe_mock.get_all.call_args[1]["filters"]
         self.assertEqual(filters["nvfac_ueve"], ["is", "not set"])
-        self.assertEqual(filters["nvfac_esta"], ["in", ["E", "P"]])
+        self.assertEqual(filters["nvfac_esta"], ["in", ["E", "PR"]])
 
 
 class TestRunAutoReject(unittest.TestCase):
@@ -264,7 +264,7 @@ class TestRunAutoReject(unittest.TestCase):
              patch.object(infra, "receipt_for_po", return_value=None):
             infra.run_auto_reject()
 
-        self.assertEqual(doc.nvfac_esta, "P")
+        self.assertEqual(doc.nvfac_esta, "PR")
         self.assertEqual(doc.qp_reject_orig_state, "E")
         self.assertEqual(doc.qp_motive, "Rechazo automático: motivo")
 
@@ -385,7 +385,7 @@ class TestRejectOne(unittest.TestCase):
         insert_alert_mock.assert_not_called()
 
     def test_error_en_031_reintenta_desde_032(self):
-        doc = MockDoc(nvfac_esta="P")
+        doc = MockDoc(nvfac_esta="PR")
         responses = {"030": SUCCESS, "032": SUCCESS, "031": ERROR}
         sent = []
 
@@ -398,7 +398,7 @@ class TestRejectOne(unittest.TestCase):
         result, _, insert_alert_mock, _ = self._reject_one(doc, config=config, sender=sender)
 
         self.assertFalse(result["rejected"])
-        self.assertEqual(doc.nvfac_esta, "P")
+        self.assertEqual(doc.nvfac_esta, "PR")
         insert_alert_mock.assert_called_once()
         # Intento 1: 030,032 -> 031 error. Intento 2: reenvia 032 -> 031 error.
         # Intento 3: reenvia 032 -> 031 error. Total: 030,032,031(032..) x3.
@@ -438,7 +438,7 @@ class TestRejectOne(unittest.TestCase):
         # intento 1: 030 ok, 032 ok, 031 fail
         # intento 2: 032 responde "ya aplicado" (no error) -> debe avanzar a 031
         # (nunca debe volver a enviar 030)
-        doc = MockDoc(nvfac_esta="P")
+        doc = MockDoc(nvfac_esta="PR")
         sent = []
         state = {"phase": "ok"}
 
@@ -476,7 +476,7 @@ class TestRejectOne(unittest.TestCase):
 class TestRejectBatchJob(unittest.TestCase):
 
     def test_rechaza_documentos_eligibles(self):
-        doc = MockDoc("DOC1", nvfac_esta="P")
+        doc = MockDoc("DOC1", nvfac_esta="PR")
         frappe_mock = MagicMock()
         company = MagicMock()
         company.tax_id = "890900123"
@@ -504,7 +504,7 @@ class TestRejectBatchJob(unittest.TestCase):
         frappe_mock.db.commit.assert_called()
 
     def test_documento_con_retry_deshabilitado_se_salta(self):
-        doc = MockDoc("DOC1", nvfac_esta="P")
+        doc = MockDoc("DOC1", nvfac_esta="PR")
         doc.qp_reject_retry_enabled = 0
         frappe_mock = MagicMock()
         company = MagicMock()
@@ -522,7 +522,7 @@ class TestRejectBatchJob(unittest.TestCase):
         with patch.object(infra, "frappe", frappe_mock):
             infra.reject_batch_job([_reject(pending=True)], http_fn=lambda *a: (SUCCESS, 200))
 
-        self.assertEqual(doc.nvfac_esta, "P")
+        self.assertEqual(doc.nvfac_esta, "PR")
         self.assertEqual(len(doc.event_logs), 0)
 
 
@@ -532,7 +532,7 @@ class TestToggleRejectRetry(unittest.TestCase):
         # El endpoint esta decorado con @frappe.whitelist(); en el entorno de
         # prueba frappe es un MagicMock. Verificamos la logica interna del
         # toggle sobre un doc real con get_doc fakeeado.
-        doc = MockDoc("DOC1", nvfac_esta="P")
+        doc = MockDoc("DOC1", nvfac_esta="PR")
         doc.qp_reject_retry_enabled = 1
         frappe_mock = MagicMock()
         frappe_mock.get_doc.return_value = doc

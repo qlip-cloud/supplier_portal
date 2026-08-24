@@ -10,10 +10,14 @@ efectos externos:
 
 - No se crea la factura en BC (se simula una respuesta exitosa con
   doc_number por cada factura del payload).
-- No se notifica el rechazo a documenteme (la secuencia 030 -> 032 -> 031
-  devuelve una respuesta de exito simulada).
+- No se notifica a documenteme: la secuencia 030 -> 032 -> 031 (rechazo) y
+  la secuencia 030 -> 032 -> 033 (aprobacion) devuelven una respuesta de
+  exito simulada.
+- Los jobs de fondo (auto_reject y auto_approve_confirmation) no dependen de
+  infraestructura externa: se simulan el endpoint y el NIT de la compania
+  (get_event_endpoint / get_company_tax_id).
 
-El resto del flujo (promover E->V->A, marcar R con motive, event_logs,
+El resto del flujo (promover E->V, marcar BCC/PA/A/PR/R con event_logs,
 persistencia local en qp_SP_PurchaseInvoice) se conserva intacto.
 """
 
@@ -63,5 +67,19 @@ def send_event_request(endpoint_code=None, payload=None):
 
 
 def http_event(payload, url, headers, method):
-    """http_fn simulado para el lote de auto-rechazo (misma firma que raw_http)."""
+    """http_fn simulado para los lotes de rechazo/aprobacion (misma firma que raw_http)."""
     return send_event_request(payload=payload)
+
+
+SIMULATED_COMPANY_TAX_ID = "999999999"
+
+
+def get_company_tax_id():
+    """NIT simulado de la compania para evitar leer Company en modo simulacion."""
+    return SIMULATED_COMPANY_TAX_ID
+
+
+def get_event_endpoint():
+    """Endpoint simulado para los jobs de fondo (misma firma que auto_reject/
+    auto_approve_confirmation.get_event_endpoint) sin depender de qp_authorization."""
+    return ("https://simulation.local/documenteme/event", {}, "POST")

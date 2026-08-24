@@ -108,7 +108,7 @@ def is_eligible_doc(doc):
 def collect_rejectable(candidates, resolve_rule_fn, po_exists_fn, receipt_for_po_fn):
     rejectable = []
     for doc in candidates:
-        if doc.get("nvfac_esta") == "P":
+        if doc.get("nvfac_esta") == "PR":
             rejectable.append({
                 "doc": doc,
                 "rule": None,

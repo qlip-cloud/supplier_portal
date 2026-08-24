@@ -95,5 +95,30 @@ class TestHttpEvent(unittest.TestCase):
         self.assertEqual(response["Result"], 0)
 
 
+class TestGetCompanyTaxId(unittest.TestCase):
+
+    def test_nit_simulado_fijo(self):
+        self.assertEqual(simulation.get_company_tax_id(), "999999999")
+
+    def test_no_depende_de_frappe(self):
+        # En simulacion no se lee Company (no importa el mock de frappe).
+        self.assertEqual(simulation.get_company_tax_id(), "999999999")
+
+
+class TestGetEventEndpoint(unittest.TestCase):
+
+    def test_endpoint_simulado(self):
+        url, headers, method = simulation.get_event_endpoint()
+        self.assertEqual(url, "https://simulation.local/documenteme/event")
+        self.assertEqual(headers, {})
+        self.assertEqual(method, "POST")
+
+    def test_sin_dependencia_qp_authorization(self):
+        # No toca qp_authorization: retorna valores fijos.
+        url, _, method = simulation.get_event_endpoint()
+        self.assertTrue(url.startswith("https://simulation.local"))
+        self.assertEqual(method, "POST")
+
+
 if __name__ == "__main__":
     unittest.main()

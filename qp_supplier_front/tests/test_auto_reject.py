@@ -240,7 +240,7 @@ class TestCollectRejectable(unittest.TestCase):
         self.assertEqual(rejectable, [])
 
     def test_estado_P_es_pendiente_sin_resolver_regla(self):
-        # Un doc en "P" (en proceso de rechazo) se incluye como pendiente
+        # Un doc en "PR" (en proceso de rechazo) se incluye como pendiente
         # sin importar la regla y sin recalcular coincidencias.
         resolve_was_called = []
 
@@ -249,7 +249,7 @@ class TestCollectRejectable(unittest.TestCase):
             return None
 
         rejectable = collect_rejectable(
-            [_invoice(name="DOC1", nvfac_esta="P")],
+            [_invoice(name="DOC1", nvfac_esta="PR")],
             resolve,
             lambda o: False,
             lambda o: None,
@@ -299,7 +299,7 @@ class TestAutoReject(unittest.TestCase):
 
     def test_incluye_pendientes_en_P(self):
         candidates = [
-            _invoice(name="DOC1", nvfac_esta="P"),
+            _invoice(name="DOC1", nvfac_esta="PR"),
             _invoice(name="DOC2", nvfac_esta="E", nvfac_nume="DOC2"),
         ]
         result = self._run(

@@ -81,7 +81,7 @@ $(document).ready(function () {
                         $row.find(".status-badge")
                             .removeClass("status-open status-ready status-cancelled status-default")
                             .addClass("status-paid")
-                            .text("Registrado");
+                            .text("Creada en BC");
                     }
                     $(this).prop("checked", false);
                 });

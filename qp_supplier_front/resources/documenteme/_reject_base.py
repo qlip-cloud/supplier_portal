@@ -25,7 +25,7 @@ def _make_now():
 def run_reject(doc_names_raw, motive, is_invoice_error_raw, send_request_fn):
     """Rechazo manual ASINCRONO.
 
-    Marca cada factura como "P" (En proceso de rechazo) persistiendo el
+    Marca cada factura como "PR" (En proceso de rechazo) persistiendo el
     motivo y el indicador de error, y encola el job de fondo que envia la
     secuencia 030 -> 032 -> 031 con reintentos hacia documenteme. No
     bloquea el servicio ni depende de la velocidad del servidor externo.
@@ -44,7 +44,7 @@ def run_reject(doc_names_raw, motive, is_invoice_error_raw, send_request_fn):
     rejects = []
     for idx, doc_name in enumerate(doc_names):
         doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
-        doc.nvfac_esta = "P"
+        doc.nvfac_esta = "PR"
         doc.qp_reject_orig_state = "E"
         doc.qp_motive = motive
         doc.qp_reject_is_invoice_error = is_invoice_error

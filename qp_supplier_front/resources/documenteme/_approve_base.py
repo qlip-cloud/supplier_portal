@@ -193,7 +193,28 @@ def persist_invoice(doc, doc_number, now):
         "Administrator",
     )
     insert_invoices({doc.get("name"): invoice_tuple}, now)
+
+    _create_purchase_invoice_bc(doc_number, doc.get("name"))
     return doc_number
+
+
+def _create_purchase_invoice_bc(doc_number, document_detail_name):
+    """Inserta la referencia BC -> PurchaseInvoice para el flujo de confirmacion.
+
+    El nuevo doctype qp_SP_PurchaseInvoiceBC usa como name el codigo que BC
+    devuelve (invoice_id) y referencia al qp_SP_PurchaseInvoice. El proceso
+    externo completara el confirmation_id mediante el PUT estandar de Frappe.
+    """
+    if not doc_number or not document_detail_name:
+        return
+    if frappe.db.exists("qp_SP_PurchaseInvoiceBC", doc_number):
+        return
+    bc_doc = frappe.get_doc({
+        "doctype": "qp_SP_PurchaseInvoiceBC",
+        "invoice_id": doc_number,
+        "purchase_invoice": document_detail_name,
+    })
+    bc_doc.insert(ignore_permissions=True)
 
 
 def mark_registered(doc, doc_number):
@@ -201,9 +222,9 @@ def mark_registered(doc, doc_number):
         "qp_SP_DocumentDetail",
         doc.get("name"),
         "nvfac_esta",
-        "A",
+        "BCC",
     )
-    doc["nvfac_esta"] = "A"
+    doc["nvfac_esta"] = "BCC"
     resolve_open_alerts(doc.get("name"))
 
 

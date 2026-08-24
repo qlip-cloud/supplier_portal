@@ -236,29 +236,43 @@ def _create_allowance_charges_from_xml(detail, attached_list):
             row.currency = charge.get("currency")
             row.base_amount = charge.get("base_amount")
 
+def _get_existing_detail_name(nvfac_nume):
+    import frappe
+    if not nvfac_nume:
+        return None
+    names = frappe.get_all(
+        "qp_SP_DocumentDetail",
+        filters={"nvfac_nume": nvfac_nume},
+        pluck="name",
+        limit=1,
+    )
+    return names[0] if names else None
+
+
 def create_document_detail(document_sync_line_name, document_data, attached_list):
     import frappe
 
     nvfac_nume = document_data.get("Nvfac_nume")
+    detail_name = _get_existing_detail_name(nvfac_nume)
 
-    if frappe.db.exists("qp_SP_DocumentDetail", nvfac_nume):
-        detail = frappe.get_doc("qp_SP_DocumentDetail", nvfac_nume)
+    if detail_name:
+        detail = frappe.get_doc("qp_SP_DocumentDetail", detail_name)
         detail = _set_document_detail_fields(detail, document_data)
         detail.document_sync_line = document_sync_line_name
 
         # Clean up old File docs before clearing child table
         old_file_ids = frappe.db.sql_list(
             "SELECT file_id FROM `tabqp_SP_DocumentAttach` WHERE parent=%s",
-            nvfac_nume
+            detail_name
         )
         for file_id in old_file_ids:
             if file_id:
                 frappe.delete_doc("File", file_id, ignore_permissions=True, force=True)
 
         # Remove old child rows
-        frappe.db.sql("DELETE FROM `tabqp_SP_DetailLine` WHERE parent=%s", nvfac_nume)
-        frappe.db.sql("DELETE FROM `tabqp_SP_DocumentAttach` WHERE parent=%s", nvfac_nume)
-        frappe.db.sql("DELETE FROM `tabqp_SP_AllowanceCharge` WHERE parent=%s", nvfac_nume)
+        frappe.db.sql("DELETE FROM `tabqp_SP_DetailLine` WHERE parent=%s", detail_name)
+        frappe.db.sql("DELETE FROM `tabqp_SP_DocumentAttach` WHERE parent=%s", detail_name)
+        frappe.db.sql("DELETE FROM `tabqp_SP_AllowanceCharge` WHERE parent=%s", detail_name)
 
         # Re-populate detail lines
         for detalle_item in (document_data.get("Detalle") or []):
@@ -266,7 +280,7 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
 
         # Re-populate attached files
         for attached_item in (attached_list or []):
-            file_doc = create_attached_file(nvfac_nume, attached_item)
+            file_doc = create_attached_file(detail_name, attached_item)
             if file_doc:
                 attach_row = detail.append("attached_files")
                 attach_row.file_name = attached_item.get("Nvdoc_nomb")

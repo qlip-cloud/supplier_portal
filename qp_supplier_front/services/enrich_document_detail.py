@@ -132,7 +132,7 @@ def _update_status_if_fully_paid(document):
     document_total = document.get("nvfac_totp") or 0
 
     if (total_receipt_amount == document_total
-            and document.get("nvfac_esta") not in ("A", "R", "V", "P")):
+            and document.get("nvfac_esta") not in ("A", "R", "V", "BCC", "PA", "PR")):
         frappe.db.set_value(
             "qp_SP_DocumentDetail",
             document.get("name"),

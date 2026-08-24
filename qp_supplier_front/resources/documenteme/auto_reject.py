@@ -9,7 +9,7 @@ El rechazo es ASINCRONO y usa un estado intermedio "En proceso" (P):
 1. run_auto_reject() escanea facturas pendientes, tanto nuevas en estado "E"
    (resuelve la regla por proveedor con fallback al setup global) como las
    que ya quedaron "en proceso" (P) por un rechazo manual o previo fallido.
-2. Cada factura pasa a estado "P" (En proceso de rechazo) de inmediato, de
+2. Cada factura pasa a estado "PR" (En proceso de rechazo) de inmediato, de
    forma que queda visible en la UI y no se vuelve a evaluar precio/regla.
 3. Se encola un job de fondo (reject_batch_job) que intenta la secuencia
    030 -> 032 -> 031 con:
@@ -22,10 +22,10 @@ El rechazo es ASINCRONO y usa un estado intermedio "En proceso" (P):
      reject_retry.get_reject_resume_index).
 4. Si la secuencia completa tiene exito, la factura se marca "R" y se
    resuelven sus alertas. Si se agotan los intentos, se inserta una alerta
-   de "no se ha podido rechazar" y la factura permanece en "P" para
+   de "no se ha podido rechazar" y la factura permanece en "PR" para
    reintentarse en el siguiente ciclo (mientras qp_reject_retry_enabled=1).
 5. Kill-switch POR FACTURA: si qp_reject_retry_enabled=0, ese documento no
-   envia peticiones aunque este en "P".
+   envia peticiones aunque este en "PR".
 """
 
 import json
@@ -120,9 +120,9 @@ def _retry_enabled_for(doc_ident):
 
 
 def _mark_pending(rejects):
-    """Marca como "P" (En proceso de rechazo) las facturas nuevas (estado E).
+    """Marca como "PR" (En proceso de rechazo) las facturas nuevas (estado E).
 
-    Si una factura ya esta en "P" (reintento), conserva sus datos de rechazo.
+    Si una factura ya esta en "PR" (reintento), conserva sus datos de rechazo.
     Se persistira el motivo/regla de la factura: para las nuevas se calculan
     desde la regla; la infraestructura lee estos campos en el job.
     """
@@ -131,7 +131,7 @@ def _mark_pending(rejects):
         doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
         if doc.nvfac_esta != "E":
             continue
-        doc.nvfac_esta = "P"
+        doc.nvfac_esta = "PR"
         if not doc.qp_reject_orig_state:
             doc.qp_reject_orig_state = "E"
         if item.get("motive"):
@@ -260,8 +260,12 @@ def reject_batch_job(rejects, http_fn=None):
             else None
         )
     config = get_reject_config()
-    company_tax_id = get_company_tax_id()
-    url, headers, method = get_event_endpoint()
+    if simulation.is_simulation_enabled():
+        company_tax_id = simulation.get_company_tax_id()
+        url, headers, method = simulation.get_event_endpoint()
+    else:
+        company_tax_id = get_company_tax_id()
+        url, headers, method = get_event_endpoint()
     sender = http_fn if http_fn is not None else raw_http
 
     all_results = []

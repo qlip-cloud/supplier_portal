@@ -106,6 +106,9 @@ doc_events = {
     },
     "Purchase Receipt": {
         "before_insert": "qp_supplier_front.uses_cases.receipts.set_name"
+    },
+    "qp_SP_PurchaseInvoiceBC": {
+        "on_update": "qp_supplier_front.resources.documenteme.confirmation.on_purchase_invoice_bc_update"
     }
 }
 

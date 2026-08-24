@@ -9,8 +9,11 @@ aprobacion (uses_cases/documenteme/approve):
 
 1. Fase analisis: las facturas no definitivas que cumplen la regla
    factura - orden - recepcion (y montos) pasan a estado "V".
-2. Fase aprobacion: las facturas en "V" se envian a BC en lote (un solo
-   payload con array) y pasan a estado "A".
+2. Fase creacion en BC: las facturas en "V" se envian a BC en lote (un solo
+   payload con array) y pasan a estado "BCC" (Creada en BC). La aprobacion
+   final ("A") se alcanza cuando el servicio de confirmacion (actualizar_
+   documento) guarda el confirmation_id y la notificacion 030 -> 032 -> 033
+   a documenteme tiene exito.
 
 Solo corre si el setup qp_SP_MasterSetup.auto_approve esta habilitado.
 El envio se encola como job de fondo para no bloquear el servicio.
