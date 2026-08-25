@@ -8,19 +8,20 @@
   "user_email"
  ],
  "fields": [
-  {
-   "fieldname": "user_email",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "in_preview": 1,
-   "label": "Email de usuario",
-   "reqd": 1
-  }
+   {
+    "fieldname": "user_email",
+    "fieldtype": "Link",
+    "in_list_view": 1,
+    "in_preview": 1,
+    "label": "Email de usuario",
+    "options": "User",
+    "reqd": 1
+   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-08-06 19:50:00.000000",
+ "modified": "2026-08-25 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_AssignmentConfigUser",

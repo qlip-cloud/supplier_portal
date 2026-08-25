@@ -27,3 +27,7 @@ opencode.json
 .opencode/agent/tester.md
 .opencode/command/dev-flow.md
 docs/REFACTOR-DEUDAS.md
+.opencode/agent/coder-fallback.md
+.opencode/agent/planner-fallback.md
+.opencode/agent/reviewer-fallback.md
+.opencode/agent/tester-fallback.md

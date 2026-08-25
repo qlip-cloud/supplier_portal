@@ -37,3 +37,20 @@ def sede_exists(sede_code):
         return True
 
     return bool(frappe.db.exists(doctype, sede_code))
+
+
+def list_sedes():
+    """Lista las sedes del doctype fuente configurado.
+
+    Devuelve registros con 'code' y 'title'. Si el doctype fuente no existe
+    o no esta configurado, retorna una lista vacia.
+    """
+    doctype = get_sede_source_doctype()
+    if not doctype or not frappe.db.exists("DocType", doctype):
+        return []
+
+    return frappe.get_all(
+        doctype,
+        fields=["code", "title"],
+        order_by="title asc",
+    )
