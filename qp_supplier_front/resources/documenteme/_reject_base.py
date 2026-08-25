@@ -1,6 +1,9 @@
 import frappe
 from frappe import parse_json
 from datetime import datetime
+from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
+    get_company_tax_id as _adapter_get_company_tax_id,
+)
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.resources.documenteme._alerts import resolve_open_alerts
 from qp_supplier_front.services.role_resolver import get_active_role
@@ -9,8 +12,8 @@ ALLOWED_ROLES = {"Administrador Documenteme", "Administrador Sede Documenteme"}
 
 
 def _get_company_tax_id():
-    company = frappe.get_doc("Company", frappe.defaults.get_user_default("company"))
-    return company.tax_id
+    """NIT de la compania del usuario actual (delega en el adapter)."""
+    return _adapter_get_company_tax_id(frappe_module=frappe)
 
 
 def _has_permission(user_roles):

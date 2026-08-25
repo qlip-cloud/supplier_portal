@@ -11,6 +11,9 @@ automatico (resources/documenteme/auto_approve.py).
 import frappe
 from frappe import parse_json
 
+from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
+    get_receipt_total as _adapter_get_receipt_total,
+)
 from qp_supplier_front.resources.documenteme._alerts import (
     insert_alert,
     resolve_open_alerts,
@@ -99,16 +102,8 @@ def po_exists(purchase_order):
 
 
 def receipts_total(purchase_order):
-    if not purchase_order:
-        return None
-    receipts = frappe.get_all(
-        "Purchase Receipt",
-        filters={"qp_supplier_oc": purchase_order},
-        fields=["total"],
-    )
-    if not receipts:
-        return None
-    return sum(receipt.get("total") or 0 for receipt in receipts)
+    """Suma del total de Purchase Receipt por OC (delega en el adapter)."""
+    return _adapter_get_receipt_total(purchase_order, frappe_module=frappe)
 
 
 def get_supplier_by_tax_id(tax_id):

@@ -28,24 +28,23 @@ El rechazo es ASINCRONO y usa un estado intermedio "En proceso" (P):
    envia peticiones aunque este en "PR".
 """
 
-import json
 import time
 
 import frappe
 import requests
 from concurrent.futures import ThreadPoolExecutor
 
-from qp_authorization.use_case.basic.authorize import (
-    get_enviroment,
-    get_headers,
+from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
+    get_company_tax_id as _adapter_get_company_tax_id,
+    get_event_endpoint,
+    get_receipt_total,
+    raw_http as _adapter_raw_http,
 )
-from qp_supplier_front.constant.endpoint import DOCUMENTEME_EVENT_DOCUMENT
 from qp_supplier_front.resources.documenteme._alerts import (
     insert_alert,
     resolve_open_alerts,
 )
 from qp_supplier_front.resources.documenteme import simulation
-from qp_supplier_front.resources.documenteme.auto_assign import get_receipt_total
 from qp_supplier_front.uses_cases.documenteme.auto_reject import (
     auto_reject as auto_reject_core,
     resolve_auto_reject_config,
@@ -380,27 +379,19 @@ def _mark_rejected(doc):
     doc.save()
 
 
-def get_event_endpoint():
-    enviroment, endpoint, _ = get_enviroment(DOCUMENTEME_EVENT_DOCUMENT)
-    url = enviroment.get_url(endpoint.url)
-    return url, get_headers(enviroment), endpoint.method
-
-
 def raw_http(payload, url, headers, method):
-    data = json.dumps(payload)
-    try:
-        resp = requests.request(method, url, headers=headers, data=data)
-        return json.loads(resp.text), resp.status_code
-    except Exception as error:
-        return {"errorInterno": str(error)}, 500
+    """Envia un evento a documenteme (delega en el adapter, usa requests del modulo)."""
+    return _adapter_raw_http(
+        payload, url, headers, method, requests_module=requests
+    )
 
 
 # =========================================================================
 # Helpers
 # =========================================================================
 def get_company_tax_id():
-    company = frappe.get_doc("Company", frappe.defaults.get_user_default("company"))
-    return company.tax_id
+    """NIT de la compania del usuario actual (delega en el adapter)."""
+    return _adapter_get_company_tax_id(frappe_module=frappe)
 
 
 def make_now():

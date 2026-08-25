@@ -1,4 +1,8 @@
 import frappe
+
+from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
+    get_receipt_total as _adapter_get_receipt_total,
+)
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.services.sede_source import sede_exists
 from qp_supplier_front.uses_cases.documenteme.auto_assign import (
@@ -93,19 +97,10 @@ def get_oc_context(purchase_order_number):
 
 
 def get_receipt_total(purchase_order_number):
-    if not purchase_order_number:
-        return None
-
-    receipts = frappe.get_all(
-        "Purchase Receipt",
-        filters={"qp_supplier_oc": purchase_order_number},
-        fields=["total"],
+    """Suma del total de Purchase Receipt por OC (delega en el adapter)."""
+    return _adapter_get_receipt_total(
+        purchase_order_number, frappe_module=frappe
     )
-
-    if not receipts:
-        return None
-
-    return sum(receipt.get("total") or 0 for receipt in receipts)
 
 
 def get_assignee_emails(oc_type, headquarter):

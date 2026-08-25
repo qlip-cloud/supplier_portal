@@ -21,9 +21,12 @@ cuyo evento final es 033:
 import time
 
 import frappe
-import requests
 
-from qp_supplier_front.constant.endpoint import DOCUMENTEME_EVENT_DOCUMENT
+from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
+    get_company_tax_id,
+    get_event_endpoint,
+    raw_http,
+)
 from qp_supplier_front.resources.documenteme._alerts import (
     insert_alert,
     resolve_open_alerts,
@@ -230,33 +233,6 @@ def _mark_approved(doc):
     doc.nvfac_ueve = "033"
     resolve_open_alerts(doc.name)
     doc.save()
-
-
-def get_event_endpoint():
-    from qp_authorization.use_case.basic.authorize import (
-        get_enviroment,
-        get_headers,
-    )
-
-    environment, endpoint, _ = get_enviroment(DOCUMENTEME_EVENT_DOCUMENT)
-    url = environment.get_url(endpoint.url)
-    return url, get_headers(environment), endpoint.method
-
-
-def raw_http(payload, url, headers, method):
-    import json
-
-    data = json.dumps(payload)
-    try:
-        resp = requests.request(method, url, headers=headers, data=data)
-        return json.loads(resp.text), resp.status_code
-    except Exception as error:
-        return {"errorInterno": str(error)}, 500
-
-
-def get_company_tax_id():
-    company = frappe.get_doc("Company", frappe.defaults.get_user_default("company"))
-    return company.tax_id
 
 
 def make_now():
