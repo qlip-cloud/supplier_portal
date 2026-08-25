@@ -15,8 +15,31 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 sys.modules["frappe"] = MagicMock()
+sys.modules["frappe.model"] = MagicMock()
+sys.modules["frappe.model.document"] = MagicMock()
 
 from qp_supplier_front.resources.documenteme import auto_assign as infra  # noqa: E402
+from qp_supplier_front.qp_supplier_front.doctype.qp_sp_assignmentconfig.qp_sp_assignmentconfig import (  # noqa: E402
+    _normalize_headquarter,
+)
+
+
+class TestNormalizeHeadquarter(unittest.TestCase):
+
+    def test_none_retorna_vacio(self):
+        self.assertEqual(_normalize_headquarter(None), "")
+
+    def test_vacio_retorna_vacio(self):
+        self.assertEqual(_normalize_headquarter(""), "")
+
+    def test_solo_codigo_se_mantiene(self):
+        self.assertEqual(_normalize_headquarter("BOG"), "BOG")
+
+    def test_codigo_con_label_se_recorta(self):
+        self.assertEqual(_normalize_headquarter("BOG\nBogota (BOG)"), "BOG")
+
+    def test_codigo_con_espacios_se_limpia(self):
+        self.assertEqual(_normalize_headquarter("  BOG  \nBogota"), "BOG")
 
 
 class TestGetReceiptTotal(unittest.TestCase):
@@ -83,6 +106,54 @@ class TestGetOCContext(unittest.TestCase):
         self.assertIsNone(self._run(frappe_mock, "OC111"))
 
 
+class TestLoadAssignmentRows(unittest.TestCase):
+
+    def _mock_get_all(self, configs):
+        frappe_mock = MagicMock()
+
+        def _get_all(doctype, **kwargs):
+            if doctype == "qp_SP_AssignmentConfig":
+                return configs
+            if doctype == "qp_SP_AssignmentConfigUser":
+                parent = kwargs["filters"]["parent"]
+                return [
+                    {"user_email": "a@x.com"},
+                    {"user_email": "b@x.com"},
+                ] if parent == "CONF1" else []
+            return []
+
+        frappe_mock.get_all.side_effect = _get_all
+        return frappe_mock
+
+    def test_codigo_con_label_combinado_se_normaliza(self):
+        frappe_mock = self._mock_get_all([
+            {"name": "CONF1", "headquarter": "BOG\nBogota (BOG)", "oc_type": "01"},
+        ])
+
+        with patch.object(infra, "frappe", frappe_mock):
+            rows = infra._load_assignment_rows()
+
+        self.assertEqual(rows, [{
+            "headquarter": "BOG",
+            "oc_type": "01",
+            "user_emails": ["a@x.com", "b@x.com"],
+        }])
+
+    def test_headquarter_solo_codigo_se_mantiene(self):
+        frappe_mock = self._mock_get_all([
+            {"name": "CONF2", "headquarter": "CAL", "oc_type": "01"},
+        ])
+
+        with patch.object(infra, "frappe", frappe_mock):
+            rows = infra._load_assignment_rows()
+
+        self.assertEqual(rows, [{
+            "headquarter": "CAL",
+            "oc_type": "01",
+            "user_emails": [],
+        }])
+
+
 class TestGetAssigneeEmails(unittest.TestCase):
 
     OC_TYPE_ROWS = [
@@ -133,6 +204,20 @@ class TestGetAssigneeEmails(unittest.TestCase):
             emails = self._run(frappe_mock, "99", "BOG")
 
         self.assertIsNone(emails)
+
+    def test_config_con_valor_combinado_normaliza_y_resuelve(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.side_effect = [
+            self.OC_TYPE_ROWS,
+            [{"name": "CONF1", "headquarter": "BOG\nBogota (BOG)", "oc_type": "01"}],
+            [{"user_email": "a@x.com"}, {"user_email": "b@x.com"}],
+        ]
+
+        with patch.object(infra, "frappe", frappe_mock), \
+                patch.object(infra, "sede_exists", return_value=True):
+            emails = infra.get_assignee_emails("01", "BOG")
+
+        self.assertEqual(emails, ["a@x.com", "b@x.com"])
 
 
 if __name__ == "__main__":

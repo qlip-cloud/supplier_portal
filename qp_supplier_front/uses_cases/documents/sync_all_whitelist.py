@@ -19,6 +19,7 @@ from qp_authorization.use_case.basic.authorize import send_request_status
 from qp_supplier_front.resources.documenteme.auto_assign import run_auto_assign
 from qp_supplier_front.resources.documenteme.auto_approve import run_auto_approve
 from qp_supplier_front.resources.documenteme.auto_reject import run_auto_reject
+from qp_supplier_front.resources.documenteme.stale_status_alert import generate_stale_status_alerts
 
 DOCUMENTS_LOCK_DOMAIN = "documents"
 
@@ -64,6 +65,7 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
     created_names = created_names or []
     run_documenteme_auto_assign(doc_names or created_names)
     approve_result = run_documenteme_auto_approve(doc_names or created_names)
+    run_documenteme_stale_status_alerts()
 
     return {
         "created": created_names,
@@ -112,6 +114,16 @@ def run_documenteme_auto_approve(doc_names=None):
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "documenteme auto_approve sync_all")
         return None
+
+
+def run_documenteme_stale_status_alerts():
+    try:
+        generate_stale_status_alerts()
+        frappe.db.commit()
+
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error(frappe.get_traceback(), "documenteme stale_status_alerts sync_all")
 
 
 @frappe.whitelist()

@@ -8,7 +8,7 @@ frappe.ui.form.on('qp_SP_AssignmentConfig', {
 			callback: function(response) {
 				var options = response.message || {};
 				var sedes = (options.sedes || []).map(function(s) {
-					return s.value + '\n' + s.label;
+					return {value: s.value, label: s.label};
 				});
 				frm.set_df_property('headquarter', 'options', sedes);
 				frm.set_df_property('oc_type', 'options', options.oc_types || []);

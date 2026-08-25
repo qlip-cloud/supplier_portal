@@ -111,7 +111,10 @@ $(document).ready(function () {
     });
 
     $(document).on("click", ".btn-control-alert", function () {
-        frappe.msgprint("Funcionalidad de alerta por implementar");
+        var tooltip = $(this).attr("title");
+        if (tooltip && tooltip !== "Alerta") {
+            frappe.msgprint(tooltip);
+        }
     });
 
     $(document).on("click", ".btn-control-assign", function () {

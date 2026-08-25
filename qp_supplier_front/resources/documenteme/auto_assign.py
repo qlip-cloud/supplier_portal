@@ -4,6 +4,9 @@ from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
     get_receipt_total as _adapter_get_receipt_total,
 )
 from qp_supplier_front.resources.response import handler as response
+from qp_supplier_front.qp_supplier_front.doctype.qp_sp_assignmentconfig.qp_sp_assignmentconfig import (
+    _normalize_headquarter,
+)
 from qp_supplier_front.services.sede_source import sede_exists
 from qp_supplier_front.uses_cases.documenteme.auto_assign import (
     auto_assign as auto_assign_core,
@@ -127,7 +130,7 @@ def _load_assignment_rows():
             fields=["user_email"],
         )
         rows.append({
-            "headquarter": config.get("headquarter"),
+            "headquarter": _normalize_headquarter(config.get("headquarter")),
             "oc_type": config.get("oc_type"),
             "user_emails": [row.get("user_email") for row in child_rows],
         })

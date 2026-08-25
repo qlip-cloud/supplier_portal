@@ -43,11 +43,18 @@ def _format_sede_label(sede):
     return code
 
 
+def _normalize_headquarter(value):
+    """Normaliza headquarter a solo el codigo (descarta label tras \\n)."""
+    if not value:
+        return ""
+    return value.split("\n", 1)[0].strip()
+
+
 class qp_SP_AssignmentConfig(Document):
 
     def validate(self):
         self.oc_type = (self.oc_type or "").strip()
-        self.headquarter = (self.headquarter or "").strip()
+        self.headquarter = _normalize_headquarter(self.headquarter)
 
         if not self.oc_type:
             frappe.throw("Debe indicar el tipo de OC para la configuracion")

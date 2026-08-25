@@ -19,3 +19,4 @@ docs/REFACTOR-DEUDAS.md
 # AI/opencode context: agents, skills, commands, plans, config
 opencode.json
 .opencode/
+.coverage
