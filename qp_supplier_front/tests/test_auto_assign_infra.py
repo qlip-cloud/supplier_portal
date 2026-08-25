@@ -21,6 +21,7 @@ sys.modules["frappe.model.document"] = MagicMock()
 from qp_supplier_front.resources.documenteme import auto_assign as infra  # noqa: E402
 from qp_supplier_front.qp_supplier_front.doctype.qp_sp_assignmentconfig.qp_sp_assignmentconfig import (  # noqa: E402
     _normalize_headquarter,
+    _normalize_oc_type,
 )
 
 
@@ -40,6 +41,34 @@ class TestNormalizeHeadquarter(unittest.TestCase):
 
     def test_codigo_con_espacios_se_limpia(self):
         self.assertEqual(_normalize_headquarter("  BOG  \nBogota"), "BOG")
+
+
+class TestNormalizeOcType(unittest.TestCase):
+
+    OC_TYPE_ROWS = [
+        {"name": "01", "oc_type": "01 INFRAESTRUCTURA"},
+        {"name": "03", "oc_type": "03 IT Y EQUIPOS ELECTRONICOS"},
+    ]
+
+    def test_none_retorna_vacio(self):
+        self.assertEqual(_normalize_oc_type(None, self.OC_TYPE_ROWS), "")
+
+    def test_vacio_retorna_vacio(self):
+        self.assertEqual(_normalize_oc_type("", self.OC_TYPE_ROWS), "")
+
+    def test_codigo_name_se_mantiene(self):
+        self.assertEqual(_normalize_oc_type("01", self.OC_TYPE_ROWS), "01")
+
+    def test_label_concat_se_resuelve_al_codigo(self):
+        self.assertEqual(
+            _normalize_oc_type("01 INFRAESTRUCTURA", self.OC_TYPE_ROWS), "01"
+        )
+
+    def test_sin_rows_devuelve_valor(self):
+        self.assertEqual(_normalize_oc_type("01", []), "01")
+
+    def test_valor_inexistente_se_mantiene(self):
+        self.assertEqual(_normalize_oc_type("99", self.OC_TYPE_ROWS), "99")
 
 
 class TestGetReceiptTotal(unittest.TestCase):
@@ -112,6 +141,11 @@ class TestLoadAssignmentRows(unittest.TestCase):
         frappe_mock = MagicMock()
 
         def _get_all(doctype, **kwargs):
+            if doctype == "qp_SP_OCType":
+                return [
+                    {"name": "01", "oc_type": "01 INFRAESTRUCTURA"},
+                    {"name": "03", "oc_type": "03 IT Y EQUIPOS ELECTRONICOS"},
+                ]
             if doctype == "qp_SP_AssignmentConfig":
                 return configs
             if doctype == "qp_SP_AssignmentConfigUser":
@@ -127,7 +161,7 @@ class TestLoadAssignmentRows(unittest.TestCase):
 
     def test_codigo_con_label_combinado_se_normaliza(self):
         frappe_mock = self._mock_get_all([
-            {"name": "CONF1", "headquarter": "BOG\nBogota (BOG)", "oc_type": "01"},
+            {"name": "CONF1", "headquarter": "BOG\nBogota (BOG)", "oc_type": "01 INFRAESTRUCTURA"},
         ])
 
         with patch.object(infra, "frappe", frappe_mock):
@@ -141,7 +175,7 @@ class TestLoadAssignmentRows(unittest.TestCase):
 
     def test_headquarter_solo_codigo_se_mantiene(self):
         frappe_mock = self._mock_get_all([
-            {"name": "CONF2", "headquarter": "CAL", "oc_type": "01"},
+            {"name": "CONF2", "headquarter": "CAL", "oc_type": "03"},
         ])
 
         with patch.object(infra, "frappe", frappe_mock):
@@ -149,7 +183,7 @@ class TestLoadAssignmentRows(unittest.TestCase):
 
         self.assertEqual(rows, [{
             "headquarter": "CAL",
-            "oc_type": "01",
+            "oc_type": "03",
             "user_emails": [],
         }])
 
@@ -157,8 +191,8 @@ class TestLoadAssignmentRows(unittest.TestCase):
 class TestGetAssigneeEmails(unittest.TestCase):
 
     OC_TYPE_ROWS = [
-        {"oc_type": "01", "is_inventariable": 1},
-        {"oc_type": "03", "is_inventariable": 0},
+        {"name": "01", "oc_type": "01 INFRAESTRUCTURA", "is_inventariable": 1},
+        {"name": "03", "oc_type": "03 IT Y EQUIPOS ELECTRONICOS", "is_inventariable": 0},
     ]
 
     ASSIGNMENT_ROWS = [
@@ -209,7 +243,7 @@ class TestGetAssigneeEmails(unittest.TestCase):
         frappe_mock = MagicMock()
         frappe_mock.get_all.side_effect = [
             self.OC_TYPE_ROWS,
-            [{"name": "CONF1", "headquarter": "BOG\nBogota (BOG)", "oc_type": "01"}],
+            [{"name": "CONF1", "headquarter": "BOG\nBogota (BOG)", "oc_type": "01 INFRAESTRUCTURA"}],
             [{"user_email": "a@x.com"}, {"user_email": "b@x.com"}],
         ]
 

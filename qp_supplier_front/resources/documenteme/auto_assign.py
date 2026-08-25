@@ -6,6 +6,7 @@ from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.qp_supplier_front.doctype.qp_sp_assignmentconfig.qp_sp_assignmentconfig import (
     _normalize_headquarter,
+    _normalize_oc_type,
 )
 from qp_supplier_front.services.sede_source import sede_exists
 from qp_supplier_front.uses_cases.documenteme.auto_assign import (
@@ -107,16 +108,28 @@ def get_receipt_total(purchase_order_number):
 
 
 def get_assignee_emails(oc_type, headquarter):
-    oc_type_rows = frappe.get_all("qp_SP_OCType", fields=["oc_type", "is_inventariable"])
+    oc_type_records = frappe.get_all(
+        "qp_SP_OCType", fields=["name", "oc_type", "is_inventariable"]
+    )
+    oc_type_rows = [
+        {"oc_type": row.get("name"), "is_inventariable": row.get("is_inventariable")}
+        for row in (oc_type_records or [])
+        if row.get("name")
+    ]
 
     if is_inventariable_oc_type(oc_type, oc_type_rows) and headquarter and not sede_exists(headquarter):
         return None
 
-    assignment_rows = _load_assignment_rows()
+    assignment_rows = _load_assignment_rows(oc_type_records)
     return resolve_assignee_emails(oc_type, headquarter, oc_type_rows, assignment_rows)
 
 
-def _load_assignment_rows():
+def _load_assignment_rows(oc_type_records=None):
+    if oc_type_records is None:
+        oc_type_records = frappe.get_all(
+            "qp_SP_OCType", fields=["name", "oc_type"]
+        )
+
     configs = frappe.get_all(
         "qp_SP_AssignmentConfig",
         fields=["name", "headquarter", "oc_type"],
@@ -131,7 +144,7 @@ def _load_assignment_rows():
         )
         rows.append({
             "headquarter": _normalize_headquarter(config.get("headquarter")),
-            "oc_type": config.get("oc_type"),
+            "oc_type": _normalize_oc_type(config.get("oc_type"), oc_type_records),
             "user_emails": [row.get("user_email") for row in child_rows],
         })
 

@@ -14,7 +14,7 @@ def get_assignment_config_options():
         sedes = _list_sedes()
         oc_types = frappe.get_all(
             "qp_SP_OCType",
-            fields=["oc_type"],
+            fields=["name", "oc_type"],
             order_by="oc_type asc",
         )
         return {
@@ -26,7 +26,11 @@ def get_assignment_config_options():
                 for sede in (sedes or [])
                 if sede.get("code")
             ],
-            "oc_types": [row.get("oc_type") for row in (oc_types or []) if row.get("oc_type")],
+            "oc_types": [
+                {"value": row.get("name"), "label": row.get("oc_type")}
+                for row in (oc_types or [])
+                if row.get("name") and row.get("oc_type")
+            ],
         }
     except Exception:
         frappe.log_error(
@@ -50,6 +54,22 @@ def _normalize_headquarter(value):
     return value.split("\n", 1)[0].strip()
 
 
+def _normalize_oc_type(value, oc_type_rows):
+    """Normaliza oc_type al codigo (name del registro de qp_SP_OCType).
+
+    Acepta el label texto (ej. "01 INFRAESTRUCTURA"), el codigo (name)
+    o un valor legacy pre-configurado y devuelve el codigo (name).
+    Rows esperados: [{"name": ..., "oc_type": ...}].
+    """
+    value = (value or "").strip()
+    if not value:
+        return ""
+    for row in (oc_type_rows or []):
+        if value == row.get("name") or value == row.get("oc_type"):
+            return row.get("name")
+    return value
+
+
 class qp_SP_AssignmentConfig(Document):
 
     def validate(self):
@@ -59,8 +79,11 @@ class qp_SP_AssignmentConfig(Document):
         if not self.oc_type:
             frappe.throw("Debe indicar el tipo de OC para la configuracion")
 
+        oc_type_rows = frappe.get_all("qp_SP_OCType", fields=["name", "oc_type"])
+        self.oc_type = _normalize_oc_type(self.oc_type, oc_type_rows)
+
         inventariable = frappe.db.get_value(
-            "qp_SP_OCType", {"oc_type": self.oc_type}, "is_inventariable"
+            "qp_SP_OCType", {"name": self.oc_type}, "is_inventariable"
         )
         if inventariable and not self.headquarter:
             frappe.throw("El tipo de OC inventariable requiere una sede")
