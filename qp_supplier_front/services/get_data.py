@@ -25,7 +25,17 @@ def get_dynamic_link(doc, doctype):
     
     all_data = frappe.get_all(doctype, filters=filters, fields=["*"], order_by = "creation desc")
     
-    return [frappe.get_doc(doctype, data.get("name")) for data in all_data]
+    unique_data = []
+    seen_names = set()
+    
+    for data in all_data:
+        name = data.get("name")
+        if name in seen_names:
+            continue
+        seen_names.add(name)
+        unique_data.append(data)
+    
+    return [frappe.get_doc(doctype, data.get("name")) for data in unique_data]
 
 def get_bank_accounts(doc, doctype):
     
@@ -38,6 +48,42 @@ def get_bank_accounts(doc, doctype):
 def get_supplier(supplier_id):
     
     return frappe.get_doc("Supplier", supplier_id)
+
+def get_supplier_phone(supplier):
+    
+    party = get_party(supplier)
+    
+    if party and party.phone_number:
+        
+        return party.phone_number
+    
+    contacts = get_dynamic_link(supplier, "Contact")
+    
+    if not contacts:
+        
+        return None
+    
+    for contact in contacts:
+        
+        phone = get_contact_phone(contact)
+        
+        if contact.is_primary_contact and phone:
+            
+            return phone
+    
+    for contact in contacts:
+        
+        phone = get_contact_phone(contact)
+        
+        if phone:
+            
+            return phone
+    
+    return None
+
+def get_contact_phone(contact):
+    
+    return contact.mobile_no or (contact.phone_nos[0].phone if contact.phone_nos else None)
 
 def get_document_types():
     

@@ -8,26 +8,29 @@
             <th>Correo</th>
             <th>Teléfono</th>
             {% if is_estatus_editable %}
-                <th>Acciones</th>
-            {% endif %} 
+            <th>Acciones</th>
+            {% endif %}
         </thead>
         <tbody>
             {% for contact in contacts %}
-            {% set info = "Requiere completar datos" if not contact.phone_nos or not contact.phone_nos[0].phone else False %}
+            {% set info = "Requiere completar datos" if not contact.phone_nos or not contact.phone_nos[0].phone else
+            False %}
             <tr>
-                <td class="contact-id" data-id="{{contact.name}}"><span class="link_modal">{{contact.name}}</span>  {% if info %}
+                <td class="contact-id" data-id="{{contact.name}}"><span class="link_modal">{{contact.name}}</span> {% if
+                    info %}
                     - {{info}}
-                {% endif %}</td>
+                    {% endif %}</td>
                 <td>{{contact.first_name}}
-                   
+
                 </td>
-                <td>{{contact.qp_contact_type}}</td>
-                <td>{{contact.email_ids[0].email_id}}</td>
+                <td>{{contact.qp_contact_type or ""}}</td>
+                <td>{{contact.email_ids[0].email_id if contact.email_ids else contact.user}}</td>
                 <td>{{contact.phone_nos[0].phone if contact.phone_nos else "" }}</td>
-                
+
                 {% if is_estatus_editable %}
                 <td>
-                    <span class="material-symbols-outlined contact-delete empty-{{contact.name}}" data-contact-id="{{contact.name}}" style="margin-left: 1em;color: red;">delete</span>
+                    <span class="material-symbols-outlined contact-delete empty-{{contact.name}}"
+                        data-contact-id="{{contact.name}}" style="margin-left: 1em;color: red;">delete</span>
                 </td>
                 {% endif %}
             </tr>

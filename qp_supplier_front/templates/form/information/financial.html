@@ -1,5 +1,6 @@
 <form class="form-estandar" method="PUT" data-method-default="PUT" id="form-financial"
-    action="api/method/qp_supplier_front.resources.information.financial.update"  data-control="{{ 'is_estatus_editable' if is_estatus_editable else '' }}" data-type="estandar">
+    action="api/method/qp_supplier_front.resources.information.financial.update"
+    data-control="{{ 'is_estatus_editable' if is_estatus_editable else '' }}" data-type="estandar">
     <div class="row row-line">
 
         <div class="col-lg-4">
@@ -9,6 +10,9 @@
                 {{ "" if is_estatus_editable else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" name="qp_financial_assets" id="qp_financial_assets" placeholder="Activos"
                 value="{{supplier.qp_financial_assets  or 0.00}}">
+            <div class="text-muted" style="font-size: 12px;">
+                <i>Las cifras deben registrarse en miles de pesos.</i>
+            </div>
         </div>
 
         <div class="col-lg-4">
@@ -18,6 +22,9 @@
                 else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
                 id="qp_financial_liabilities" value="{{supplier.qp_financial_liabilities  or 0.00}}"
                 placeholder="Pasivos">
+            <div class="text-muted" style="font-size: 12px;">
+                <i>Las cifras deben registrarse en miles de pesos.</i>
+            </div>
         </div>
         <div class="col-lg-4">
             <label for="qp_financial_equity">Patrimonio</label>
@@ -25,6 +32,9 @@
                 class="input-with-feedback form-control floating-input bold number" {{ "" if is_estatus_editable
                 else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
                 id="qp_financial_equity " value="{{supplier.qp_financial_equity or 0.00}}" placeholder="Patrimonio">
+            <div class="text-muted" style="font-size: 12px;">
+                <i>Las cifras deben registrarse en miles de pesos.</i>
+            </div>
         </div>
     </div>
     <div class="row row-line">
@@ -36,6 +46,9 @@
                 else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
                 id="qp_financial_other_income" value="{{supplier.qp_financial_other_income or 0.00}}"
                 placeholder="Otros Ingresos">
+            <div class="text-muted" style="font-size: 12px;">
+                <i>Las cifras deben registrarse en miles de pesos.</i>
+            </div>
         </div>
 
 
@@ -46,6 +59,9 @@
                 else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
                 id="qp_financial_monthly_income" value="{{supplier.qp_financial_monthly_income  or 0.00}}"
                 placeholder="Ingresos Mensuales">
+            <div class="text-muted" style="font-size: 12px;">
+                <i>Las cifras deben registrarse en miles de pesos.</i>
+            </div>
         </div>
         <div class="col-lg-4">
             <label for="qp_financial_monthly_expenses">Egresos Mensuales</label>
@@ -54,13 +70,16 @@
                 else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue"
                 id="qp_financial_monthly_expenses" value="{{supplier.qp_financial_monthly_expenses or 0.00}}"
                 placeholder="Egresos Mensuales">
+            <div class="text-muted" style="font-size: 12px;">
+                <i>Las cifras deben registrarse en miles de pesos.</i>
+            </div>
         </div>
     </div>
     <div class="row row-line">
         <div class="col-lg-4">
             <label for="qp_financial_details_income">Detalle de los otros ingresos</label>
-            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold"
-                {{ "" if is_estatus_editable else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data"
+            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold" {{ "" if
+                is_estatus_editable else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" name="qp_financial_details_income" id="qp_financial_details_income"
                 placeholder="Detalle de los otros ingresos" value="{{supplier.qp_financial_details_income  or ''}}">
         </div>

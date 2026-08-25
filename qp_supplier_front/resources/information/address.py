@@ -9,6 +9,9 @@ from qp_supplier_front.services.get_data import get_dynamic_link
 @frappe.whitelist()
 def save(supplier_id, country, city, state, address_line1, doctype_id = None):
     
+    if address_line1 and len(str(address_line1)) > 64:
+        frappe.throw("La dirección excede los 64 caracteres.")
+        
     method = frappe.local.request.method
     try:
         

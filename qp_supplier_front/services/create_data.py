@@ -54,7 +54,8 @@ def  create_contact(supplier, doctype, first_name,email_id, qp_contact_type=None
     
     contact.first_name = first_name
     
-    contact.user = user
+    if user and frappe.db.exists("User", user):
+        contact.user = user
     
     contact.qp_contact_type = qp_contact_type
     
@@ -68,21 +69,23 @@ def create_first_contact(supplier, email = None):
     
     doctype = "Contact"
     
-    user = email if email else frappe.session.user
+    candidate = email if email else frappe.session.user
     
-    contact_name = frappe.get_value(doctype, filters = {"user": user})
+    user = candidate if frappe.db.exists("User", candidate) else None
+    
+    contact_name = frappe.get_value(doctype, filters = {"user": user}) if user else None
     
     if contact_name:
     
         contact = frappe.get_doc(doctype, contact_name)
         
-        set_contact(doctype, contact, supplier, user)
+        set_contact(doctype, contact, supplier, candidate)
         
         contact.save()
         
         return contact
         
-    contact = create_contact(supplier, doctype, supplier.supplier_name, user, qp_contact_type=None,user = user)
+    contact = create_contact(supplier, doctype, supplier.supplier_name, candidate, qp_contact_type=None, user=user)
     
     return contact
 
@@ -96,12 +99,40 @@ def set_contact(doctype, contact, supplier, email_id, phone = None):
         contact.append("phone_nos", {
             "phone": phone
         })
+        contact.mobile_no = phone
     
-    contact.append("links", {
-		"link_doctype": supplier.doctype,
-		"link_name": supplier.name
-	})
+    links = {link.link_doctype + ":" + link.link_name for link in contact.get("links") or []}
+    
+    if supplier.doctype + ":" + supplier.name not in links:
+        contact.append("links", {
+            "link_doctype": supplier.doctype,
+            "link_name": supplier.name
+        })
     
     if not get_dynamic_link(supplier, doctype):
         
         contact.is_primary_contact = 1
+
+def update_primary_contact_phone(supplier, phone_number):
+    if not phone_number:
+        return
+    filters = [
+        ["Dynamic Link", "link_doctype", "=", supplier.doctype],
+        ["Dynamic Link", "link_name", "=", supplier.name],
+        ["Dynamic Link", "parenttype", "=", "Contact"]
+    ]
+    contacts = frappe.get_all("Contact", filters=filters, fields=["name", "is_primary_contact"])
+    if not contacts:
+        return
+    target = None
+    for c in contacts:
+        if c.is_primary_contact:
+            target = c
+            break
+    if not target:
+        target = contacts[0]
+        for c in contacts:
+            if c.name != target.name and c.is_primary_contact:
+                frappe.db.set_value("Contact", c.name, "is_primary_contact", 0)
+        frappe.db.set_value("Contact", target.name, "is_primary_contact", 1)
+    frappe.db.set_value("Contact", target.name, "mobile_no", phone_number)

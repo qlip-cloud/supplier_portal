@@ -1,3 +1,20 @@
+function formatPhoneNumber(raw) {
+    let val = String(raw || '').replace(/\D/g, '');
+    if (val.length > 10) {
+        val = val.substring(0, 10);
+    }
+
+    let formatted = '';
+    if (val.length > 0) {
+        formatted += '(' + val.substring(0, 3);
+        if (val.length > 3) {
+            formatted += ')' + val.substring(3);
+        }
+    }
+
+    return formatted;
+}
+
 function saveShowTab(tabId) {
 
     document.getElementById("overlay").style.display = 'block';
@@ -111,20 +128,20 @@ $(document).ready(function () {
 
 
     $('#supplier_name').on('input', function () {
-            const value = $(this).val();
-            const maxLength = 65;
-            const regex = /^[a-zA-Z0-9. ]*$/;
+        const value = $(this).val();
+        const maxLength = 65;
+        const regex = /^[a-zA-Z0-9. ]*$/;
 
-            if (value.length > maxLength) {
-                $('#error_message').text('Máximo 65 caracteres permitidos.');
-                $(this).val(value.substring(0, maxLength));
-            } else if (!regex.test(value)) {
-                $('#error_message').text('Solo se permiten letras, números, espacios y el punto (.)');
-                $(this).val(value.replace(/[^a-zA-Z0-9. ]/g, ''));
-            } else {
-                $('#error_message').text('');
-            }
-        });
+        if (value.length > maxLength) {
+            $('#error_message').text('Máximo 65 caracteres permitidos.');
+            $(this).val(value.substring(0, maxLength));
+        } else if (!regex.test(value)) {
+            $('#error_message').text('Solo se permiten letras, números, espacios y el punto (.)');
+            $(this).val(value.replace(/[^a-zA-Z0-9. ]/g, ''));
+        } else {
+            $('#error_message').text('');
+        }
+    });
 
 
     $('.modal-content-scroll').on('scroll', function () {
@@ -191,6 +208,7 @@ $(document).ready(function () {
 
     $("#tax_id").on("blur", function () {
 
+        if ($("#supplier_id").val()) return;
 
         tax_id = $(this).val()
 
@@ -209,6 +227,8 @@ $(document).ready(function () {
                 } else {
 
                     $("#supplier_name").val(supplier.supplier_name)
+
+                    $("#phone_number").val(formatPhoneNumber(supplier.phone_number))
                 }
             } else {
                 $("#supplier_name").val()
@@ -232,12 +252,21 @@ $(document).ready(function () {
 
         var formData = new FormData(this);
 
+        // Sanitizar market_share de formato colombiano a float
+        if (formData.has('market_share')) {
+            var raw = formData.get('market_share');
+            if (raw && raw.indexOf(',') !== -1) {
+                formData.delete('market_share');
+                formData.append('market_share', raw.replace(/\./g, '').replace(',', '.'));
+            }
+        }
+
         supplier_id = $("#supplier_id").val();
 
         formData.append("supplier_id", supplier_id);
 
         const submitter = $(document.activeElement);
-        
+
         if (!supplier_id || submitter.hasClass('is_estatus_editable') || $(this).hasClass("form-modal")) {
 
             document.getElementById("overlay").style.display = 'block';
@@ -261,8 +290,9 @@ $(document).ready(function () {
                             render = data.render
 
                             $(`#${render.container}`).html(render.list)
+                            applyListRowHighlights();
                         }
-                        if (data.is_bank_account){
+                        if (data.is_bank_account) {
                             $(`#new-bank-account`).addClass("hidden disabled")
 
                         }
@@ -309,45 +339,45 @@ $(document).ready(function () {
             callresponse = (response) => {
 
                 data = response.data
-                
+
                 supplier = data.supplier
-                
+
                 if (submitter.hasClass("finish")) {
                     // Indicar en rojo los campos incompletos en cada tab
-                    
+
                     $('.tab').css('color', 'black');
-                    
+
                     // Limpiar clase status-cancelled de todos los campos
                     $('input, select, textarea').removeClass('status-cancelled');
-                    
+
                     has_incompleted = false
 
                     // Agrupar validaciones por tab
                     var tabValidations = {};
-                    
+
                     $.each(supplier.qp_field_validations, function (index, validation) {
-                        
+
                         // Buscar tabs que contengan la clase del field_section
                         const $tabs = $(`.tab[class*="${validation.field_section}"]`);
-                        
-                        $tabs.each(function() {
+
+                        $tabs.each(function () {
                             const tabClasses = $(this).attr('class');
-                            
+
                             if (!tabValidations[tabClasses]) {
                                 tabValidations[tabClasses] = {
                                     $tab: $(this),
                                     allCompleted: true
                                 };
                             }
-                            
+
                             // Si alguna validación está incompleta, marcar el tab como incompleto
                             if (validation.is_completed === 0) {
                                 tabValidations[tabClasses].allCompleted = false;
-                                
+
                                 // Marcar campos faltantes con status-cancelled
                                 if (validation.missing_fields) {
                                     const missingFields = validation.missing_fields.split(',');
-                                    missingFields.forEach(function(fieldId) {
+                                    missingFields.forEach(function (fieldId) {
                                         const trimmedId = fieldId.trim();
                                         if (trimmedId) {
                                             // Buscar por ID o por name
@@ -359,10 +389,10 @@ $(document).ready(function () {
                             }
                         });
                     });
-                    
+
                     // Aplicar estilos basados en el estado acumulado
-                    $.each(tabValidations, function(tabClasses, tabData) {
-                        
+                    $.each(tabValidations, function (tabClasses, tabData) {
+
                         if (!tabData.allCompleted) {
                             has_incompleted = true
                             tabData.$tab.css('color', 'red');
@@ -378,7 +408,7 @@ $(document).ready(function () {
 
                     msg = `<p>${response.msg}</p> ${msg_error}`;
 
-                    if (!has_incompleted){
+                    if (!has_incompleted) {
                         location.reload(true);
                     }
 
@@ -418,12 +448,14 @@ $(document).ready(function () {
 
         frappe.confirm('¿Seguro que desea aprobar el registro?',
             function () {
+                $("#overlay").css("display", "block");
 
                 supplier_id = $("#supplier_id").val();
 
                 url = "qp_supplier_front.resources.supplier.supplier.approve";
 
                 callresponse = (response) => {
+                    $("#overlay").css("display", "none");
 
                     frappe.msgprint(response.msg)
 
@@ -441,7 +473,7 @@ $(document).ready(function () {
             }, function () { })
     })
 
-        $("#preapproved").on("click", function () {
+    $("#preapproved").on("click", function () {
 
         frappe.confirm('¿Seguro que desea pre aprobar el registro?',
             function () {
@@ -455,22 +487,22 @@ $(document).ready(function () {
                     frappe.msgprint(response.msg)
 
                     data = response.data
-                    
+
                     setup_button(data.supplier)
 
                     $("#preapproved_legend").html("En proceso de aprobación por finanzas")
 
-                    if (data.is_alpla_admin){
+                    if (data.is_alpla_admin) {
 
-                        
+
                         $("#preapproved").hide()
                         $("#approve").show()
 
-                    }else{
+                    } else {
 
                         $(".button-row").remove()
                     }
-                    
+
                 }
 
 
@@ -497,14 +529,14 @@ $(document).ready(function () {
 
                     data = response.data
                     statusCode = response.status
-                    if (statusCode == 200){
+                    if (statusCode == 200) {
                         $(`#status-${setting_id}`).text("Archivo no cargado");
 
 
                         $(`.upload-${setting_id}`).show()
                         $(`.empty-${setting_id}`).hide()
                     }
-                    else{
+                    else {
                         $(`#status-${setting_id}`).text("Hubo un error eliminando el archivo");
 
                     }
@@ -522,17 +554,18 @@ $(document).ready(function () {
         frappe.confirm('¿Seguro que desea eliminar este registro?',
             function () {
                 supplier_id = $("#supplier_id").val();
-                url = "qp_supplier_front.resources.information.contact.delete"; 
+                url = "qp_supplier_front.resources.information.contact.delete";
                 callresponse = (response) => {
                     data = response.data
                     statusCode = response.status
                     console.log(response)
-                    if (statusCode == 200){
+                    if (statusCode == 200) {
                         frappe.msgprint(response.msg)
                         render = data.render
                         $(`#${render.container}`).html(render.list)
+                        applyListRowHighlights();
                     }
-                    else{
+                    else {
                         msg = response.msg || "Hubo un error eliminando el contacto."
                         frappe.msgprint(msg);
                     }
@@ -550,25 +583,26 @@ $(document).ready(function () {
                 callresponse = (response) => {
                     data = response.data
                     statusCode = response.status
-                    if (statusCode == 200){
+                    if (statusCode == 200) {
                         frappe.msgprint(response.msg)
                         render = data.render
                         $(`#${render.container}`).html(render.list)
+                        applyListRowHighlights();
                     }
-                    else{
+                    else {
                         $(`#status-${shareholder_id}`).text("Hubo un error eliminando el accionista");
                     }
                 }
                 petition_get_data({ supplier_id, shareholder_id }, url, callresponse)
             }, function () { })
     })
-    
-    
+
+
 
     $("#bank_account_list").on("click", ".bank-account-delete", function () {
 
         bank_account_id = $(this).data("bank-acccount-id");
-        
+
         frappe.confirm('¿Seguro que desea eliminar este registro?',
             function () {
 
@@ -583,19 +617,20 @@ $(document).ready(function () {
                     data = response.data
 
                     statusCode = response.status
-                    
-                    if (statusCode == 200){
+
+                    if (statusCode == 200) {
 
                         frappe.msgprint(response.msg)
 
                         render = data.render
                         $(`#${render.container}`).html(render.list)
+                        applyListRowHighlights();
 
-                        if (data.bank_accounts.length === 0){
+                        if (data.bank_accounts.length === 0) {
                             $(`#new-bank-account`).removeClass("hidden disabled")
                         }
                     }
-                    else{
+                    else {
                         $(`#status-${setting_id}`).text("Hubo un error eliminando la cuenta bancaria");
 
                     }
@@ -645,7 +680,7 @@ $(document).ready(function () {
         }
     });
 
-    
+
     $('#qp_reject_observation').on('input', function () {
         if ($(this).val().trim() !== '') {
             $('#reject').prop('disabled', false);
@@ -663,64 +698,70 @@ $(document).ready(function () {
     })
     $('#tax_id').on('keypress', function (e) {
         const char = String.fromCharCode(e.which);
-        if($('[name="id_type_name"]').val() === 'NIT'){
+        if ($('[name="id_type_name"]').val() === 'NIT') {
             if (!/^\d$/.test(char)) {
-                e.preventDefault(); 
+                e.preventDefault();
             }
-        } 
+        }
     });
     $('#tax_id').on('keypress', function (e) {
         const char = String.fromCharCode(e.which);
-        if($('#tax_id').val().length === 9 && $('[name="id_type_name"]').val() === 'NIT'){
+        if ($('#tax_id').val().length === 9 && $('[name="id_type_name"]').val() === 'NIT') {
             e.preventDefault();
-        } 
+        }
     });
 
     $('#tax_id').on('input', function () {
         this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
     });
-    $('#phone_number').on('keypress', function (e) {
-        const char = String.fromCharCode(e.which);
-        if (!/^\d$/.test(char)) {
-            e.preventDefault(); 
-        }
-    });
-
     $('#phone_number').on('input', function () {
-        this.value = this.value.replace(/\D/g, ''); 
-    });
+        let cursor = this.selectionStart;
+        let originalLen = this.value.length;
+
+        let formatted = formatPhoneNumber(this.value);
+
+        this.value = formatted;
+
+        let newLen = formatted.length;
+        let diff = newLen - originalLen;
+        if (cursor < originalLen) {
+            this.setSelectionRange(cursor + diff, cursor + diff);
+        }
+    }).trigger('input');
 
     $('#country_code').on('keypress', function (e) {
         const char = String.fromCharCode(e.which);
         if (!/^\d$/.test(char)) {
-            e.preventDefault(); 
+            e.preventDefault();
         }
     });
 
     $('#country_code').on('input', function () {
-        this.value = this.value.replace(/\D/g, ''); 
+        this.value = this.value.replace(/\D/g, '');
     });
 
     $('#phone').on('keypress', function (e) {
         const char = String.fromCharCode(e.which);
         if (!/^\d$/.test(char)) {
-            e.preventDefault(); 
+            e.preventDefault();
         }
     });
 
     $('#phone').on('input', function () {
-        this.value = this.value.replace(/\D/g, ''); 
+        this.value = this.value.replace(/\D/g, '');
     });
 
     $("#reject").on("click", function () {
+        $("#overlay").css("display", "block");
 
         supplier_id = $("#supplier_id").val();
 
         qp_reject_observation = $("#qp_reject_observation").val();
 
         url = "qp_supplier_front.resources.supplier.supplier.reject";
-        
+
         callresponse = (response) => {
+            $("#overlay").css("display", "none");
 
             frappe.msgprint(response.msg)
 
@@ -776,7 +817,7 @@ $(document).ready(function () {
         petition_get_data({ city }, url, callresponse)
 
     })
-    
+
     $("#address_list").on("click", ".addres-id", function () {
 
         address_id = $(this).data("id");
@@ -803,12 +844,17 @@ $(document).ready(function () {
 
             $selectCountry.val(address.country);
 
-            $selectCity.val(address.city);
+            const mappingResult = { needsSave: false, notFound: false };
 
-            $selectState.val(address.state);
+            mapAddressField($selectCity, cities, address.city, address.raw_city, "state_name", mappingResult);
+
+            mapAddressField($selectState, states, address.state, address.raw_state, "municipality_name", mappingResult);
 
             $selectAddress_line1.val(address.address_line1);
 
+            renderAddressAlerts(mappingResult);
+
+            applyModalFieldHighlights("address");
             $("#form-address").attr('method', 'PUT');
             $('#addres_modal').modal('show')
         }
@@ -819,6 +865,7 @@ $(document).ready(function () {
     $("#new-address").on("click", function () {
         $("#form-address")[0].reset();
         $("#form-address").find("input[type='text'], select").val("").trigger('change');
+        $("#address-alerts").empty();
         $("#form-address").attr('method', 'POST');
     });
     $("#contact_list").on("click", ".contact-id", function () {
@@ -842,7 +889,7 @@ $(document).ready(function () {
 
             $dataFirstName.val(contact.first_name);
 
-            $dataEmailId.val(contact.email_ids[0].email_id);
+            $dataEmailId.val(contact?.email_ids?.[0]?.email_id || contact?.user);
 
             let phone = contact.phone_nos.length ? contact.phone_nos[0].phone : "";
             let country_code = "";
@@ -860,6 +907,7 @@ $(document).ready(function () {
             $dataPhone.val(phone_number);
             $contactType.val(contact.qp_contact_type);
 
+            applyModalFieldHighlights("contact");
             $("#form-contact").attr('method', 'PUT');
             $('#contact_modal').modal('show')
         }
@@ -909,6 +957,34 @@ $(document).ready(function () {
             $ibanNumber.val(bank_account.qp_iban_number || "");
             $qp_routing_code.val(bank_account.qp_routing_code || "");
 
+            applyModalFieldHighlights("bank_account");
+            const is_synced = bank_account.qp_from_sync === 1;
+            const is_page_editable = !$("#qp_public_resource_management").prop("disabled");
+
+            if (is_synced) {
+                $selectBank.prop("disabled", true);
+                $selectAccountType.prop("disabled", true);
+                $dataBankAccount_no.prop("disabled", true);
+                $swiftNumber.prop("disabled", true);
+                $abaNumber.prop("disabled", true);
+                $ibanNumber.prop("disabled", true);
+                $qp_routing_code.prop("disabled", true);
+                $("#form-bank-account #save").addClass("hidden disabled").prop("disabled", true);
+            } else {
+                $selectBank.prop("disabled", !is_page_editable);
+                $selectAccountType.prop("disabled", !is_page_editable);
+                $dataBankAccount_no.prop("disabled", !is_page_editable);
+                $swiftNumber.prop("disabled", !is_page_editable);
+                $abaNumber.prop("disabled", !is_page_editable);
+                $ibanNumber.prop("disabled", !is_page_editable);
+                $qp_routing_code.prop("disabled", !is_page_editable);
+                if (is_page_editable) {
+                    $("#form-bank-account #save").removeClass("hidden disabled").prop("disabled", false);
+                } else {
+                    $("#form-bank-account #save").addClass("hidden disabled").prop("disabled", true);
+                }
+            }
+
             $("#form-bank-account").attr('method', 'PUT');
             $('#bank_account_modal').modal('show')
         }
@@ -920,6 +996,28 @@ $(document).ready(function () {
         $("#form-bank-account")[0].reset();
         $("#form-bank-account").find("input[type='text'], select").val("").trigger('change');
         $("#form-bank-account").attr('method', 'POST');
+
+        const is_page_editable = !$("#qp_public_resource_management").prop("disabled");
+        const $selectBank = $("#bank");
+        const $selectAccountType = $("#account_type");
+        const $dataBankAccount_no = $("#bank_account_no");
+        const $swiftNumber = $("#swift_number");
+        const $abaNumber = $("#qp_aba_number");
+        const $ibanNumber = $("#iban");
+        const $qp_routing_code = $("#qp_routing_code");
+
+        $selectBank.prop("disabled", !is_page_editable);
+        $selectAccountType.prop("disabled", !is_page_editable);
+        $dataBankAccount_no.prop("disabled", !is_page_editable);
+        $swiftNumber.prop("disabled", !is_page_editable);
+        $abaNumber.prop("disabled", !is_page_editable);
+        $ibanNumber.prop("disabled", !is_page_editable);
+        $qp_routing_code.prop("disabled", !is_page_editable);
+        if (is_page_editable) {
+            $("#form-bank-account #save").removeClass("hidden disabled").prop("disabled", false);
+        } else {
+            $("#form-bank-account #save").addClass("hidden disabled").prop("disabled", true);
+        }
     });
     $("#shareholder_list").on("click", ".shareholder-id", function () {
 
@@ -936,7 +1034,7 @@ $(document).ready(function () {
             const $selectHaveResidentAnotherCountry = $("#have_resident_another_country");
             const $selectHaveAmericanVisa = $("#have_american_visa");
             const $selectIdType = $("#id_type");
-            const $dataTaxId = $("#tax_id");
+            const $dataTaxId = $("#shareholder_tax_id");
             const $dataMarketShare = $("#market_share");
 
 
@@ -949,7 +1047,16 @@ $(document).ready(function () {
             $selectIdType.val(shareholder.id_type);
             $dataTaxId.val(shareholder.tax_id);
             $dataMarketShare.val(shareholder.market_share);
+            var msVal = $dataMarketShare.val();
+            if (msVal) {
+                var num = parseFloat(msVal.replace(',', '.'));
+                if (!isNaN(num)) {
+                    var cents = Math.round(num * 100);
+                    $dataMarketShare.val(formatColombianCurrency(cents.toString()));
+                }
+            }
 
+            applyModalFieldHighlights("shareholder");
             $("#form-shareholder").attr('method', 'PUT');
             $('#shareholder_modal').modal('show')
         }
@@ -963,16 +1070,34 @@ $(document).ready(function () {
     });
 
     $("#request-edit-btn").on("click", function () {
+        $("#overlay").css("display", "block");
         const supplier_id = $("#supplier_id").val();
 
         const url = "qp_supplier_front.resources.information.basic.request_edit";
 
         const callresponse = (response) => {
+            $("#overlay").css("display", "none");
             frappe.msgprint("Solicitud de edición enviada correctamente.");
 
             $("#request-edit-btn").replaceWith(`
                 <span class="badge bg-secondary text-white ms-auto">Solicitud de edición enviada</span>
             `);
+        };
+
+        petition_get_data({ supplier_id }, url, callresponse);
+    });
+
+    $("#approve-edit-btn").on("click", function () {
+        $("#overlay").css("display", "block");
+        const supplier_id = $("#supplier_id").val();
+
+        const url = "qp_supplier_front.resources.information.basic.approve_edit";
+
+        const callresponse = (response) => {
+            frappe.msgprint("Solicitud de edición aprobada correctamente.");
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
         };
 
         petition_get_data({ supplier_id }, url, callresponse);
@@ -1026,9 +1151,9 @@ $(document).ready(function () {
                 $(`.upload-${setting_id}`).hide()
 
                 $view_link = $(`#view-${setting_id}`)
-                $view_link.prop("href",data.file_url )
+                $view_link.prop("href", data.file_url)
                 $(`.empty-${setting_id}`).show()
-//data.file_url
+                //data.file_url
             } else {
                 $(`#file_empty-${setting_id}`).show()
                 $(`#file_loading-${setting_id}`).hide()
@@ -1041,7 +1166,213 @@ $(document).ready(function () {
         send_upload(method, formData, callback)
 
     })
+
+    // Lógica para resaltar campos modificados (Alpla)
+    var $modData = $('#supplier-modified-data');
+    if ($modData.length) {
+        var modifiedFields = {};
+        var modifiedTabs = [];
+        window.modifiedItems = {};
+        try {
+            modifiedFields = JSON.parse($modData.attr('data-fields') || '{}');
+            modifiedTabs = JSON.parse($modData.attr('data-tabs') || '[]');
+            window.modifiedItems = JSON.parse($modData.attr('data-items') || '{}');
+        } catch (e) {
+            console.error("Error parsing modified data", e);
+        }
+
+        // 1. Resaltar campos individuales
+        Object.keys(modifiedFields).forEach(function (fieldName) {
+            var oldVal = modifiedFields[fieldName];
+
+            // Manejo de documentos adjuntos
+            if (fieldName.startsWith("file_id_") || fieldName.startsWith("link-")) {
+                var docId = fieldName.replace("file_id_", "").replace("link-", "");
+                var $docOption = $('#file-' + docId).closest('.doc-upload-option');
+                if ($docOption.length) {
+                    var $docTitle = $docOption.find('.doc-title');
+                    if ($docTitle.length && !$docTitle.hasClass('modified-label')) {
+                        $docTitle.css('color', '#28a745').addClass('modified-label');
+                        if (!$docTitle.find('.modified-info-icon').length) {
+                            var $infoIcon = $('<span class="material-symbols-outlined modified-info-icon" style="font-size: 16px; vertical-align: middle; margin-left: 4px; color: #28a745; cursor: help;" data-toggle="tooltip" title="Archivo modificado o nuevo">info</span>');
+                            $docTitle.append($infoIcon);
+                        }
+                    }
+                }
+            } else {
+                // Inputs y selectores convencionales
+                var $field = $('[name="' + fieldName + '"], #' + fieldName);
+                if ($field.length) {
+                    var id = $field.attr('id');
+                    var $label = id ? $('label[for="' + id + '"]') : [];
+                    if (!$label.length) {
+                        $label = $field.closest('.col-lg-4, .col-6, .col-12, .col-md-4, .col-md-6').find('label');
+                    }
+                    if ($field.attr('type') === 'checkbox') {
+                        $label = $field.parent().find('label');
+                    }
+
+                    if ($label.length) {
+                        $label.css('color', '#28a745').addClass('modified-label');
+                        if (!$label.find('.modified-info-icon').length) {
+                            var $infoIcon = $('<span class="material-symbols-outlined modified-info-icon" style="font-size: 16px; vertical-align: middle; margin-left: 4px; color: #28a745; cursor: help;" data-toggle="tooltip">info</span>');
+                            $infoIcon.attr('title', 'Valor anterior: ' + oldVal);
+                            $label.append($infoIcon);
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Resaltar tabs/pestañas
+        modifiedTabs.forEach(function (tabName) {
+            var $tabBtn = $('.tab.' + tabName + ', .tab[class*="' + tabName + '"]');
+            if ($tabBtn.length) {
+                $tabBtn.css('color', '#28a745');
+                $tabBtn.find('span').css('color', '#28a745');
+                $tabBtn.addClass('modified-tab');
+                if (!$tabBtn.find('.modified-dot').length) {
+                    $tabBtn.append('<span class="modified-dot" style="color:#28a745;margin-left:4px;">●</span>');
+                }
+            }
+        });
+
+        // 3. Inicializar Tooltips
+        setTimeout(function() {
+            $('[data-toggle="tooltip"]').tooltip({ placement: 'top' });
+        }, 100);
+
+        // 4. Resaltar filas de listas
+        applyListRowHighlights();
+    }
 });
+
+// Mapeo de nombres de campo snapshot a nombres de campo de formulario
+var MODAL_FIELD_MAP = {
+    "address": {
+        "address_line1": "address_line1",
+        "address_line2": "address_line2",
+        "city": "city",
+        "state": "state",
+        "country": "country"
+    },
+    "contact": {
+        "first_name": "first_name",
+        "qp_contact_type": "qp_contact_type",
+        "email_id": "email_id",
+        "phone": "phone"
+    },
+    "bank_account": {
+        "bank": "bank",
+        "bank_account_no": "bank_account_no",
+        "account_type": "account_type",
+        "currency": "currency",
+        "qp_iban_number": "iban",
+        "qp_routing_code": "qp_routing_code"
+    },
+    "shareholder": {
+        "fullname": "fullname",
+        "nationality": "nationality",
+        "have_resident_another_country": "have_resident_another_country",
+        "have_american_visa": "have_american_visa",
+        "id_type": "id_type",
+        "tax_id": "tax_id",
+        "market_share": "market_share"
+    }
+};
+
+function applyModalFieldHighlights(tabName) {
+    var items = window.modifiedItems || {};
+    var tabItems = items[tabName];
+    if (!tabItems || !tabItems.length) return;
+
+    var fieldMap = MODAL_FIELD_MAP[tabName];
+    if (!fieldMap) return;
+
+    // Build a lookup: item name -> item changes
+    var changesByItem = {};
+    tabItems.forEach(function(item) {
+        changesByItem[item.name] = item;
+    });
+
+    // Determine the item name from the modal's doctype_id input
+    var modalIds = {
+        "address": "#form-address [name='doctype_id']",
+        "contact": "#form-contact [name='doctype_id']",
+        "bank_account": "#form-bank-account [name='doctype_id']",
+        "shareholder": "#form-shareholder [name='doctype_id']"
+    };
+    var $doctypeId = $(modalIds[tabName]);
+    var itemName = $doctypeId.val();
+
+    var changeData = changesByItem[itemName];
+    if (!changeData || changeData.type !== "modified") return;
+
+    var changes = changeData.changes;
+    Object.keys(changes).forEach(function(snapshotField) {
+        var formFieldName = fieldMap[snapshotField];
+        if (!formFieldName) return;
+
+        var oldVal = changes[snapshotField];
+        var $field = $('[name="' + formFieldName + '"], #' + formFieldName);
+        if (!$field.length) return;
+
+        var id = $field.attr('id');
+        var $label = id ? $('label[for="' + id + '"]') : [];
+        if (!$label.length) {
+            $label = $field.closest('.col-lg-4, .col-6, .col-12, .col-md-4, .col-md-6').find('label');
+        }
+        if ($field.attr('type') === 'checkbox') {
+            $label = $field.parent().find('label');
+        }
+
+        if ($label.length && !$label.hasClass('modified-label')) {
+            $label.css('color', '#28a745').addClass('modified-label');
+            var $infoIcon = $('<span class="material-symbols-outlined modified-info-icon" style="font-size: 16px; vertical-align: middle; margin-left: 4px; color: #28a745; cursor: help;" data-toggle="tooltip">info</span>');
+            $infoIcon.attr('title', 'Valor anterior: ' + oldVal);
+            $label.append($infoIcon);
+        }
+    });
+}
+
+function applyListRowHighlights() {
+    var items = window.modifiedItems || {};
+
+    var listContainerMap = {
+        "address": "#address_list",
+        "contact": "#contact_list",
+        "bank_account": "#bank_account_list",
+        "shareholder": "#shareholder_list"
+    };
+
+    Object.keys(listContainerMap).forEach(function(tabName) {
+        var tabItems = items[tabName];
+        if (!tabItems || !tabItems.length) return;
+
+        var $container = $(listContainerMap[tabName]);
+        if (!$container.length) return;
+
+        tabItems.forEach(function(item) {
+            var rowSelector = "." + {
+                "address": "addres-id",
+                "contact": "contact-id",
+                "bank_account": "bank_account-id",
+                "shareholder": "shareholder-id"
+            }[tabName] + "[data-id='" + item.name + "']";
+
+            var $row = $container.find(rowSelector).closest(".list-item, tr");
+            if ($row.length) {
+                var bgColors = {
+                    "modified": "#e8f5e9",
+                    "added": "#e3f2fd",
+                    "removed": "#fce4ec"
+                };
+                var color = bgColors[item.type] || "#e8f5e9";
+                $row.css("background-color", color);
+            }
+        });
+    });
+}
 
 function getDocuments(is_estatus_editable) {
 
@@ -1074,7 +1405,7 @@ function getDocuments(is_estatus_editable) {
 
     if (qp_has_quality_cert == "NO" || qp_has_quality_cert == "") {
         data["qp_quality_cert_detail"] = "";
-    }else {
+    } else {
         data["qp_quality_cert_detail"] = $("#qp_quality_cert_detail").val();
     }
 
@@ -1159,6 +1490,81 @@ function setOptionStates(states_list) {
         const optionText = `${state.name} (${state.municipality_name})`;
         $selectElement.append(new Option(optionText, state.name));
     });
+}
+
+function normalizeValue(value) {
+    return (value || "").toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function mapAddressField($select, options, resolvedValue, rawValue, nameKey, result) {
+    const resolved = normalizeValue(resolvedValue);
+    const raw = normalizeValue(rawValue);
+
+    if (!resolved) {
+        return;
+    }
+
+    const hasOption = (value) => $select.find(`option[value="${value}"]`).length > 0;
+
+    if (resolvedValue && hasOption(resolvedValue)) {
+        $select.val(resolvedValue);
+
+        if (resolved !== raw) {
+            result.needsSave = true;
+        }
+        return;
+    }
+
+    const found = (options || []).find((option) =>
+        normalizeValue(option.name) === resolved ||
+        normalizeValue(option.name) === raw ||
+        normalizeValue(option[nameKey]) === resolved ||
+        normalizeValue(option[nameKey]) === raw
+    );
+
+    if (found) {
+        $select.val(found.name);
+        result.needsSave = true;
+        return;
+    }
+
+    if (!hasOption("Otro-Otro")) {
+        $select.append(new Option("Otros", "Otro-Otro"));
+    }
+
+    $select.val("Otro-Otro");
+    result.notFound = true;
+}
+
+function renderAddressAlerts(result) {
+    const $container = $("#address-alerts");
+
+    $container.empty();
+
+    if (!result || (!result.needsSave && !result.notFound)) {
+        return;
+    }
+
+    let type = "warning";
+    let message;
+
+    if (result.needsSave && result.notFound) {
+        message = "Es requerido guardar la información. No fue posible conseguir el departamento o municipio; se seleccionó \"Otros\".";
+    } else if (result.needsSave) {
+        message = "Es requerido guardar la información para actualizar los datos del departamento y municipio.";
+    } else {
+        type = "info";
+        message = "No fue posible conseguir el departamento o municipio. Se seleccionó \"Otros\".";
+    }
+
+    $container.append(
+        `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>`
+    );
 }
 
 

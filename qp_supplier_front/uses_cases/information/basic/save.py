@@ -1,5 +1,5 @@
 import frappe
-from qp_supplier_front.services.create_data import create_party, create_first_contact
+from qp_supplier_front.services.create_data import create_party, create_first_contact, update_primary_contact_phone
 from qp_supplier_front.services.field_validate import handler as validate_field, validar_supplier_name
 import re
 
@@ -10,6 +10,8 @@ def handler(supplier_name, id_type_name, tax_id, phone_number, business_type_nam
     party = create_party(supplier, id_type_name, phone_number, business_type_name, tax_id, email)
     
     create_first_contact(supplier, email)
+    
+    update_primary_contact_phone(supplier, phone_number)
     
     validate_field(supplier, "basic" , 0, None, supplier_name=supplier_name, id_type_name=id_type_name, tax_id=tax_id, phone_number=phone_number, business_type_name=business_type_name)
     

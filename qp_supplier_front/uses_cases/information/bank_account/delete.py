@@ -9,6 +9,10 @@ def handler(supplier_id, bank_account_id):
     supplier = get_supplier(supplier_id)
     
     assert_supplier_status_editable(supplier)
+
+    is_synced = frappe.db.get_value("Bank Account", bank_account_id, "qp_from_sync")
+    if is_synced:
+        frappe.throw("No se permite eliminar una cuenta bancaria recibida desde la sincronización.")
         
     frappe.db.delete("Bank Account", {"name": bank_account_id, "party_type": "Supplier", "party": supplier_id})
     

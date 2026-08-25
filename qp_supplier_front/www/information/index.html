@@ -36,7 +36,13 @@
                 Solicitar edición de datos
             </button>
             {% elif supplier.qp_request_edit and supplier.qp_status in ('Aprobado') %}
-            <span class="badge bg-secondary text-white ms-auto fs-6 py-2 px-3">Solicitud de edición enviada</span>
+                {% if is_alpla_admin %}
+                <button class="btn btn-success btn-sm ms-auto rounded" id="approve-edit-btn">
+                    Aprobar Edición
+                </button>
+                {% else %}
+                <span class="badge bg-secondary text-white ms-auto fs-6 py-2 px-3">Solicitud de edición enviada</span>
+                {% endif %}
             {% endif %}
         </div>
     </div>
@@ -210,6 +216,8 @@
     
 {% endif %}
 
-
+{% if modified_fields %}
+<div id="supplier-modified-data" data-fields='{{ modified_fields }}' data-tabs='{{ modified_tabs }}' data-items='{{ modified_items }}' style="display:none;"></div>
+{% endif %}
 
 {% endblock %}
