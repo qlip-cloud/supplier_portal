@@ -162,6 +162,9 @@ class TestBuildPayload(unittest.TestCase):
     def _get_lines(self, purchase_order):
         return [_line()]
 
+    def _get_headquarter(self, purchase_order):
+        return "HQ01"
+
     def _multi_lines(self, purchase_order):
         return [
             _line(name="LINE1", item_code="M000455", idx=2),
@@ -170,7 +173,7 @@ class TestBuildPayload(unittest.TestCase):
 
     def test_construye_array_con_una_factura_por_doc(self):
         docs = [_doc()]
-        payload = build_payload(docs, self._get_lines)
+        payload = build_payload(docs, self._get_lines, self._get_headquarter)
         self.assertEqual(len(payload), 1)
 
         factura = payload[0]
@@ -180,6 +183,12 @@ class TestBuildPayload(unittest.TestCase):
         self.assertEqual(factura["postingDate"], "2026-07-09")
         self.assertEqual(factura["tipoFacturaDoc"], "Estándar")
         self.assertEqual(factura["Cufe"], "")
+        self.assertIn("Almacen", factura)
+        self.assertEqual(
+            list(factura.keys()).index("Almacen"),
+            list(factura.keys()).index("Cufe") + 1,
+        )
+        self.assertEqual(factura["Almacen"], "HQ01")
         self.assertEqual(factura["formaPago"], "")
         self.assertEqual(factura["dimensionSetLines"], [
             {"code": "TERCERO", "valueCode": "050633410"}
@@ -194,7 +203,7 @@ class TestBuildPayload(unittest.TestCase):
         self.assertEqual(line["NoPedido"], "45238")
 
     def test_no_linea_recepcion_usa_el_idx_del_item(self):
-        payload = build_payload([_doc()], self._multi_lines)
+        payload = build_payload([_doc()], self._multi_lines, self._get_headquarter)
         lines = payload[0]["vendorInvoiceLine"]
         self.assertEqual(
             [line["NoLineaRecepcion"] for line in lines],
@@ -203,20 +212,24 @@ class TestBuildPayload(unittest.TestCase):
 
     def test_cufe_desde_el_doc(self):
         docs = [_doc(nvfac_cufe="CUFE123")]
-        payload = build_payload(docs, self._get_lines)
+        payload = build_payload(docs, self._get_lines, self._get_headquarter)
         self.assertEqual(payload[0]["Cufe"], "CUFE123")
         self.assertEqual(payload[0]["formaPago"], "")
 
+    def test_almacen_vacio_sin_headquarter(self):
+        payload = build_payload([_doc()], self._get_lines, lambda po: "")
+        self.assertEqual(payload[0]["Almacen"], "")
+
     def test_varias_facturas_y_varias_lineas(self):
         docs = [_doc(name="DOC1", nvfac_nume="FAC001"), _doc(name="DOC2", nvfac_nume="FAC002")]
-        payload = build_payload(docs, self._get_lines)
+        payload = build_payload(docs, self._get_lines, self._get_headquarter)
         self.assertEqual(
             [p["NoFacturaProveedor"] for p in payload],
             ["FAC001", "FAC002"],
         )
 
     def test_sin_lineas_de_recepcion_deja_array_vacio(self):
-        payload = build_payload([_doc()], lambda po: [])
+        payload = build_payload([_doc()], lambda po: [], self._get_headquarter)
         self.assertEqual(payload[0]["vendorInvoiceLine"], [])
 
 
@@ -267,6 +280,9 @@ class TestApproveDocuments(unittest.TestCase):
         def get_lines_fn(purchase_order):
             return [_line()]
 
+        def get_headquarter_fn(purchase_order):
+            return "HQ01"
+
         def po_exists_fn(purchase_order):
             return bool(purchase_order)
 
@@ -299,6 +315,7 @@ class TestApproveDocuments(unittest.TestCase):
         return calls, {
             "get_docs_fn": get_docs_fn,
             "get_lines_fn": get_lines_fn,
+            "get_headquarter_fn": get_headquarter_fn,
             "po_exists_fn": po_exists_fn,
             "receipts_total_fn": receipts_total_fn,
             "send_request_fn": send_request_fn,
@@ -327,6 +344,8 @@ class TestApproveDocuments(unittest.TestCase):
         endpoint_code, payload = calls["sent"][0]
         self.assertEqual(endpoint_code, "create_purchase_order")
         self.assertEqual(len(payload), 2)
+        self.assertIn("Almacen", payload[0])
+        self.assertEqual(payload[0]["Almacen"], "HQ01")
 
         self.assertEqual(calls["persisted"], [
             ("FAC001", "BC1001"),

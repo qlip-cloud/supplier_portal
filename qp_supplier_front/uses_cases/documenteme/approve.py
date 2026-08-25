@@ -102,7 +102,7 @@ def _build_vendor_invoice_line(line):
     }
 
 
-def _build_invoice(doc, lines):
+def _build_invoice(doc, lines, headquarter):
     invoice_date = _to_date(doc.get("nvfac_fech"))
     return {
         "invoiceDate": invoice_date,
@@ -111,6 +111,7 @@ def _build_invoice(doc, lines):
         "puntofacturacion": "",
         "NoFacturaProveedor": doc.get("nvfac_nume"),
         "Cufe": doc.get("nvfac_cufe") or "",
+        "Almacen": headquarter or "",
         "tipoFacturaDoc": "Estándar",
         "formaPago": "",
         "dimensionSetLines": [
@@ -123,16 +124,18 @@ def _build_invoice(doc, lines):
     }
 
 
-def build_payload(docs, get_lines_fn):
+def build_payload(docs, get_lines_fn, get_headquarter_fn):
     """Construye el payload de BC como array de facturas (una por doc).
 
     Cada linea se origina de las recepciones (Purchase Receipt / Item) y
-    NoLineaRecepcion es el idx del Purchase Receipt Item.
+    NoLineaRecepcion es el idx del Purchase Receipt Item. El headquarter
+    (sede/almacen) se resuelve por OC via el callback inyectado.
     """
     payload = []
     for doc in (docs or []):
         lines = get_lines_fn(doc.get("nvfac_orde"))
-        payload.append(_build_invoice(doc, lines))
+        headquarter = get_headquarter_fn(doc.get("nvfac_orde"))
+        payload.append(_build_invoice(doc, lines, headquarter))
     return payload
 
 
@@ -182,6 +185,7 @@ def approve_documents(
     doc_names,
     get_docs_fn,
     get_lines_fn,
+    get_headquarter_fn,
     po_exists_fn,
     receipts_total_fn,
     send_request_fn,
@@ -208,7 +212,7 @@ def approve_documents(
     if not valid:
         return {"approved": [], "errors": errors}
 
-    payload = build_payload(valid, get_lines_fn)
+    payload = build_payload(valid, get_lines_fn, get_headquarter_fn)
 
     try:
         response, status = send_request_fn(

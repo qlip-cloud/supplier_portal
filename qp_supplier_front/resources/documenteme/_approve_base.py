@@ -101,6 +101,12 @@ def po_exists(purchase_order):
     return bool(frappe.db.exists("Purchase Order", purchase_order))
 
 
+def get_headquarter(purchase_order):
+    if not purchase_order:
+        return ""
+    return frappe.db.get_value("Purchase Order", purchase_order, "qp_headquarter") or ""
+
+
 def receipts_total(purchase_order):
     """Suma del total de Purchase Receipt por OC (delega en el adapter)."""
     return _adapter_get_receipt_total(purchase_order, frappe_module=frappe)
@@ -270,6 +276,7 @@ def approve_documents_core(doc_names, send_request_fn=None):
         doc_names,
         get_docs_fn=get_docs,
         get_lines_fn=get_lines,
+        get_headquarter_fn=get_headquarter,
         po_exists_fn=po_exists,
         receipts_total_fn=receipts_total,
         send_request_fn=send_request_fn or send_purchase_invoice_request,
