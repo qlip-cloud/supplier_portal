@@ -2,6 +2,7 @@
 import frappe
 from qp_supplier_front.services.get_data import get_supplier, get_bank_accounts
 from qp_supplier_front.services.field_validate import setup_validate_field_list
+from qp_supplier_front.services.bank_resolver import resolve_bank_name
 
 def handler(supplier_id, doctype_id, bank, account_type, bank_account_no, swift_number=None, qp_aba_number=None, iban=None, qp_routing_code=None):
     
@@ -33,7 +34,10 @@ def update_bank_account(doctype_id, bank, account_type, bank_account_no, swift_n
     
     bank_account = frappe.get_doc(doctype,doctype_id)
 
-    bank_name = bank.strip()
+    if bank_account.qp_from_sync:
+        frappe.throw("No se permite modificar una cuenta bancaria recibida desde la sincronización.")
+
+    bank_name = resolve_bank_name(bank, swift_number or "")
     
     bank_doc = setup_bank(bank_name, swift_number, qp_aba_number)
     

@@ -2,6 +2,7 @@
 import frappe
 from qp_supplier_front.services.get_data import get_supplier, get_bank_accounts
 from qp_supplier_front.services.field_validate import setup_validate_field_list
+from qp_supplier_front.services.bank_resolver import resolve_bank_name
 
 def handler(supplier_id, bank, account_type, bank_account_no, swift_number=None, qp_aba_number=None, iban=None, qp_routing_code=None):
     
@@ -31,8 +32,8 @@ def create_bank_account(supplier, bank, account_type, bank_account_no, swift_num
     
     doctype = "Bank Account"
     
-    bank_name = bank.strip()
-    
+    bank_name = resolve_bank_name(bank, swift_number or "")
+
     existing_bank = frappe.db.exists("Bank", bank_name)
 
     if not existing_bank:

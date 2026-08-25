@@ -21,9 +21,11 @@
                 <td>{{bank_account.account_type}}</td>
                 <td>{{bank_account.bank_account_no}}</td>
 
-                {% if is_estatus_editable %}
+                {% if is_estatus_editable and not bank_account.qp_from_sync %}
                 <td><span class="material-symbols-outlined bank-account-delete" style="color: red;"
                         data-bank-acccount-id="{{bank_account.name}}">delete</span></td>
+                {% else %}
+                <td></td>
                 {% endif %}
 
             </tr>

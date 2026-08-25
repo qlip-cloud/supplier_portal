@@ -49,7 +49,7 @@
 
         <div class="col-lg-4">
             <label for="qp_industry_and_commerce_rate">Tarifa Industria y Comercio</label>
-            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold" {{ "" if
+            <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold number" {{ "" if
                 is_estatus_editable else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data"
                 data-doctype="Issue" name="qp_industry_and_commerce_rate" id="qp_industry_and_commerce_rate"
                 placeholder="Tarifa Industria y Comercio" value="{{supplier.qp_industry_and_commerce_rate  or 0.00}}">

@@ -1,5 +1,6 @@
 <form class="form-estandar" id="form-basic" method="{{'PUT' if supplier_id else 'POST'}}" data-method-default="PUT"
-    action="api/method/qp_supplier_front.resources.information.basic.update" data-control="{{ 'is_estatus_editable' if is_estatus_editable else '' }}" data-type="estandar">
+    action="api/method/qp_supplier_front.resources.information.basic.update"
+    data-control="{{ 'is_estatus_editable' if is_estatus_editable else '' }}" data-type="estandar">
     <div class="row row-line">
 
 
@@ -7,7 +8,7 @@
         <div class="col-lg-4">
             <label for="id_type_name">Tipo Documento</label>
 
-            <select class="form-control" {{ "" if is_estatus_editable else "disabled = 'true'" }} name="id_type_name"
+            <select class="form-control" {{ "" if (is_estatus_editable and not supplier_id) else "disabled = 'true'" }} name="id_type_name"
                 id="status" data-label="Status" data-fieldtype="Select">
                 <option value="0" selected="selected" class="custom-option">Tipo Documento
                 </option>
@@ -21,15 +22,16 @@
         <div class="col-lg-4">
             <label for="tax_id">Documento</label>
             <input type="text" autocomplete="off" name="tax_id"
-                class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
+                class="input-with-feedback form-control floating-input bold" {{ "" if (is_estatus_editable and not supplier_id)
                 else "disabled = 'true'" }} data-fieldtype="Data" data-doctype="Issue" id="tax_id"
-                value="{{supplier.tax_id or ''}}" placeholder="Documento"{{"maxlength=9" if supplier.qp_legal_id_type == "NIT" else "maxlength=140"}}>
+                value="{{supplier.tax_id or ''}}" placeholder="Documento" {{"maxlength=9" if
+                supplier.qp_legal_id_type=="NIT" else "maxlength=140" }}>
             <div class="text-muted" style="font-size: 12px;">
                 <i>Si el tipo de documento es NIT, ingrese el número sin dígito de verificación.</i>
             </div>
         </div>
         <div class="col-lg-4" style="display: flex; justify-content: flex-start; align-items: center;">
-            <input type="checkbox" name="qp_is_foreigner_supplier" id="qp_is_foreigner_supplier" 
+            <input type="checkbox" name="qp_is_foreigner_supplier" id="qp_is_foreigner_supplier"
                 data-label="qp_is_foreigner_supplier" data-fieldtype="Checkbox" value="true" {% if
                 supplier.qp_is_foreigner_supplier %}checked{% endif %} {{ "" if is_estatus_editable else "disabled" }}>
             <label for="qp_is_foreigner_supplier" style="margin-bottom: 0;">Es proveedor extranjero</label>
@@ -39,11 +41,11 @@
         <div class="col-lg-4">
             <label for="supplier_name">Nombre</label>
             <input type="text" autocomplete="off" class="input-with-feedback form-control floating-input bold" {{ "" if
-                is_estatus_editable else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data"
+                is_estatus_editable else "disabled = 'true'" }} maxlength="65" data-fieldtype="Data"
                 data-doctype="Issue" name="supplier_name" id="supplier_name" placeholder="Nombre"
                 value="{{supplier.supplier_name or ''}}">
-                <div class="text-muted" style="font-size: 12px;">
-                <i>Máximo 65 caracteres. No se permiten caracteres especiales ni acentos.</i>
+            <div class="text-muted" style="font-size: 12px;">
+                <i>El nombre debe registrarse exactamente como aparece en el RUT.</i>
             </div>
         </div>
 
@@ -52,8 +54,11 @@
 
             <input type="text" autocomplete="off" name="phone_number"
                 class="input-with-feedback form-control floating-input bold" {{ "" if is_estatus_editable
-                else "disabled = 'true'" }} maxlength="140" data-fieldtype="Data" data-doctype="Issue" id="phone_number"
-                value="{{party.phone_number or ''}}" placeholder="Número Telefónico">
+                else "disabled = 'true'" }} maxlength="17" data-fieldtype="Data" data-doctype="Issue" id="phone_number"
+                value="{{party.phone_number or primary_phone or ''}}" placeholder="(000)0000000">
+            <div class="text-muted" style="font-size: 12px;">
+                <i>(Indicativo de ciudad) Número telefónico.</i>
+            </div>
         </div>
         <div class="col-lg-4">
             <label for="business_type_name">Tipo de Persona</label>
