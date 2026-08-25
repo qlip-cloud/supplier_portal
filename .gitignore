@@ -19,3 +19,10 @@ qp_supplier_front/context/ConsultarPagosProveedores.json
 .opencode/skills/bc-sync/SKILL.md
 docs/ASIGNACION-AUTOMATICA-DOCUMENTEME.md
 docs/CHECKLIST-DOCUMENTEME.md
+opencode.json
+.opencode/REPLICATION.md
+.opencode/agent/coder.md
+.opencode/agent/planner.md
+.opencode/agent/reviewer.md
+.opencode/agent/tester.md
+.opencode/command/dev-flow.md

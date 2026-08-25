@@ -26,10 +26,6 @@ def _get_purchase_orders():
     for invoice in invoiced:
         if invoice.purchase_order_id:
             available_by_order[invoice.purchase_order_id] += float(invoice.total or 0)
-        if invoice.name=="ABC305:900245803":
-            print("Invoice ABC305:900245803 found with purchase_order_id:", invoice.purchase_order_id)
-
-
 
     for order in orders:
         total_value = float(order.grand_total or 0)
