@@ -215,7 +215,33 @@ def create_detail_line(detalle_item):
     return line
 
 
+ADVANCED_STATES = ("BCC", "PA", "A", "R")
+
+
+def _resolve_sync_state(current_state, origin_state, origin_ueve):
+    """Resuelve el nvfac_esta tras una re-sincronizacion.
+
+    El estado local que ya avanzo el flujo (creado en BC, en proceso,
+    aprobado o rechazado) NO debe retroceder al estado de analisis (V/E/T)
+    que documenteme aun reporta. Por el contrario, un estado definitivo de
+    origen (A/R) o un evento (nvfac_ueve) de documenteme prevalece porque
+    refleja una confirmacion real del origen.
+
+    - current_state: estado local previo (o None si es detalle nuevo).
+    - origin_state:  Nvfac_esta que devuelve documenteme.
+    - origin_ueve:   Nvfac_ueve que devuelve documenteme.
+    """
+    if origin_state in ("A", "R") or origin_ueve:
+        return origin_state
+    if current_state in ADVANCED_STATES:
+        return current_state
+    return origin_state
+
+
 def _set_document_detail_fields(doc, document_data):
+    current_state = doc.get("nvfac_esta")
+    origin_state = document_data.get("Nvfac_esta")
+    origin_ueve = document_data.get("Nvfac_ueve")
     doc.nvfac_cont = document_data.get("Nvfac_cont")
     doc.nvtip_docu = document_data.get("Nvtip_docu")
     doc.nvfac_nume = document_data.get("Nvfac_nume")
@@ -225,7 +251,7 @@ def _set_document_detail_fields(doc, document_data):
     doc.nvfac_fech = convert_to_mariadb_datetime(document_data.get("Nvfac_fech"))
     doc.nvmon_codi = document_data.get("Nvmon_codi")
     doc.nvfac_totp = document_data.get("Nvfac_totp")
-    doc.nvfac_esta = document_data.get("Nvfac_esta")
+    doc.nvfac_esta = _resolve_sync_state(current_state, origin_state, origin_ueve)
     doc.nvfac_rfec = convert_to_mariadb_datetime(document_data.get("Nvfac_rfec"))
     doc.nvfac_orde = document_data.get("Nvfac_orde")
     doc.nvfac_rece = document_data.get("Nvfac_rece")

@@ -8,11 +8,27 @@ def enrich_document_detail(document):
     document["productos_recepcion"] = []
 
     _enrich_alerts(document)
+    _enrich_factura_interna(document)
 
     if purchase_order_number:
         _enrich_purchase_orders(document, purchase_order_number)
         _enrich_purchase_receipts(document, purchase_order_number)
         _update_status_if_fully_paid(document)
+
+
+def _enrich_factura_interna(document):
+    import frappe
+
+    confirmation = frappe.get_all(
+        "qp_SP_PurchaseInvoiceBC",
+        filters={"purchase_invoice": document.get("name")},
+        fields=["confirmation_id"],
+    )
+    document["factura_interna"] = (
+        confirmation[0].get("confirmation_id") or ""
+        if confirmation
+        else ""
+    )
 
 
 def build_alert_tooltip(alerts):

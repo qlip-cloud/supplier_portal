@@ -144,5 +144,50 @@ class TestCreateDocumentDetailUpdate(unittest.TestCase):
         detail.save.assert_called_once_with(ignore_permissions=True)
 
 
+class TestResolveSyncState(unittest.TestCase):
+    """El re-sync no debe retroceder estados locales que ya avanzaron el
+    flujo (BCC/PA/A/R), aunque documenteme aun reporte V/E/T."""
+
+    def test_avanzado_local_no_retrocede_con_origen_analisis(self):
+        self.assertEqual(ds._resolve_sync_state("BCC", "V", None), "BCC")
+        self.assertEqual(ds._resolve_sync_state("PA", "V", None), "PA")
+        self.assertEqual(ds._resolve_sync_state("A", "V", None), "A")
+        self.assertEqual(ds._resolve_sync_state("R", "V", None), "R")
+
+    def test_origen_definitivo_prevalece(self):
+        self.assertEqual(ds._resolve_sync_state("BCC", "A", None), "A")
+        self.assertEqual(ds._resolve_sync_state("PA", "R", None), "R")
+
+    def test_origen_con_ueve_prevalece(self):
+        self.assertEqual(ds._resolve_sync_state("BCC", "V", "033"), "V")
+
+    def test_sin_estado_avanzado_toma_origen(self):
+        self.assertEqual(ds._resolve_sync_state("E", "V", None), "V")
+        self.assertEqual(ds._resolve_sync_state("V", "E", None), "E")
+        self.assertEqual(ds._resolve_sync_state(None, "V", None), "V")
+
+    def test_toma_estado_local(self):
+        doc = MagicMock()
+        doc.get.side_effect = {"nvfac_esta": "BCC"}.get
+        document_data = {
+            "Nvfac_esta": "V",
+            "Nvfac_ueve": None,
+            "Nvfac_cont": 1,
+        }
+        ds._set_document_detail_fields(doc, document_data)
+        self.assertEqual(doc.nvfac_esta, "BCC")
+
+    def test_toma_estado_origen_sin_avance(self):
+        doc = MagicMock()
+        doc.get.side_effect = {"nvfac_esta": "E"}.get
+        document_data = {
+            "Nvfac_esta": "V",
+            "Nvfac_ueve": None,
+            "Nvfac_cont": 1,
+        }
+        ds._set_document_detail_fields(doc, document_data)
+        self.assertEqual(doc.nvfac_esta, "V")
+
+
 if __name__ == "__main__":
     unittest.main()

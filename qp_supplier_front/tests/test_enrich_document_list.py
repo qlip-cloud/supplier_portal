@@ -99,7 +99,8 @@ class TestEnrichDocumentList(unittest.TestCase):
         }
 
     def _mock_frappe(self, detail_lines=None, allowance_charges=None, attached_files=None,
-                     assignee_id=None, assigned_users=None, user_names=None):
+                     assignee_id=None, assigned_users=None, user_names=None,
+                     confirmation_id=None):
         frappe_mock = MagicMock()
         detail_lines = detail_lines if detail_lines is not None else [
             {"nvpro_codi": "SH00086", "nvuni_desc": "UN", "nvdet_tcan": 1,
@@ -115,6 +116,11 @@ class TestEnrichDocumentList(unittest.TestCase):
         assigned_users = assigned_users if assigned_users is not None else [
             {"user": "user@example.com"}
         ]
+        purchase_invoice_bc = (
+            [{"confirmation_id": confirmation_id}]
+            if confirmation_id is not None
+            else []
+        )
 
         def _get_all(doctype, filters=None, fields=None, order_by=None):
             if doctype == "qp_SP_DetailLine":
@@ -125,6 +131,8 @@ class TestEnrichDocumentList(unittest.TestCase):
                 return attached_files
             if doctype == "qp_SP_SyncLineAssignedUser":
                 return assigned_users
+            if doctype == "qp_SP_PurchaseInvoiceBC":
+                return purchase_invoice_bc
             return []
 
         frappe_mock.get_all.side_effect = _get_all
@@ -151,6 +159,21 @@ class TestEnrichDocumentList(unittest.TestCase):
         self.assertIn("assigned_to_id", doc)
         self.assertIn("assigned_to_ids", doc)
         self.assertIn("assigned_to_name", doc)
+        self.assertIn("factura_interna", doc)
+
+    def test_factura_interna_se_toma_del_confirmation_id(self):
+        frappe_mock = self._mock_frappe(confirmation_id="CONF-ABC-001")
+        document = self._make_document()
+        doc = self._run(document, frappe_mock)
+
+        self.assertEqual(doc["factura_interna"], "CONF-ABC-001")
+
+    def test_factura_interna_vacia_sin_registro_bc(self):
+        frappe_mock = self._mock_frappe(confirmation_id=None)
+        document = self._make_document()
+        doc = self._run(document, frappe_mock)
+
+        self.assertEqual(doc["factura_interna"], "")
 
     def test_detail_lines_con_campos_esperados(self):
         frappe_mock = self._mock_frappe()
