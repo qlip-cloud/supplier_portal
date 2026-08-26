@@ -11,7 +11,8 @@ cuyo evento final es 033:
      (invoice_id + confirmation_id), guarda el confirmation_id, marca el
      documento en estado "PA" (En proceso de Aprobacion) y encola este job.
   2. El job envía la secuencia 030 -> 032 -> 033 con delay entre eventos y
-     reintentos, reanudando un paso antes del ultimo evento con error.
+     reintentos, reiniciando siempre la secuencia completa desde 030 ante
+     cualquier fallo.
   3. Si la secuencia completa tiene exito, el documento se marca "A"
      (Aprobado) con nvfac_ueve "033" y se resuelven sus alertas.
   4. Si se agotan los intentos, se inserta una alerta y el documento
@@ -80,18 +81,12 @@ def enqueue_approve_confirmation(doc_name):
 def get_approval_resume_index(event_logs):
     """Indice de APPROVAL_EVENT_ORDER desde donde reanudar el envio.
 
-    Reanuda un paso antes del ultimo evento con error. Misma idea que
-    get_reject_resume_index pero para la secuencia de aprobacion (033).
+    Ante cualquier fallo se reinicia la secuencia completa desde el 030.
+    Misma idea que get_reject_resume_index pero para la secuencia de
+    aprobacion (033). El parametro se conserva para mantener la firma,
+    pero siempre se devuelve 0.
     """
-    last_error_index = None
-    for log in (event_logs or []):
-        if _log_is_error(log):
-            event_code = log.get("event_code")
-            if event_code in APPROVAL_EVENT_ORDER:
-                last_error_index = APPROVAL_EVENT_ORDER.index(event_code)
-    if last_error_index is None:
-        return 0
-    return max(0, last_error_index - 1)
+    return 0
 
 
 def _log_is_error(log):

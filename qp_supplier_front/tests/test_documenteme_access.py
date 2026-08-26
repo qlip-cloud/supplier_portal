@@ -88,16 +88,16 @@ class TestGetAssignedSyncLinesFilters(unittest.TestCase):
 
     def test_sede_con_asignadas_filtra_por_in(self):
         result = self._run([SEDE], "user@x.com", ["L1", "L2"], {"nvpro_ndoc": "1"})
-        self.assertEqual(result["nvfac_nume"], ["in", ["L1", "L2"]])
+        self.assertEqual(result["document_sync_line"], ["in", ["L1", "L2"]])
         self.assertEqual(result["nvpro_ndoc"], "1")
 
     def test_sede_sin_asignadas_filtra_vacio(self):
         result = self._run([SEDE], "user@x.com", [], {"nvpro_ndoc": "1"})
-        self.assertEqual(result["nvfac_nume"], ["in", []])
+        self.assertEqual(result["document_sync_line"], ["in", []])
 
     def test_sin_filtros_base_agrega_filtro(self):
         result = self._run([SEDE], "user@x.com", ["L1"])
-        self.assertEqual(result["nvfac_nume"], ["in", ["L1"]])
+        self.assertEqual(result["document_sync_line"], ["in", ["L1"]])
 
     def test_sede_no_mutafiltro_original(self):
         base = {"nvpro_ndoc": "1"}

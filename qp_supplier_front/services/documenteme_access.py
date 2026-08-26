@@ -16,8 +16,8 @@ La deteccion del rol se hace por la lista de roles de frappe (frappe.get_roles()
 La asignacion de una factura al usuario se resuelve a partir de
 qp_SP_SyncLineAssignedUser (hijo) y del campo assigned_to de
 qp_SP_DocumentSyncLine. El filtro resultante se aplica sobre el campo
-"nvfac_nume" de qp_SP_DocumentDetail (que coincide con el name de la
-sync line).
+"document_sync_line" de qp_SP_DocumentDetail (link al name de la sync
+line, que coincide con su autoname).
 
 Funciones sin import a Frappe en la firma para facilitar el testeo.
 """
@@ -51,8 +51,8 @@ def get_assigned_sync_lines_filters(
     """Devuelve los filters con la restriccion por asignacion.
 
     - Si el usuario ve todas las facturas, devuelve filters sin cambios.
-    - Si no, agrega un filtro "nvfac_nume" in sobre las sync lines que
-      tiene asignadas el usuario (via child rows o assigned_to).
+    - Si no, agrega un filtro "document_sync_line" in sobre las sync lines
+      que tiene asignadas el usuario (via child rows o assigned_to).
     """
     result = dict(filters or {})
 
@@ -61,9 +61,9 @@ def get_assigned_sync_lines_filters(
 
     assigned = assigned_line_names_fn(user)
     if assigned:
-        result["nvfac_nume"] = ["in", assigned]
+        result["document_sync_line"] = ["in", assigned]
     else:
-        result["nvfac_nume"] = ["in", []]
+        result["document_sync_line"] = ["in", []]
 
     return result
 

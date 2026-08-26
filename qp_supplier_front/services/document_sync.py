@@ -80,9 +80,12 @@ def create_sync_line(log_name, doc_data):
     import frappe
 
     nvfac_nume = doc_data.get("Nvfac_nume")
+    nvpro_ndoc = doc_data.get("Nvpro_ndoc")
 
-    if frappe.db.exists("qp_SP_DocumentSyncLine", nvfac_nume):
-        line = frappe.get_doc("qp_SP_DocumentSyncLine", nvfac_nume)
+    sync_line_name = build_sync_line_name(nvpro_ndoc, nvfac_nume)
+
+    if frappe.db.exists("qp_SP_DocumentSyncLine", sync_line_name):
+        line = frappe.get_doc("qp_SP_DocumentSyncLine", sync_line_name)
         line = _set_sync_line_fields(line, log_name, doc_data)
         line.save(ignore_permissions=True)
         return line
@@ -91,6 +94,11 @@ def create_sync_line(log_name, doc_data):
     line = _set_sync_line_fields(line, log_name, doc_data)
     line.insert(ignore_permissions=True)
     return line
+
+
+def build_sync_line_name(nvpro_ndoc, nvfac_nume):
+    """Nombre (autoname) de qp_SP_DocumentSyncLine: {nvpro_ndoc}:{nvfac_nume}."""
+    return "{}:{}".format(nvpro_ndoc, nvfac_nume)
 
 
 def create_sync_lines(log_name, ldocuments):

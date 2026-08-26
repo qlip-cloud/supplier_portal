@@ -89,11 +89,13 @@ class TestBuildAssignedToName(unittest.TestCase):
 
 class TestEnrichDocumentList(unittest.TestCase):
 
-    def _make_document(self, name="DOC1", nvfac_nume="DOC1", nvfac_orde="OC111"):
+    def _make_document(self, name="DOC1", nvfac_nume="DOC1", nvfac_orde="OC111",
+                       document_sync_line="SYNC1"):
         return {
             "name": name,
             "nvfac_nume": nvfac_nume,
             "nvfac_orde": nvfac_orde,
+            "document_sync_line": document_sync_line,
         }
 
     def _mock_frappe(self, detail_lines=None, allowance_charges=None, attached_files=None,

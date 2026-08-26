@@ -140,7 +140,7 @@ def auto_reject(
     )
     return [
         {
-            "doc": item["doc"].get("nvfac_nume") or item["doc"].get("name"),
+            "doc": item["doc"].get("name") or item["doc"].get("nvfac_nume"),
             "motive": get_reject_motive(item["rule"]) if item.get("rule") else None,
             "rule": item["rule"].get("rule_name") if item.get("rule") else None,
             "pending": item.get("pending", False),

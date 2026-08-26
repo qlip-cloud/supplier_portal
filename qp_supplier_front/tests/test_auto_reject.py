@@ -283,6 +283,20 @@ class TestAutoReject(unittest.TestCase):
         self.assertEqual(result[0]["rule"], "Sin coincidencia con Orden de Compra")
         self.assertEqual(result[0]["motive"], get_reject_motive(_rule(RULE_NO_PO)))
 
+    def test_recolecta_descriptores_con_name_con_prefijo(self):
+        # Cuando el name del DocumentDetail lleva el prefijo {nvpro_ndoc}:
+        # (p. ej. "900162414:SETT0501159"), el descriptor debe referenciar el
+        # name real (no el nvfac_nume) para que la infraestructura lo localice
+        # luego (_retry_enabled_for/_mark_pending/reject_batch_job usan name).
+        result = self._run(
+            [_invoice(name="900162414:SETT0501159", nvfac_nume="SETT0501159")],
+            _rule(RULE_NO_PO, rule_name="Sin coincidencia con Orden de Compra"),
+            lambda o: False,
+            lambda o: None,
+        )
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["doc"], "900162414:SETT0501159")
+
     def test_descarta_candidatos_no_E(self):
         candidates = [
             _invoice(name="DOC1", nvfac_esta="E"),

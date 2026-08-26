@@ -120,7 +120,7 @@ def _enrich_assignment(doc):
     import frappe
 
     assignee_id = frappe.db.get_value(
-        "qp_SP_DocumentSyncLine", doc.get("nvfac_nume"), "assigned_to"
+        "qp_SP_DocumentSyncLine", doc.get("document_sync_line"), "assigned_to"
     )
     assigned_user_ids = _get_assigned_user_ids(frappe, doc, assignee_id)
     doc["assigned_to_id"] = assignee_id
@@ -134,7 +134,7 @@ def _get_assigned_user_ids(frappe, doc, assignee_id):
         row.get("user")
         for row in frappe.get_all(
             "qp_SP_SyncLineAssignedUser",
-            filters={"parent": doc.get("nvfac_nume"), "parenttype": "qp_SP_DocumentSyncLine"},
+            filters={"parent": doc.get("document_sync_line"), "parenttype": "qp_SP_DocumentSyncLine"},
             fields=["user"]
         )
     ]

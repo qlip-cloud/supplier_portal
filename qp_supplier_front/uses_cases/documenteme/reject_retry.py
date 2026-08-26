@@ -8,14 +8,13 @@ reintento viven aqui; la infraestructura (HTTP, DB, sleep) se inyecta.
 
 El servidor documenteme es lento en aplicar los eventos: un HTTP 200/201
 no garantiza que el cambio ya este aplicado (ej. el 032 tardo mas de 2 min
-en reflejarse). Por eso, cuando un evento falla, el siguiente intento
-reanuda un paso antes del evento con error, reenviando tambien el evento
-que reporto exito pero que pudo no aplicarse.
+en reflejarse). Por eso, ante cualquier fallo, el siguiente intento
+reinicia la secuencia completa desde el 030 para garantizar que todos los
+eventos se vuelvan a emitir en orden.
 
 Reglas de reanudacion (segun el flujo definido):
-- 030 ok, 032 ok, 031 error  -> siguiente intento reenvia 032, 031
-- 030 ok, 032 error          -> siguiente intento reenvia 030, 032, 031
-- sin errores previos        -> secuencia completa 030, 032, 031
+- cualquier error en 030/032/031 -> siguiente intento reenvia 030, 032, 031
+- sin errores previos           -> secuencia completa 030, 032, 031
 """
 
 import json
@@ -114,29 +113,19 @@ def _log_is_error(log):
 def get_reject_resume_index(event_logs):
     """Indice de EVENT_ORDER desde donde reanudar el envio del rechazo.
 
-    Reanuda un paso antes del ultimo evento con error (ver docstring del
-    modulo). Si no hay errores previos, devuelve 0 (secuencia completa).
+    Ante cualquier fallo se reinicia la secuencia completa desde el 030
+    (ver docstring del modulo). El parametro se conserva para mantener la
+    firma, pero siempre se devuelve 0.
     """
-    last_error_index = None
-    for log in (event_logs or []):
-        if _log_is_error(log):
-            idx = EVENT_ORDER.index(log.get("event_code"))
-            last_error_index = idx
-    if last_error_index is None:
-        return 0
-    return max(0, last_error_index - 1)
+    return 0
 
 
 def _compute_resume_from_attempts(attempts):
-    """Indice de reanudacion calculado sobre intentos en memoria."""
-    last_error_index = None
-    for attempt in (attempts or []):
-        if _is_error(attempt["response"], attempt["status"]):
-            idx = EVENT_ORDER.index(attempt["event_code"])
-            last_error_index = idx
-    if last_error_index is None:
-        return 0
-    return max(0, last_error_index - 1)
+    """Indice de reanudacion calculado sobre intentos en memoria.
+
+    Ante cualquier fallo se reinicia desde el 030.
+    """
+    return 0
 
 
 def build_retry_events(doc, event_config, company_tax_id, resume_index,

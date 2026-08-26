@@ -18,8 +18,8 @@ El rechazo es ASINCRONO y usa un estado intermedio "En proceso" (P):
      aplicar cada cambio.
    - reintentos (hasta reject_retry_max_attempts, por defecto 5) separados
      por reject_retry_interval_seconds.
-   - reanudacion UN PASO ATRAS del ultimo evento con error (ver
-     reject_retry.get_reject_resume_index).
+   - ante cualquier fallo, cada intento reinicia la secuencia completa
+     desde 030 (ver reject_retry.get_reject_resume_index).
 4. Si la secuencia completa tiene exito, la factura se marca "R" y se
    resuelven sus alertas. Si se agotan los intentos, se inserta una alerta
    de "no se ha podido rechazar" y la factura permanece en "PR" para

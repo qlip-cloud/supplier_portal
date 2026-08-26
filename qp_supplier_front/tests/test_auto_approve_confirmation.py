@@ -75,13 +75,13 @@ class TestGetApprovalResumeIndex(unittest.TestCase):
         )
         self.assertEqual(get_approval_resume_index(logs), 0)
 
-    def test_error_en_033_reanuda_desde_032(self):
+    def test_error_en_033_reanuda_desde_030(self):
         logs = self._logs(
             {"event_code": "030", "status": 200},
             {"event_code": "032", "status": 200},
             {"event_code": "033", "status": 500},
         )
-        self.assertEqual(get_approval_resume_index(logs), 1)
+        self.assertEqual(get_approval_resume_index(logs), 0)
 
     def test_todo_exitoso_reanuda_0(self):
         logs = self._logs(

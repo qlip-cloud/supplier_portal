@@ -98,9 +98,9 @@ class TestGetRejectResumeIndex(unittest.TestCase):
         logs = [_ok_log("030"), _ok_log("032"), _ok_log("031")]
         self.assertEqual(get_reject_resume_index(logs), 0)
 
-    def test_error_en_031_reanuda_desde_032(self):
+    def test_error_en_031_reanuda_desde_030(self):
         logs = [_ok_log("030"), _ok_log("032"), _err_log("031")]
-        self.assertEqual(get_reject_resume_index(logs), EVENT_ORDER.index("032"))
+        self.assertEqual(get_reject_resume_index(logs), EVENT_ORDER.index("030"))
 
     def test_error_en_032_reanuda_desde_030(self):
         logs = [_ok_log("030"), _err_log("032")]
@@ -114,26 +114,26 @@ class TestGetRejectResumeIndex(unittest.TestCase):
         # Secuencia completa una vez y error en un reintento posterior
         logs = [_ok_log("030"), _ok_log("032"), _ok_log("031"),
                 _ok_log("032"), _err_log("031")]
-        self.assertEqual(get_reject_resume_index(logs), EVENT_ORDER.index("032"))
+        self.assertEqual(get_reject_resume_index(logs), EVENT_ORDER.index("030"))
 
     def test_ya_aplicado_no_cuenta_como_error(self):
-        # 032 responde "ya esta aplicado" (no es error), solo 031 falla real
+        # 032 responde "ya esta aplicado" (no es error), solo 031 falla real.
+        # Ante el fallo real de 031 se reinicia desde 030.
         logs = [_ok_log("030"), _err_log("032"), _err_log("031")]
         logs[1]["response"] = {
             "Result": 1,
             "Description": "El documento [X] ya cuenta con el/los evento(s) [032] y se encuentra(n) en estado exitoso.",
         }
-        # El 032 "ya aplicado" no debe contar como error: se reanuda desde 032
-        self.assertEqual(get_reject_resume_index(logs), EVENT_ORDER.index("032"))
+        self.assertEqual(get_reject_resume_index(logs), EVENT_ORDER.index("030"))
 
     def test_ya_aplicado_en_030_con_031_fallido(self):
-        # 030 ya aplicado (no error), 032 ok, 031 falla real -> resume desde 032
+        # 030 ya aplicado (no error), 032 ok, 031 falla real -> reinicia desde 030
         logs = [_ok_log("030"), _ok_log("032"), _err_log("031")]
         logs[0]["response"] = {
             "Result": 1,
             "Description": "El evento 030 ya fue emitido.",
         }
-        self.assertEqual(get_reject_resume_index(logs), EVENT_ORDER.index("032"))
+        self.assertEqual(get_reject_resume_index(logs), EVENT_ORDER.index("030"))
 
 
 class TestBuildRetryEvents(unittest.TestCase):

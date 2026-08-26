@@ -58,13 +58,13 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
                     [f for f in doc["attached_files"] if f.get("file_type", "").upper() != "XML"]
                 )
                 assignee_id = frappe.db.get_value(
-                    "qp_SP_DocumentSyncLine", doc.get("nvfac_nume"), "assigned_to"
+                    "qp_SP_DocumentSyncLine", doc.get("document_sync_line"), "assigned_to"
                 )
                 assigned_user_ids = [
                     row.get("user")
                     for row in frappe.get_all(
                         "qp_SP_SyncLineAssignedUser",
-                        filters={"parent": doc.get("nvfac_nume"), "parenttype": "qp_SP_DocumentSyncLine"},
+                        filters={"parent": doc.get("document_sync_line"), "parenttype": "qp_SP_DocumentSyncLine"},
                         fields=["user"]
                     )
                 ]
