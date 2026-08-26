@@ -198,16 +198,16 @@ class TestBuildPayload(unittest.TestCase):
         self.assertEqual(line["NoProducto"], "M000455")
         self.assertEqual(line["cantidad"], 10)
         self.assertEqual(line["Precio"], 5000.0)
-        self.assertEqual(line["NoLineaRecepcion"], "1")
+        self.assertEqual(line["NoLineaRecepcion"], "10000")
         self.assertEqual(line["NoRecepcion"], "R108349")
         self.assertEqual(line["NoPedido"], "45238")
 
-    def test_no_linea_recepcion_usa_el_idx_del_item(self):
+    def test_no_linea_recepcion_se_incrementa_por_factura(self):
         payload = build_payload([_doc()], self._multi_lines, self._get_headquarter)
         lines = payload[0]["vendorInvoiceLine"]
         self.assertEqual(
             [line["NoLineaRecepcion"] for line in lines],
-            ["2", "5"],
+            ["10000", "20000"],
         )
 
     def test_cufe_desde_el_doc(self):

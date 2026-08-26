@@ -91,12 +91,12 @@ def _to_date(value):
     return value.strftime("%Y-%m-%d")
 
 
-def _build_vendor_invoice_line(line):
+def _build_vendor_invoice_line(line, idx="10000"):
     return {
         "NoProducto": line.get("item_code") or "",
         "cantidad": line.get("qty") or 0,
         "Precio": line.get("rate") or 0,
-        "NoLineaRecepcion": str(line.get("idx") or "") ,
+        "NoLineaRecepcion": idx,
         "NoRecepcion": line.get("receiving_no") or "",
         "NoPedido": line.get("order_no") or "",
     }
@@ -118,8 +118,8 @@ def _build_invoice(doc, lines, headquarter):
             {"code": "TERCERO", "valueCode": doc.get("nvpro_ndoc")}
         ],
         "vendorInvoiceLine": [
-            _build_vendor_invoice_line(line)
-            for line in (lines or [])
+            _build_vendor_invoice_line(line, idx=str((i+1) * 10000))
+            for i, line in enumerate(lines or [])
         ],
     }
 
@@ -128,7 +128,9 @@ def build_payload(docs, get_lines_fn, get_headquarter_fn):
     """Construye el payload de BC como array de facturas (una por doc).
 
     Cada linea se origina de las recepciones (Purchase Receipt / Item) y
-    NoLineaRecepcion es el idx del Purchase Receipt Item. El headquarter
+    NoLineaRecepcion es un numero de linea unico por factura (10000, 20000,
+    ...) para que BC no rechace lineas duplicadas cuando varias recepciones
+    de la misma OC comparten el mismo idx interno. El headquarter
     (sede/almacen) se resuelve por OC via el callback inyectado.
     """
     payload = []
