@@ -39,7 +39,7 @@ def generate_stale_status_alerts(threshold_hours=48, now=None):
     documents = frappe.get_all(
         "qp_SP_DocumentDetail",
         filters=filters,
-        fields=["name", "nvfac_nume", "creation"],
+        fields=["name", "nvfac_nume", "nvfac_esta", "creation"],
     )
 
     inserted = []

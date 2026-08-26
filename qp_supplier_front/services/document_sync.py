@@ -31,7 +31,7 @@ def create_sync_log(supplier_id, tax_id, endpoint_code, payload, response, statu
     if status != 200:
         log.error_message = get_response_description(response) or json.dumps(response)
 
-    log.insert()
+    log.insert(ignore_permissions=True)
     return log.name
 
 
@@ -84,12 +84,12 @@ def create_sync_line(log_name, doc_data):
     if frappe.db.exists("qp_SP_DocumentSyncLine", nvfac_nume):
         line = frappe.get_doc("qp_SP_DocumentSyncLine", nvfac_nume)
         line = _set_sync_line_fields(line, log_name, doc_data)
-        line.save()
+        line.save(ignore_permissions=True)
         return line
 
     line = frappe.new_doc("qp_SP_DocumentSyncLine")
     line = _set_sync_line_fields(line, log_name, doc_data)
-    line.insert()
+    line.insert(ignore_permissions=True)
     return line
 
 
@@ -144,7 +144,7 @@ def create_attached_file(detail_name, attached_item):
         "attached_to_doctype": "qp_SP_DocumentDetail",
         "attached_to_name": detail_name,
     })
-    file_doc.save()
+    file_doc.save(ignore_permissions=True)
 
     return file_doc
 
@@ -294,7 +294,7 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
 
         _create_allowance_charges_from_xml(detail, attached_list)
 
-        detail.save()
+        detail.save(ignore_permissions=True)
         return detail
 
     detail = frappe.new_doc("qp_SP_DocumentDetail")
@@ -305,7 +305,7 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
         detail_line = create_detail_line(detalle_item)
         detail.append("detail_lines", detail_line)
 
-    detail.insert()
+    detail.insert(ignore_permissions=True)
 
     for attached_item in (attached_list or []):
         file_doc = create_attached_file(detail.name, attached_item)
@@ -318,7 +318,7 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
 
     _create_allowance_charges_from_xml(detail, attached_list)
 
-    detail.save()
+    detail.save(ignore_permissions=True)
 
     return detail
 
@@ -334,11 +334,11 @@ def log_sync_attempt(line_name, status, error_message, response):
     attempt.status = status
     attempt.error_message = error_message
     attempt.response = json.dumps(response) if not isinstance(response, str) else response
-    line.save()
+    line.save(ignore_permissions=True)
 
 
 def mark_line_completed(line_name):
     import frappe
     line = frappe.get_doc("qp_SP_DocumentSyncLine", line_name)
     line.is_completed = 1
-    line.save()
+    line.save(ignore_permissions=True)

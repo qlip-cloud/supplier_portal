@@ -16,10 +16,10 @@ import unittest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
-sys.modules["frappe"] = MagicMock()
-sys.modules["frappe.utils"] = MagicMock()
-sys.modules["frappe.model"] = MagicMock()
-sys.modules["frappe.model.document"] = MagicMock()
+_sys_mods_saved = {}
+for _module_name in ("frappe", "frappe.utils", "frappe.model", "frappe.model.document"):
+    _sys_mods_saved[_module_name] = sys.modules.get(_module_name)
+    sys.modules[_module_name] = MagicMock()
 
 from qp_supplier_front.uses_cases.documenteme.stale_status_alert import (  # noqa: E402
     ANALYSIS_STATES,
@@ -133,7 +133,13 @@ class TestPureCore(unittest.TestCase):
 # ---------------------------------------------------------------------------
 sys.modules["frappe"] = MagicMock()
 
-from qp_supplier_front.resources.documenteme import stale_status_alert as stale_infra  # noqa: E402  # noqa: E402
+from qp_supplier_front.resources.documenteme import stale_status_alert as stale_infra  # noqa: E402
+
+for _module_name, _original in _sys_mods_saved.items():
+    if _original is None:
+        sys.modules.pop(_module_name, None)
+    else:
+        sys.modules[_module_name] = _original  # noqa: E402
 
 
 def _candidate(name="DOC1", nvfac_nume="FAC001", nvfac_esta="E", creation=None):
@@ -219,6 +225,8 @@ class TestGenerateStaleStatusAlerts(unittest.TestCase):
             call_kwargs["filters"]["nvfac_esta"],
             ["in", list(ANALYSIS_STATES)],
         )
+        self.assertIn("nvfac_esta", call_kwargs["fields"])
+        self.assertIn("creation", call_kwargs["fields"])
 
 
 class TestHasOpenAlert(unittest.TestCase):

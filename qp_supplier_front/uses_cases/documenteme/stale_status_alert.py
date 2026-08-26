@@ -58,7 +58,7 @@ def should_alert(document, now, threshold_hours=DEFAULT_THRESHOLD_HOURS):
 def build_alert_message(nvfac_nume, doc_name=None):
     """Mensaje estable de la alerta (permite dedup entre sincronizaciones)."""
     nume = nvfac_nume or doc_name or ""
-    return "La factura {} lleva más de 48 horas sin un estatus definitivo.".format(nume)
+    return "La factura {} lleva más de 48 horas sin revisión.".format(nume)
 
 
 def cutoff_datetime(now, threshold_hours=DEFAULT_THRESHOLD_HOURS):

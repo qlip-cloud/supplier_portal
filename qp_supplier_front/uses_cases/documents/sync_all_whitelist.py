@@ -32,11 +32,16 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
                     doc_names=None):
     """Fase SINCRONA del flujo documenteme (no depende de workers).
 
-    Descarga lineas + detalles (trae las facturas), luego asigna y aprueba
+    Genera primero las alertas de estatus no definitivo (>48h): solo leen
+    qp_SP_DocumentDetail e insertan en la child table qp_SP_Alert, asi que
+    se ejecutan aunque el sync posterior falle (red, permisos o workers).
+    Luego descarga lineas + detalles (trae las facturas), asigna y aprueba
     de forma sincrona. NO lanza el auto-rechazo aqui.
 
     Retorna {"created": [..], "approved": [..]}.
     """
+    run_documenteme_stale_status_alerts()
+
     companies = frappe.get_all("Company", pluck="name")
 
     for company_id in companies:
@@ -65,7 +70,6 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
     created_names = created_names or []
     run_documenteme_auto_assign(doc_names or created_names)
     approve_result = run_documenteme_auto_approve(doc_names or created_names)
-    run_documenteme_stale_status_alerts()
 
     return {
         "created": created_names,
