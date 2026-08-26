@@ -90,6 +90,13 @@ def create_sync_line(log_name, doc_data):
         line.save(ignore_permissions=True)
         return line
 
+    existing = _get_existing_sync_line(nvpro_ndoc, nvfac_nume)
+    if existing:
+        line = frappe.get_doc("qp_SP_DocumentSyncLine", existing)
+        line = _set_sync_line_fields(line, log_name, doc_data)
+        line.save(ignore_permissions=True)
+        return line
+
     line = frappe.new_doc("qp_SP_DocumentSyncLine")
     line = _set_sync_line_fields(line, log_name, doc_data)
     line.insert(ignore_permissions=True)
@@ -98,7 +105,32 @@ def create_sync_line(log_name, doc_data):
 
 def build_sync_line_name(nvpro_ndoc, nvfac_nume):
     """Nombre (autoname) de qp_SP_DocumentSyncLine: {nvpro_ndoc}:{nvfac_nume}."""
+    if not nvpro_ndoc:
+        return nvfac_nume
     return "{}:{}".format(nvpro_ndoc, nvfac_nume)
+
+
+def _get_existing_sync_line(nvpro_ndoc, nvfac_nume):
+    """Busca una SyncLine previa del mismo proveedor y numero de factura.
+
+    Cubre el formato legacy (name == nvfac_nume) y el prefijado, para
+    reutilizar la linea ya sincronizada (sin duplicarla ni forzar una
+    re-sincronizacion del detalle). Retorna el name o None.
+    """
+    import frappe
+
+    if not nvfac_nume:
+        return None
+    filters = {"nvfac_nume": nvfac_nume}
+    if nvpro_ndoc:
+        filters["nvpro_ndoc"] = nvpro_ndoc
+    names = frappe.get_all(
+        "qp_SP_DocumentSyncLine",
+        filters=filters,
+        pluck="name",
+        limit=1,
+    )
+    return names[0] if names else None
 
 
 def create_sync_lines(log_name, ldocuments):
@@ -281,10 +313,17 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
             if file_id:
                 frappe.delete_doc("File", file_id, ignore_permissions=True, force=True)
 
-        # Remove old child rows
+        # Remove old child rows from DB
         frappe.db.sql("DELETE FROM `tabqp_SP_DetailLine` WHERE parent=%s", detail_name)
         frappe.db.sql("DELETE FROM `tabqp_SP_DocumentAttach` WHERE parent=%s", detail_name)
         frappe.db.sql("DELETE FROM `tabqp_SP_AllowanceCharge` WHERE parent=%s", detail_name)
+
+        # Clear the child rows already loaded in memory by get_doc, otherwise
+        # save() re-persists the stale rows and _validate_links fails on the
+        # File links that were deleted above.
+        detail.detail_lines = []
+        detail.attached_files = []
+        detail.allowance_charges = []
 
         # Re-populate detail lines
         for detalle_item in (document_data.get("Detalle") or []):
