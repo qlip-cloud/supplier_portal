@@ -362,7 +362,7 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False):
             if simulation.is_simulation_enabled()
             else send_purchase_invoice_request
         )
-    return approve_documents(
+    result = approve_documents(
         doc_names,
         get_docs_fn=get_docs,
         get_lines_fn=get_lines,
@@ -379,6 +379,13 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False):
         now=_make_now(),
         force=force,
     )
+
+    if simulation.is_simulation_enabled():
+        result["simulation_confirmation"] = simulation.run_simulated_confirmation(
+            result.get("approved") or []
+        )
+
+    return result
 
 
 def collect_document_violations(doc_names):

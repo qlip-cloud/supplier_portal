@@ -1,20 +1,18 @@
 # -*- coding: utf-8 -*-
 """
 auto_approve_mock.py (documenteme)
-==================================
+=================================
 Mock para probar la aprobacion automatica sin llamar a BC.
 
-Replica el patron de auto_reject_mock.py: ejecuta la fase de analisis
-(promote_eligible_to_v) y la fase de aprobacion (approve_documents_core)
-en el hilo principal, inyectando el send_request_fn mockeado de
-approve_mock en lugar de encolar el job real que habla con BC.
+Delega en resources/documenteme/simulation.py (build_send_double) el
+send_request_fn mockeado, en lugar de encolar el job real que habla con BC.
 """
 
 import frappe
 from frappe import parse_json
 
 from qp_supplier_front.resources.response import handler as response
-from qp_supplier_front.resources.documenteme.approve_mock import _build_test_send
+from qp_supplier_front.resources.documenteme import simulation
 from qp_supplier_front.resources.documenteme.auto_approve import (
     get_v_doc_names,
     is_auto_approve_enabled,
@@ -47,7 +45,7 @@ def auto_approve_test(invoice_numbers=None, fail_numbers=None, fail_all=None):
         fails = parse_json(fail_numbers) if fail_numbers else None
         fail_all_flag = bool(parse_json(fail_all)) if fail_all else False
 
-        send_fn = _build_test_send(
+        send_fn = simulation.build_send_double(
             numbers,
             fail_numbers=fails,
             fail_all=fail_all_flag,

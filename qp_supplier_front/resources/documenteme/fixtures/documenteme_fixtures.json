@@ -1,0 +1,110 @@
+{
+  "headers": [
+    {
+      "Nvfac_nume": "SIM-FAC-0001",
+      "Nvfac_cont": "22222",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-25T10:00:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 1500000,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "PO-SIM-0001",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "2"
+    },
+    {
+      "Nvfac_nume": "SIM-FAC-0002",
+      "Nvfac_cont": "33333",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-25T11:00:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 800000,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "1"
+    }
+  ],
+  "details": {
+    "SIM-FAC-0001": {
+      "Document": {
+        "Nvfac_nume": "SIM-FAC-0001",
+        "Nvfac_cont": "22222",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-0001",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-25T10:00:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 1500000,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "PO-SIM-0001",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "2",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 1500000,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 1500000,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-0001",
+            "Nvdet_desc": "ITEM SIMULADO 1",
+            "Nvdet_tcan": 10,
+            "Nvdet_valo": 150000,
+            "Nvdet_stot": 1500000,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    },
+    "SIM-FAC-0002": {
+      "Document": {
+        "Nvfac_nume": "SIM-FAC-0002",
+        "Nvfac_cont": "33333",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-0002",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-25T11:00:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 800000,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "1",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 800000,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 800000,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-0002",
+            "Nvdet_desc": "ITEM SIMULADO 2",
+            "Nvdet_tcan": 2,
+            "Nvdet_valo": 400000,
+            "Nvdet_stot": 800000,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    }
+  }
+}

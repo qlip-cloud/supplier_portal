@@ -226,5 +226,81 @@ class TestApproveBatchJob(unittest.TestCase):
         self.assertEqual(doc.nvfac_esta, "BCC")
 
 
+class TestApproveBatchJobHttpFn(unittest.TestCase):
+
+    def test_batch_job_inyecta_http_fn_a_approve_one(self):
+        doc = _make_doc()
+        calls = []
+
+        def fake_approve_one(doc, config, tax_id, url, headers, method, http_fn=None):
+            calls.append(http_fn)
+            return {"doc": doc.name, "approved": True, "attempts": 1, "error": None}
+
+        http = lambda payload, url, headers, method: ({"Result": 0}, 200)
+
+        with patch.object(mod, "get_approval_config", return_value={
+            "max_attempts": 2, "retry_interval": 0, "event_delay": 0,
+        }), \
+             patch.object(mod, "simulation") as sim, \
+             patch.object(mod, "get_company_tax_id", return_value="890900123"), \
+             patch.object(mod, "get_event_endpoint", return_value=(
+                 "http://x", {}, "POST")), \
+             patch.object(mod, "_approve_one", side_effect=fake_approve_one):
+            sim.is_simulation_enabled.return_value = False
+            mod.frappe.get_doc = lambda doctype, name: doc
+            results = mod.approve_confirmation_batch_job(["FAC001"], http_fn=http)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(calls, [http])
+        self.assertTrue(results[0][1]["approved"])
+
+    def test_batch_job_sin_http_fn_usa_default(self):
+        doc = _make_doc()
+        calls = []
+
+        def fake_approve_one(doc, config, tax_id, url, headers, method, http_fn=None):
+            calls.append(http_fn)
+            return {"doc": doc.name, "approved": True, "attempts": 1, "error": None}
+
+        with patch.object(mod, "get_approval_config", return_value={
+            "max_attempts": 2, "retry_interval": 0, "event_delay": 0,
+        }), \
+             patch.object(mod, "simulation") as sim, \
+             patch.object(mod, "_approve_one", side_effect=fake_approve_one):
+            sim.is_simulation_enabled.return_value = True
+            sim.get_company_tax_id.return_value = "890900123"
+            sim.get_event_endpoint.return_value = ("http://x", {}, "POST")
+            mod.frappe.get_doc = lambda doctype, name: doc
+            mod.approve_confirmation_batch_job(["FAC001"])
+
+        self.assertEqual(len(calls), 1)
+        self.assertIsNone(calls[0])
+
+
+class TestSendEventHttpFn(unittest.TestCase):
+
+    def test_http_fn_explicito_tiene_prioridad(self):
+        payload = {"Nveve_dian": "030"}
+        used = []
+
+        def custom(payload, url, headers, method):
+            used.append(payload)
+            return ({"Result": 0}, 200)
+
+        mod._send_event(payload, "http://x", {}, "POST", http_fn=custom)
+        self.assertEqual(used, [payload])
+
+    def test_sin_http_fn_con_simulacion_usa_http_event(self):
+        payload = {"Nveve_dian": "030"}
+        with patch.object(mod, "simulation") as sim:
+            sim.is_simulation_enabled.return_value = True
+            sim.http_event.return_value = ({"Result": 0, "Description": "OK"}, 200)
+            response, status = mod._send_event(
+                payload, "http://x", {}, "POST", http_fn=None
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(response["Result"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

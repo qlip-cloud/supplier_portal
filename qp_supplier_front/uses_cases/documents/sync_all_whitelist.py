@@ -15,6 +15,7 @@ from qp_supplier_front.services.document_sync import (
     mark_line_completed,
 )
 from qp_supplier_front.services import sync_lock
+from qp_supplier_front.resources.documenteme import simulation
 from qp_authorization.use_case.basic.authorize import send_request_status
 from qp_supplier_front.resources.documenteme.auto_assign import run_auto_assign
 from qp_supplier_front.resources.documenteme.auto_approve import run_auto_approve
@@ -26,6 +27,26 @@ DOCUMENTS_LOCK_DOMAIN = "documents"
 
 def get_company_tax_id(company_name):
     return frappe.get_doc("Company", company_name).tax_id
+
+
+def _resolve_sync_runtime():
+    """Retorna (send_request_fn, get_tax_id_fn) reales o simulados.
+
+    En modo simulador las fases 1-2 del sync se sirven de fixtures JSON y el
+    NIT de la compania es el NIT simulado (simulation.get_company_tax_id)
+    para etiquetar todas las filas y permitir la limpieza manual posterior
+    por convencion (cleanup_simulation).
+    """
+    if simulation.is_simulation_enabled():
+        fixtures = simulation.load_fixtures()
+        return (
+            simulation.build_inbound_sync_double(
+                headers=fixtures.get("headers") or [],
+                details=fixtures.get("details") or {},
+            ),
+            lambda _company_id: simulation.get_company_tax_id(),
+        )
+    return send_request_status, get_company_tax_id
 
 
 def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
@@ -42,13 +63,15 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
     """
     run_documenteme_stale_status_alerts()
 
+    send_request_fn, get_tax_id_fn = _resolve_sync_runtime()
+
     companies = frappe.get_all("Company", pluck="name")
 
     for company_id in companies:
         sync_by_supplier(
             supplier_id=company_id,
-            get_tax_id_fn=get_company_tax_id,
-            send_request_fn=send_request_status,
+            get_tax_id_fn=get_tax_id_fn,
+            send_request_fn=send_request_fn,
             create_log_fn=create_sync_log,
             create_lines_fn=create_sync_lines,
             commit_fn=lambda: frappe.db.commit(),
@@ -59,7 +82,7 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
 
     created_names = sync_detail(
         get_uncompleted_lines_fn=get_uncompleted_lines,
-        send_request_fn=send_request_status,
+        send_request_fn=send_request_fn,
         create_document_detail_fn=create_document_detail,
         log_sync_attempt_fn=log_sync_attempt,
         mark_line_completed_fn=mark_line_completed,
