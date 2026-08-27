@@ -38,6 +38,7 @@ class TestSyncAllByCompany(unittest.TestCase):
 
         self.patches = [
             patch.object(saw, "frappe", self.frappe_mock),
+            patch.object(saw.simulation, "is_simulation_enabled", return_value=False),
             patch.object(saw, "sync_by_supplier", side_effect=fake_sync_by_supplier),
             patch.object(saw, "sync_detail", return_value=["DOC-NEW-1", "DOC-NEW-2"]),
             patch.object(saw, "send_request_status", return_value=({}, 200)),
@@ -120,6 +121,7 @@ class TestRefreshDocuments(unittest.TestCase):
 
         self.patches = [
             patch.object(saw, "frappe", self.frappe_mock),
+            patch.object(saw.simulation, "is_simulation_enabled", return_value=False),
             patch.object(saw, "sync_by_supplier", side_effect=fake_sync_by_supplier),
             patch.object(saw, "sync_detail", return_value=["DOC-NEW-1", "DOC-NEW-2"]),
             patch.object(saw, "send_request_status", return_value=({}, 200)),
