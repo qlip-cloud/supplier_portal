@@ -43,7 +43,7 @@ def auto_assign():
 def get_candidates(doc_names=None):
     filters = {
         "nvfac_ueve": ["is", "not set"],
-        "nvfac_esta": ["not in", ["BCC", "PA", "PR"]],
+        "nvfac_esta": ["not in", ["BCC", "PA", "PR", "A", "R"]],
     }
     if doc_names:
         filters["name"] = ["in", list(doc_names)]

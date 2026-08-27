@@ -27,6 +27,7 @@ from qp_supplier_front.resources.documenteme import auto_approve_confirmation as
 from qp_supplier_front.uses_cases.documenteme.approve_confirmation import (
     process_confirmation,
 )
+from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
 
 PURCHASE_INVOICE = "qp_SP_PurchaseInvoice"
 PURCHASE_INVOICE_BC = "qp_SP_PurchaseInvoiceBC"
@@ -81,6 +82,19 @@ def mark_pending_approval(doc):
 
 
 def enqueue_approve(doc):
+    detail = frappe.db.get_value(
+        DOCUMENT_DETAIL, doc["name"], ["nvfac_conv"], as_dict=True
+    ) or {}
+    if is_cash_invoice(detail.get("nvfac_conv")):
+        frappe.db.set_value(
+            DOCUMENT_DETAIL, doc["name"], {
+                "nvfac_esta": "A",
+                "qp_is_event_completed": 1,
+            }
+        )
+        from qp_supplier_front.resources.documenteme._alerts import resolve_open_alerts
+        resolve_open_alerts(doc["name"])
+        return
     approval.enqueue_approve_confirmation(doc["name"])
 
 
@@ -119,6 +133,20 @@ def on_purchase_invoice_bc_update(doc, method):
     if not frappe.db.exists(DOCUMENT_DETAIL, document_detail_name):
         return
     try:
+        detail = frappe.db.get_value(
+            DOCUMENT_DETAIL, document_detail_name, ["nvfac_conv", "nvfac_esta"], as_dict=True
+        ) or {}
+        if is_cash_invoice(detail.get("nvfac_conv")):
+            frappe.db.set_value(
+                DOCUMENT_DETAIL, document_detail_name, {
+                    "nvfac_esta": "A",
+                    "qp_is_event_completed": 1,
+                }
+            )
+            from qp_supplier_front.resources.documenteme._alerts import resolve_open_alerts
+            resolve_open_alerts(document_detail_name)
+            frappe.db.commit()
+            return
         frappe.db.set_value(DOCUMENT_DETAIL, document_detail_name, "nvfac_esta", "PA")
         approval.enqueue_approve_confirmation(document_detail_name)
         frappe.db.commit()

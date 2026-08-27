@@ -144,6 +144,7 @@ def auto_reject(
             "motive": get_reject_motive(item["rule"]) if item.get("rule") else None,
             "rule": item["rule"].get("rule_name") if item.get("rule") else None,
             "pending": item.get("pending", False),
+            "nvfac_conv": item["doc"].get("nvfac_conv"),
         }
         for item in rejectable
     ]

@@ -14,6 +14,7 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     approve_documents,
     build_payload,
     get_error_message,
+    homologate_lines,
     is_definitive,
     is_error_response,
     validate_registrable,
@@ -34,6 +35,7 @@ def _doc(**overrides):
         "nvfac_rece": "R108349",
         "nvfac_totp": 50000,
         "nvfac_esta": "V",
+        "nvfac_conv": "2",
         "nvmon_codi": "COP",
         "nvfac_stot": 50000,
         "nvfac_viva": 0,
@@ -160,7 +162,7 @@ class TestValidateRegistrables(unittest.TestCase):
 class TestBuildPayload(unittest.TestCase):
 
     def _get_lines(self, purchase_order):
-        return [_line()]
+        return [_line()], ""
 
     def _get_headquarter(self, purchase_order):
         return "HQ01"
@@ -169,7 +171,7 @@ class TestBuildPayload(unittest.TestCase):
         return [
             _line(name="LINE1", item_code="M000455", idx=2),
             _line(name="LINE2", item_code="M000456", idx=5),
-        ]
+        ], ""
 
     def test_construye_array_con_una_factura_por_doc(self):
         docs = [_doc()]
@@ -229,7 +231,7 @@ class TestBuildPayload(unittest.TestCase):
         )
 
     def test_sin_lineas_de_recepcion_deja_array_vacio(self):
-        payload = build_payload([_doc()], lambda po: [], self._get_headquarter)
+        payload = build_payload([_doc()], lambda po: ([], ""), self._get_headquarter)
         self.assertEqual(payload[0]["vendorInvoiceLine"], [])
 
 
@@ -278,7 +280,7 @@ class TestApproveDocuments(unittest.TestCase):
             return [d for d in docs if d.get("name") in doc_names]
 
         def get_lines_fn(purchase_order):
-            return [_line()]
+            return [_line()], ""
 
         def get_headquarter_fn(purchase_order):
             return "HQ01"
@@ -461,6 +463,192 @@ class TestApproveDocuments(unittest.TestCase):
         self.assertEqual(calls["marked"], ["FAC002"])
         self.assertEqual(calls["marked_error"], [("FAC001", "duplicado")])
         self.assertEqual(calls["commits"], 1)
+
+
+class TestValidateCash(unittest.TestCase):
+
+    def _po_exists(self, exists=True):
+        return lambda purchase_order: exists
+
+    def _receipts_total(self, total=None):
+        return lambda purchase_order: total
+
+    def test_contado_se_aprueba_sin_oc_ni_recibos(self):
+        doc = _doc(nvfac_conv="1", nvfac_orde=None)
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(None)
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_contado_definitivo_no_aprueba(self):
+        doc = _doc(nvfac_conv="1", nvfac_esta="A")
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(None)
+        )
+        self.assertFalse(ok)
+        self.assertIn("definitivo", error)
+
+    def test_credito_sigue_exigiendo_recepciones(self):
+        doc = _doc(nvfac_conv="2")
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(None)
+        )
+        self.assertFalse(ok)
+        self.assertIn("recepciones", error)
+
+    def test_sin_conv_se_trata_como_credito(self):
+        doc = _doc(nvfac_conv=None)
+        ok, _ = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(None)
+        )
+        self.assertFalse(ok)
+
+
+class TestHomologateLines(unittest.TestCase):
+
+    def test_mapea_codigos_al_codigo_bc(self):
+        detail_lines = [
+            {"nvpro_codi": "A-0", "nvuni_desc": "UN", "nvdet_tcan": 2, "nvdet_valo": 100},
+            {"nvpro_codi": "A-2", "nvuni_desc": "UN", "nvdet_tcan": 3, "nvdet_valo": 200},
+        ]
+        homologation_map = {"A-0": "B-1", "A-2": "B-1"}
+        lines, missing = homologate_lines(detail_lines, homologation_map)
+        self.assertEqual(missing, [])
+        self.assertEqual(lines[0]["item_code"], "B-1")
+        self.assertEqual(lines[0]["qty"], 2)
+        self.assertEqual(lines[0]["rate"], 100)
+        self.assertEqual(lines[0]["receiving_no"], "")
+        self.assertEqual(lines[0]["order_no"], "")
+        self.assertEqual(lines[1]["item_code"], "B-1")
+
+    def test_varios_codigos_proveedor_a_un_mismo_bc(self):
+        detail_lines = [
+            {"nvpro_codi": "A-0", "nvdet_tcan": 1, "nvdet_valo": 10},
+            {"nvpro_codi": "A-2", "nvdet_tcan": 1, "nvdet_valo": 10},
+            {"nvpro_codi": "A-4", "nvdet_tcan": 1, "nvdet_valo": 10},
+        ]
+        homologation_map = {"A-0": "B-1", "A-2": "B-1", "A-4": "B-1"}
+        lines, missing = homologate_lines(detail_lines, homologation_map)
+        self.assertEqual(missing, [])
+        self.assertEqual([line["item_code"] for line in lines], ["B-1", "B-1", "B-1"])
+
+    def test_codigo_sin_homologacion_se_reporta(self):
+        detail_lines = [
+            {"nvpro_codi": "A-0", "nvdet_tcan": 1, "nvdet_valo": 10},
+            {"nvpro_codi": "X-99", "nvdet_tcan": 1, "nvdet_valo": 10},
+        ]
+        homologation_map = {"A-0": "B-1"}
+        lines, missing = homologate_lines(detail_lines, homologation_map)
+        self.assertEqual(missing, ["X-99"])
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(lines[0]["item_code"], "B-1")
+
+    def test_linea_sin_codigo_proveedor_se_omite(self):
+        detail_lines = [
+            {"nvpro_codi": "", "nvdet_tcan": 1, "nvdet_valo": 10},
+        ]
+        lines, missing = homologate_lines(detail_lines, {})
+        self.assertEqual(lines, [])
+        self.assertEqual(missing, [])
+
+
+class TestApproveDocumentsHomologation(unittest.TestCase):
+
+    NOW = "2026-08-12 10:00:00"
+
+    def _callbacks(self, docs, response_obj, status, invoice_results=None,
+                   line_error=""):
+        calls = {
+            "sent": [],
+            "persisted": [],
+            "marked": [],
+            "marked_error": [],
+            "commits": 0,
+        }
+
+        def get_docs_fn(doc_names):
+            return [d for d in docs if d.get("name") in doc_names]
+
+        def get_lines_fn(doc):
+            if line_error:
+                return [], line_error
+            return [_line()], ""
+
+        def get_headquarter_fn(purchase_order):
+            return "HQ01"
+
+        def po_exists_fn(purchase_order):
+            return bool(purchase_order)
+
+        def receipts_total_fn(purchase_order):
+            return 50000
+
+        def send_request_fn(endpoint_code, payload):
+            calls["sent"].append((endpoint_code, payload))
+            return response_obj, status
+
+        def parse_doc_numbers_fn(resp):
+            if invoice_results is None:
+                return []
+            return invoice_results
+
+        def persist_invoice_fn(doc, doc_number, now):
+            calls["persisted"].append((doc.get("nvfac_nume"), doc_number))
+
+        def mark_registered_fn(doc, doc_number):
+            calls["marked"].append(doc.get("nvfac_nume"))
+
+        def mark_error_fn(doc, error):
+            calls["marked_error"].append((doc.get("nvfac_nume"), error))
+
+        def commit_fn():
+            calls["commits"] += 1
+
+        return calls, {
+            "get_docs_fn": get_docs_fn,
+            "get_lines_fn": get_lines_fn,
+            "get_headquarter_fn": get_headquarter_fn,
+            "po_exists_fn": po_exists_fn,
+            "receipts_total_fn": receipts_total_fn,
+            "send_request_fn": send_request_fn,
+            "parse_doc_numbers_fn": parse_doc_numbers_fn,
+            "persist_invoice_fn": persist_invoice_fn,
+            "mark_registered_fn": mark_registered_fn,
+            "mark_error_fn": mark_error_fn,
+            "commit_fn": commit_fn,
+        }
+
+    def test_error_de_linea_no_envia_esa_factura(self):
+        docs = [_doc(name="DOC1", nvfac_nume="FAC001", nvfac_conv="1")]
+        calls, kwargs = self._callbacks(
+            docs, {"Result": 0, "invoices": []}, 200,
+            line_error="Faltan homologaciones de producto: X-99",
+        )
+        result = approve_documents(["DOC1"], now=self.NOW, **kwargs)
+
+        self.assertEqual(result["approved"], [])
+        self.assertEqual(calls["sent"], [])
+        self.assertEqual(len(result["errors"]), 1)
+        self.assertIn("X-99", result["errors"][0]["error"])
+        self.assertEqual(calls["marked_error"], [
+            ("FAC001", "Faltan homologaciones de producto: X-99"),
+        ])
+
+    def test_contado_sin_recibo_con_lineas_ok(self):
+        docs = [_doc(name="DOC1", nvfac_nume="FAC001", nvfac_conv="1", nvfac_orde=None)]
+        results = [{"doc_number": "BC1001", "error": ""}]
+        calls, kwargs = self._callbacks(
+            docs, {"Result": 0, "invoices": results}, 200,
+            invoice_results=results,
+        )
+        result = approve_documents(["DOC1"], now=self.NOW, **kwargs)
+
+        self.assertEqual(len(result["approved"]), 1)
+        endpoint_code, payload = calls["sent"][0]
+        self.assertEqual(endpoint_code, "create_purchase_order")
+        self.assertEqual(calls["persisted"], [("FAC001", "BC1001")])
+        self.assertEqual(calls["marked"], ["FAC001"])
 
 
 if __name__ == "__main__":

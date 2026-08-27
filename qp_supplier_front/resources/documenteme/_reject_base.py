@@ -7,6 +7,7 @@ from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.resources.documenteme._alerts import resolve_open_alerts
 from qp_supplier_front.services.role_resolver import get_active_role
+from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
 
 ALLOWED_ROLES = {"Administrador Documenteme", "Administrador Sede Documenteme"}
 
@@ -47,6 +48,14 @@ def run_reject(doc_names_raw, motive, is_invoice_error_raw, send_request_fn):
     rejects = []
     for idx, doc_name in enumerate(doc_names):
         doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
+        if is_cash_invoice(doc.nvfac_conv):
+            doc.nvfac_esta = "R"
+            doc.qp_is_event_completed = 1
+            doc.qp_motive = motive
+            doc.qp_reject_is_invoice_error = is_invoice_error
+            doc.save()
+            resolve_open_alerts(doc_name)
+            continue
         doc.nvfac_esta = "PR"
         doc.qp_reject_orig_state = "E"
         doc.qp_motive = motive
@@ -60,13 +69,18 @@ def run_reject(doc_names_raw, motive, is_invoice_error_raw, send_request_fn):
 
     frappe.db.commit()
 
-    frappe.enqueue(
-        REJECT_JOB_METHOD,
-        rejects=rejects,
-        queue="long",
-        timeout=14400,
-        job_name="reject documents ({})".format(len(rejects)),
-    )
+    if rejects:
+        frappe.enqueue(
+            REJECT_JOB_METHOD,
+            rejects=rejects,
+            queue="long",
+            timeout=14400,
+            job_name="reject documents ({})".format(len(rejects)),
+        )
+
+    if not rejects:
+        response(200, "Rechazo completado")
+        return
 
     if len(doc_names) == 1:
         message = "Rechazo en proceso para la factura"

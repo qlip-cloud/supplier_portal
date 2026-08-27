@@ -38,7 +38,7 @@ def _rule_values(rule_code=RULE_NO_PO, enabled=1):
 
 
 def _doc(name="DOC1", nvpro_ndoc="900123456", nvfac_orde="OC111",
-         nvfac_esta="E", nvfac_ueve=None):
+         nvfac_esta="E", nvfac_ueve=None, nvfac_conv=None):
     return {
         "name": name,
         "nvfac_nume": name,
@@ -47,12 +47,19 @@ def _doc(name="DOC1", nvpro_ndoc="900123456", nvfac_orde="OC111",
         "nvfac_esta": nvfac_esta,
         "nvfac_ueve": nvfac_ueve,
         "nvfac_cont": 1,
+        "nvfac_conv": nvfac_conv,
     }
 
 
 def _reject(doc="DOC1", motive="Rechazo automático: motivo", rule=RULE_NAME,
-            pending=False):
-    return {"doc": doc, "motive": motive, "rule": rule, "pending": pending}
+            pending=False, nvfac_conv=None):
+    return {
+        "doc": doc,
+        "motive": motive,
+        "rule": rule,
+        "pending": pending,
+        "nvfac_conv": nvfac_conv,
+    }
 
 
 class TestGetRule(unittest.TestCase):
@@ -286,6 +293,72 @@ class TestRunAutoReject(unittest.TestCase):
         self.assertEqual(result["rejected"], [])
         frappe_mock.enqueue.assert_not_called()
 
+    def test_contado_no_encola_y_marca_rechazada(self):
+        frappe_mock = MagicMock()
+        frappe_mock.db.get_value.return_value = 1  # retry habilitado
+        doc = MagicMock()
+        doc.nvfac_esta = "E"
+        doc.qp_is_event_completed = 0
+        frappe_mock.get_doc.return_value = doc
+
+        with patch.object(infra, "frappe", frappe_mock), \
+             patch.object(
+                 infra, "get_candidates",
+                 return_value=[_doc(nvfac_conv="1")],
+             ), \
+             patch.object(
+                 infra, "resolve_rule",
+                 return_value={"rule_name": RULE_NAME, "rule_code": RULE_NO_PO,
+                               "enabled": 1, "motive": "Rechazo automático: motivo"},
+             ), \
+             patch.object(infra, "po_exists", return_value=False), \
+             patch.object(infra, "receipt_for_po", return_value=None):
+            result = infra.run_auto_reject()
+
+        self.assertEqual(result["rejected"], ["DOC1"])
+        frappe_mock.enqueue.assert_not_called()
+        frappe_mock.get_doc.assert_called_once_with("qp_SP_DocumentDetail", "DOC1")
+        self.assertEqual(doc.nvfac_esta, "R")
+        self.assertEqual(doc.qp_is_event_completed, 1)
+
+    def test_credito_contado_mixto(self):
+        frappe_mock = MagicMock()
+        frappe_mock.db.get_value.return_value = 1  # retry habilitado
+        credit_doc = MagicMock()
+        credit_doc.nvfac_esta = "E"
+        credit_doc.qp_reject_orig_state = None
+        credit_doc.qp_motive = None
+        credit_doc.qp_auto_reject_rule = None
+
+        def get_doc_side_effect(doctype, name):
+            return credit_doc
+        frappe_mock.get_doc.side_effect = get_doc_side_effect
+
+        with patch.object(infra, "frappe", frappe_mock), \
+             patch.object(
+                 infra, "get_candidates",
+                 return_value=[_doc(name="DOC1", nvfac_conv="1"),
+                               _doc(name="DOC2", nvfac_conv="2")],
+             ), \
+             patch.object(
+                 infra, "resolve_rule",
+                 return_value={"rule_name": RULE_NAME, "rule_code": RULE_NO_PO,
+                               "enabled": 1, "motive": "Rechazo automático: motivo"},
+             ), \
+             patch.object(infra, "po_exists", return_value=False), \
+             patch.object(infra, "receipt_for_po", return_value=None):
+            result = infra.run_auto_reject()
+
+        self.assertEqual(result["rejected"], ["DOC1", "DOC2"])
+        # Solo la de credito se encola al job
+        frappe_mock.enqueue.assert_called_once_with(
+            infra.REJECT_JOB_METHOD,
+            rejects=[_reject(doc="DOC2", nvfac_conv="2")],
+            queue="long",
+            timeout=14400,
+            job_name="auto reject documents",
+        )
+
 
 class MockLogRow(object):
     def get(self, key, default=None):
@@ -384,7 +457,7 @@ class TestRejectOne(unittest.TestCase):
         self.assertEqual(sent, ["030", "032", "031"])
         insert_alert_mock.assert_not_called()
 
-    def test_error_en_031_reintenta_desde_032(self):
+    def test_error_en_031_reinicia_desde_030(self):
         doc = MockDoc(nvfac_esta="PR")
         responses = {"030": SUCCESS, "032": SUCCESS, "031": ERROR}
         sent = []
@@ -400,10 +473,9 @@ class TestRejectOne(unittest.TestCase):
         self.assertFalse(result["rejected"])
         self.assertEqual(doc.nvfac_esta, "PR")
         insert_alert_mock.assert_called_once()
-        # Intento 1: 030,032 -> 031 error. Intento 2: reenvia 032 -> 031 error.
-        # Intento 3: reenvia 032 -> 031 error. Total: 030,032,031(032..) x3.
-        # Verificamos reanudacion: tras error 031, siguiente intento envia 032,031
-        self.assertEqual(sent.count("030"), 1)   # solo la primera vez
+        # Intento 1..3: cada uno envia 030, 032, 031 (031 siempre error).
+        # Tras el error de 031, el siguiente intento reinicia desde 030.
+        self.assertEqual(sent.count("030"), 3)   # se reenvia en cada intento
         self.assertGreater(sent.count("032"), 1)  # se reenvia en los reintentos
 
     def test_doc_con_retry_deshabilitado_no_envia(self):
@@ -433,11 +505,11 @@ class TestRejectOne(unittest.TestCase):
         # Entre intentos y entre eventos se usa time.sleep
         time_mock.sleep.assert_called()
 
-    def test_ya_aplicado_avanza_sin_reiniciar(self):
+    def test_ya_aplicado_con_031_fallido_reinicia_desde_030(self):
         # Replica la secuencia de la prueba real:
         # intento 1: 030 ok, 032 ok, 031 fail
-        # intento 2: 032 responde "ya aplicado" (no error) -> debe avanzar a 031
-        # (nunca debe volver a enviar 030)
+        # intento 2: 030, 032 responde "ya aplicado" (no error) -> avanza a 031
+        # (030 se reenvia: el fallo de 031 reinicia la secuencia completa)
         doc = MockDoc(nvfac_esta="PR")
         sent = []
         state = {"phase": "ok"}
@@ -463,8 +535,8 @@ class TestRejectOne(unittest.TestCase):
         config = {"max_attempts": 3, "retry_interval": 0, "event_delay": 0}
         result, _, insert_alert_mock, _ = self._reject_one(doc, config=config, sender=sender)
 
-        # 030 solo se envia una vez: nunca se reinicia desde 030
-        self.assertEqual(sent.count("030"), 1)
+        # 030 se envia en cada intento (el fallo de 031 reinicia desde 030)
+        self.assertEqual(sent.count("030"), 3)
         # 032 se reenvia en los reintentos pero "ya aplicado" no rompe la secuencia
         self.assertGreaterEqual(sent.count("032"), 2)
         # Se llega a intentar el 031 mas de una vez (el reintento avanza a 031)

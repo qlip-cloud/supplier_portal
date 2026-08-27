@@ -106,7 +106,7 @@ def _golden_invoice(no_factura_proveedor, cufe, almacen="HQ01"):
 class TestBuildPayloadGolden(unittest.TestCase):
 
     def _get_lines(self, purchase_order):
-        return [_line()]
+        return [_line()], ""
 
     def _get_headquarter(self, purchase_order):
         return "HQ01"
@@ -166,7 +166,7 @@ class TestApproveDocumentsGolden(unittest.TestCase):
             return [d for d in docs if d.get("name") in doc_names]
 
         def get_lines_fn(purchase_order):
-            return [_line()]
+            return [_line()], ""
 
         def get_headquarter_fn(purchase_order):
             return "HQ01"

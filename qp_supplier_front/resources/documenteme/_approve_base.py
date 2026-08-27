@@ -58,6 +58,7 @@ def get_docs(doc_names):
             "nvfac_totp",
             "nvfac_esta",
             "nvfac_ueve",
+            "nvfac_conv",
             "nvmon_codi",
             "nvfac_stot",
             "nvfac_viva",
@@ -66,7 +67,45 @@ def get_docs(doc_names):
     )
 
 
-def get_lines(purchase_order):
+def get_lines(doc):
+    """Resuelve las lineas que alimentan el payload BC para una factura.
+
+    Retorna (lines, error):
+    - lines: lista de dicts {item_code, qty, rate, idx, receiving_no, order_no}.
+    - error: mensaje si la factura no puede generar lineas (vacio si ok).
+
+    Fuente de lineas:
+    - Si la OC tiene recepciones: se usan los Purchase Receipt Items, cuyo
+      item_code ya es el codigo BC. Aplica a credito (obligatorio) y a contado
+      con recepcion.
+    - Si no hay recepciones (factura de contado sin recibo): se toman las
+      lineas de la factura del proveedor (qp_SP_DetailLine) y se homologa el
+      codigo del proveedor (nvpro_codi) al codigo BC (bc_item_code) via la
+      tabla qp_SP_ItemHomologation. Si algun codigo no tiene homologacion la
+      factura queda en error (se mantiene en "E" con alerta).
+    """
+    from qp_supplier_front.infrastructure.adapters.item_homologation_adapter import (
+        get_homologation_map,
+        get_invoice_detail_lines,
+        resolve_supplier,
+    )
+    from qp_supplier_front.uses_cases.documenteme.approve import homologate_lines
+    from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
+
+    purchase_order = doc.get("nvfac_orde")
+    receipt_lines = get_lines_from_receipts(purchase_order)
+
+    if receipt_lines:
+        return receipt_lines, ""
+
+    if is_cash_invoice(doc.get("nvfac_conv")):
+        return get_lines_from_invoice(doc)
+
+    return [], ""
+
+
+def get_lines_from_receipts(purchase_order):
+    """Lineas desde los Purchase Receipt Items de una OC (codigo ya BC)."""
     if not purchase_order:
         return []
     receipts = frappe.get_all(
@@ -93,6 +132,30 @@ def get_lines(purchase_order):
         }
         for item in items
     ]
+
+
+def get_lines_from_invoice(doc):
+    """Lineas de la factura del proveedor homologadas al codigo BC.
+
+    Resuelve el proveedor por tax_id (nvpro_ndoc), carga el mapa de
+    homologacion y las lineas de detalle de la factura. Si falta alguna
+    homologacion retorna un error con los codigos pendientes.
+    """
+    supplier = resolve_supplier(doc.get("nvpro_ndoc"))
+    homologation_map = get_homologation_map(supplier)
+    detail_lines = get_invoice_detail_lines(doc.get("name"))
+
+    lines, missing_codes = homologate_lines(detail_lines, homologation_map)
+
+    if missing_codes:
+        return [], (
+            "Faltan homologaciones de producto: {}"
+        ).format(", ".join(sorted(set(missing_codes))))
+
+    if not lines:
+        return [], "La factura no tiene lineas homologadas para enviar"
+
+    return lines, ""
 
 
 def po_exists(purchase_order):

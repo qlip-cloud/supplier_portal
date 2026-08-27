@@ -53,6 +53,7 @@ from qp_supplier_front.uses_cases.documenteme.event_notifier import (
     _append_log,
     _is_error,
 )
+from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
 from qp_supplier_front.uses_cases.documenteme.reject_retry import (
     REJECT_PENDING_STATES,
     build_retry_events,
@@ -90,19 +91,39 @@ def run_auto_reject(http_fn=None, enqueue=True, doc_names=None):
 
     # Guard / kill-switch: los docs con retry deshabilitado no se envian.
     rejects = [r for r in rejects if _retry_enabled_for(r["doc"])]
-    _mark_pending(rejects)
+
+    # Facturas de contado: se rechazan en BC pero NO se notifica a
+    # documenteme. Se marcan "R" directamente y no se encolan.
+    cash = []
+    credit = []
+    for reject in rejects:
+        if is_cash_invoice(reject.get("nvfac_conv")):
+            cash.append(reject["doc"])
+        else:
+            credit.append(reject)
+
+    for doc_name in cash:
+        doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
+        doc.nvfac_esta = "R"
+        doc.qp_is_event_completed = 1
+        doc.save()
+        resolve_open_alerts(doc_name)
+    if cash:
+        frappe.db.commit()
+
+    _mark_pending(credit)
     frappe.db.commit()
 
-    if rejects and enqueue and http_fn is None:
+    if credit and enqueue and http_fn is None:
         frappe.enqueue(
             REJECT_JOB_METHOD,
-            rejects=rejects,
+            rejects=credit,
             queue="long",
             timeout=14400,
             job_name="auto reject documents",
         )
-    elif rejects:
-        reject_batch_job(rejects, http_fn=http_fn)
+    elif credit:
+        reject_batch_job(credit, http_fn=http_fn)
 
     return {"rejected": [reject["doc"] for reject in rejects]}
 
@@ -188,6 +209,7 @@ def get_candidates(doc_names=None):
             "nvfac_esta",
             "nvfac_ueve",
             "nvfac_cont",
+            "nvfac_conv",
         ],
     )
 

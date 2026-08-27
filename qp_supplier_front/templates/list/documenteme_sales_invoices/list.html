@@ -89,6 +89,11 @@
                 <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Factura</h5>
                 <div style="color:#8a9099;font-size:12px;margin-bottom:8px">
                     Fecha Vencimiento: {{ frappe.utils.formatdate(row.nvfac_venc, "dd-MM-yyyy") if row.nvfac_venc else "-" }}
+                    {% if row.nvfac_conv == "1" %}
+                    <span class="badge" style="background-color:#17a2b8;color:#fff;font-size:11px;margin-left:6px">Contado</span>
+                    {% elif row.nvfac_conv == "2" %}
+                    <span class="badge" style="background-color:#6c757d;color:#fff;font-size:11px;margin-left:6px">Crédito</span>
+                    {% endif %}
                 </div>
                 {% if row.detail_lines %}
                 <table class="table inner-table">
