@@ -2,6 +2,8 @@ $(document).ready(function () {
 
     var assignTargetDoc = null;
 
+    $('tbody input[type="checkbox"]').prop("checked", false);
+
     $("#assign-document").on("click", function () {
         assignTargetDoc = null;
         $("#assign_invoice_modal_label").text("Asignar Facturas");
@@ -55,42 +57,92 @@ $(document).ready(function () {
             return;
         }
 
+        var overlayEl = document.getElementById("overlay");
+        var savedOnClick = overlayEl.onclick;
+
         var doc_names = [];
         selected.each(function () {
             doc_names.push($(this).val());
         });
 
-        var overlayEl = document.getElementById("overlay");
-        var savedOnClick = overlayEl.onclick;
-        overlayEl.onclick = null;
-        overlayEl.style.display = "block";
+        var doApprove = function (force) {
+            overlayEl.onclick = null;
+            overlayEl.style.display = "block";
 
-        var url = "qp_supplier_front.resources.documenteme.approve.approve";
+            var url = "qp_supplier_front.resources.documenteme.approve.approve";
 
-        callresponse = (response) => {
-            overlayEl.onclick = savedOnClick;
-            overlayEl.style.display = "none";
-            frappe.msgprint(response.msg);
-            if (response.status === 200) {
-                var approvedNames = (response.data && response.data.approved || []).map(function (item) {
-                    return item.name;
-                });
-                $('tbody input[type="checkbox"]:checked').each(function () {
-                    var $row = $(this).closest("tr");
-                    if (approvedNames.indexOf($(this).val()) !== -1) {
-                        $row.find(".status-badge")
-                            .removeClass("status-open status-ready status-cancelled status-default")
-                            .addClass("status-paid")
-                            .text("Creada en BC");
-                    }
-                    $(this).prop("checked", false);
-                });
+            callresponse = (response) => {
+                overlayEl.onclick = savedOnClick;
+                overlayEl.style.display = "none";
+                frappe.msgprint(response.msg);
+                if (response.status === 200) {
+                    var approvedNames = (response.data && response.data.approved || []).map(function (item) {
+                        return item.name;
+                    });
+                    $('tbody input[type="checkbox"]:checked').each(function () {
+                        var $row = $(this).closest("tr");
+                        if (approvedNames.indexOf($(this).val()) !== -1) {
+                            $row.find(".status-badge")
+                                .removeClass("status-open status-ready status-cancelled status-default")
+                                .addClass("status-paid")
+                                .text("Creada en BC");
+                        }
+                        $(this).prop("checked", false);
+                    });
+                }
+                var serverErrors = (response.data && response.data.errors) || [];
+                if (serverErrors.length > 0) {
+                    // Refrescar la lista: las facturas con error (ya existe en BC,
+                    // fallo de BC) cambian de estado y/o dejan alertas en el servidor.
+                    window.filter_init();
+                }
+            };
+
+            var args = {
+                doc_names: JSON.stringify(doc_names)
+            };
+            if (force) {
+                args.force = JSON.stringify(force);
             }
+
+            petition_get_data(args, url, callresponse);
         };
+
+        var validateUrl = "qp_supplier_front.resources.documenteme.approve.validate";
 
         petition_get_data({
             doc_names: JSON.stringify(doc_names)
-        }, url, callresponse);
+        }, validateUrl, function (response) {
+            if (response.status !== 200) {
+                frappe.msgprint(response.msg);
+                return;
+            }
+
+            var violations = (response.data && response.data.violations) || [];
+            if (violations.length === 0) {
+                doApprove(false);
+                return;
+            }
+
+            var detail = violations.map(function (item) {
+                var html = "<li><strong>" + (item.nvfac_nume || "") + "</strong><ul>";
+                (item.violations || []).forEach(function (message) {
+                    html += "<li>" + message + "</li>";
+                });
+                html += "</ul></li>";
+                return html;
+            }).join("");
+
+            frappe.confirm(
+                "Las siguientes facturas no cumplen las condiciones de aprobaci&oacute;n autom&aacute;tica:<br><ul>" + detail + "</ul>&iquest;Desea continuar con la aprobaci&oacute;n de todas las facturas seleccionadas?",
+                function () {
+                    doApprove(true);
+                },
+                function () {
+                    // Cancelar: no se aprueba nada, la selecci&oacute;n queda intacta.
+                }
+            );
+        });
     });
 
     $("#reject-document").on("click", function () {
@@ -202,25 +254,6 @@ $(document).ready(function () {
             motive: motive,
             is_invoice_error: JSON.stringify(is_invoice_error)
         }, url, callresponse);
-    });
-
-    $(document).on("click", ".btn-control-reject-retry", function () {
-        var $btn = $(this);
-        var doc_name = $btn.data("name");
-
-        petition_get_data({
-            doc_name: doc_name
-        }, "qp_supplier_front.resources.documenteme.auto_reject.toggle_reject_retry", function (response) {
-            if (response && response.success) {
-                var enabled = response.enabled;
-                $btn.css("color", enabled ? "#28a745" : "#dc3545");
-                $btn.find("span").text(enabled ? "play_arrow" : "pause");
-                $btn.attr("title", enabled ? "Activos" : "Reintentos detenidos. Haz clic para reactivar");
-                frappe.msgprint(enabled ? "Reintentos de rechazo activados." : "Reintentos de rechazo detenidos.");
-            } else {
-                frappe.msgprint(response && response.error ? response.error : "Error al actualizar los reintentos.");
-            }
-        });
     });
 
     $("#confirm-assign").on("click", function () {

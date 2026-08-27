@@ -11,6 +11,7 @@ Ejecutar con: python -m pytest qp_supplier_front/tests/test_approve_base_infra.p
 """
 import sys
 import unittest
+from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
 
 sys.modules["frappe"] = MagicMock()
@@ -46,6 +47,53 @@ class TestGetHeadquarter(unittest.TestCase):
             frappe_mock = MagicMock()
             frappe_mock.db.get_value.return_value = value
             self.assertEqual(self._run(frappe_mock, "OC111"), "")
+
+
+class TestMarkDuplicateRegistered(unittest.TestCase):
+
+    NOW = "2026-08-12 10:00:00"
+
+    ERROR = "Error Ya existe la factura de compra SETT0501165 para este proveedor"
+
+    def _patched(self, frappe_mock):
+        stack = ExitStack()
+        self.addCleanup(stack.close)
+        return {
+            "frappe": stack.enter_context(patch.object(infra, "frappe", frappe_mock)),
+            "resolve_open_alerts": stack.enter_context(patch.object(infra, "resolve_open_alerts")),
+            "insert_alert": stack.enter_context(patch.object(infra, "insert_alert")),
+            "persist_invoice": stack.enter_context(patch.object(infra, "persist_invoice")),
+            "mark_registered": stack.enter_context(patch.object(infra, "mark_registered")),
+        }
+
+    def test_marca_bcc_resuelve_y_alerta_con_error(self):
+        frappe_mock = MagicMock()
+        doc = {"name": "DOC1", "nvfac_nume": "FAC001"}
+        mocks = self._patched(frappe_mock)
+        infra.mark_duplicate_registered(doc, self.ERROR, self.NOW)
+
+        frappe_mock.db.set_value.assert_called_once_with(
+            "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "BCC"
+        )
+        self.assertEqual(doc["nvfac_esta"], "BCC")
+        mocks["resolve_open_alerts"].assert_called_once_with("DOC1")
+
+        mocks["insert_alert"].assert_called_once()
+        parent, message, now_arg = mocks["insert_alert"].call_args[0]
+        self.assertEqual(parent, "DOC1")
+        self.assertEqual(now_arg, self.NOW)
+        self.assertIn("se detuvo el reintento", message)
+        self.assertIn("No se pudo obtener el codigo BC", message)
+        self.assertIn(self.ERROR, message)
+
+    def test_no_crea_referencia_ni_marca_registrado(self):
+        frappe_mock = MagicMock()
+        doc = {"name": "DOC1", "nvfac_nume": "FAC001"}
+        mocks = self._patched(frappe_mock)
+        infra.mark_duplicate_registered(doc, self.ERROR, self.NOW)
+
+        mocks["persist_invoice"].assert_not_called()
+        mocks["mark_registered"].assert_not_called()
 
 
 if __name__ == "__main__":

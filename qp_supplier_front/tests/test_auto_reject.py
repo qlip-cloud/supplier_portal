@@ -10,6 +10,7 @@ Ejecutar con: python -m pytest qp_supplier_front/tests/test_auto_reject.py -v
 import unittest
 
 from qp_supplier_front.uses_cases.documenteme.auto_reject import (
+    RULE_NO_ACTION,
     RULE_NO_PO,
     RULE_NO_PO_NO_RECEIPT,
     RULE_NO_RECEIPT,
@@ -83,6 +84,28 @@ class TestResolveAutoRejectConfig(unittest.TestCase):
         setup = _rule(RULE_NO_RECEIPT, enabled=0)
         self.assertIsNone(resolve_auto_reject_config(supplier, setup))
 
+    def test_no_action_proveedor_gana_al_setup(self):
+        supplier = _rule(RULE_NO_ACTION)
+        setup = _rule(RULE_NO_RECEIPT)
+        self.assertEqual(
+            resolve_auto_reject_config(supplier, setup)["rule_code"],
+            RULE_NO_ACTION,
+        )
+
+    def test_no_action_proveedor_deshabilitada_gana_al_setup(self):
+        supplier = _rule(RULE_NO_ACTION, enabled=0)
+        setup = _rule(RULE_NO_RECEIPT)
+        self.assertEqual(
+            resolve_auto_reject_config(supplier, setup)["rule_code"],
+            RULE_NO_ACTION,
+        )
+
+    def test_sin_proveedor_usa_setup_no_action(self):
+        self.assertEqual(
+            resolve_auto_reject_config(None, _rule(RULE_NO_ACTION))["rule_code"],
+            RULE_NO_ACTION,
+        )
+
 
 class TestIsActiveRule(unittest.TestCase):
 
@@ -97,6 +120,12 @@ class TestIsActiveRule(unittest.TestCase):
 
     def test_codigo_desconocido(self):
         self.assertFalse(is_active_rule(_rule("unknown_code")))
+
+    def test_no_action_siempre_activa(self):
+        self.assertTrue(is_active_rule(_rule(RULE_NO_ACTION)))
+
+    def test_no_action_activa_aun_deshabilitada(self):
+        self.assertTrue(is_active_rule(_rule(RULE_NO_ACTION, enabled=0)))
 
 
 class TestGetRejectMotive(unittest.TestCase):
@@ -167,6 +196,12 @@ class TestShouldAutoReject(unittest.TestCase):
     def test_codigo_desconocido_retorna_false(self):
         self.assertFalse(should_auto_reject(False, False, "unknown"))
 
+    def test_no_action_nunca_rechaza(self):
+        self.assertFalse(should_auto_reject(False, False, RULE_NO_ACTION))
+        self.assertFalse(should_auto_reject(True, False, RULE_NO_ACTION))
+        self.assertFalse(should_auto_reject(False, True, RULE_NO_ACTION))
+        self.assertFalse(should_auto_reject(True, True, RULE_NO_ACTION))
+
 
 class TestIsEligibleDoc(unittest.TestCase):
 
@@ -234,6 +269,15 @@ class TestCollectRejectable(unittest.TestCase):
         rejectable = collect_rejectable(
             [_invoice()],
             self._resolve(_rule(RULE_NO_PO, enabled=0)),
+            lambda o: False,
+            lambda o: None,
+        )
+        self.assertEqual(rejectable, [])
+
+    def test_no_action_no_rechaza_aun_sin_coincidencias(self):
+        rejectable = collect_rejectable(
+            [_invoice()],
+            self._resolve(_rule(RULE_NO_ACTION)),
             lambda o: False,
             lambda o: None,
         )
@@ -310,6 +354,15 @@ class TestAutoReject(unittest.TestCase):
             lambda o: None,
         )
         self.assertEqual([r["doc"] for r in result], ["DOC1"])
+
+    def test_no_action_no_entra_en_rejectables(self):
+        result = self._run(
+            [_invoice(name="DOC1")],
+            _rule(RULE_NO_ACTION),
+            lambda o: False,
+            lambda o: None,
+        )
+        self.assertEqual(result, [])
 
     def test_incluye_pendientes_en_P(self):
         candidates = [

@@ -32,9 +32,82 @@ FINAL_STATES = ("A", "R")
 
 ANALYSIS_STATES = ("E", "V", "T")
 
+# Marcador que BC devuelve cuando la factura del proveedor ya existe en BC.
+# El numero que menciona el mensaje es el NoFacturaProveedor (no el codigo
+# BC); al llegar este error el codigo BC no es recuperable y no se debe
+# reintentar la creacion.
+ALREADY_REGISTERED_MARK = "ya existe la factura"
+
 
 def is_definitive(status):
     return status in FINAL_STATES
+
+
+def is_invoice_already_registered(error):
+    """True si BC responde que la factura ya existe para el proveedor."""
+    if not isinstance(error, str):
+        return False
+    return ALREADY_REGISTERED_MARK in error.lower()
+
+
+def get_registrable_blockers(doc):
+    """Retorna el motivo de bloqueo duro de una factura, o vacio si no aplica.
+
+    Los bloqueos duros (estados definitivos o en proceso) no son anulables
+    por el usuario: ni la aprobacion automatica ni la manual forzada pueden
+    registrar facturas ya creadas en BC, en proceso o en estado final.
+    """
+    if is_definitive(doc.get("nvfac_esta")):
+        return "La factura está en un estado definitivo"
+
+    if doc.get("nvfac_esta") not in ANALYSIS_STATES:
+        return (
+            "La factura está en un estado no registrable ({})".format(
+                doc.get("nvfac_esta")
+            )
+        )
+
+    return ""
+
+
+def get_registrable_warnings(doc, po_exists_fn, receipts_total_fn):
+    """Retorna todas las violaciones que impedirian la aprobacion automatica.
+
+    Devuelve una lista de mensajes (una por regla incumplida) para la regla
+    factura - orden - recepcion + montos. Estas violaciones se muestran al
+    usuario en la aprobacion manual y pueden ser anuladas (aprobacion
+    forzada). Las facturas de CONTADO relajan OC y recibos/montos, por lo
+    que sus advertencias son generadas solo si llegan a la parte de credito
+    (nunca; la validacion de contado no exige estos datos).
+    """
+    if is_cash_invoice(doc.get("nvfac_conv")):
+        return []
+
+    warnings = []
+
+    purchase_order = doc.get("nvfac_orde")
+    if not purchase_order:
+        warnings.append("La factura no tiene orden de compra")
+    elif not po_exists_fn(purchase_order):
+        warnings.append("La orden de compra {} no existe".format(purchase_order))
+
+    if purchase_order:
+        receipts_total = receipts_total_fn(purchase_order)
+        if receipts_total is None:
+            warnings.append(
+                "No se encontraron recepciones para la orden de compra {}".format(
+                    purchase_order
+                )
+            )
+        else:
+            invoice_total = doc.get("nvfac_totp") or 0
+            if receipts_total != invoice_total:
+                warnings.append(
+                    "La sumatoria de recepciones ({}) no coincide con el total "
+                    "de la factura ({})".format(receipts_total, invoice_total)
+                )
+
+    return warnings
 
 
 def validate_registrable(doc, po_exists_fn, receipts_total_fn):
@@ -42,39 +115,47 @@ def validate_registrable(doc, po_exists_fn, receipts_total_fn):
 
     Retorna (ok, error).
 
+    - Estados definitivos o no registrables (BCC/PA/PR) siempre bloquean:
+      evita reenviar facturas ya creadas en BC o en proceso.
     - Facturas de CREDITO: se exige orden de compra existente y que el total
       de recepciones cubra exactamente el total de la factura (las facturas a
       credito se respaldan en recepciones).
     - Facturas de CONTADO: se relaja la validacion de OC y recibos/montos,
-      porque no siempre tienen recepcion. Solo se bloquean las definitivas.
+      porque no siempre tienen recepcion.
     """
-    if is_definitive(doc.get("nvfac_esta")):
-        return False, "La factura está en un estado definitivo"
+    blocker = get_registrable_blockers(doc)
+    if blocker:
+        return False, blocker
 
-    if is_cash_invoice(doc.get("nvfac_conv")):
-        return True, ""
-
-    purchase_order = doc.get("nvfac_orde")
-    if not purchase_order:
-        return False, "La factura no tiene orden de compra"
-
-    if not po_exists_fn(purchase_order):
-        return False, "La orden de compra {} no existe".format(purchase_order)
-
-    receipts_total = receipts_total_fn(purchase_order)
-    if receipts_total is None:
-        return False, (
-            "No se encontraron recepciones para la orden de compra {}"
-        ).format(purchase_order)
-
-    invoice_total = doc.get("nvfac_totp") or 0
-    if receipts_total != invoice_total:
-        return False, (
-            "La sumatoria de recepciones ({}) no coincide con el total "
-            "de la factura ({})".format(receipts_total, invoice_total)
-        )
+    warnings = get_registrable_warnings(doc, po_exists_fn, receipts_total_fn)
+    first_warning = warnings[0] if warnings else ""
+    if first_warning:
+        return False, first_warning
 
     return True, ""
+
+
+def collect_registrable_violations(docs, po_exists_fn, receipts_total_fn):
+    """Acumula todas las violaciones de aprobacion automatica por factura.
+
+    Retorna una lista de dicts {"nvfac_nume", "violations": [mensaje, ...]}
+    para cada factura con advertencias de la regla OC - recepcion - montos.
+    Las facturas con bloqueo duro (estados definitivos/en proceso) no se
+    incluyen porque no son anulables por el usuario: se mantienen fuera de
+    la decision de aprobacion forzada.
+    """
+    violations = []
+    for doc in (docs or []):
+        blocker = get_registrable_blockers(doc)
+        if blocker:
+            continue
+        warnings = get_registrable_warnings(doc, po_exists_fn, receipts_total_fn)
+        if warnings:
+            violations.append({
+                "nvfac_nume": doc.get("nvfac_nume"),
+                "violations": warnings,
+            })
+    return violations
 
 
 def validate_registrables(docs, po_exists_fn, receipts_total_fn):
@@ -228,6 +309,27 @@ def _record_error(errors, mark_error_fn, doc, error):
         mark_error_fn(doc, error)
 
 
+def _split_by_blockers(docs):
+    """Separa facturas por bloqueo duro (estados definitivos/en proceso).
+
+    En modo forzado las advertencias de OC - recepcion - montos se ignoran,
+    pero los bloqueos duros siguen impidiendo la aprobacion. Retorna
+    (valid, errors) con la misma forma de validate_registrables.
+    """
+    valid = []
+    errors = []
+    for doc in (docs or []):
+        blocker = get_registrable_blockers(doc)
+        if blocker:
+            errors.append({
+                "nvfac_nume": doc.get("nvfac_nume"),
+                "error": blocker,
+            })
+        else:
+            valid.append(doc)
+    return valid, errors
+
+
 def approve_documents(
     doc_names,
     get_docs_fn,
@@ -242,28 +344,39 @@ def approve_documents(
     mark_error_fn,
     commit_fn,
     now,
+    mark_duplicate_registered_fn=None,
+    force=False,
 ):
     """Aprueba en lote las facturas: un solo envio a BC con array.
 
     Flujo:
     1. Valida cada factura (regla factura - OC - recepcion, relajada para
-       contado). Las invalidas quedan en error y no se procesan.
+       contado). Las invalidas quedan en error y no se procesan. Con
+       force=True (aprobacion manual con confirmacion del usuario) se
+       ignoran las advertencias de OC - recepcion - montos, pero los bloqueos
+       duros (estados definitivos/en proceso) siguen impidiendo la aprobacion.
     2. Resuelve las lineas de cada factura via get_lines_fn(doc). Las lineas
        pueden venir de las recepciones o de la factura del proveedor
-       homologada (contado sin recibo). Si get_lines_fn devuelve error (p.ej.
-       falta homologacion de un codigo), la factura queda en error y no se
-       envia.
+       homologada (contado sin recibo / credito forzado). Si get_lines_fn
+       devuelve error (p.ej. falta homologacion de un codigo), la factura
+       queda en error y no se envia.
     3. Construye un solo payload (array) y lo envia a BC. BC devuelve un
        resultado por factura (doc_number o error) en el mismo orden.
     4. Las facturas con doc_number se persisten y marcan "BCC" (Creada en BC);
        las que fallan quedan para reintentar y se registra una alerta
-       (mark_error_fn).
+       (mark_error_fn). Si BC responde "Ya existe la factura" (duplicada), se
+       detiene el reintento llamando a mark_duplicate_registered_fn (cuando
+       esta inyectado): la factura queda en "BCC" con alerta, sin referencia
+       a un invoice_id que se desconoce.
 
     Retorna {"approved": [...], "errors": [...]}.
     """
     docs = get_docs_fn(doc_names)
 
-    valid, errors = validate_registrables(docs, po_exists_fn, receipts_total_fn)
+    if force:
+        valid, errors = _split_by_blockers(docs)
+    else:
+        valid, errors = validate_registrables(docs, po_exists_fn, receipts_total_fn)
 
     if not valid:
         return {"approved": [], "errors": errors}
@@ -304,7 +417,22 @@ def approve_documents(
     for idx, doc in enumerate(payload_docs):
         result = _invoice_result_at(invoice_results, idx)
         if result.get("error"):
-            _record_error(errors, mark_error_fn, doc, result.get("error"))
+            error = result.get("error")
+            if (mark_duplicate_registered_fn is not None
+                    and is_invoice_already_registered(error)):
+                try:
+                    mark_duplicate_registered_fn(doc, error, now)
+                except Exception:
+                    _record_error(errors, mark_error_fn, doc, error)
+                    continue
+                errors.append({
+                    "name": doc.get("name"),
+                    "nvfac_nume": doc.get("nvfac_nume"),
+                    "error": error,
+                    "duplicate": True,
+                })
+                continue
+            _record_error(errors, mark_error_fn, doc, error)
             continue
         doc_number = result.get("doc_number")
         try:

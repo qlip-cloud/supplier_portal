@@ -19,13 +19,20 @@ segun la regla configurada (por proveedor o por defecto global):
 - no_po_no_receipt: rechazar si no coincide con orden de compra ni recibo.
 
 El campo vacio / regla no habilitada equivale a "No configurado".
+
+La regla especial "no_action" ("No hacer nada") permite que un proveedor
+inhiba explicitamente el rechazo automatico aunque el setup global tenga un
+default configurado. Se considera SIEMPRE activa (ignora el checkbox enabled)
+para evitar que al deshabilitarla el proveedor caiga silenciosamente al
+default global que si rechaza.
 """
 
+RULE_NO_ACTION = "no_action"
 RULE_NO_PO = "no_po"
 RULE_NO_RECEIPT = "no_receipt"
 RULE_NO_PO_NO_RECEIPT = "no_po_no_receipt"
 
-RULE_CODES = (RULE_NO_PO, RULE_NO_RECEIPT, RULE_NO_PO_NO_RECEIPT)
+RULE_CODES = (RULE_NO_ACTION, RULE_NO_PO, RULE_NO_RECEIPT, RULE_NO_PO_NO_RECEIPT)
 
 FINAL_STATES = ("A", "R")
 
@@ -52,6 +59,8 @@ DEFAULT_MOTIVES = {
 def is_active_rule(rule):
     if not rule:
         return False
+    if rule.get("rule_code") == RULE_NO_ACTION:
+        return True
     return (
         rule.get("rule_code") in RULE_CODES
         and bool(rule.get("enabled", 1))
@@ -89,6 +98,7 @@ def has_receipt_match(invoice, receipt_for_po_fn):
 
 def should_auto_reject(po_match, receipt_match, rule_code):
     dispatch = {
+        RULE_NO_ACTION: False,
         RULE_NO_PO: not po_match,
         RULE_NO_RECEIPT: not receipt_match,
         RULE_NO_PO_NO_RECEIPT: (not po_match) and (not receipt_match),

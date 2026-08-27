@@ -58,10 +58,12 @@ function petition_get_data(args, method, callresponse = null) {
     }).fail(function(xhr, textStatus, errorThrown) {
         if (callresponse) {
             var error_msg = "Error en el servidor";
+            var response_data = null;
             if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
                 error_msg = xhr.responseJSON.message.msg || error_msg;
+                response_data = xhr.responseJSON.message.data || null;
             }
-            callresponse({status: (xhr && xhr.status) || 400, error: true, msg: error_msg});
+            callresponse({status: (xhr && xhr.status) || 400, error: true, msg: error_msg, data: response_data});
         }
     });
 }

@@ -3,3 +3,4 @@ qp_supplier_front.patches.add_documenteme_roles
 qp_supplier_front.patches.migrate_fieldsection_wizard_config
 qp_supplier_front.patches.remove_duplicate_dynamic_links
 qp_supplier_front.patches.add_auto_reject_rules
+qp_supplier_front.patches.add_no_action_reject_rule

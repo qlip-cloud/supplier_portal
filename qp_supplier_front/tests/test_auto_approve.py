@@ -20,7 +20,7 @@ from qp_supplier_front.resources.documenteme import auto_approve as infra  # noq
 
 
 def _doc(name="DOC1", nvfac_esta="E", nvfac_orde="45238", nvfac_rece="R108349",
-         nvfac_totp=50000, nvfac_ueve=None):
+         nvfac_totp=50000, nvfac_ueve=None, nvfac_conv=None):
     return {
         "name": name,
         "nvfac_nume": name,
@@ -29,6 +29,7 @@ def _doc(name="DOC1", nvfac_esta="E", nvfac_orde="45238", nvfac_rece="R108349",
         "nvfac_totp": nvfac_totp,
         "nvfac_esta": nvfac_esta,
         "nvfac_ueve": nvfac_ueve,
+        "nvfac_conv": nvfac_conv,
     }
 
 
@@ -111,6 +112,33 @@ class TestPromoteEligibleToV(unittest.TestCase):
             promoted = infra.promote_eligible_to_v()
 
         self.assertEqual(promoted, [])
+
+    def test_promueve_contado_sin_oc_ni_recibos(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            _doc(name="DOC1", nvfac_esta="E", nvfac_orde=None,
+                 nvfac_rece=None, nvfac_conv="1"),
+        ]
+
+        with patch.object(infra, "frappe", frappe_mock), \
+             patch.object(infra, "po_exists", return_value=False), \
+             patch.object(infra, "receipts_total", return_value=None):
+            promoted = infra.promote_eligible_to_v()
+
+        self.assertEqual(promoted, ["DOC1"])
+        frappe_mock.db.set_value.assert_called_once_with(
+            "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "V"
+        )
+
+    def test_get_analysis_candidates_incluye_nvfac_conv(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [_doc()]
+
+        with patch.object(infra, "frappe", frappe_mock):
+            infra.get_analysis_candidates()
+
+        fields = frappe_mock.get_all.call_args[1]["fields"]
+        self.assertIn("nvfac_conv", fields)
 
 
 class TestGetVDocNames(unittest.TestCase):

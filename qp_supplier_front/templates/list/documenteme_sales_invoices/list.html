@@ -30,7 +30,7 @@
 {% for row in documenteme_sales_invoices %}
 <tr class="card-header" data-toggle="collapse" data-target="#detail-{{ row.name.replace(':', '_') }}" aria-expanded="false">
     <td class="text-center">
-        <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()">
+        <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()" {% if row.nvfac_esta in ["A", "R", "BCC", "PA", "PR"] %}disabled{% endif %}>
     </td>
     <td>{{ row.nvpro_ndoc }}</td>
     <td>{{ row.nvpro_nomb or "" }}</td>
@@ -75,12 +75,7 @@
             <span class="material-symbols-outlined" style="font-size:22px">assignment_ind</span>
         </button>
         {% endif %}
-        {% if row.nvfac_esta == "PR" %}
-        <button type="button" class="btn-control-reject-retry" style="color:{{ '#28a745' if row.qp_reject_retry_enabled else '#dc3545' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ 'Activos' if row.qp_reject_retry_enabled else 'Reintentos detenidos. Haz clic para reactivar' }}" data-name="{{ row.name }}" data-enabled="{{ 1 if row.qp_reject_retry_enabled else 0 }}">
-            <span class="material-symbols-outlined" style="font-size:22px">{{ 'play_arrow' if row.qp_reject_retry_enabled else 'pause' }}</span>
-        </button>
-        {% endif %}
-    </td>
+        </td>
 </tr>
 <tr class="collapse" id="detail-{{ row.name.replace(':', '_') }}" data-parent="#accordion">
     <td colspan="14">

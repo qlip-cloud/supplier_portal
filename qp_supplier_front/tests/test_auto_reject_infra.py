@@ -20,6 +20,7 @@ sys.modules["frappe.model.document"] = MagicMock()
 
 from qp_supplier_front.resources.documenteme import auto_reject as infra  # noqa: E402
 from qp_supplier_front.uses_cases.documenteme.auto_reject import (  # noqa: E402
+    RULE_NO_ACTION,
     RULE_NO_PO,
     RULE_NO_RECEIPT,
 )
@@ -156,6 +157,27 @@ class TestResolveRule(unittest.TestCase):
             rule = infra.resolve_rule(_doc())
 
         self.assertEqual(rule["rule_code"], RULE_NO_RECEIPT)
+
+    def test_no_action_proveedor_gana_al_setup(self):
+        supplier = {"rule_name": "No hacer nada", "rule_code": RULE_NO_ACTION,
+                    "enabled": 1, "motive": ""}
+        setup = {"rule_name": "B", "rule_code": RULE_NO_RECEIPT, "enabled": 1, "motive": ""}
+
+        with patch.object(infra, "get_supplier_rule", return_value=supplier), \
+             patch.object(infra, "get_setup_default_rule", return_value=setup):
+            rule = infra.resolve_rule(_doc())
+
+        self.assertEqual(rule["rule_code"], RULE_NO_ACTION)
+
+    def test_no_action_setup_aplica_sin_regla_proveedor(self):
+        setup = {"rule_name": "No hacer nada", "rule_code": RULE_NO_ACTION,
+                 "enabled": 0, "motive": ""}
+
+        with patch.object(infra, "get_supplier_rule", return_value=None), \
+             patch.object(infra, "get_setup_default_rule", return_value=setup):
+            rule = infra.resolve_rule(_doc())
+
+        self.assertEqual(rule["rule_code"], RULE_NO_ACTION)
 
 
 class TestPoReceiptCallbacks(unittest.TestCase):
