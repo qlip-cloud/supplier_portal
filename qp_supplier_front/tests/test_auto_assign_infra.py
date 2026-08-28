@@ -79,7 +79,10 @@ class TestGetReceiptTotal(unittest.TestCase):
 
     def test_suma_totales_de_purchase_receipt_por_supplier_oc(self):
         frappe_mock = MagicMock()
-        frappe_mock.get_all.return_value = [{"total": 400}, {"total": 600}]
+        frappe_mock.get_all.return_value = [
+            {"name": "R1", "total": 400, "posting_date": "2026-01-01", "qp_invoice": None},
+            {"name": "R2", "total": 600, "posting_date": "2026-01-02", "qp_invoice": None},
+        ]
 
         total = self._run(frappe_mock, "OC111")
 
@@ -87,7 +90,7 @@ class TestGetReceiptTotal(unittest.TestCase):
         frappe_mock.get_all.assert_called_once_with(
             "Purchase Receipt",
             filters={"qp_supplier_oc": "OC111"},
-            fields=["total"],
+            fields=["name", "total", "posting_date", "qp_invoice"],
         )
 
     def test_sin_recibos_retorna_none(self):
@@ -102,6 +105,40 @@ class TestGetReceiptTotal(unittest.TestCase):
         frappe_mock = MagicMock()
         frappe_mock.get_all.return_value = [{"total": None}, {"total": 200}]
         self.assertEqual(self._run(frappe_mock, "OC111"), 200)
+
+
+class TestGetReceiptBank(unittest.TestCase):
+
+    def _run(self, frappe_mock, purchase_order_number):
+        with patch.object(infra, "frappe", frappe_mock):
+            return infra.get_receipt_bank(purchase_order_number)
+
+    def test_devuelve_filas_con_amount_date_y_qp_invoice(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            {"name": "R1", "total": 400, "posting_date": "2026-01-01", "qp_invoice": None},
+            {"name": "R2", "total": 600, "posting_date": "2026-01-02", "qp_invoice": "FAC001"},
+        ]
+
+        bank = self._run(frappe_mock, "OC111")
+
+        self.assertEqual(bank, [
+            {"name": "R1", "amount": 400, "date": "2026-01-01", "qp_invoice": None},
+            {"name": "R2", "amount": 600, "date": "2026-01-02", "qp_invoice": "FAC001"},
+        ])
+        frappe_mock.get_all.assert_called_once_with(
+            "Purchase Receipt",
+            filters={"qp_supplier_oc": "OC111"},
+            fields=["name", "total", "posting_date", "qp_invoice"],
+        )
+
+    def test_sin_recibos_retorna_lista_vacia(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = []
+        self.assertEqual(self._run(frappe_mock, "OC111"), [])
+
+    def test_sin_oc_retorna_lista_vacia(self):
+        self.assertEqual(self._run(MagicMock(), None), [])
 
 
 class TestGetOCContext(unittest.TestCase):

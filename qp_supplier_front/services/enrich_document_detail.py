@@ -140,19 +140,28 @@ def build_receipt_products(items):
 def _update_status_if_fully_paid(document):
     import frappe
 
-    total_receipt_amount = sum(
-        product["valor_total"]
-        for product in document["productos_recepcion"]
+    from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
+        get_receipt_bank,
+    )
+    from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
+        DEFAULT_EPSILON,
+        solve_receipt_bank,
     )
 
     document_total = document.get("nvfac_totp") or 0
+    purchase_order_number = document.get("nvfac_orde")
 
-    if (total_receipt_amount == document_total
-            and document.get("nvfac_esta") not in ("A", "R", "V", "BCC", "PA", "PR")):
-        frappe.db.set_value(
-            "qp_SP_DocumentDetail",
-            document.get("name"),
-            "nvfac_esta",
-            "V",
-        )
-        document["nvfac_esta"] = "V"
+    if document.get("nvfac_esta") in ("A", "R", "V", "BCC", "PA", "PR"):
+        return
+
+    bank = get_receipt_bank(purchase_order_number, frappe_module=frappe)
+    if solve_receipt_bank(document_total, bank, DEFAULT_EPSILON) is None:
+        return
+
+    frappe.db.set_value(
+        "qp_SP_DocumentDetail",
+        document.get("name"),
+        "nvfac_esta",
+        "V",
+    )
+    document["nvfac_esta"] = "V"

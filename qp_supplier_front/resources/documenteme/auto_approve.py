@@ -24,7 +24,7 @@ import frappe
 from qp_supplier_front.resources.documenteme._approve_base import (
     approve_documents_core,
     po_exists,
-    receipts_total,
+    receipt_bank,
 )
 from qp_supplier_front.uses_cases.documenteme.approve import (
     ANALYSIS_STATES,
@@ -67,7 +67,7 @@ def get_analysis_candidates(doc_names=None):
 def promote_eligible_to_v(doc_names=None):
     promoted = []
     for doc in get_analysis_candidates(doc_names):
-        ok, _ = validate_registrable(doc, po_exists, receipts_total)
+        ok, _ = validate_registrable(doc, po_exists, receipt_bank)
         if ok and doc.get("nvfac_esta") != "V":
             frappe.db.set_value(
                 "qp_SP_DocumentDetail",

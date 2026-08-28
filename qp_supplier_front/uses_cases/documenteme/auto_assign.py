@@ -6,12 +6,17 @@ No tiene imports a Frappe. Todas las dependencias de infraestructura
 (DB, configuracion, persistencia) son inyectadas como callbacks.
 
 La asignacion aplica cuando una factura tiene orden de compra y no
-tiene recibo de compra asociado, o la sumatoria de las recepciones no
-cubre el total de la factura. El destinatario se resuelve segun el tipo de OC:
+esta cubierta por una combinacion exacta de recepciones no consumidas
+(banco de recepciones). El destinatario se resuelve segun el tipo de OC:
 - Inventariable: el par exacto (oc_type, sede) configurado en
   qp_SP_AssignmentConfig. La orden determina ambas dimensiones.
 - No inventariable: solo el oc_type; la sede de la orden no se valida.
 """
+
+from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
+    DEFAULT_EPSILON,
+    solve_receipt_bank,
+)
 
 
 def is_inventariable_oc_type(oc_type, oc_type_rows):
@@ -64,37 +69,40 @@ def _dedupe(items):
     return unique
 
 
-def should_auto_assign(invoice):
+def should_auto_assign(invoice, receipt_bank=None, epsilon=DEFAULT_EPSILON):
+    """True si la factura debe asignarse automaticamente.
+
+    Una factura con orden de compra se asigna cuando no esta cubierta por
+    una combinacion exacta de recepciones no consumidas. Si las recepciones
+    de su OC ya fueron consumidas por otra factura aprobada, el banco no
+    tendra combinacion exacta y la factura quedara para asignacion.
+    """
     has_purchase_order = bool(invoice.get("nvfac_orde"))
-    receipt_total = invoice.get("receipt_total")
-    invoice_total = invoice.get("nvfac_totp") or 0
-    no_receipt = receipt_total is None
-    not_covered = receipt_total != invoice_total
     not_assigned = not invoice.get("assigned_to") and not invoice.get("has_assigned_users")
     in_queue = invoice.get("in_queue", True)
-    return (
-        in_queue
-        and not_assigned
-        and has_purchase_order
-        and (no_receipt or not_covered)
-    )
+    if not (in_queue and not_assigned and has_purchase_order):
+        return False
+    return solve_receipt_bank(
+        invoice.get("nvfac_totp") or 0, receipt_bank or [], epsilon
+    ) is None
 
 
 def auto_assign(
     candidates_fn,
     get_oc_context_fn,
-    get_receipt_total_fn,
+    get_receipt_bank_fn,
     resolve_emails_fn,
     resolve_users_fn,
     add_assignees_fn,
     doc_names=None,
+    epsilon=DEFAULT_EPSILON,
 ):
     assigned = []
     candidates = candidates_fn() if doc_names is None else candidates_fn(doc_names)
     for invoice in candidates:
-        invoice["receipt_total"] = get_receipt_total_fn(invoice.get("nvfac_orde"))
+        bank = get_receipt_bank_fn(invoice.get("nvfac_orde"))
 
-        if not should_auto_assign(invoice):
+        if not should_auto_assign(invoice, bank, epsilon):
             continue
 
         oc_context = get_oc_context_fn(invoice.get("nvfac_orde"))

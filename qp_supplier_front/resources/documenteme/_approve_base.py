@@ -12,6 +12,7 @@ import frappe
 from frappe import parse_json
 
 from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
+    get_receipt_bank as _adapter_get_receipt_bank,
     get_receipt_total as _adapter_get_receipt_total,
 )
 from qp_supplier_front.resources.documenteme._alerts import (
@@ -171,6 +172,32 @@ def get_headquarter(purchase_order):
 def receipts_total(purchase_order):
     """Suma del total de Purchase Receipt por OC (delega en el adapter)."""
     return _adapter_get_receipt_total(purchase_order, frappe_module=frappe)
+
+
+def receipt_bank(purchase_order):
+    """Banco de recepciones (name, amount, date, qp_invoice) por OC."""
+    return _adapter_get_receipt_bank(purchase_order, frappe_module=frappe)
+
+
+def consume_receipts(doc, receipt_names):
+    """Marca las recepciones asignadas con qp_invoice = nvfac_nume.
+
+    UPDATE guardado para evitar doble consumo bajo concurrencia: solo se
+    consumen recepciones cuyo qp_invoice sigue vacio.
+    """
+    if not receipt_names:
+        return
+    invoice_number = doc.get("nvfac_nume")
+    if not invoice_number:
+        return
+    placeholders = ", ".join(["%s"] * len(receipt_names))
+    frappe.db.sql(
+        "UPDATE `tabPurchase Receipt` SET qp_invoice = %s "
+        "WHERE name IN ({}) AND (qp_invoice IS NULL OR qp_invoice = '')".format(
+            placeholders
+        ),
+        [invoice_number] + list(receipt_names),
+    )
 
 
 def get_supplier_by_tax_id(tax_id):
@@ -368,13 +395,14 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False):
         get_lines_fn=get_lines,
         get_headquarter_fn=get_headquarter,
         po_exists_fn=po_exists,
-        receipts_total_fn=receipts_total,
+        receipt_bank_fn=receipt_bank,
         send_request_fn=send_request_fn or send_purchase_invoice_request,
         parse_doc_numbers_fn=parse_doc_numbers,
         persist_invoice_fn=persist_invoice,
         mark_registered_fn=mark_registered,
         mark_error_fn=mark_error,
         mark_duplicate_registered_fn=mark_duplicate_registered,
+        consume_receipts_fn=consume_receipts,
         commit_fn=frappe.db.commit,
         now=_make_now(),
         force=force,
@@ -390,7 +418,7 @@ def collect_document_violations(doc_names):
     forzada por el usuario.
     """
     docs = get_docs(doc_names)
-    return collect_registrable_violations(docs, po_exists, receipts_total)
+    return collect_registrable_violations(docs, po_exists, receipt_bank)
 
 
 def run_approve(doc_names_raw, send_request_fn=None, force=False):
