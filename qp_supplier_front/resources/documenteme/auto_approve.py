@@ -57,6 +57,7 @@ def get_analysis_candidates(doc_names=None):
             "nvfac_orde",
             "nvfac_rece",
             "nvfac_totp",
+            "nvfac_stot",
             "nvfac_esta",
             "nvfac_ueve",
             "nvfac_conv",

@@ -51,7 +51,7 @@ def get_candidates(doc_names=None):
     docs = frappe.get_all(
         "qp_SP_DocumentDetail",
         filters=filters,
-        fields=["name", "nvfac_nume", "nvfac_orde", "nvfac_totp", "nvfac_esta", "document_sync_line"],
+        fields=["name", "nvfac_nume", "nvfac_orde", "nvfac_totp", "nvfac_stot", "nvfac_esta", "document_sync_line"],
     )
 
     candidates = []
@@ -71,6 +71,7 @@ def get_candidates(doc_names=None):
             "nvfac_nume": sync_line,
             "nvfac_orde": doc.get("nvfac_orde"),
             "nvfac_totp": doc.get("nvfac_totp"),
+            "nvfac_stot": doc.get("nvfac_stot"),
             "assigned_to": assigned_to,
             "has_assigned_users": has_assigned_users,
             "in_queue": True,

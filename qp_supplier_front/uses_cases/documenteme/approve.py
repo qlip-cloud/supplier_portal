@@ -100,11 +100,11 @@ def get_registrable_warnings(doc, po_exists_fn, receipts_total_fn):
                 )
             )
         else:
-            invoice_total = doc.get("nvfac_totp") or 0
+            invoice_total = doc.get("nvfac_stot") or 0
             if receipts_total != invoice_total:
                 warnings.append(
-                    "La sumatoria de recepciones ({}) no coincide con el total "
-                    "de la factura ({})".format(receipts_total, invoice_total)
+                    "La sumatoria de recepciones ({}) no coincide con el valor "
+                    "base de la factura ({})".format(receipts_total, invoice_total)
                 )
 
     return warnings

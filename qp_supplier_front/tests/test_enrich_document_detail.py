@@ -94,6 +94,7 @@ class TestEnrichDocumentDetail(unittest.TestCase):
             "nvfac_orde": nvfac_orde,
             "nvfac_rece": "REC222",
             "nvfac_totp": nvfac_totp,
+            "nvfac_stot": 1000,
             "nvfac_esta": nvfac_esta,
         }
 

@@ -67,7 +67,7 @@ def _dedupe(items):
 def should_auto_assign(invoice):
     has_purchase_order = bool(invoice.get("nvfac_orde"))
     receipt_total = invoice.get("receipt_total")
-    invoice_total = invoice.get("nvfac_totp") or 0
+    invoice_total = invoice.get("nvfac_stot") or 0
     no_receipt = receipt_total is None
     not_covered = receipt_total != invoice_total
     not_assigned = not invoice.get("assigned_to") and not invoice.get("has_assigned_users")
