@@ -19,6 +19,9 @@ from qp_supplier_front.resources.documenteme._alerts import (
     resolve_open_alerts,
 )
 from qp_supplier_front.resources.documenteme import simulation
+from qp_supplier_front.resources.documenteme.auto_reject import (
+    resolve_rule as _resolve_rule,
+)
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.uses_cases.documenteme.approve import (
@@ -131,6 +134,10 @@ def get_lines_from_invoice(doc):
     Resuelve el proveedor por tax_id (nvpro_ndoc), carga el mapa de
     homologacion y las lineas de detalle de la factura. Si falta alguna
     homologacion retorna un error con los codigos pendientes.
+
+    El JSON a BC lleva la informacion que la factura tiene: si el contado
+    tiene OC (pero no recibo) se incluye NoPedido (order_no); sin OC/recibo
+    van vacios y BC decide.
     """
     from qp_supplier_front.infrastructure.adapters.item_homologation_adapter import (
         get_homologation_map,
@@ -143,7 +150,11 @@ def get_lines_from_invoice(doc):
     homologation_map = get_homologation_map(supplier)
     detail_lines = get_invoice_detail_lines(doc.get("name"))
 
-    lines, missing_codes = homologate_lines(detail_lines, homologation_map)
+    lines, missing_codes = homologate_lines(
+        detail_lines,
+        homologation_map,
+        order_no=doc.get("nvfac_orde") or "",
+    )
 
     if missing_codes:
         return [], (
@@ -373,11 +384,12 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False):
         parse_doc_numbers_fn=parse_doc_numbers,
         persist_invoice_fn=persist_invoice,
         mark_registered_fn=mark_registered,
-        mark_error_fn=mark_error,
+        mark_error_fn=mark_error_fn,
         mark_duplicate_registered_fn=mark_duplicate_registered,
         commit_fn=frappe.db.commit,
         now=_make_now(),
         force=force,
+        resolve_rule_fn=_resolve_rule,
     )
 
 
@@ -390,7 +402,9 @@ def collect_document_violations(doc_names):
     forzada por el usuario.
     """
     docs = get_docs(doc_names)
-    return collect_registrable_violations(docs, po_exists, receipts_total)
+    return collect_registrable_violations(
+        docs, po_exists, receipts_total, resolve_rule_fn=_resolve_rule
+    )
 
 
 def run_approve(doc_names_raw, send_request_fn=None, force=False):

@@ -76,6 +76,11 @@ class qp_SP_AssignmentConfig(Document):
         self.oc_type = (self.oc_type or "").strip()
         self.headquarter = _normalize_headquarter(self.headquarter)
 
+        # Fila catch-all: oc_type y headquarter vacios permiten configurar los
+        # destinatarios por defecto de las facturas de contado sin OC.
+        if not self.oc_type and not self.headquarter:
+            return
+
         if not self.oc_type:
             frappe.throw("Debe indicar el tipo de OC para la configuracion")
 

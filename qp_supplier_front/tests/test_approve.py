@@ -621,6 +621,11 @@ class TestValidateCash(unittest.TestCase):
     def _receipts_total(self, total=None):
         return lambda purchase_order: total
 
+    def _resolve_rule(self, rule_code=None):
+        if rule_code is None:
+            return lambda doc: None
+        return lambda doc: {"rule_code": rule_code}
+
     def test_contado_se_aprueba_sin_oc_ni_recibos(self):
         doc = _doc(nvfac_conv="1", nvfac_orde=None)
         ok, error = validate_registrable(
@@ -651,6 +656,60 @@ class TestValidateCash(unittest.TestCase):
             doc, self._po_exists(), self._receipts_total(None)
         )
         self.assertFalse(ok)
+
+    def test_contado_sin_oc_con_regla_no_po_bloquea(self):
+        doc = _doc(nvfac_conv="1", nvfac_orde=None)
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(None),
+            resolve_rule_fn=self._resolve_rule("no_po"),
+        )
+        self.assertFalse(ok)
+        self.assertIn("debe asignarse", error)
+
+    def test_contado_con_oc_con_regla_no_po_aprueba(self):
+        doc = _doc(nvfac_conv="1", nvfac_orde="OC1")
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(None),
+            resolve_rule_fn=self._resolve_rule("no_po"),
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_contado_sin_recibo_con_regla_no_receipt_bloquea(self):
+        doc = _doc(nvfac_conv="1", nvfac_orde="OC1")
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(None),
+            resolve_rule_fn=self._resolve_rule("no_receipt"),
+        )
+        self.assertFalse(ok)
+        self.assertIn("debe asignarse", error)
+
+    def test_contado_con_recibo_con_regla_no_receipt_aprueba(self):
+        doc = _doc(nvfac_conv="1", nvfac_orde="OC1")
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(50000),
+            resolve_rule_fn=self._resolve_rule("no_receipt"),
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_contado_sin_oc_con_regla_no_action_aprueba(self):
+        doc = _doc(nvfac_conv="1", nvfac_orde=None)
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(None),
+            resolve_rule_fn=self._resolve_rule("no_action"),
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_contado_sin_oc_sin_regla_activa_aprueba(self):
+        doc = _doc(nvfac_conv="1", nvfac_orde=None)
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(None),
+            resolve_rule_fn=self._resolve_rule(None),
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
 
 
 class TestHomologateLines(unittest.TestCase):
@@ -699,6 +758,25 @@ class TestHomologateLines(unittest.TestCase):
         lines, missing = homologate_lines(detail_lines, {})
         self.assertEqual(lines, [])
         self.assertEqual(missing, [])
+
+    def test_lineas_con_order_no_y_receiving_no(self):
+        detail_lines = [
+            {"nvpro_codi": "A-0", "nvdet_tcan": 2, "nvdet_valo": 100},
+        ]
+        lines, missing = homologate_lines(
+            detail_lines, {"A-0": "B-1"}, order_no="OC1", receiving_no="R1"
+        )
+        self.assertEqual(missing, [])
+        self.assertEqual(lines[0]["order_no"], "OC1")
+        self.assertEqual(lines[0]["receiving_no"], "R1")
+
+    def test_sin_oc_order_no_queda_vacio(self):
+        detail_lines = [
+            {"nvpro_codi": "A-0", "nvdet_tcan": 2, "nvdet_valo": 100},
+        ]
+        lines, _ = homologate_lines(detail_lines, {"A-0": "B-1"})
+        self.assertEqual(lines[0]["order_no"], "")
+        self.assertEqual(lines[0]["receiving_no"], "")
 
 
 class TestApproveDocumentsHomologation(unittest.TestCase):

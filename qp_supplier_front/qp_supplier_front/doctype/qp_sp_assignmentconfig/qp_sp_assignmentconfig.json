@@ -19,15 +19,14 @@
     "label": "Sede",
     "options": ""
    },
- {
-     "fieldname": "oc_type",
-     "fieldtype": "Select",
-     "in_list_view": 1,
-     "in_standard_filter": 1,
-     "label": "OC Type",
-     "options": "",
-     "reqd": 1
-    },
+{
+      "fieldname": "oc_type",
+      "fieldtype": "Select",
+      "in_list_view": 1,
+      "in_standard_filter": 1,
+      "label": "OC Type",
+      "options": ""
+     },
   {
    "collapsible": 1,
    "fieldname": "section_break_users",
@@ -41,9 +40,9 @@
    "options": "qp_SP_AssignmentConfigUser"
   }
  ],
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-08-25 10:00:00.000000",
+"index_web_pages_for_search": 1,
+  "links": [],
+  "modified": "2026-08-28 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_AssignmentConfig",
