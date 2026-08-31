@@ -92,38 +92,25 @@ def run_auto_reject(http_fn=None, enqueue=True, doc_names=None):
     # Guard / kill-switch: los docs con retry deshabilitado no se envian.
     rejects = [r for r in rejects if _retry_enabled_for(r["doc"])]
 
-    # Facturas de contado: se rechazan en BC pero NO se notifica a
-    # documenteme. Se marcan "R" directamente y no se encolan.
-    cash = []
-    credit = []
-    for reject in rejects:
-        if is_cash_invoice(reject.get("nvfac_conv")):
-            cash.append(reject["doc"])
-        else:
-            credit.append(reject)
+    # Facturas de contado: NO se rechazan por la regla de rechazo. Si la
+    # incumplen se ASIGNAN (auto_assign resuelve destinatarios, incl. la fila
+    # catch-all para contado sin OC) y su aprobacion queda bloqueada
+    # (validate_registrable con resolve_rule_fn). Se excluyen del rechazo.
+    rejects = [r for r in rejects if not is_cash_invoice(r.get("nvfac_conv"))]
 
-    for doc_name in cash:
-        doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
-        doc.nvfac_esta = "R"
-        doc.qp_is_event_completed = 1
-        doc.save()
-        resolve_open_alerts(doc_name)
-    if cash:
-        frappe.db.commit()
-
-    _mark_pending(credit)
+    _mark_pending(rejects)
     frappe.db.commit()
 
-    if credit and enqueue and http_fn is None:
+    if rejects and enqueue and http_fn is None:
         frappe.enqueue(
             REJECT_JOB_METHOD,
-            rejects=credit,
+            rejects=rejects,
             queue="long",
             timeout=14400,
             job_name="auto reject documents",
         )
-    elif credit:
-        reject_batch_job(credit, http_fn=http_fn)
+    elif rejects:
+        reject_batch_job(rejects, http_fn=http_fn)
 
     return {"rejected": [reject["doc"] for reject in rejects]}
 
