@@ -150,6 +150,18 @@ class TestIsSequenceSuccessful(unittest.TestCase):
         sent = [{"event_code": "033", "response": {"Result": 0}, "status": 200}]
         self.assertTrue(is_sequence_successful(sent))
 
+    def test_exito_033_ya_aplicado(self):
+        sent = [{
+            "event_code": "033",
+            "response": {
+                "Result": 1,
+                "Description": "El documento [X] ya cuenta con el/los evento(s) "
+                "[033] y se encuentra(n) en estado exitoso.",
+            },
+            "status": 200,
+        }]
+        self.assertTrue(is_sequence_successful(sent))
+
     def test_falla_ultimo_033(self):
         sent = [{"event_code": "033", "response": {"Result": 1}, "status": 200}]
         self.assertFalse(is_sequence_successful(sent))
@@ -224,6 +236,48 @@ class TestApproveBatchJob(unittest.TestCase):
         self.assertEqual(result["error"], "Maximo de intentos alcanzado")
         insert_alert.assert_called_once()
         self.assertEqual(doc.nvfac_esta, "BCC")
+
+    def test_030_ya_aplicado_avanza_hasta_033(self):
+        doc = _make_doc()
+
+        def fake_send(payload, url, headers, method):
+            event_code = payload["Nveve_dian"]
+            if event_code == "030":
+                return (
+                    {"Result": 1, "Description": "El documento [X] ya cuenta "
+                     "con el/los evento(s) [030] y se encuentra(n) en estado "
+                     "exitoso."},
+                    200,
+                )
+            return {"Result": 0}, 200
+
+        with patch.object(mod, "get_approval_config", return_value={
+            "max_attempts": 2,
+            "retry_interval": 0,
+            "event_delay": 0,
+        }), \
+             patch.object(mod, "get_company_tax_id", return_value="890900123"), \
+             patch.object(mod, "get_event_endpoint", return_value=(
+                 "http://x", {"k": "v"}, "POST")), \
+             patch.object(mod, "_send_event", side_effect=fake_send), \
+             patch.object(mod, "insert_alert") as insert_alert, \
+             patch.object(mod, "resolve_open_alerts") as resolve:
+            mod.frappe.get_doc = lambda doctype, name: doc
+            result = mod._approve_one(
+                doc,
+                {"max_attempts": 2, "retry_interval": 0, "event_delay": 0},
+                "890900123",
+                "http://x",
+                {"k": "v"},
+                "POST",
+            )
+
+        self.assertTrue(result["approved"])
+        self.assertEqual(doc.nvfac_esta, "A")
+        self.assertEqual(doc.nvfac_ueve, "033")
+        self.assertEqual(doc.qp_is_event_completed, 1)
+        resolve.assert_called_once_with(doc.name)
+        insert_alert.assert_not_called()
 
 
 if __name__ == "__main__":

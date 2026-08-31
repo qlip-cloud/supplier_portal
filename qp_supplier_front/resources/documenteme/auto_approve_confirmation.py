@@ -38,6 +38,9 @@ from qp_supplier_front.uses_cases.documenteme.event_notifier import (
     _is_error,
     _build_payload,
 )
+from qp_supplier_front.uses_cases.documenteme.reject_retry import (
+    is_already_applied,
+)
 
 APPROVE_JOB_METHOD = (
     "qp_supplier_front.resources.documenteme.auto_approve_confirmation.approve_confirmation_batch_job"
@@ -89,23 +92,6 @@ def get_approval_resume_index(event_logs):
     return 0
 
 
-def _log_is_error(log):
-    import json
-
-    response = log.get("response")
-    status = log.get("status")
-    try:
-        status = int(status)
-    except (TypeError, ValueError):
-        status = None
-    if isinstance(response, str):
-        try:
-            response = json.loads(response)
-        except (TypeError, ValueError):
-            pass
-    return _is_error(response, status)
-
-
 def build_approval_events(doc, company_tax_id, resume_index, base_state=None):
     """Eventos de aprobacion pendientes desde resume_index hasta el final."""
     events = []
@@ -123,11 +109,15 @@ def build_approval_events(doc, company_tax_id, resume_index, base_state=None):
 
 
 def is_sequence_successful(sent):
-    """True si el ultimo evento enviado es el 033 sin error (aprobacion ok)."""
+    """True si el ultimo evento enviado es el 033 sin error (aprobacion ok).
+
+    Un 033 que responde "ya aplicado" tambien se considera aprobado.
+    """
     last = sent[-1] if sent else None
     if not last or last["event_code"] != "033":
         return False
-    return not _is_error(last["response"], last["status"])
+    return (not _is_error(last["response"], last["status"])
+            or is_already_applied(last["response"]))
 
 
 # =========================================================================
@@ -192,7 +182,9 @@ def _approve_one(doc, config, company_tax_id, url, headers, method):
             frappe.db.commit()
             if event["event_code"] != "033":
                 time.sleep(config["event_delay"])
-            if _is_error(response, status):
+            # Un evento que "ya esta aplicado" cuenta como exito: se avanza
+            # al siguiente (p. ej. 030 ya emitido -> seguir a 032).
+            if _is_error(response, status) and not is_already_applied(response):
                 break
 
         if is_sequence_successful(sent):
