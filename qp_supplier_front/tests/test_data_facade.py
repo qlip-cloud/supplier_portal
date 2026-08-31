@@ -93,13 +93,16 @@ class TestMemoryFacade(unittest.TestCase):
         self.facade.delete_doc("qp_SP_DocumentDetail", "999999999:F1")
         self.assertFalse(self.store.exists("qp_SP_DocumentDetail", "999999999:F1"))
 
-    def test_referencias_delegan_a_frappe(self):
-        frappe_mock = MagicMock()
-        frappe_mock.db.exists.return_value = "PO1"
-        facade = DataFacade(store=self.store, frappe=frappe_mock)
-        result = facade.exists("Purchase Order", "PO-1")
-        frappe_mock.db.exists.assert_called_once_with("Purchase Order", "PO-1")
-        self.assertEqual(result, "PO1")
+    def test_referencias_leer_del_store(self):
+        # Las referencias no delegadas a frappe: se leen del store (seeds).
+        facade = DataFacade(store=self.store)
+        self.assertFalse(facade.exists("Purchase Order", "PO-1"))
+        self.assertIsNone(facade.get_value("User", "u@x", "full_name"))
+        seed_store = MemoryStore()
+        seed_store.insert("User", {"name": "u@x", "full_name": "Ana"})
+        self.assertEqual(
+            DataFacade(store=seed_store).get_value("User", "u@x", "full_name"),
+            "Ana")
 
 
 class TestRealFacade(unittest.TestCase):

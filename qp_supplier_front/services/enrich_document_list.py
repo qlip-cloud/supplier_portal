@@ -23,37 +23,50 @@ DEFAULT_ALLOWANCE_REASON = "Descuento/Cargo"
 ASSIGNED_PREFIX = "Asignado a:"
 
 
-def enrich_document_list(documents, doctype):
-    """Enriquece cada documento de la lista con la informacion de contexto."""
+def _data_api(data, name):
+    """Retorna la funcion del facade (data) o de frappe real.
+
+    Compatible con el facade (get_value en la instancia, db -> self) y con el
+    objeto frappe/mock (db.get_value para lecturas de una columna).
+    """
+    if data is None:
+        import frappe
+        return frappe.db.get_value if name == "get_value" else frappe.get_all
+    if name == "get_value" and hasattr(data, "db"):
+        return data.db.get_value
+    return getattr(data, name)
+
+
+def enrich_document_list(documents, doctype, data=None):
+    """Enriquece cada documento de la lista con la informacion de contexto.
+
+    Con data (facade) lee de ahi (memoria en simulacion); sin data usa frappe.
+    """
     for doc in documents:
-        _enrich_doc(doc, doctype)
+        _enrich_doc(doc, doctype, data)
     return documents
 
 
-def _enrich_doc(doc, doctype):
-    _enrich_detail_lines(doc, doctype)
-    _enrich_allowance_charges(doc, doctype)
-    _enrich_attached_files(doc, doctype)
-    _enrich_assignment(doc)
+def _enrich_doc(doc, doctype, data=None):
+    _enrich_detail_lines(doc, doctype, data)
+    _enrich_allowance_charges(doc, doctype, data)
+    _enrich_attached_files(doc, doctype, data)
+    _enrich_assignment(doc, data)
     enrich_document_detail(doc)
 
 
-def _enrich_detail_lines(doc, doctype):
+def _enrich_detail_lines(doc, doctype, data=None):
     """Carga las lineas de detalle de la factura en doc['detail_lines']."""
-    import frappe
-
-    doc["detail_lines"] = frappe.get_all(
+    doc["detail_lines"] = _data_api(data, "get_all")(
         "qp_SP_DetailLine",
         filters={"parent": doc["name"], "parenttype": doctype},
         fields=["nvpro_codi", "nvuni_desc", "nvdet_tcan", "nvdet_valo", "nvdet_vdes", "nvdet_stot"]
     )
 
 
-def _enrich_allowance_charges(doc, doctype):
+def _enrich_allowance_charges(doc, doctype, data=None):
     """Carga los cargos/descuentos calculando signed_amount y running_total."""
-    import frappe
-
-    allowance_charges = frappe.get_all(
+    allowance_charges = _data_api(data, "get_all")(
         "qp_SP_AllowanceCharge",
         filters={"parent": doc["name"], "parenttype": doctype},
         fields=["reason", "amount", "charge_indicator"]
@@ -96,11 +109,9 @@ def _signed_amount(amount, charge_indicator):
     return -amount
 
 
-def _enrich_attached_files(doc, doctype):
+def _enrich_attached_files(doc, doctype, data=None):
     """Carga los archivos adjuntos y cuenta los que no son XML."""
-    import frappe
-
-    doc["attached_files"] = frappe.get_all(
+    doc["attached_files"] = _data_api(data, "get_all")(
         "qp_SP_DocumentAttach",
         filters={"parent": doc["name"], "parenttype": doctype},
         fields=["file_name", "file_type", "file_url", "file_id"]
@@ -115,24 +126,22 @@ def count_non_xml(attached_files):
     )
 
 
-def _enrich_assignment(doc):
+def _enrich_assignment(doc, data=None):
     """Carga la asignacion del documento (ids, usuarios y nombres)."""
-    import frappe
-
-    assignee_id = frappe.db.get_value(
+    assignee_id = _data_api(data, "get_value")(
         "qp_SP_DocumentSyncLine", doc.get("document_sync_line"), "assigned_to"
     )
-    assigned_user_ids = _get_assigned_user_ids(frappe, doc, assignee_id)
+    assigned_user_ids = _get_assigned_user_ids(data, doc, assignee_id)
     doc["assigned_to_id"] = assignee_id
     doc["assigned_to_ids"] = assigned_user_ids
-    doc["assigned_to_name"] = build_assigned_to_name(frappe, assigned_user_ids)
+    doc["assigned_to_name"] = build_assigned_to_name(data, assigned_user_ids)
 
 
-def _get_assigned_user_ids(frappe, doc, assignee_id):
+def _get_assigned_user_ids(data, doc, assignee_id):
     """Retorna los usuarios de qp_SP_SyncLineAssignedUser; si no hay, usa assignee_id."""
     assigned_user_ids = [
         row.get("user")
-        for row in frappe.get_all(
+        for row in _data_api(data, "get_all")(
             "qp_SP_SyncLineAssignedUser",
             filters={"parent": doc.get("document_sync_line"), "parenttype": "qp_SP_DocumentSyncLine"},
             fields=["user"]
@@ -143,11 +152,11 @@ def _get_assigned_user_ids(frappe, doc, assignee_id):
     return assigned_user_ids
 
 
-def build_assigned_to_name(frappe, assigned_user_ids):
-    """Construye el texto 'Asignado a:\\n- name1\\n- name2' a partir de los ids."""
+def build_assigned_to_name(data, assigned_user_ids):
+    """Construye el texto 'Asignado a:\n- name1\n- name2' a partir de los ids."""
     if not assigned_user_ids:
         return None
     names = []
     for user_id in assigned_user_ids:
-        names.append(frappe.db.get_value("User", user_id, "full_name") or user_id)
+        names.append(_data_api(data, "get_value")("User", user_id, "full_name") or user_id)
     return ASSIGNED_PREFIX + "\n" + "\n".join("- " + name for name in names)

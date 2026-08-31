@@ -148,12 +148,12 @@ def _set_detail_fields(sync_line_name, document_data):
 
 def _build_detail_lines(store, parent, detalle):
     for item in (detalle or []):
-        line = {"parent": parent}
+        line = {"parent": parent, "parenttype": "qp_SP_DocumentDetail"}
         for field in DETALLE_FIELDS:
             line[field] = item.get(_src(field))
         store.insert("qp_SP_DetailLine", line)
         for impuesto in (item.get("lImpuestos") or []):
-            tax = {"parent": parent}
+            tax = {"parent": parent, "parenttype": "qp_SP_DocumentDetail"}
             for field in TAX_FIELDS:
                 tax[field] = impuesto.get(_src(field))
             store.insert("qp_SP_DetailLineTax", tax)
@@ -161,7 +161,7 @@ def _build_detail_lines(store, parent, detalle):
 
 def _build_attached_files(store, parent, attached_list):
     for item in (attached_list or []):
-        row = {"parent": parent}
+        row = {"parent": parent, "parenttype": "qp_SP_DocumentDetail"}
         row["file_name"] = item.get("Nvdoc_nomb")
         row["file_type"] = item.get("Nvdoc_tipo")
         row["file_url"] = item.get("Nvdoc_nomb") or ""
@@ -186,6 +186,7 @@ def _build_allowance_charges(store, parent, attached_list):
         for charge in extract_document_allowance_charges(xml_content):
             store.insert("qp_SP_AllowanceCharge", {
                 "parent": parent,
+                "parenttype": "qp_SP_DocumentDetail",
                 "charge_indicator": charge.get("charge_indicator", 0),
                 "reason_code": charge.get("reason_code"),
                 "reason": charge.get("reason"),

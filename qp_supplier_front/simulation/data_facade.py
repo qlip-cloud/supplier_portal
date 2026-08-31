@@ -160,40 +160,27 @@ class MemDoc(_MemRow):
 
 
 class _Memory(object):
-    """Enruta doctypes del modulo al store; el resto a frappe real."""
+    """Implementacion in-memory: todos los doctypes se leen del store (los que
+    no estan sembrados devuelven vacio). Sin acceso a la DB real."""
 
-    def __init__(self, store, frappe):
+    def __init__(self, store, frappe=None):
         self._store = store
-        self._frappe = frappe
-
-    def _is_module(self, doctype):
-        return doctype in MODULE_DOCTYPES
 
     def get_all(self, doctype, filters=None, fields=None, order_by=None,
                 limit=None, start=0, page_length=None, pluck=None,
                 sort_field=None):
-        if not self._is_module(doctype):
-            return self._frappe.get_all(
-                doctype, filters=filters, fields=fields, order_by=order_by,
-                limit=limit)
         return self._store.query(
             doctype, filters=filters, fields=fields, order_by=order_by,
             start=start, page_length=page_length, pluck=pluck, limit=limit)
 
     def get_list(self, doctype, filters=None, fields=None, order_by=None,
                  start=0, page_length=None, pluck=None):
-        if not self._is_module(doctype):
-            return self._frappe.get_list(
-                doctype, filters=filters, fields=fields, order_by=order_by,
-                start=start, page_length=page_length)
         fields = fields or ["*"]
         return self._store.query(
             doctype, filters=filters, fields=fields, order_by=order_by,
             start=start, page_length=page_length, pluck=pluck)
 
     def get_value(self, doctype, name_or_filters, field=None):
-        if not self._is_module(doctype):
-            return self._frappe.get_value(doctype, name_or_filters, field)
         return self._store.get_value(doctype, name_or_filters, field)
 
     def get_doc(self, doctype, name=None, **kwargs):
@@ -201,22 +188,14 @@ class _Memory(object):
             kwargs = doctype
             doctype = kwargs.get("doctype")
             name = kwargs.get("name")
-        if not self._is_module(doctype):
-            if name is None:
-                return self._frappe.get_doc(kwargs)
-            return self._frappe.get_doc(doctype, name)
         if name is None:
             return MemDoc(self._store, kwargs.get("doctype"), row=kwargs)
         return MemDoc(self._store, doctype, name=name)
 
     def exists(self, doctype, name_or_filters):
-        if not self._is_module(doctype):
-            return self._frappe.db.exists(doctype, name_or_filters)
         return self._store.exists(doctype, name_or_filters)
 
     def set_value(self, doctype, name_or_filters, field, value=None):
-        if not self._is_module(doctype):
-            return self._frappe.db.set_value(doctype, name_or_filters, field, value)
         if value is None and isinstance(field, dict):
             for key, val in field.items():
                 self._store.set_value(doctype, name_or_filters, key, val)
@@ -224,12 +203,11 @@ class _Memory(object):
         return self._store.set_value(doctype, name_or_filters, field, value)
 
     def get_single_value(self, doctype, field):
-        if doctype == "qp_SP_MasterSetup" and self._store.has_doctype("qp_SP_MasterSetup"):
-            rows = self._store.query("qp_SP_MasterSetup")
+        if self._store.has_doctype(doctype):
+            rows = self._store.query(doctype)
             if rows:
                 return rows[0].get(field)
-        # Config/flag restante: se lee real (no es dato simulado).
-        return self._frappe.db.get_single_value(doctype, field)
+        return None
 
     def commit(self):
         pass
@@ -240,16 +218,10 @@ class _Memory(object):
         self._store.insert(child_doctype, data)
 
     def count(self, doctype, filters=None):
-        if not self._is_module(doctype):
-            return self._frappe.db.count(doctype, filters)
         return self._store.count(doctype, filters)
 
     def delete_doc(self, doctype, name):
-        if self._is_module(doctype):
-            self._store.delete(doctype, name)
-        else:
-            self._frappe.delete_doc(doctype, name, ignore_permissions=True,
-                                    force=True)
+        self._store.delete(doctype, name)
 
 
 class DataFacade(object):

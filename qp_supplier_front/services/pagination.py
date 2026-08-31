@@ -36,10 +36,20 @@ def get_paginated(page, doctype, supplier_id, order_by, filters = {}):
     
     return frappe.get_list(doctype, filters = filters, fields = ["*"], start=start, page_length=PAGE_LENGTH, order_by = "{} desc".format(order_by))
 
-def get_paginated_filtered(page, doctype, order_by, filters=None):
-    
+def get_paginated_filtered(page, doctype, order_by, filters=None, data=None):
+    """Lista paginada de documentos. Con data (facade) lee de ahi (en memoria si
+    simulacion), sin data usa frappe (real)."""
     filters = filters or {}
-    
+
     start = page * PAGE_LENGTH
-    
+
+    if data is not None:
+        return data.get_list(
+            doctype,
+            filters=filters,
+            fields=["*"],
+            start=start,
+            page_length=PAGE_LENGTH,
+            order_by="{} desc, name desc".format(order_by),
+        )
     return frappe.get_list(doctype, filters=filters, fields=["*"], start=start, page_length=PAGE_LENGTH, order_by="{} desc, name desc".format(order_by))
