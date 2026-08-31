@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 auto_approve.py (documenteme) — infraestructura
-===============================================
+==============================================
 Aprobacion automatica de facturas documenteme.
 
 Replica el patron de auto_reject.py reutilizando el nucleo puro de
@@ -15,12 +15,14 @@ aprobacion (uses_cases/documenteme/approve):
    documento) guarda el confirmation_id y la notificacion 030 -> 032 -> 033
    a documenteme tiene exito.
 
-Solo corre si el setup qp_SP_MasterSetup.auto_approve esta habilitado.
-El envio se encola como job de fondo para no bloquear el servicio.
+Los accesos a datos van por el facade de runtime (real o in-memory); no se
+decide simulacion aqui. Si el facade es in-memory el job corre inline (el
+store no cruza workers).
 """
 
 import frappe
 
+from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.resources.documenteme._approve_base import (
     approve_documents_core,
     po_exists,
@@ -39,8 +41,16 @@ AUTO_APPROVE_JOB_METHOD = (
 )
 
 
+def _data():
+    return runtime.resolve()["data"]
+
+
+def _callbacks():
+    return runtime.resolve().get("approve_callbacks") or {}
+
+
 def is_auto_approve_enabled():
-    return bool(frappe.db.get_single_value("qp_SP_MasterSetup", "auto_approve"))
+    return bool(_data().get_single_value("qp_SP_MasterSetup", "auto_approve"))
 
 
 def get_analysis_candidates(doc_names=None):
@@ -51,7 +61,7 @@ def get_analysis_candidates(doc_names=None):
     if doc_names:
         filters["name"] = ["in", list(doc_names)]
 
-    return frappe.get_all(
+    return _data().get_all(
         "qp_SP_DocumentDetail",
         filters=filters,
         fields=[
@@ -69,20 +79,26 @@ def get_analysis_candidates(doc_names=None):
 
 
 def promote_eligible_to_v(doc_names=None):
+    data = _data()
+    cb = _callbacks()
+    po_ok = cb.get("po_exists_fn", po_exists)
+    receipts_fn = cb.get("receipts_total_fn", receipts_total)
+    resolve_rule = cb.get("resolve_rule_fn", _resolve_rule)
+
     promoted = []
     for doc in get_analysis_candidates(doc_names):
         ok, _ = validate_registrable(
-            doc, po_exists, receipts_total, resolve_rule_fn=_resolve_rule
+            doc, po_ok, receipts_fn, resolve_rule_fn=resolve_rule
         )
         if ok and doc.get("nvfac_esta") != "V":
-            frappe.db.set_value(
+            data.set_value(
                 "qp_SP_DocumentDetail",
                 doc.get("name"),
                 "nvfac_esta",
                 "V",
             )
             promoted.append(doc.get("nvfac_nume"))
-    frappe.db.commit()
+    data.commit()
     return promoted
 
 
@@ -94,7 +110,7 @@ def get_v_doc_names(doc_names=None):
     if doc_names:
         filters["name"] = ["in", list(doc_names)]
 
-    return frappe.get_all(
+    return _data().get_all(
         "qp_SP_DocumentDetail",
         filters=filters,
         pluck="name",
@@ -111,7 +127,7 @@ def run_auto_approve(enqueue=True, doc_names=None):
     if not doc_names:
         return {"approved": [], "errors": [], "skipped": False}
 
-    if enqueue:
+    if enqueue and not _data().is_in_memory:
         frappe.enqueue(
             AUTO_APPROVE_JOB_METHOD,
             doc_names=doc_names,
@@ -138,7 +154,7 @@ def run_auto_approve(enqueue=True, doc_names=None):
 
 def approve_batch_job(doc_names):
     result = approve_documents_core(doc_names)
-    frappe.db.commit()
+    _data().commit()
 
     for err in result.get("errors", []):
         frappe.log_error(
@@ -155,7 +171,7 @@ def approve_batch_job(doc_names):
 def auto_approve():
     try:
         result = run_auto_approve()
-        frappe.db.commit()
+        _data().commit()
         return {"success": True, "data": result}
     except Exception as error:
         frappe.db.rollback()

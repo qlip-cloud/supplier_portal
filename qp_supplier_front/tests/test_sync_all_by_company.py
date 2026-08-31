@@ -403,6 +403,14 @@ class TestRunAutoApproveSync(unittest.TestCase):
         self.patch = patch.object(arapp, "frappe", self.frappe_mock)
         self.patch.start()
         self.addCleanup(self.patch.stop)
+        from qp_supplier_front.simulation.data_facade import DataFacade
+        self.patch_runtime = patch.object(
+            arapp.runtime, "resolve",
+            return_value={"data": DataFacade(frappe=self.frappe_mock),
+                          "approve_callbacks": {}},
+        )
+        self.patch_runtime.start()
+        self.addCleanup(self.patch_runtime.stop)
 
     def test_enqueue_false_no_encola_y_ejecuta_batch(self):
         approved = [{"nvfac_nume": "F1", "doc_number": "BC1"}]

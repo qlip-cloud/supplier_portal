@@ -224,7 +224,11 @@ class _Memory(object):
         return self._store.set_value(doctype, name_or_filters, field, value)
 
     def get_single_value(self, doctype, field):
-        # Config/flag del setup: se lee real (no es dato simulado).
+        if doctype == "qp_SP_MasterSetup" and self._store.has_doctype("qp_SP_MasterSetup"):
+            rows = self._store.query("qp_SP_MasterSetup")
+            if rows:
+                return rows[0].get(field)
+        # Config/flag restante: se lee real (no es dato simulado).
         return self._frappe.db.get_single_value(doctype, field)
 
     def commit(self):
@@ -255,6 +259,10 @@ class DataFacade(object):
         import frappe as actual_frappe
         self._frappe = frappe or actual_frappe
         self._impl = _Memory(store, self._frappe) if store is not None else _Real(self._frappe)
+
+    @property
+    def is_in_memory(self):
+        return self._store is not None
 
     def get_all(self, *args, **kwargs):
         return self._impl.get_all(*args, **kwargs)
