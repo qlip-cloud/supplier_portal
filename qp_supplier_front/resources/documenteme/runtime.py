@@ -15,11 +15,27 @@ from qp_supplier_front.resources.documenteme import simulation
 
 
 def is_simulation_enabled():
-    """True si el modo simulador documenteme esta activo en el setup."""
+    """True si el modo simulador documenteme esta activo en el setup.
+
+    Si el flag no puede leerse (columna/campo ausente, tabla inexistente o
+    error de lectura) se asume que la simulacion NO esta activa (modo real) y
+    se loguea, en lugar de tumbar el flujo de sincronizacion.
+    """
     import frappe
-    return bool(frappe.db.get_single_value(
-        "qp_SP_MasterSetup", "documenteme_simulation"
-    ))
+
+    try:
+        return bool(frappe.db.get_single_value(
+            "qp_SP_MasterSetup", "documenteme_simulation"
+        ))
+    except Exception:
+        try:
+            frappe.log_error(
+                message=frappe.get_traceback(),
+                title="documenteme is_simulation_enabled",
+            )
+        except Exception:
+            pass
+        return False
 
 
 def _real_bundle():

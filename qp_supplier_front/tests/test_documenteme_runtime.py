@@ -42,6 +42,17 @@ class TestIsSimulationEnabled(unittest.TestCase):
         frappe_mock.db.get_single_value.return_value = None
         self.assertFalse(self._run(frappe_mock))
 
+    def test_flag_ilegible_no_crashea_y_es_false(self):
+        frappe_mock = MagicMock()
+        frappe_mock.db.get_single_value.side_effect = Exception(
+            "InvalidColumnName documenteme_simulation")
+
+        with patch.dict(sys.modules, {"frappe": frappe_mock}):
+            result = runtime.is_simulation_enabled()
+
+        self.assertFalse(result)
+        frappe_mock.log_error.assert_called_once()
+
 
 class TestResolveRealBundle(unittest.TestCase):
 
