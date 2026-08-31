@@ -27,24 +27,7 @@ def get_context(context):
         
         context.contacts = contacts
         
-        primary_phone = None
-        if contacts:
-            for contact in contacts:
-                phone = contact.mobile_no or (contact.phone_nos[0].phone if contact.phone_nos else None)
-                if contact.is_primary_contact and phone:
-                    primary_phone = phone
-                    break
-            if not primary_phone:
-                for contact in contacts:
-                    phone = contact.mobile_no or (contact.phone_nos[0].phone if contact.phone_nos else None)
-                    if phone:
-                        primary_phone = phone
-                        if not contact.is_primary_contact:
-                            for c in contacts:
-                                if c.is_primary_contact:
-                                    frappe.db.set_value("Contact", c.name, "is_primary_contact", 0)
-                            frappe.db.set_value("Contact", contact.name, "is_primary_contact", 1)
-                        break
+        primary_phone = resolve_primary_phone(contacts)
         context.primary_phone = primary_phone
         
         context.bank_accounts = get_bank_accounts(supplier, "Bank Account")
@@ -119,6 +102,22 @@ def get_context(context):
 
     context.has_recent_news = has_recent_news()
      
+def resolve_primary_phone(contacts):
+    """
+    Retorna el telefono a mostrar en el formulario basico, sin modificar en DB
+    el contacto primario ni persistir ningun cambio. Prioriza el telefono del
+    contacto primario; si no tiene, usa cualquier contacto con telefono.
+    """
+    for contact in contacts or []:
+        phone = contact.mobile_no or (contact.phone_nos[0].phone if contact.phone_nos else None)
+        if contact.is_primary_contact and phone:
+            return phone
+    for contact in contacts or []:
+        phone = contact.mobile_no or (contact.phone_nos[0].phone if contact.phone_nos else None)
+        if phone:
+            return phone
+    return None
+
 def get_is_alpla_admin(user_roles, add_rol = None, only_admin = False):
     
     admin_roles = {"Alpla Administrator", "Administrator"}
