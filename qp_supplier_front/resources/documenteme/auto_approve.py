@@ -26,7 +26,7 @@ from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.resources.documenteme._approve_base import (
     approve_documents_core,
     po_exists,
-    receipts_total,
+    receipt_bank,
 )
 from qp_supplier_front.resources.documenteme.auto_reject import (
     resolve_rule as _resolve_rule,
@@ -103,13 +103,13 @@ def promote_eligible_to_v(doc_names=None):
     data = _data()
     cb = _callbacks()
     po_ok = cb.get("po_exists_fn", po_exists)
-    receipts_fn = cb.get("receipts_total_fn", receipts_total)
+    bank_fn = cb.get("receipt_bank_fn", receipt_bank)
     resolve_rule = cb.get("resolve_rule_fn", _resolve_rule)
 
     promoted = []
     for doc in get_analysis_candidates(doc_names):
         ok, _ = validate_registrable(
-            doc, po_ok, receipts_fn, resolve_rule_fn=resolve_rule
+            doc, po_ok, bank_fn, resolve_rule_fn=resolve_rule
         )
         if ok and doc.get("nvfac_esta") != "V":
             if data is None:

@@ -114,7 +114,6 @@ class TestShouldAutoAssign(unittest.TestCase):
             "nvfac_orde": "OC001",
             "nvfac_totp": 1000,
             "nvfac_stot": 1000,
-            "receipt_total": 400,
             "assigned_to": None,
             "has_assigned_users": False,
             "in_queue": True,
@@ -122,34 +121,41 @@ class TestShouldAutoAssign(unittest.TestCase):
         data.update(overrides)
         return data
 
+    def _bank(self, amount):
+        return [{"name": "R1", "amount": amount, "date": "2026-01-01", "qp_invoice": None}]
+
     def test_cumple_condicion(self):
-        self.assertTrue(should_auto_assign(self._invoice()))
+        self.assertTrue(should_auto_assign(self._invoice(), self._bank(400)))
 
     def test_sin_orden_de_compra(self):
-        self.assertFalse(should_auto_assign(self._invoice(nvfac_orde=None)))
+        self.assertFalse(should_auto_assign(self._invoice(nvfac_orde=None), self._bank(400)))
 
     def test_sin_recibos(self):
-        self.assertTrue(should_auto_assign(self._invoice(receipt_total=None)))
+        self.assertTrue(should_auto_assign(self._invoice(), []))
 
     def test_recepciones_cubren_total_no_asigna(self):
-        self.assertFalse(should_auto_assign(self._invoice(receipt_total=1000)))
+        self.assertFalse(should_auto_assign(self._invoice(), self._bank(1000)))
 
     def test_recepciones_mayores_al_total_asigna(self):
-        self.assertTrue(should_auto_assign(self._invoice(receipt_total=1200)))
+        self.assertTrue(should_auto_assign(self._invoice(), self._bank(1200)))
+
+    def test_recepciones_consumidas_por_otra_factura_asigna(self):
+        bank = [{"name": "R1", "amount": 1000, "date": "2026-01-01", "qp_invoice": "FAC000"}]
+        self.assertTrue(should_auto_assign(self._invoice(), bank))
 
     def test_ya_asignada(self):
-        self.assertFalse(should_auto_assign(self._invoice(assigned_to="admin@x.com")))
+        self.assertFalse(should_auto_assign(self._invoice(assigned_to="admin@x.com"), self._bank(400)))
 
     def test_ya_asignada_multiple(self):
-        self.assertFalse(should_auto_assign(self._invoice(has_assigned_users=True)))
+        self.assertFalse(should_auto_assign(self._invoice(has_assigned_users=True), self._bank(400)))
 
     def test_fuera_de_cola(self):
-        self.assertFalse(should_auto_assign(self._invoice(in_queue=False)))
+        self.assertFalse(should_auto_assign(self._invoice(in_queue=False), self._bank(400)))
 
 
 class TestAutoAssignOrchestration(unittest.TestCase):
 
-    def _callbacks(self, oc_context, receipt_total, emails, users, candidates,
+    def _callbacks(self, oc_context, receipt_bank, emails, users, candidates,
                    resolve_rule_fn=None, po_exists_fn=None):
         calls = []
 
@@ -159,8 +165,8 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         def get_oc_context_fn(purchase_order_number):
             return oc_context
 
-        def get_receipt_total_fn(purchase_order_number):
-            return receipt_total
+        def get_receipt_bank_fn(purchase_order_number):
+            return receipt_bank
 
         def resolve_emails_fn(oc_type, headquarter):
             return emails
@@ -174,7 +180,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         return calls, {
             "candidates_fn": candidates_fn,
             "get_oc_context_fn": get_oc_context_fn,
-            "get_receipt_total_fn": get_receipt_total_fn,
+            "get_receipt_bank_fn": get_receipt_bank_fn,
             "resolve_emails_fn": resolve_emails_fn,
             "resolve_users_fn": resolve_users_fn,
             "add_assignees_fn": add_assignees_fn,
@@ -194,7 +200,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         }]
         calls, callbacks = self._callbacks(
             oc_context={"oc_type": "01", "headquarter": "BOG"},
-            receipt_total=400,
+            receipt_bank=[{"name": "R1", "amount": 400, "date": "2026-01-01", "qp_invoice": None}],
             emails=["a@x.com", "b@x.com"],
             users=["a@x.com", "b@x.com"],
             candidates=candidates,
@@ -217,7 +223,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         }]
         calls, callbacks = self._callbacks(
             oc_context={"oc_type": "01", "headquarter": "BOG"},
-            receipt_total=None,
+            receipt_bank=[],
             emails=["a@x.com", "b@x.com"],
             users=["a@x.com", "b@x.com"],
             candidates=candidates,
@@ -240,7 +246,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         }]
         calls, callbacks = self._callbacks(
             oc_context={"oc_type": "01", "headquarter": "BOG"},
-            receipt_total=400,
+            receipt_bank=[{"name": "R1", "amount": 400, "date": "2026-01-01", "qp_invoice": None}],
             emails=["a@x.com"],
             users=[],
             candidates=candidates,
@@ -263,7 +269,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         }]
         calls, callbacks = self._callbacks(
             oc_context=None,
-            receipt_total=400,
+            receipt_bank=[{"name": "R1", "amount": 400, "date": "2026-01-01", "qp_invoice": None}],
             emails=["a@x.com"],
             users=["a@x.com"],
             candidates=candidates,
@@ -285,7 +291,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         }]
         calls, callbacks = self._callbacks(
             oc_context={"oc_type": "01", "headquarter": "BOG"},
-            receipt_total=400,
+            receipt_bank=[{"name": "R1", "amount": 400, "date": "2026-01-01", "qp_invoice": None}],
             emails=["a@x.com"],
             users=["a@x.com"],
             candidates=candidates,
@@ -309,7 +315,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         }]
         calls, callbacks = self._callbacks(
             oc_context=None,
-            receipt_total=None,
+            receipt_bank=None,
             emails=["a@x.com"],
             users=["a@x.com"],
             candidates=candidates,
@@ -334,7 +340,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         }]
         calls, callbacks = self._callbacks(
             oc_context=None,
-            receipt_total=None,
+            receipt_bank=None,
             emails=["a@x.com"],
             users=["a@x.com"],
             candidates=candidates,
@@ -359,7 +365,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         }]
         calls, callbacks = self._callbacks(
             oc_context=None,
-            receipt_total=None,
+            receipt_bank=None,
             emails=["a@x.com"],
             users=["a@x.com"],
             candidates=candidates,
@@ -385,7 +391,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         }]
         calls, callbacks = self._callbacks(
             oc_context={"oc_type": "03", "headquarter": "BOG"},
-            receipt_total=None,
+            receipt_bank=None,
             emails=["a@x.com"],
             users=["a@x.com"],
             candidates=candidates,
@@ -411,7 +417,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         }]
         calls, callbacks = self._callbacks(
             oc_context={"oc_type": "03", "headquarter": "BOG"},
-            receipt_total=None,
+            receipt_bank=None,
             emails=["a@x.com"],
             users=["a@x.com"],
             candidates=candidates,

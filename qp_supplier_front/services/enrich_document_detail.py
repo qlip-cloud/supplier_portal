@@ -160,19 +160,46 @@ def build_receipt_products(items):
 
 
 def _update_status_if_fully_paid(document, data=None):
-    total_receipt_amount = sum(
-        product["valor_total"]
-        for product in document["productos_recepcion"]
+    """Marca en "V" una factura cubierta por una combinacion exacta de
+    recepciones no consumidas (banco). Lee el banco via el facade (data) o
+    frappe real y respeta los estados definitivos/en proceso."""
+    from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
+        DEFAULT_EPSILON,
+        solve_receipt_bank,
     )
 
     document_total = document.get("nvfac_stot") or 0
+    purchase_order_number = document.get("nvfac_orde")
 
-    if (total_receipt_amount == document_total
-            and document.get("nvfac_esta") not in ("A", "R", "V", "BCC", "PA", "PR")):
-        _api(data, "set_value")(
-            "qp_SP_DocumentDetail",
-            document.get("name"),
-            "nvfac_esta",
-            "V",
-        )
-        document["nvfac_esta"] = "V"
+    if document.get("nvfac_esta") in ("A", "R", "V", "BCC", "PA", "PR"):
+        return
+
+    if not purchase_order_number:
+        return
+
+    receipts = _api(data, "get_all")(
+        "Purchase Receipt",
+        filters={"qp_supplier_oc": purchase_order_number},
+        fields=["name", "total", "posting_date", "qp_invoice"],
+    )
+
+    bank = [
+        {
+            "name": receipt.get("name"),
+            "amount": receipt.get("total") or 0,
+            "date": receipt.get("posting_date"),
+            "qp_invoice": receipt.get("qp_invoice"),
+        }
+        for receipt in (receipts or [])
+    ]
+
+    if solve_receipt_bank(document_total, bank, DEFAULT_EPSILON) is None:
+        return
+
+    _api(data, "set_value")(
+        "qp_SP_DocumentDetail",
+        document.get("name"),
+        "nvfac_esta",
+        "V",
+    )
+    document["nvfac_esta"] = "V"

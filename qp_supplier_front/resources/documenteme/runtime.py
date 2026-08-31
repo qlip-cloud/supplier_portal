@@ -125,6 +125,10 @@ def _simulated_bundle():
             "po_exists_fn": _bind(references_memory.memory_po_exists),
             "receipts_total_fn": _bind(
                 references_memory.memory_receipts_total),
+            "receipt_bank_fn": _bind(
+                references_memory.memory_get_receipt_bank),
+            "consume_receipts_fn": _bind(
+                documents_memory.memory_consume_receipts),
             "persist_invoice_fn": _bind(
                 documents_memory.memory_persist_invoice),
             "mark_registered_fn": _bind(

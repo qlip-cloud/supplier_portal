@@ -62,6 +62,18 @@ def _line(**overrides):
     return data
 
 
+def _bank(total):
+    """Construye un callback de banco de recepciones desde un total escalar."""
+    if total is None:
+        return lambda purchase_order: []
+    return lambda purchase_order: [{
+        "name": "R1",
+        "amount": total,
+        "date": "2026-01-01",
+        "qp_invoice": None,
+    }]
+
+
 class TestIsDefinitive(unittest.TestCase):
 
     def test_estados_definitivos(self):
@@ -104,7 +116,7 @@ class TestValidateRegistrable(unittest.TestCase):
         return lambda purchase_order: exists
 
     def _receipts_total(self, total=50000):
-        return lambda purchase_order: total
+        return _bank(total)
 
     def test_cumple_regla(self):
         doc = _doc()
@@ -173,7 +185,7 @@ class TestValidateRegistrable(unittest.TestCase):
             _doc(), self._po_exists(), self._receipts_total(40000)
         )
         self.assertFalse(ok)
-        self.assertIn("no coincide", error)
+        self.assertIn("combinación", error)
 
     def test_montos_superan_factura(self):
         ok, _ = validate_registrable(
@@ -188,7 +200,7 @@ class TestValidateRegistrables(unittest.TestCase):
         return lambda purchase_order: exists
 
     def _receipts_total(self, total=50000):
-        return lambda purchase_order: total
+        return _bank(total)
 
     def test_separa_validos_y_errores(self):
         docs = [
@@ -613,13 +625,263 @@ class TestApproveDocuments(unittest.TestCase):
         self.assertEqual(calls["commits"], 1)
 
 
+class TestApproveDocumentsReceiptBank(unittest.TestCase):
+    """Ruta batch-aware (receipt_bank_fn): asignacion por banco + consumo."""
+
+    NOW = "2026-08-12 10:00:00"
+
+    def _callbacks(self, docs, response_obj, status, invoice_results=None,
+                   bank_by_po=None):
+        calls = {
+            "sent": [],
+            "persisted": [],
+            "marked": [],
+            "marked_error": [],
+            "consumed": [],
+            "commits": 0,
+        }
+
+        def get_docs_fn(doc_names):
+            return [d for d in docs if d.get("name") in doc_names]
+
+        def get_lines_fn(doc):
+            return [_line()], ""
+
+        def get_headquarter_fn(purchase_order):
+            return "HQ01"
+
+        def po_exists_fn(purchase_order):
+            return bool(purchase_order)
+
+        def receipt_bank_fn(purchase_order):
+            return (bank_by_po or {}).get(purchase_order, [])
+
+        def send_request_fn(endpoint_code, payload):
+            calls["sent"].append((endpoint_code, payload))
+            return response_obj, status
+
+        def parse_doc_numbers_fn(resp):
+            return invoice_results or []
+
+        def persist_invoice_fn(doc, doc_number, now):
+            calls["persisted"].append((doc.get("nvfac_nume"), doc_number))
+
+        def mark_registered_fn(doc, doc_number):
+            calls["marked"].append(doc.get("nvfac_nume"))
+
+        def mark_error_fn(doc, error):
+            calls["marked_error"].append((doc.get("nvfac_nume"), error))
+
+        def consume_receipts_fn(doc, receipt_names):
+            calls["consumed"].append((doc.get("nvfac_nume"), list(receipt_names)))
+
+        def commit_fn():
+            calls["commits"] += 1
+
+        return calls, {
+            "get_docs_fn": get_docs_fn,
+            "get_lines_fn": get_lines_fn,
+            "get_headquarter_fn": get_headquarter_fn,
+            "po_exists_fn": po_exists_fn,
+            "receipt_bank_fn": receipt_bank_fn,
+            "consume_receipts_fn": consume_receipts_fn,
+            "send_request_fn": send_request_fn,
+            "parse_doc_numbers_fn": parse_doc_numbers_fn,
+            "persist_invoice_fn": persist_invoice_fn,
+            "mark_registered_fn": mark_registered_fn,
+            "mark_error_fn": mark_error_fn,
+            "commit_fn": commit_fn,
+        }
+
+    def test_valida_por_banco_y_consume_solo_al_persistir(self):
+        docs = [
+            _doc(name="DOC1", nvfac_nume="FAC001", nvfac_orde="OC111", nvfac_totp=50000, nvfac_stot=50000),
+            _doc(name="DOC2", nvfac_nume="FAC002", nvfac_orde="OC222", nvfac_totp=30000, nvfac_stot=30000),
+        ]
+        results = [
+            {"doc_number": "BC1001", "error": ""},
+            {"doc_number": "BC1002", "error": ""},
+        ]
+        calls, kwargs = self._callbacks(
+            docs,
+            {"Result": 0, "invoices": results},
+            200,
+            invoice_results=results,
+            bank_by_po={
+                "OC111": [{"name": "R1", "amount": 50000, "date": "2026-01-01", "qp_invoice": None}],
+                "OC222": [{"name": "R2", "amount": 30000, "date": "2026-01-01", "qp_invoice": None}],
+            },
+        )
+        result = approve_documents(["DOC1", "DOC2"], now=self.NOW, **kwargs)
+
+        self.assertEqual(len(result["approved"]), 2)
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(calls["persisted"], [("FAC001", "BC1001"), ("FAC002", "BC1002")])
+        self.assertEqual(calls["consumed"], [
+            ("FAC001", ["R1"]),
+            ("FAC002", ["R2"]),
+        ])
+        self.assertEqual(calls["commits"], 1)
+
+    def test_factura_sin_combinacion_exacta_no_se_envia_ni_consume(self):
+        doc = _doc(name="DOC1", nvfac_nume="FAC001", nvfac_totp=50000)
+        calls, kwargs = self._callbacks(
+            [doc],
+            {"Result": 0},
+            200,
+            bank_by_po={
+                "45238": [{"name": "R1", "amount": 40000, "date": "2026-01-01", "qp_invoice": None}],
+            },
+        )
+        result = approve_documents(["DOC1"], now=self.NOW, **kwargs)
+
+        self.assertEqual(result["approved"], [])
+        self.assertEqual(len(result["errors"]), 1)
+        self.assertIn("combinación", result["errors"][0]["error"])
+        self.assertEqual(calls["sent"], [])
+        self.assertEqual(calls["consumed"], [])
+
+    def test_dos_facturas_misma_oc_en_batched_se_sirven_del_resto(self):
+        docs = [
+            _doc(name="DOC1", nvfac_nume="FAC001", nvfac_totp=50000, nvfac_stot=50000),
+            _doc(name="DOC2", nvfac_nume="FAC002", nvfac_totp=30000, nvfac_stot=30000),
+        ]
+        bank = [
+            {"name": "R1", "amount": 50000, "date": "2026-01-01", "qp_invoice": None},
+            {"name": "R2", "amount": 30000, "date": "2026-01-02", "qp_invoice": None},
+        ]
+        results = [
+            {"doc_number": "BC1001", "error": ""},
+            {"doc_number": "BC1002", "error": ""},
+        ]
+        calls, kwargs = self._callbacks(
+            docs,
+            {"Result": 0, "invoices": results},
+            200,
+            invoice_results=results,
+            bank_by_po={"45238": bank},
+        )
+        result = approve_documents(["DOC1", "DOC2"], now=self.NOW, **kwargs)
+
+        self.assertEqual(len(result["approved"]), 2)
+        self.assertEqual(len(result["errors"]), 0)
+        consumed = dict(calls["consumed"])
+        self.assertEqual(consumed["FAC001"], ["R1"])
+        self.assertEqual(consumed["FAC002"], ["R2"])
+
+    def test_duplicado_no_consume_recepciones(self):
+        docs = [
+            _doc(name="DOC1", nvfac_nume="FAC001", nvfac_orde="OC111", nvfac_totp=50000, nvfac_stot=50000),
+            _doc(name="DOC2", nvfac_nume="FAC002", nvfac_orde="OC222", nvfac_totp=30000, nvfac_stot=30000),
+        ]
+        results = [
+            {"doc_number": "", "error": "Error Ya existe la factura para este proveedor."},
+            {"doc_number": "BC1002", "error": ""},
+        ]
+        calls, kwargs = self._callbacks(
+            docs,
+            {"Result": 0, "invoices": results},
+            200,
+            invoice_results=results,
+            bank_by_po={
+                "OC111": [{"name": "R1", "amount": 50000, "date": "2026-01-01", "qp_invoice": None}],
+                "OC222": [{"name": "R2", "amount": 30000, "date": "2026-01-01", "qp_invoice": None}],
+            },
+        )
+        calls["duplicate_marked"] = []
+
+        def mark_duplicate_registered_fn(doc, error, now):
+            calls["duplicate_marked"].append(doc.get("nvfac_nume"))
+
+        kwargs["mark_duplicate_registered_fn"] = mark_duplicate_registered_fn
+
+        result = approve_documents(["DOC1", "DOC2"], now=self.NOW, **kwargs)
+
+        self.assertEqual(len(result["approved"]), 1)
+        self.assertEqual(result["approved"][0]["nvfac_nume"], "FAC002")
+        self.assertEqual(calls["consumed"], [("FAC002", ["R2"])])
+        self.assertEqual(calls["duplicate_marked"], ["FAC001"])
+
+    def test_contado_en_ruta_batch_aware_se_aprueba_sin_banco(self):
+        doc = _doc(name="DOC1", nvfac_nume="FAC001", nvfac_conv="1", nvfac_orde=None)
+        calls, kwargs = self._callbacks(
+            [doc],
+            {"Result": 0, "invoices": [{"doc_number": "BC1001", "error": ""}]},
+            200,
+            invoice_results=[{"doc_number": "BC1001", "error": ""}],
+        )
+        result = approve_documents(["DOC1"], now=self.NOW, **kwargs)
+
+        self.assertEqual(len(result["approved"]), 1)
+        self.assertEqual(calls["consumed"], [])
+
+    def test_force_no_consume_aunque_exista_match(self):
+        doc = _doc(name="DOC1", nvfac_nume="FAC001", nvfac_totp=50000)
+        calls, kwargs = self._callbacks(
+            [doc],
+            {"Result": 0, "invoices": [{"doc_number": "BC1001", "error": ""}]},
+            200,
+            invoice_results=[{"doc_number": "BC1001", "error": ""}],
+            bank_by_po={
+                "45238": [{"name": "R1", "amount": 50000, "date": "2026-01-01", "qp_invoice": None}],
+            },
+        )
+        result = approve_documents(["DOC1"], now=self.NOW, force=True, **kwargs)
+
+        self.assertEqual(len(result["approved"]), 1)
+        self.assertEqual(calls["persisted"], [("FAC001", "BC1001")])
+        self.assertEqual(calls["consumed"], [])
+
+    def test_sin_orden_de_compra_en_ruta_batch_aware(self):
+        doc = _doc(name="DOC1", nvfac_nume="FAC001", nvfac_orde=None)
+        calls, kwargs = self._callbacks([doc], {"Result": 0}, 200)
+        result = approve_documents(["DOC1"], now=self.NOW, **kwargs)
+
+        self.assertEqual(result["approved"], [])
+        self.assertIn("orden de compra", result["errors"][0]["error"])
+        self.assertEqual(calls["sent"], [])
+
+    def test_orden_de_compra_inexistente_en_ruta_batch_aware(self):
+        doc = _doc(name="DOC1", nvfac_nume="FAC001", nvfac_orde="OC_FALTA")
+        calls, kwargs = self._callbacks([doc], {"Result": 0}, 200)
+
+        def po_exists_fn(purchase_order):
+            return False
+
+        kwargs["po_exists_fn"] = po_exists_fn
+
+        result = approve_documents(["DOC1"], now=self.NOW, **kwargs)
+
+        self.assertEqual(result["approved"], [])
+        self.assertIn("no existe", result["errors"][0]["error"])
+        self.assertEqual(calls["sent"], [])
+
+    def test_banco_vacio_en_ruta_batch_aware(self):
+        doc = _doc(name="DOC1", nvfac_nume="FAC001", nvfac_totp=50000)
+        calls, kwargs = self._callbacks([doc], {"Result": 0}, 200, bank_by_po={"45238": []})
+        result = approve_documents(["DOC1"], now=self.NOW, **kwargs)
+
+        self.assertEqual(result["approved"], [])
+        self.assertIn("recepciones", result["errors"][0]["error"])
+        self.assertEqual(calls["sent"], [])
+
+    def test_bloqueo_duro_en_ruta_batch_aware(self):
+        doc = _doc(name="DOC1", nvfac_nume="FAC001", nvfac_esta="A")
+        calls, kwargs = self._callbacks([doc], {"Result": 0}, 200)
+        result = approve_documents(["DOC1"], now=self.NOW, **kwargs)
+
+        self.assertEqual(result["approved"], [])
+        self.assertIn("definitivo", result["errors"][0]["error"])
+        self.assertEqual(calls["sent"], [])
+
+
 class TestValidateCash(unittest.TestCase):
 
     def _po_exists(self, exists=True):
         return lambda purchase_order: exists
 
     def _receipts_total(self, total=None):
-        return lambda purchase_order: total
+        return _bank(total)
 
     def _resolve_rule(self, rule_code=None):
         if rule_code is None:
@@ -900,7 +1162,7 @@ class TestGetRegistrableWarnings(unittest.TestCase):
         return lambda purchase_order: exists
 
     def _receipts_total(self, total=50000):
-        return lambda purchase_order: total
+        return _bank(total)
 
     def test_sin_violaciones(self):
         warnings = get_registrable_warnings(
@@ -941,7 +1203,7 @@ class TestGetRegistrableWarnings(unittest.TestCase):
             _doc(), self._po_exists(), self._receipts_total(40000)
         )
         self.assertEqual(len(warnings), 1)
-        self.assertIn("no coincide", warnings[0])
+        self.assertIn("combinación", warnings[0])
 
     def test_acumula_todas_las_violaciones(self):
         doc = _doc(nvfac_orde=None, nvfac_totp=None)
@@ -958,7 +1220,7 @@ class TestCollectRegistrableViolations(unittest.TestCase):
         return lambda purchase_order: exists
 
     def _receipts_total(self, total=50000):
-        return lambda purchase_order: total
+        return _bank(total)
 
     def test_devuelve_violaciones_por_factura(self):
         docs = [

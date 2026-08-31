@@ -26,6 +26,23 @@ def memory_receipts_total(store, purchase_order):
     return sum(float(row.get("total") or 0) for row in rows)
 
 
+def memory_get_receipt_bank(store, purchase_order):
+    """Banco de recepciones (name, amount, date, qp_invoice) por OC."""
+    if not purchase_order:
+        return []
+    rows = store.query("qp_SP_PurchaseReceipt",
+                       filters={"qp_supplier_oc": purchase_order})
+    return [
+        {
+            "name": row.get("name"),
+            "amount": row.get("total") or 0,
+            "date": row.get("posting_date"),
+            "qp_invoice": row.get("qp_invoice"),
+        }
+        for row in rows
+    ]
+
+
 def memory_get_headquarter(store, purchase_order):
     if not purchase_order:
         return ""

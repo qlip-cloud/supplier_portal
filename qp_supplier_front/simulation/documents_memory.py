@@ -345,6 +345,23 @@ def memory_mark_error(store, doc, error):
     })
 
 
+def memory_consume_receipts(store, doc, receipt_names):
+    """Marca las recepciones asignadas con qp_invoice = nvfac_nume.
+
+    Solo se consumen recepciones cuyo qp_invoice sigue vacio (evita doble
+    consumo), replicando en memoria el UPDATE guardado del modo real.
+    """
+    if not receipt_names:
+        return
+    invoice_number = doc.get("nvfac_nume")
+    if not invoice_number:
+        return
+    for name in receipt_names:
+        row = store.get("qp_SP_PurchaseReceipt", name)
+        if row and not row.get("qp_invoice"):
+            store.set_value("qp_SP_PurchaseReceipt", name, "qp_invoice", invoice_number)
+
+
 def memory_mark_duplicate_registered(store, doc, error, now):
     store.set_value("qp_SP_DocumentDetail", doc.get("name"), "nvfac_esta", "BCC")
     store.insert("qp_SP_Alert", {

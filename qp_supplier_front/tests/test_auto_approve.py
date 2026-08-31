@@ -51,6 +51,12 @@ def _doc(name="DOC1", nvfac_esta="E", nvfac_orde="45238", nvfac_rece="R108349",
     }
 
 
+def _bank(amount=None):
+    if amount is None:
+        return []
+    return [{"name": "R1", "amount": amount, "date": "2026-01-01", "qp_invoice": None}]
+
+
 class _WithData(object):
 
     def _ctx(self, frappe_mock, extra=None):
@@ -113,7 +119,7 @@ class TestPromoteEligibleToV(_WithData, unittest.TestCase):
         frappe_mock = self._frappe()
         self._ctx(frappe_mock, extra=[
             patch.object(infra, "po_exists", return_value=True),
-            patch.object(infra, "receipts_total", return_value=50000),
+            patch.object(infra, "receipt_bank", return_value=_bank(50000)),
         ])
         promoted = infra.promote_eligible_to_v()
         self.assertEqual(promoted, ["DOC1"])
@@ -126,7 +132,7 @@ class TestPromoteEligibleToV(_WithData, unittest.TestCase):
         frappe_mock = self._frappe()
         self._ctx(frappe_mock, extra=[
             patch.object(infra, "po_exists", return_value=True),
-            patch.object(infra, "receipts_total", return_value=50000),
+            patch.object(infra, "receipt_bank", return_value=_bank(50000)),
         ])
         infra.promote_eligible_to_v()
         set_calls = [
@@ -138,7 +144,7 @@ class TestPromoteEligibleToV(_WithData, unittest.TestCase):
         frappe_mock = self._frappe()
         self._ctx(frappe_mock, extra=[
             patch.object(infra, "po_exists", return_value=True),
-            patch.object(infra, "receipts_total", return_value=None),
+            patch.object(infra, "receipt_bank", return_value=_bank(None)),
         ])
         promoted = infra.promote_eligible_to_v()
         self.assertEqual(promoted, [])
@@ -151,7 +157,7 @@ class TestPromoteEligibleToV(_WithData, unittest.TestCase):
         ]
         self._ctx(frappe_mock, extra=[
             patch.object(infra, "po_exists", return_value=False),
-            patch.object(infra, "receipts_total", return_value=None),
+            patch.object(infra, "receipt_bank", return_value=_bank(None)),
         ])
         promoted = infra.promote_eligible_to_v()
         self.assertEqual(promoted, ["DOC1"])
