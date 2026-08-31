@@ -12,6 +12,7 @@ import unittest
 from unittest.mock import patch
 
 from qp_supplier_front.simulation import reject_memory, seeds
+from qp_supplier_front.simulation import session
 from qp_supplier_front.simulation.store import MemoryStore
 
 SIM_NIT = "999999999"
@@ -93,6 +94,42 @@ class TestRejectCredit(unittest.TestCase):
         alerts = self.store.query("qp_SP_Alert",
                                   filters={"parent": "999999999:F1"})
         self.assertEqual(len(alerts), 1)
+
+
+class TestFullFlowInMemory(unittest.TestCase):
+    """Combo: credito se rechaza (R) y contado se aprueba (A), en memoria."""
+
+    def setUp(self):
+        self.store = MemoryStore()
+        self.addCleanup(session.reset)
+
+    def test_contado_a_y_credito_r(self):
+        from unittest.mock import MagicMock
+
+        from qp_supplier_front.resources.documenteme import _approve_base
+        from qp_supplier_front.resources.documenteme import auto_approve as arapp
+        from qp_supplier_front.simulation import session
+
+        session.reset()
+        self.store.insert("qp_SP_MasterSetup", {"auto_approve": 1})
+        _doc(self.store, "999999999:F2", "F2", conv="1")
+        _doc(self.store, "999999999:F1", "F1", conv="2", orde="PO-X")
+
+        with patch("qp_supplier_front.simulation.session.store",
+                   return_value=self.store), \
+             patch.object(arapp.runtime, "is_simulation_enabled",
+                          return_value=True), \
+             patch.object(arapp, "frappe", MagicMock()), \
+             patch.object(_approve_base, "frappe", MagicMock()):
+            arapp.run_auto_approve(enqueue=False)
+            reject_memory.run_reject(self.store, doc_names=[
+                "999999999:F2", "999999999:F1"])
+
+        cash = self.store.get("qp_SP_DocumentDetail", "999999999:F2")
+        credit = self.store.get("qp_SP_DocumentDetail", "999999999:F1")
+        self.assertEqual(cash["nvfac_esta"], "A")
+        self.assertEqual(credit["nvfac_esta"], "R")
+        self.assertEqual(credit["nvfac_ueve"], "031")
 
 
 if __name__ == "__main__":
