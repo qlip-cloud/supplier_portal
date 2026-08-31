@@ -94,12 +94,19 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
 def _launch_reject(doc_names):
     """Lanza el auto-rechazo EN SEGUNDO PLANO (job de fondo).
 
-    Marcamos las facturas a rechazar como "P" (En proceso) de forma
-    sincrona y encolamos el job. Aunque ya haya un job de rechazo en
-    ejecucion, este llama encola con los documentos nuevos recibidos.
+    En modo simulador (facade in-memory) el rechazo corre inline sobre el
+    store de la sesion (el store no cruza workers); el resto encola el job
+    de fondo real.
     """
     try:
-        result = run_auto_reject(enqueue=True, doc_names=doc_names)
+        data = runtime.resolve()["data"]
+        if data.is_in_memory:
+            from qp_supplier_front.simulation import reject_memory
+            from qp_supplier_front.simulation import session
+            result = reject_memory.run_reject(
+                session.store(), doc_names=doc_names)
+        else:
+            result = run_auto_reject(enqueue=True, doc_names=doc_names)
         frappe.db.commit()
         return result
     except Exception:
