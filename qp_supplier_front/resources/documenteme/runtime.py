@@ -39,13 +39,17 @@ def is_simulation_enabled():
 
 
 def _real_bundle():
-    """Adaptadores reales: documenteme, Business Central y middleware."""
+    """Adaptadores reales: documenteme, Business Central y middleware.
+
+    En modo real NO se usa el facade de datos (data): los flujos llaman a
+    frappe directamente (comportamiento original). El facade solo existe en
+    simulacion (memoria).
+    """
     from qp_authorization.use_case.basic.authorize import send_request_status
     from qp_supplier_front.resources.documenteme import _approve_base
     from qp_supplier_front.resources.documenteme import auto_reject
     from qp_supplier_front.infrastructure.adapters import documenteme_http_adapter
     from qp_supplier_front.services import document_sync
-    from qp_supplier_front.simulation.data_facade import DataFacade
     from qp_supplier_front.uses_cases.documents import sync_all_whitelist
 
     return {
@@ -56,7 +60,6 @@ def _real_bundle():
         "company_tax_id_fn": documenteme_http_adapter.get_company_tax_id,
         "event_endpoint_fn": documenteme_http_adapter.get_event_endpoint,
         "on_batch_approved_fn": None,
-        "data": DataFacade(),
         "sync_persist": {
             "create_log": document_sync.create_sync_log,
             "create_lines": document_sync.create_sync_lines,

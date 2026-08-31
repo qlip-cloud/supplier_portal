@@ -42,7 +42,8 @@ AUTO_APPROVE_JOB_METHOD = (
 
 
 def _data():
-    return runtime.resolve()["data"]
+    """Facade de datos en simulacion (memoria) o None en modo real."""
+    return runtime.resolve().get("data")
 
 
 def _callbacks():
@@ -50,7 +51,10 @@ def _callbacks():
 
 
 def is_auto_approve_enabled():
-    return bool(_data().get_single_value("qp_SP_MasterSetup", "auto_approve"))
+    data = _data()
+    if data is None:
+        return bool(frappe.db.get_single_value("qp_SP_MasterSetup", "auto_approve"))
+    return bool(data.get_single_value("qp_SP_MasterSetup", "auto_approve"))
 
 
 def get_analysis_candidates(doc_names=None):
@@ -61,7 +65,24 @@ def get_analysis_candidates(doc_names=None):
     if doc_names:
         filters["name"] = ["in", list(doc_names)]
 
-    return _data().get_all(
+    data = _data()
+    if data is None:
+        return frappe.get_all(
+            "qp_SP_DocumentDetail",
+            filters=filters,
+            fields=[
+                "name",
+                "nvfac_nume",
+                "nvfac_orde",
+                "nvfac_rece",
+                "nvfac_totp",
+                "nvfac_stot",
+                "nvfac_esta",
+                "nvfac_ueve",
+                "nvfac_conv",
+            ],
+        )
+    return data.get_all(
         "qp_SP_DocumentDetail",
         filters=filters,
         fields=[
@@ -91,14 +112,25 @@ def promote_eligible_to_v(doc_names=None):
             doc, po_ok, receipts_fn, resolve_rule_fn=resolve_rule
         )
         if ok and doc.get("nvfac_esta") != "V":
-            data.set_value(
-                "qp_SP_DocumentDetail",
-                doc.get("name"),
-                "nvfac_esta",
-                "V",
-            )
+            if data is None:
+                frappe.db.set_value(
+                    "qp_SP_DocumentDetail",
+                    doc.get("name"),
+                    "nvfac_esta",
+                    "V",
+                )
+            else:
+                data.set_value(
+                    "qp_SP_DocumentDetail",
+                    doc.get("name"),
+                    "nvfac_esta",
+                    "V",
+                )
             promoted.append(doc.get("nvfac_nume"))
-    data.commit()
+    if data is None:
+        frappe.db.commit()
+    else:
+        data.commit()
     return promoted
 
 
@@ -110,7 +142,14 @@ def get_v_doc_names(doc_names=None):
     if doc_names:
         filters["name"] = ["in", list(doc_names)]
 
-    return _data().get_all(
+    data = _data()
+    if data is None:
+        return frappe.get_all(
+            "qp_SP_DocumentDetail",
+            filters=filters,
+            pluck="name",
+        )
+    return data.get_all(
         "qp_SP_DocumentDetail",
         filters=filters,
         pluck="name",
@@ -118,6 +157,7 @@ def get_v_doc_names(doc_names=None):
 
 
 def run_auto_approve(enqueue=True, doc_names=None):
+    data = _data()
     if not is_auto_approve_enabled():
         return {"approved": [], "errors": [], "skipped": True}
 
@@ -127,7 +167,7 @@ def run_auto_approve(enqueue=True, doc_names=None):
     if not doc_names:
         return {"approved": [], "errors": [], "skipped": False}
 
-    if enqueue and not _data().is_in_memory:
+    if enqueue and (data is None or not data.is_in_memory):
         frappe.enqueue(
             AUTO_APPROVE_JOB_METHOD,
             doc_names=doc_names,
@@ -154,7 +194,11 @@ def run_auto_approve(enqueue=True, doc_names=None):
 
 def approve_batch_job(doc_names):
     result = approve_documents_core(doc_names)
-    _data().commit()
+    data = _data()
+    if data is None:
+        frappe.db.commit()
+    else:
+        data.commit()
 
     for err in result.get("errors", []):
         frappe.log_error(
@@ -171,7 +215,7 @@ def approve_batch_job(doc_names):
 def auto_approve():
     try:
         result = run_auto_approve()
-        _data().commit()
+        _data().commit() if _data() is not None else frappe.db.commit()
         return {"success": True, "data": result}
     except Exception as error:
         frappe.db.rollback()

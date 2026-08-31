@@ -99,8 +99,8 @@ def _launch_reject(doc_names):
     de fondo real.
     """
     try:
-        data = runtime.resolve()["data"]
-        if data.is_in_memory:
+        data = runtime.resolve().get("data")
+        if data is not None and data.is_in_memory:
             from qp_supplier_front.simulation import reject_memory
             from qp_supplier_front.simulation import session
             result = reject_memory.run_reject(

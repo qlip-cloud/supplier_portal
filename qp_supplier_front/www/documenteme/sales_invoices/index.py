@@ -31,7 +31,7 @@ def get_context(context):
     context.is_documenteme_admin = context.active_role is not None
     context.is_sede_documenteme = is_sede_documenteme(user_roles)
 
-    data = runtime.resolve()["data"]
+    data = runtime.resolve().get("data")
 
     key = "documenteme_sales_invoices"
     doctype = "qp_SP_DocumentDetail"
