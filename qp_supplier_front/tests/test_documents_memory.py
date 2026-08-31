@@ -200,5 +200,68 @@ class TestCount(unittest.TestCase):
             mem.memory_count_documents(store, {"nvfac_esta": "R"}), 0)
 
 
+class TestCreditConfirmation(unittest.TestCase):
+
+    def _seed_credit(self, store):
+        store.insert("qp_SP_DocumentDetail", {
+            "name": "999999999:F1", "nvfac_nume": "F1",
+            "nvpro_ndoc": SIM_NIT, "nvfac_cont": "12345",
+            "nvfac_esta": "PA", "nvfac_ueve": "", "nvfac_conv": "2",
+        })
+
+    def test_confirmacion_credito_llega_a_aprobado(self):
+        from unittest.mock import patch
+
+        from qp_supplier_front.resources.documenteme import runtime
+
+        store = MemoryStore()
+        self._seed_credit(store)
+        with patch.object(runtime, "is_simulation_enabled", return_value=True):
+            ok = mem.memory_run_credit_confirmation(store, "999999999:F1")
+        self.assertTrue(ok)
+        doc = store.get("qp_SP_DocumentDetail", "999999999:F1")
+        self.assertEqual(doc["nvfac_esta"], "A")
+        self.assertEqual(doc["nvfac_ueve"], "033")
+        self.assertEqual(doc["qp_is_event_completed"], 1)
+        events = store.query("qp_SP_EventLog",
+                             filters={"parent": "999999999:F1"})
+        self.assertEqual([e["event_code"] for e in events],
+                         ["030", "032", "033"])
+
+    def test_evento_fallido_deja_pa_con_alerta(self):
+        from unittest.mock import patch
+
+        from qp_supplier_front.resources.documenteme import runtime
+        from qp_supplier_front.resources.documenteme import simulation
+
+        store = MemoryStore()
+        self._seed_credit(store)
+        bundle = {
+            "company_tax_id_fn": simulation.get_company_tax_id,
+            "event_endpoint_fn": simulation.get_event_endpoint,
+            "event_http_fn": simulation.build_http_double(fail_all=True),
+        }
+        with patch.object(runtime, "resolve", return_value=bundle):
+            ok = mem.memory_run_credit_confirmation(store, "999999999:F1")
+        self.assertFalse(ok)
+        doc = store.get("qp_SP_DocumentDetail", "999999999:F1")
+        self.assertEqual(doc["nvfac_esta"], "PA")
+        alerts = store.query("qp_SP_Alert",
+                             filters={"parent": "999999999:F1"})
+        self.assertEqual(len(alerts), 1)
+
+    def test_enqueue_approve_credito_ejecuta_confirmacion(self):
+        from unittest.mock import patch
+
+        from qp_supplier_front.resources.documenteme import runtime
+
+        store = MemoryStore()
+        self._seed_credit(store)
+        with patch.object(runtime, "is_simulation_enabled", return_value=True):
+            mem.memory_enqueue_approve(store, {"name": "999999999:F1"})
+        doc = store.get("qp_SP_DocumentDetail", "999999999:F1")
+        self.assertEqual(doc["nvfac_esta"], "A")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -382,8 +382,7 @@ def memory_mark_pending_approval(store, doc):
 
 
 def memory_enqueue_approve(store, doc):
-    """Cash: directo a A. Credito: PA (el job de eventos 030/032/033 queda
-    pendiente de portar en memoria)."""
+    """Cash: directo a A. Credito: secuencia 030/032/033 simulada -> A."""
     conv = store.get_value("qp_SP_DocumentDetail", doc.get("name"), "nvfac_conv")
     if str(conv) == "1":
         store.set_value("qp_SP_DocumentDetail", doc.get("name"),
@@ -393,6 +392,61 @@ def memory_enqueue_approve(store, doc):
         for alert in store.query("qp_SP_Alert",
                                  filters={"parent": doc.get("name")}):
             store.set_value("qp_SP_Alert", alert["name"], "resolved", 1)
+    else:
+        memory_run_credit_confirmation(store, doc.get("name"))
+
+
+def memory_run_credit_confirmation(store, doc_name):
+    """Confirma la aprobacion credito en memoria: envia 030/032/033 (simulados)
+    y marca A + nvfac_ueve 033 + resuelve alertas. Si algun evento falla, deja
+    PA con alerta."""
+    import json
+
+    from qp_supplier_front.resources.documenteme import runtime
+    from qp_supplier_front.uses_cases.documenteme.event_notifier import (
+        DOCUMENTEME_EVENT_STATES,
+        _is_error,
+    )
+
+    components = runtime.resolve()
+    company_tax_id = components["company_tax_id_fn"]()
+    url, headers, method = components["event_endpoint_fn"]()
+    event_http_fn = components["event_http_fn"]
+
+    doc = store.get("qp_SP_DocumentDetail", doc_name) or {}
+
+    for event_code in ("030", "032", "033"):
+        payload = {
+            "Nvemp_nnit": company_tax_id,
+            "Nvpro_ndoc": doc.get("nvpro_ndoc"),
+            "Nvfac_cont": doc.get("nvfac_cont"),
+            "Nvfac_esta": DOCUMENTEME_EVENT_STATES.get(event_code, "E"),
+            "Nveve_dian": event_code,
+            "Nvint_desc": "Factura aprobada",
+        }
+        response, status = event_http_fn(payload, url, headers, method)
+        store.insert("qp_SP_EventLog", {
+            "parent": doc_name,
+            "event_code": event_code,
+            "payload": json.dumps(payload),
+            "response": json.dumps(response) if not isinstance(response, str) else response,
+            "status": status,
+        })
+        if _is_error(response, status):
+            store.insert("qp_SP_Alert", {
+                "parent": doc_name,
+                "message": ("No se ha podido notificar la aprobacion de {} "
+                            "en documenteme.".format(event_code)),
+                "creation": _now_str(),
+            })
+            return False
+
+    store.set_value("qp_SP_DocumentDetail", doc_name, "nvfac_esta", "A")
+    store.set_value("qp_SP_DocumentDetail", doc_name, "nvfac_ueve", "033")
+    store.set_value("qp_SP_DocumentDetail", doc_name, "qp_is_event_completed", 1)
+    for alert in store.query("qp_SP_Alert", filters={"parent": doc_name}):
+        store.set_value("qp_SP_Alert", alert["name"], "resolved", 1)
+    return True
 
 
 def memory_process_confirmation(store, invoice_id, confirmation_id):
