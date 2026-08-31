@@ -29,6 +29,7 @@ def _real_bundle():
     from qp_supplier_front.resources.documenteme import auto_reject
     from qp_supplier_front.infrastructure.adapters import documenteme_http_adapter
     from qp_supplier_front.services import document_sync
+    from qp_supplier_front.simulation.data_facade import DataFacade
     from qp_supplier_front.uses_cases.documents import sync_all_whitelist
 
     return {
@@ -39,6 +40,7 @@ def _real_bundle():
         "company_tax_id_fn": documenteme_http_adapter.get_company_tax_id,
         "event_endpoint_fn": documenteme_http_adapter.get_event_endpoint,
         "on_batch_approved_fn": None,
+        "data": DataFacade(),
         "sync_persist": {
             "create_log": document_sync.create_sync_log,
             "create_lines": document_sync.create_sync_lines,
@@ -53,15 +55,27 @@ def _real_bundle():
 
 def _apply_simulated_confirmation(result):
     """Actor BC simulado: tras aprobar (BCC) carga confirmation_id via
-    process_confirmation para completar E -> V -> BCC -> PA -> A."""
+    process_confirmation para completar E -> V -> BCC -> PA -> A sobre el
+    store en memoria de la sesion."""
+    from qp_supplier_front.simulation import documents_memory
+    from qp_supplier_front.simulation import session
+
+    store = session.store()
+    process = (
+        lambda invoice_id, confirmation_id: documents_memory
+        .memory_process_confirmation(store, invoice_id, confirmation_id)
+    )
     result["simulation_confirmation"] = simulation.run_simulated_confirmation(
-        (result or {}).get("approved") or []
+        (result or {}).get("approved") or [],
+        process_confirmation_fn=process,
     )
 
 
 def _simulated_bundle():
     """Adaptadores simulados: sin efectos externos (documenteme / BC)."""
+    from qp_supplier_front.simulation import data_facade
     from qp_supplier_front.simulation import documents_memory
+    from qp_supplier_front.simulation import references_memory
     from qp_supplier_front.simulation import session
 
     fixtures = simulation.load_fixtures()
@@ -83,6 +97,26 @@ def _simulated_bundle():
         "company_tax_id_fn": simulation.get_company_tax_id,
         "event_endpoint_fn": simulation.get_event_endpoint,
         "on_batch_approved_fn": _apply_simulated_confirmation,
+        "data": data_facade.DataFacade(store=store),
+        "approve_callbacks": {
+            "get_docs_fn": _bind(documents_memory.memory_get_docs),
+            "get_lines_fn": _bind(documents_memory.memory_get_lines),
+            "get_headquarter_fn": _bind(
+                references_memory.memory_get_headquarter),
+            "po_exists_fn": _bind(references_memory.memory_po_exists),
+            "receipts_total_fn": _bind(
+                references_memory.memory_receipts_total),
+            "persist_invoice_fn": _bind(
+                documents_memory.memory_persist_invoice),
+            "mark_registered_fn": _bind(
+                documents_memory.memory_mark_registered),
+            "mark_error_fn": _bind(documents_memory.memory_mark_error),
+            "mark_duplicate_registered_fn": _bind(
+                documents_memory.memory_mark_duplicate_registered),
+            "get_supplier_by_tax_id_fn": _bind(
+                references_memory.memory_get_supplier_by_tax_id),
+            "resolve_rule_fn": lambda _doc: None,
+        },
         "sync_persist": {
             "create_log": _bind(documents_memory.memory_create_sync_log),
             "create_lines": _bind(documents_memory.memory_create_sync_lines),

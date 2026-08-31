@@ -370,23 +370,25 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False):
     components = runtime.resolve()
     if send_request_fn is None:
         send_request_fn = components["approve_send_fn"]
+    cb = components.get("approve_callbacks") or {}
     result = approve_documents(
         doc_names,
-        get_docs_fn=get_docs,
-        get_lines_fn=get_lines,
-        get_headquarter_fn=get_headquarter,
-        po_exists_fn=po_exists,
-        receipts_total_fn=receipts_total,
+        get_docs_fn=cb.get("get_docs_fn", get_docs),
+        get_lines_fn=cb.get("get_lines_fn", get_lines),
+        get_headquarter_fn=cb.get("get_headquarter_fn", get_headquarter),
+        po_exists_fn=cb.get("po_exists_fn", po_exists),
+        receipts_total_fn=cb.get("receipts_total_fn", receipts_total),
         send_request_fn=send_request_fn or send_purchase_invoice_request,
         parse_doc_numbers_fn=parse_doc_numbers,
-        persist_invoice_fn=persist_invoice,
-        mark_registered_fn=mark_registered,
-        mark_error_fn=mark_error,
-        mark_duplicate_registered_fn=mark_duplicate_registered,
+        persist_invoice_fn=cb.get("persist_invoice_fn", persist_invoice),
+        mark_registered_fn=cb.get("mark_registered_fn", mark_registered),
+        mark_error_fn=cb.get("mark_error_fn", mark_error),
+        mark_duplicate_registered_fn=cb.get(
+            "mark_duplicate_registered_fn", mark_duplicate_registered),
         commit_fn=frappe.db.commit,
         now=_make_now(),
         force=force,
-        resolve_rule_fn=_resolve_rule,
+        resolve_rule_fn=cb.get("resolve_rule_fn", _resolve_rule),
     )
 
     on_batch_approved = components["on_batch_approved_fn"]

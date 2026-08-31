@@ -272,6 +272,147 @@ def memory_count_documents(store, filters=None):
     return store.count("qp_SP_DocumentDetail", filters)
 
 
+APPOINT_DOC_FIELDS = [
+    "name", "nvfac_nume", "nvpro_ndoc", "nvfac_fech", "nvfac_cufe",
+    "nvtip_docu", "nvfac_fpag", "nvfac_orde", "nvfac_rece", "nvfac_totp",
+    "nvfac_esta", "nvfac_ueve", "nvfac_conv", "nvmon_codi", "nvfac_stot",
+    "nvfac_viva", "nvpro_nomb",
+]
+
+
+def memory_get_docs(store, doc_names):
+    return store.query(
+        "qp_SP_DocumentDetail",
+        filters={"name": ["in", list(doc_names or [])]},
+        fields=APPOINT_DOC_FIELDS,
+    )
+
+
+def memory_get_lines(store, doc):
+    rows = store.query("qp_SP_DetailLine",
+                       filters={"parent": doc.get("name")})
+    return [
+        {
+            "item_code": row.get("nvpro_codi") or "",
+            "qty": row.get("nvdet_tcan") or 0,
+            "rate": row.get("nvdet_valo") or 0,
+            "idx": 0,
+            "receiving_no": "",
+            "order_no": doc.get("nvfac_orde") or "",
+        }
+        for row in rows
+    ], ""
+
+
+def memory_persist_invoice(store, doc, doc_number, now):
+    if not doc_number:
+        doc_number = doc.get("nvfac_nume") or doc.get("name")
+    if store.exists("qp_SP_PurchaseInvoice", doc.get("name")):
+        return doc_number
+    now_str = now or _now_str()
+    store.insert("qp_SP_PurchaseInvoice", {
+        "name": doc.get("name"),
+        "invoice_id": doc_number,
+        "status": "Abierto",
+        "supplier": None,
+        "qp_sync_flow": "BC",
+        "nvmon_codi": doc.get("nvmon_codi") or "COP",
+        "nvfac_stot": doc.get("nvfac_stot") or 0,
+        "nvfac_viva": doc.get("nvfac_viva") or 0,
+        "nvfac_totp": doc.get("nvfac_totp") or 0,
+        "creation": now_str,
+        "modified": now_str,
+    })
+    store.insert("qp_SP_PurchaseInvoiceBC", {
+        "invoice_id": doc_number,
+        "purchase_invoice": doc.get("name"),
+    }, name=doc_number)
+    return doc_number
+
+
+def memory_mark_registered(store, doc, doc_number=None):
+    store.set_value("qp_SP_DocumentDetail", doc.get("name"), "nvfac_esta", "BCC")
+    for alert in store.query("qp_SP_Alert", filters={"parent": doc.get("name")}):
+        store.set_value("qp_SP_Alert", alert["name"], "resolved", 1)
+
+
+def memory_mark_error(store, doc, error):
+    store.insert("qp_SP_Alert", {
+        "parent": doc.get("name"),
+        "message": error or "",
+        "creation": _now_str(),
+    })
+
+
+def memory_mark_duplicate_registered(store, doc, error, now):
+    store.set_value("qp_SP_DocumentDetail", doc.get("name"), "nvfac_esta", "BCC")
+    store.insert("qp_SP_Alert", {
+        "parent": doc.get("name"),
+        "message": ("La factura ya existe en BC; se detuvo el reintento. "
+                    "No se pudo obtener el codigo BC para enlazar su confirmacion. "
+                    "Error: {}".format(error or "")),
+        "creation": now or _now_str(),
+    })
+
+
+def memory_find_document_by_invoice_id(store, invoice_id):
+    if not invoice_id:
+        return None
+    names = store.query("qp_SP_PurchaseInvoice",
+                        filters={"invoice_id": invoice_id}, pluck="name", limit=1)
+    if not names:
+        return None
+    name = names[0]
+    if not store.exists("qp_SP_DocumentDetail", name):
+        return None
+    return {"name": name, "invoice_id": invoice_id}
+
+
+def memory_set_confirmation_id(store, doc, confirmation_id):
+    invoice_id = doc.get("invoice_id")
+    for row in store.query("qp_SP_PurchaseInvoice",
+                           filters={"invoice_id": invoice_id}):
+        store.set_value("qp_SP_PurchaseInvoice", row["name"],
+                        "confirmation_id", confirmation_id)
+
+
+def memory_mark_pending_approval(store, doc):
+    store.set_value("qp_SP_DocumentDetail", doc.get("name"), "nvfac_esta", "PA")
+
+
+def memory_enqueue_approve(store, doc):
+    """Cash: directo a A. Credito: PA (el job de eventos 030/032/033 queda
+    pendiente de portar en memoria)."""
+    conv = store.get_value("qp_SP_DocumentDetail", doc.get("name"), "nvfac_conv")
+    if str(conv) == "1":
+        store.set_value("qp_SP_DocumentDetail", doc.get("name"),
+                        "nvfac_esta", "A")
+        store.set_value("qp_SP_DocumentDetail", doc.get("name"),
+                        "qp_is_event_completed", 1)
+        for alert in store.query("qp_SP_Alert",
+                                 filters={"parent": doc.get("name")}):
+            store.set_value("qp_SP_Alert", alert["name"], "resolved", 1)
+
+
+def memory_process_confirmation(store, invoice_id, confirmation_id):
+    from qp_supplier_front.uses_cases.documenteme.approve_confirmation import (
+        process_confirmation,
+    )
+
+    return process_confirmation(
+        invoice_id,
+        confirmation_id,
+        find_document_fn=lambda doc_number: memory_find_document_by_invoice_id(
+            store, doc_number),
+        set_confirmation_id_fn=lambda doc, conf: memory_set_confirmation_id(
+            store, doc, conf),
+        mark_pending_approval_fn=lambda doc: memory_mark_pending_approval(
+            store, doc),
+        enqueue_approve_fn=lambda doc: memory_enqueue_approve(store, doc),
+        commit_fn=lambda: None,
+    )
+
+
 def _now_str():
     from datetime import datetime
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
