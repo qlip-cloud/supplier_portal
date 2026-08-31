@@ -38,10 +38,12 @@ class TestSyncAllByCompany(unittest.TestCase):
 
         self.patches = [
             patch.object(saw, "frappe", self.frappe_mock),
-            patch.object(saw.simulation, "is_simulation_enabled", return_value=False),
+            patch.object(saw.runtime, "resolve", return_value={
+                "sync_send_fn": lambda *a, **k: ({}, 200),
+                "sync_tax_id_fn": saw.get_company_tax_id,
+            }),
             patch.object(saw, "sync_by_supplier", side_effect=fake_sync_by_supplier),
             patch.object(saw, "sync_detail", return_value=["DOC-NEW-1", "DOC-NEW-2"]),
-            patch.object(saw, "send_request_status", return_value=({}, 200)),
             patch.object(saw, "run_documenteme_auto_assign", side_effect=fake_assign),
             patch.object(saw, "_launch_reject", return_value=self.reject_results),
             patch.object(saw, "run_documenteme_auto_approve", return_value=self.approve_results),
@@ -121,10 +123,12 @@ class TestRefreshDocuments(unittest.TestCase):
 
         self.patches = [
             patch.object(saw, "frappe", self.frappe_mock),
-            patch.object(saw.simulation, "is_simulation_enabled", return_value=False),
+            patch.object(saw.runtime, "resolve", return_value={
+                "sync_send_fn": lambda *a, **k: ({}, 200),
+                "sync_tax_id_fn": saw.get_company_tax_id,
+            }),
             patch.object(saw, "sync_by_supplier", side_effect=fake_sync_by_supplier),
             patch.object(saw, "sync_detail", return_value=["DOC-NEW-1", "DOC-NEW-2"]),
-            patch.object(saw, "send_request_status", return_value=({}, 200)),
             patch.object(saw, "run_documenteme_auto_assign", side_effect=fake_assign),
             patch.object(saw, "_launch_reject", side_effect=fake_reject),
             patch.object(saw, "run_documenteme_auto_approve", return_value={"approved": []}),

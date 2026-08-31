@@ -17,31 +17,6 @@ sys.modules["frappe"] = MagicMock()
 from qp_supplier_front.resources.documenteme import simulation  # noqa: E402
 
 
-class TestIsSimulationEnabled(unittest.TestCase):
-
-    def _run(self, frappe_mock):
-        with patch.dict(sys.modules, {"frappe": frappe_mock}):
-            return simulation.is_simulation_enabled()
-
-    def test_habilitado(self):
-        frappe_mock = MagicMock()
-        frappe_mock.db.get_single_value.return_value = 1
-        self.assertTrue(self._run(frappe_mock))
-        frappe_mock.db.get_single_value.assert_called_once_with(
-            "qp_SP_MasterSetup", "documenteme_simulation"
-        )
-
-    def test_deshabilitado(self):
-        frappe_mock = MagicMock()
-        frappe_mock.db.get_single_value.return_value = 0
-        self.assertFalse(self._run(frappe_mock))
-
-    def test_valor_nulo_es_false(self):
-        frappe_mock = MagicMock()
-        frappe_mock.db.get_single_value.return_value = None
-        self.assertFalse(self._run(frappe_mock))
-
-
 class TestSendPurchaseInvoiceRequest(unittest.TestCase):
 
     def test_respuesta_exitosa_por_factura(self):

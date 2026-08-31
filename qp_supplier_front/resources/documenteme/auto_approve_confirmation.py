@@ -23,16 +23,11 @@ import time
 
 import frappe
 
-from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
-    get_company_tax_id,
-    get_event_endpoint,
-    raw_http,
-)
 from qp_supplier_front.resources.documenteme._alerts import (
     insert_alert,
     resolve_open_alerts,
 )
-from qp_supplier_front.resources.documenteme import simulation
+from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.uses_cases.documenteme.event_notifier import (
     _append_log,
     _is_error,
@@ -134,12 +129,9 @@ def is_sequence_successful(sent):
 # Job de fondo
 # =========================================================================
 def approve_confirmation_batch_job(doc_names, http_fn=None):
-    if simulation.is_simulation_enabled():
-        company_tax_id = simulation.get_company_tax_id()
-        url, headers, method = simulation.get_event_endpoint()
-    else:
-        company_tax_id = get_company_tax_id()
-        url, headers, method = get_event_endpoint()
+    components = runtime.resolve()
+    company_tax_id = components["company_tax_id_fn"]()
+    url, headers, method = components["event_endpoint_fn"]()
     config = get_approval_config()
 
     all_results = []
@@ -218,11 +210,7 @@ def _send_event(payload, url, headers, method, http_fn=None):
     sender = (
         http_fn
         if http_fn is not None
-        else (
-            simulation.http_event
-            if simulation.is_simulation_enabled()
-            else raw_http
-        )
+        else runtime.resolve()["event_http_fn"]
     )
     try:
         return sender(payload, url, headers, method)

@@ -11,7 +11,7 @@ from qp_supplier_front.services.documenteme_access import (
 from qp_supplier_front.uses_cases.documents.sync_all_whitelist import (
     refresh_documents,
 )
-from qp_supplier_front.resources.documenteme.simulation import is_simulation_enabled
+from qp_supplier_front.resources.documenteme.runtime import is_simulation_enabled
 
 
 def get_context(context):

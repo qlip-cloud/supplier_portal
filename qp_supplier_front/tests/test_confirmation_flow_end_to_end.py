@@ -105,9 +105,6 @@ class TestFlowEndToEnd(unittest.TestCase):
         with patch.object(approval, "get_approval_config", return_value={
             "max_attempts": 2, "retry_interval": 0, "event_delay": 0,
         }), \
-             patch.object(approval, "get_company_tax_id", return_value="890900123"), \
-             patch.object(approval, "get_event_endpoint",
-                          return_value=("http://x", {"k": "v"}, "POST")), \
              patch.object(approval, "_send_event",
                           return_value=({"Result": 0}, 200)):
             result = approval._approve_one(
@@ -125,9 +122,6 @@ class TestFlowEndToEnd(unittest.TestCase):
         with patch.object(approval, "get_approval_config", return_value={
             "max_attempts": 2, "retry_interval": 0, "event_delay": 0,
         }), \
-             patch.object(approval, "get_company_tax_id", return_value="890900123"), \
-             patch.object(approval, "get_event_endpoint",
-                          return_value=("http://x", {"k": "v"}, "POST")), \
              patch.object(approval, "_send_event",
                           return_value=({"Result": 1}, 200)), \
              patch.object(approval, "insert_alert") as insert_alert:

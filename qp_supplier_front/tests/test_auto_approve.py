@@ -242,6 +242,10 @@ class TestApproveDocumentsCoreWiring(unittest.TestCase):
             return {"approved": [], "errors": []}
 
         with patch.object(base, "frappe", frappe_mock), \
+             patch.object(base.runtime, "resolve", return_value={
+                 "approve_send_fn": lambda *a, **k: ({"Result": 1}, 200),
+                 "on_batch_approved_fn": None,
+             }), \
              patch.object(base, "approve_documents", side_effect=fake_approve_documents):
             result = base.approve_documents_core(
                 ["DOC1"], send_request_fn=lambda *a, **k: ({"Result": 1}, 200)

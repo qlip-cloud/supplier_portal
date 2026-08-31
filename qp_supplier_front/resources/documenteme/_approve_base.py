@@ -18,7 +18,7 @@ from qp_supplier_front.resources.documenteme._alerts import (
     insert_alert,
     resolve_open_alerts,
 )
-from qp_supplier_front.resources.documenteme import simulation
+from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.resources.documenteme.auto_reject import (
     resolve_rule as _resolve_rule,
 )
@@ -367,12 +367,9 @@ def send_purchase_invoice_request(endpoint_code, payload):
 # Orquestacion compartida
 # =========================================================================
 def approve_documents_core(doc_names, send_request_fn=None, force=False):
+    components = runtime.resolve()
     if send_request_fn is None:
-        send_request_fn = (
-            simulation.send_purchase_invoice_request
-            if simulation.is_simulation_enabled()
-            else send_purchase_invoice_request
-        )
+        send_request_fn = components["approve_send_fn"]
     result = approve_documents(
         doc_names,
         get_docs_fn=get_docs,
@@ -392,10 +389,9 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False):
         resolve_rule_fn=_resolve_rule,
     )
 
-    if simulation.is_simulation_enabled():
-        result["simulation_confirmation"] = simulation.run_simulated_confirmation(
-            result.get("approved") or []
-        )
+    on_batch_approved = components["on_batch_approved_fn"]
+    if on_batch_approved is not None:
+        on_batch_approved(result)
 
     return result
 

@@ -30,17 +30,13 @@ Este modulo tambien centraliza los factories de doubles (build_send_double,
 build_http_double, build_inbound_sync_double) para que los endpoints
 legacy *_mock (approve_mock / reject_mock / auto_approve_mock /
 auto_reject_mock) y los tests unitarios reutilicen la misma logica.
+
+La decision de usar este modulo o los adaptadores reales NO pertenece aqui:
+vive en resources/documenteme/runtime.py (composition root), unico punto que
+lee el flag qp_SP_MasterSetup.documenteme_simulation.
 """
 
 import os
-
-
-def is_simulation_enabled():
-    """True si el modo simulador documenteme esta activo en el setup."""
-    import frappe
-    return bool(frappe.db.get_single_value(
-        "qp_SP_MasterSetup", "documenteme_simulation"
-    ))
 
 
 def _sim_doc_number(invoice, idx):

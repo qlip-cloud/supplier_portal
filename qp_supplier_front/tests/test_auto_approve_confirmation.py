@@ -172,9 +172,6 @@ class TestApproveBatchJob(unittest.TestCase):
             "retry_interval": 0,
             "event_delay": 0,
         }), \
-             patch.object(mod, "get_company_tax_id", return_value="890900123"), \
-             patch.object(mod, "get_event_endpoint", return_value=(
-                 "http://x", {"k": "v"}, "POST")), \
              patch.object(mod, "_send_event", return_value=(
                  {"Result": 0}, 200)), \
              patch.object(mod, "insert_alert") as insert_alert, \
@@ -204,9 +201,6 @@ class TestApproveBatchJob(unittest.TestCase):
             "retry_interval": 0,
             "event_delay": 0,
         }), \
-             patch.object(mod, "get_company_tax_id", return_value="890900123"), \
-             patch.object(mod, "get_event_endpoint", return_value=(
-                 "http://x", {"k": "v"}, "POST")), \
              patch.object(mod, "_send_event", return_value=(
                  {"Result": 1}, 200)), \
              patch.object(mod, "insert_alert") as insert_alert:
@@ -237,16 +231,17 @@ class TestApproveBatchJobHttpFn(unittest.TestCase):
             return {"doc": doc.name, "approved": True, "attempts": 1, "error": None}
 
         http = lambda payload, url, headers, method: ({"Result": 0}, 200)
+        bundle = {
+            "company_tax_id_fn": lambda: "890900123",
+            "event_endpoint_fn": lambda: ("http://x", {}, "POST"),
+            "event_http_fn": http,
+        }
 
         with patch.object(mod, "get_approval_config", return_value={
             "max_attempts": 2, "retry_interval": 0, "event_delay": 0,
         }), \
-             patch.object(mod, "simulation") as sim, \
-             patch.object(mod, "get_company_tax_id", return_value="890900123"), \
-             patch.object(mod, "get_event_endpoint", return_value=(
-                 "http://x", {}, "POST")), \
+             patch.object(mod.runtime, "resolve", return_value=bundle), \
              patch.object(mod, "_approve_one", side_effect=fake_approve_one):
-            sim.is_simulation_enabled.return_value = False
             mod.frappe.get_doc = lambda doctype, name: doc
             results = mod.approve_confirmation_batch_job(["FAC001"], http_fn=http)
 
@@ -262,14 +257,17 @@ class TestApproveBatchJobHttpFn(unittest.TestCase):
             calls.append(http_fn)
             return {"doc": doc.name, "approved": True, "attempts": 1, "error": None}
 
+        bundle = {
+            "company_tax_id_fn": lambda: "890900123",
+            "event_endpoint_fn": lambda: ("http://x", {}, "POST"),
+            "event_http_fn": lambda payload, url, headers, method: ({"Result": 0}, 200),
+        }
+
         with patch.object(mod, "get_approval_config", return_value={
             "max_attempts": 2, "retry_interval": 0, "event_delay": 0,
         }), \
-             patch.object(mod, "simulation") as sim, \
+             patch.object(mod.runtime, "resolve", return_value=bundle), \
              patch.object(mod, "_approve_one", side_effect=fake_approve_one):
-            sim.is_simulation_enabled.return_value = True
-            sim.get_company_tax_id.return_value = "890900123"
-            sim.get_event_endpoint.return_value = ("http://x", {}, "POST")
             mod.frappe.get_doc = lambda doctype, name: doc
             mod.approve_confirmation_batch_job(["FAC001"])
 
@@ -290,11 +288,13 @@ class TestSendEventHttpFn(unittest.TestCase):
         mod._send_event(payload, "http://x", {}, "POST", http_fn=custom)
         self.assertEqual(used, [payload])
 
-    def test_sin_http_fn_con_simulacion_usa_http_event(self):
+    def test_sin_http_fn_usa_event_http_del_runtime(self):
         payload = {"Nveve_dian": "030"}
-        with patch.object(mod, "simulation") as sim:
-            sim.is_simulation_enabled.return_value = True
-            sim.http_event.return_value = ({"Result": 0, "Description": "OK"}, 200)
+        simulated = lambda payload, url, headers, method: (
+            {"Result": 0, "Description": "OK"}, 200
+        )
+        with patch.object(mod.runtime, "resolve",
+                          return_value={"event_http_fn": simulated}):
             response, status = mod._send_event(
                 payload, "http://x", {}, "POST", http_fn=None
             )

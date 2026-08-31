@@ -36,7 +36,6 @@ from concurrent.futures import ThreadPoolExecutor
 
 from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
     get_company_tax_id as _adapter_get_company_tax_id,
-    get_event_endpoint,
     get_receipt_total,
     raw_http as _adapter_raw_http,
 )
@@ -44,7 +43,7 @@ from qp_supplier_front.resources.documenteme._alerts import (
     insert_alert,
     resolve_open_alerts,
 )
-from qp_supplier_front.resources.documenteme import simulation
+from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.uses_cases.documenteme.auto_reject import (
     auto_reject as auto_reject_core,
     resolve_auto_reject_config,
@@ -261,20 +260,13 @@ def receipt_for_po(purchase_order_number):
 # Rechazo (job de fondo con reintentos)
 # =========================================================================
 def reject_batch_job(rejects, http_fn=None):
+    components = runtime.resolve()
     if http_fn is None:
-        http_fn = (
-            simulation.http_event
-            if simulation.is_simulation_enabled()
-            else None
-        )
+        http_fn = components["event_http_fn"]
     config = get_reject_config()
-    if simulation.is_simulation_enabled():
-        company_tax_id = simulation.get_company_tax_id()
-        url, headers, method = simulation.get_event_endpoint()
-    else:
-        company_tax_id = get_company_tax_id()
-        url, headers, method = get_event_endpoint()
-    sender = http_fn if http_fn is not None else raw_http
+    company_tax_id = components["company_tax_id_fn"]()
+    url, headers, method = components["event_endpoint_fn"]()
+    sender = http_fn
 
     all_results = []
     for item in (rejects or []):
