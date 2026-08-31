@@ -49,7 +49,7 @@ def build_gp_supplier_payload(supplier):
             "address": address.get("address_line1", ""),
             "CoDCity": address.get("municipality_code", "")
         },
-        "mail": contact.user,
+        "mail": get_contact_mail(contact),
         "regime": party.tax_regime,
         "nature": busness_type[party.business_type_id] if party.business_type_id else 0,
         "ciiu": ciiu.ciiu_id,
@@ -69,8 +69,27 @@ def get_contact(supplier):
     contacts = get_dynamic_link(supplier, "Contact")
 
     contact = [contact for contact in contacts if contact.is_primary_contact and contact.user]
+    if contact:
+        return contact[0]
 
-    return contact[0] if contact else ""
+    contact = [contact for contact in contacts if contact.is_primary_contact]
+    if contact:
+        return contact[0]
+
+    contact = [contact for contact in contacts if contact.user]
+    if contact:
+        return contact[0]
+
+    return contacts[0] if contacts else None
+
+
+def get_contact_mail(contact):
+    if contact:
+        if contact.user:
+            return contact.user
+        if contact.email_ids:
+            return contact.email_ids[0].email_id
+    return ""
 
 
 def get_address(address):

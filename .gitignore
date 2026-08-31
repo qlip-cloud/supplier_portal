@@ -13,13 +13,13 @@ qp_supplier_front/segunda peticion.json
 qp_supplier_front/primera_peticion.json
 qp_supplier_front/documentdetail.xml
 qp_supplier_front/context/ConsultarPagosProveedores.json
-docs/ASIGNACION-AUTOMATICA-DOCUMENTEME.md
-docs/CHECKLIST-DOCUMENTEME.md
-docs/REFACTOR-DEUDAS.md
 
 # AI/opencode context: agents, skills, commands, plans, config
 opencode.json
 .opencode/
 .coverage
-docs/BANCO-RECIBOS.md
-.gitignore
+docs/
+.opencode/skills/supplier-edit-workflow/SKILL.md
+.opencode/skills/bc-sync/SKILL.md
+.opencode/plans/REFACTOR-sync_by_supplier.md
+.opencode/plans/ADD-BC-strategy.md
