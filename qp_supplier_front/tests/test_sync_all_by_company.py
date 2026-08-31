@@ -403,7 +403,7 @@ class TestRunAutoApproveSync(unittest.TestCase):
         self.patch = patch.object(arapp, "frappe", self.frappe_mock)
         self.patch.start()
         self.addCleanup(self.patch.stop)
-        from qp_supplier_front.simulation.data_facade import DataFacade
+        from qp_supplier_front.infrastructure.adapters.data_facade import DataFacade
         self.patch_runtime = patch.object(
             arapp.runtime, "resolve",
             return_value={"data": DataFacade(frappe=self.frappe_mock),

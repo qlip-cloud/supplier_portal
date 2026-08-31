@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-data_facade.py (documenteme simulation)
-=======================================
+data_facade.py (infrastructure - data access adapter)
+=====================================================
 Facade de datos para los orquestadores documenteme: expone la API Frappe
 (limitada) que usan los autoprocesos. En modo real delega en frappe; en modo
 simulador enruta los doctypes del modulo al MemoryStore y delega el resto

@@ -92,7 +92,7 @@ def _apply_simulated_confirmation(result):
 
 def _simulated_bundle():
     """Adaptadores simulados: sin efectos externos (documenteme / BC)."""
-    from qp_supplier_front.simulation import data_facade
+    from qp_supplier_front.infrastructure.adapters import data_facade
     from qp_supplier_front.simulation import documents_memory
     from qp_supplier_front.simulation import references_memory
     from qp_supplier_front.simulation import session

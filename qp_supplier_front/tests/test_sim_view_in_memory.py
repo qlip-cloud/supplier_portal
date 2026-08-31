@@ -15,7 +15,7 @@ from qp_supplier_front.services.enrich_document_list import enrich_document_list
 from qp_supplier_front.services.documenteme_access import (
     get_assigned_sync_line_names,
 )
-from qp_supplier_front.simulation.data_facade import DataFacade
+from qp_supplier_front.infrastructure.adapters.data_facade import DataFacade
 from qp_supplier_front.simulation.store import MemoryStore
 
 SIM_NIT = "999999999"

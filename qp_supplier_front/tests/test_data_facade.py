@@ -2,15 +2,16 @@
 """
 test_data_facade.py
 ===================
-Pruebas del facade de datos documenteme (simulation/data_facade.py):
-modo memory (store) y modo real (delegacion a frappe).
+Pruebas del facade de datos documenteme
+(infrastructure/adapters/data_facade.py): modo memory (store) y modo real
+(delegacion a frappe).
 
 Ejecutar con: python -m pytest qp_supplier_front/tests/test_data_facade.py -v
 """
 import unittest
 from unittest.mock import MagicMock, patch
 
-from qp_supplier_front.simulation.data_facade import DataFacade, MemDoc
+from qp_supplier_front.infrastructure.adapters.data_facade import DataFacade, MemDoc
 from qp_supplier_front.simulation.store import MemoryStore
 
 SIM_NIT = "999999999"

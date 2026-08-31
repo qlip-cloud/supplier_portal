@@ -20,7 +20,7 @@ sys.modules["frappe.model.document"] = MagicMock()
 
 from qp_supplier_front.resources.documenteme import auto_approve as infra  # noqa: E402
 from qp_supplier_front.resources.documenteme import _approve_base as base  # noqa: E402
-from qp_supplier_front.simulation.data_facade import DataFacade  # noqa: E402
+from qp_supplier_front.infrastructure.adapters.data_facade import DataFacade  # noqa: E402
 
 
 def _bundle_for(frappe_mock):
