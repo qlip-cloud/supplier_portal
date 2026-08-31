@@ -39,13 +39,13 @@ class _Real(object):
                 sort_field=None):
         return self._frappe.get_all(
             doctype, filters=filters, fields=fields, order_by=order_by,
-            limit=limit)
+            limit=limit, start=start, page_length=page_length, pluck=pluck)
 
     def get_list(self, doctype, filters=None, fields=None, order_by=None,
                  start=0, page_length=None, pluck=None):
         return self._frappe.get_list(
             doctype, filters=filters, fields=fields, order_by=order_by,
-            start=start, page_length=page_length)
+            start=start, page_length=page_length, pluck=pluck)
 
     def get_value(self, doctype, name_or_filters, field=None):
         if isinstance(name_or_filters, dict) and field is None:

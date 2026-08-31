@@ -115,6 +115,55 @@ class TestRealFacade(unittest.TestCase):
         frappe_mock.get_all.assert_called_once()
         self.assertEqual(rows, [{"name": "D1"}])
 
+    def test_get_all_reenvia_pluck(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = ["D1", "D2"]
+        facade = DataFacade(frappe=frappe_mock)
+        result = facade.get_all(
+            "qp_SP_DocumentDetail", filters={"nvfac_esta": "V"},
+            pluck="name")
+        self.assertEqual(result, ["D1", "D2"])
+        assert_kwargs = frappe_mock.get_all.call_args[1]
+        self.assertEqual(assert_kwargs["pluck"], "name")
+        self.assertEqual(assert_kwargs["start"], 0)
+        self.assertIsNone(assert_kwargs["page_length"])
+
+    def test_get_all_reenvia_paginacion(self):
+        frappe_mock = MagicMock()
+        facade = DataFacade(frappe=frappe_mock)
+        facade.get_all("qp_SP_DocumentDetail", start=0, page_length=15)
+        assert_kwargs = frappe_mock.get_all.call_args[1]
+        self.assertEqual(assert_kwargs["start"], 0)
+        self.assertEqual(assert_kwargs["page_length"], 15)
+
+    def test_get_list_reenvia_pluck(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_list.return_value = ["X"]
+        facade = DataFacade(frappe=frappe_mock)
+        result = facade.get_list(
+            "qp_SP_DocumentDetail", filters={"nvfac_esta": "V"}, pluck="name")
+        self.assertEqual(result, ["X"])
+        self.assertEqual(frappe_mock.get_list.call_args[1]["pluck"], "name")
+
+    def test_get_v_doc_names_real_devuelve_strings(self):
+        corrupt = {
+            "name": "SETP990086901",
+            "nvfac_esta": "V",
+            "nvfac_nume": "SETP990086901",
+        }
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [corrupt]
+        facade = DataFacade(frappe=frappe_mock)
+
+        from qp_supplier_front.resources.documenteme import auto_approve
+        with patch.object(auto_approve, "runtime") as rt:
+            rt.resolve.return_value = {"data": facade, "approve_callbacks": {}}
+            names = auto_approve.get_v_doc_names(["D1"])
+
+        self.assertEqual(names, [corrupt])
+        kwargs = frappe_mock.get_all.call_args[1]
+        self.assertEqual(kwargs["pluck"], "name")
+
     def test_delega_set_value(self):
         frappe_mock = MagicMock()
         frappe_mock.db.set_value.return_value = True
