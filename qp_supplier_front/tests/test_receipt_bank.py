@@ -163,6 +163,16 @@ class TestPackOCGroup(unittest.TestCase):
         packed = pack_oc_group([_invoice("A", 50)], receipts, 0.01, 4, 8)
         self.assertEqual([r["name"] for r in packed["A"]], ["R2"])
 
+    def test_empareja_contra_nvfac_stot_no_totp(self):
+        receipts = [
+            _receipt("R1", 50, date="2026-01-01"),
+            _receipt("R2", 50, date="2026-01-02"),
+        ]
+        invoice = _invoice("A", 100)
+        invoice["nvfac_totp"] = 999
+        packed = pack_oc_group([invoice], receipts, 0.01, 4, 8)
+        self.assertEqual([r["name"] for r in packed["A"]], ["R1", "R2"])
+
     def test_degrada_a_greedy_cuando_grupo_excede_max_invoices(self):
         receipts = [
             _receipt("R0", 10, date="2026-01-01"),

@@ -41,15 +41,27 @@ class TestSimSyncInMemory(unittest.TestCase):
 
         store = session.store()
         docs = store.query("qp_SP_DocumentDetail")
-        self.assertEqual(len(docs), 2)
+        self.assertEqual(len(docs), 11)
         self.assertEqual(
             {d["nvfac_esta"] for d in docs}, {"E"})
         self.assertEqual(
             {d["name"] for d in docs},
-            {"999999999:SIM-FAC-0001", "999999999:SIM-FAC-0002"})
+            {
+                "999999999:SIM-FAC-0001",
+                "999999999:SIM-FAC-0002",
+                "999999999:SIM-FAC-0003",
+                "999999999:SIM-FAC-0004",
+                "999999999:SIM-POA-0001",
+                "999999999:SIM-POA-0002",
+                "999999999:SIM-POB-0001",
+                "999999999:SIM-POB-0002",
+                "999999999:SIM-POB-0003",
+                "999999999:SIM-POC-0001",
+                "999999999:SIM-POC-0002",
+            })
 
         lines = store.query("qp_SP_DocumentSyncLine")
-        self.assertEqual(len(lines), 2)
+        self.assertEqual(len(lines), 11)
         self.assertTrue(all(l["is_completed"] == 1 for l in lines))
 
         logs = store.query("qp_SP_DocumentSyncLog")
@@ -67,7 +79,7 @@ class TestSimSyncInMemory(unittest.TestCase):
 
         saw._sync_documents()
         first_batch = [d["name"] for d in session.store().query("qp_SP_DocumentDetail")]
-        self.assertEqual(len(first_batch), 2)
+        self.assertEqual(len(first_batch), 11)
 
         # Marcar un doc localmente para verificar que el reset lo descarta
         session.reset()

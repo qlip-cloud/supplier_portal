@@ -99,6 +99,8 @@ def _simulated_bundle():
 
     fixtures = simulation.load_fixtures()
     store = session.store()
+    from qp_supplier_front.simulation import seeds
+    seeds.seed_scenario(store)
 
     def _bind(fn):
         def wrapped(*args, **kwargs):

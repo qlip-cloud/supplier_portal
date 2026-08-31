@@ -37,23 +37,27 @@ def _data_api(data, name):
     return getattr(data, name)
 
 
-def enrich_document_list(documents, doctype, data=None):
+def enrich_document_list(documents, doctype, data=None, references=None):
     """Enriquece cada documento de la lista con la informacion de contexto.
 
     Con data (facade) lee de ahi (memoria en simulacion); sin data usa frappe.
+    references es el adaptador de referencias de compras (Purchase Order /
+    Purchase Receipt) inyectado; si es None se resuelve desde data o el real.
     """
     for doc in documents:
-        _enrich_doc(doc, doctype, data)
+        _enrich_doc(doc, doctype, data, references)
     return documents
 
 
-def _enrich_doc(doc, doctype, data=None):
+def _enrich_doc(doc, doctype, data=None, references=None):
     _enrich_detail_lines(doc, doctype, data)
     _enrich_allowance_charges(doc, doctype, data)
     _enrich_attached_files(doc, doctype, data)
     _enrich_assignment(doc, data)
     if data is not None:
-        enrich_document_detail(doc, data=data)
+        enrich_document_detail(doc, data=data, references=references)
+    elif references is not None:
+        enrich_document_detail(doc, references=references)
     else:
         enrich_document_detail(doc)
 

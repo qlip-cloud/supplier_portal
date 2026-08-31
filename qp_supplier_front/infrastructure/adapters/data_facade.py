@@ -85,6 +85,13 @@ class _Real(object):
         return self._frappe.delete_doc(doctype, name, ignore_permissions=True,
                                        force=True)
 
+    @property
+    def references(self):
+        from qp_supplier_front.infrastructure.adapters.reference_source import (
+            RealReferenceSource,
+        )
+        return RealReferenceSource()
+
 
 class _MemRow(object):
 
@@ -223,6 +230,13 @@ class _Memory(object):
     def delete_doc(self, doctype, name):
         self._store.delete(doctype, name)
 
+    @property
+    def references(self):
+        from qp_supplier_front.simulation.reference_source import (
+            MemoryReferenceSource,
+        )
+        return MemoryReferenceSource(self._store)
+
 
 class DataFacade(object):
 
@@ -268,6 +282,10 @@ class DataFacade(object):
 
     def delete_doc(self, *args, **kwargs):
         return self._impl.delete_doc(*args, **kwargs)
+
+    @property
+    def references(self):
+        return self._impl.references
 
     @property
     def db(self):

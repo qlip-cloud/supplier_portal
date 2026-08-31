@@ -117,7 +117,13 @@ def _launch_reject(doc_names):
 
 def run_documenteme_auto_assign(doc_names=None):
     try:
-        run_auto_assign(doc_names=doc_names)
+        data = runtime.resolve().get("data")
+        if data is not None and data.is_in_memory:
+            from qp_supplier_front.simulation import assign_memory
+            from qp_supplier_front.simulation import session
+            assign_memory.run_auto_assign(session.store(), doc_names=doc_names)
+        else:
+            run_auto_assign(doc_names=doc_names)
         frappe.db.commit()
 
     except Exception:
