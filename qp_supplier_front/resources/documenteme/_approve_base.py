@@ -384,7 +384,7 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False):
         parse_doc_numbers_fn=parse_doc_numbers,
         persist_invoice_fn=persist_invoice,
         mark_registered_fn=mark_registered,
-        mark_error_fn=mark_error_fn,
+        mark_error_fn=mark_error,
         mark_duplicate_registered_fn=mark_duplicate_registered,
         commit_fn=frappe.db.commit,
         now=_make_now(),
