@@ -315,7 +315,8 @@ class TestRunAutoReject(unittest.TestCase):
         self.assertEqual(result["rejected"], [])
         frappe_mock.enqueue.assert_not_called()
 
-    def test_contado_no_encola_y_marca_rechazada(self):
+    def test_contado_no_se_rechaza(self):
+        """El contado que rompe la regla NO se rechaza: se asigna (auto_assign)."""
         frappe_mock = MagicMock()
         frappe_mock.db.get_value.return_value = 1  # retry habilitado
         doc = MagicMock()
@@ -337,11 +338,9 @@ class TestRunAutoReject(unittest.TestCase):
              patch.object(infra, "receipt_for_po", return_value=None):
             result = infra.run_auto_reject()
 
-        self.assertEqual(result["rejected"], ["DOC1"])
+        self.assertEqual(result["rejected"], [])
         frappe_mock.enqueue.assert_not_called()
-        frappe_mock.get_doc.assert_called_once_with("qp_SP_DocumentDetail", "DOC1")
-        self.assertEqual(doc.nvfac_esta, "R")
-        self.assertEqual(doc.qp_is_event_completed, 1)
+        frappe_mock.get_doc.assert_not_called()
 
     def test_credito_contado_mixto(self):
         frappe_mock = MagicMock()
@@ -371,8 +370,8 @@ class TestRunAutoReject(unittest.TestCase):
              patch.object(infra, "receipt_for_po", return_value=None):
             result = infra.run_auto_reject()
 
-        self.assertEqual(result["rejected"], ["DOC1", "DOC2"])
-        # Solo la de credito se encola al job
+        # El contado (DOC1) no se rechaza: se asigna. Solo la de credito se encola.
+        self.assertEqual(result["rejected"], ["DOC2"])
         frappe_mock.enqueue.assert_called_once_with(
             infra.REJECT_JOB_METHOD,
             rejects=[_reject(doc="DOC2", nvfac_conv="2")],

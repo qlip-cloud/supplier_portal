@@ -17,6 +17,7 @@ sys.modules["frappe.model"] = MagicMock()
 sys.modules["frappe.model.document"] = MagicMock()
 
 from qp_supplier_front.resources.documenteme import auto_approve as infra  # noqa: E402
+from qp_supplier_front.resources.documenteme import _approve_base as base  # noqa: E402
 
 
 def _doc(name="DOC1", nvfac_esta="E", nvfac_orde="45238", nvfac_rece="R108349",
@@ -27,6 +28,7 @@ def _doc(name="DOC1", nvfac_esta="E", nvfac_orde="45238", nvfac_rece="R108349",
         "nvfac_orde": nvfac_orde,
         "nvfac_rece": nvfac_rece,
         "nvfac_totp": nvfac_totp,
+        "nvfac_stot": 50000,
         "nvfac_esta": nvfac_esta,
         "nvfac_ueve": nvfac_ueve,
         "nvfac_conv": nvfac_conv,
@@ -222,6 +224,34 @@ class TestApproveBatchJob(unittest.TestCase):
             frappe_mock.log_error.call_args[1]["title"],
             "Auto approve - error",
         )
+
+
+class TestApproveDocumentsCoreWiring(unittest.TestCase):
+    """Verifica que approve_documents_core cablea los callbacks sin NameError.
+
+    Regresion: `mark_error_fn` se referenciaba a si mismo en lugar del callable
+    real, y toda aprobacion (auto y manual) explotaba en runtime.
+    """
+
+    def test_cablea_mark_error_y_resolve_rule(self):
+        frappe_mock = MagicMock()
+        captured = {}
+
+        def fake_approve_documents(*args, **kwargs):
+            captured.update(kwargs)
+            return {"approved": [], "errors": []}
+
+        with patch.object(base, "frappe", frappe_mock), \
+             patch.object(base, "approve_documents", side_effect=fake_approve_documents):
+            result = base.approve_documents_core(
+                ["DOC1"], send_request_fn=lambda *a, **k: ({"Result": 1}, 200)
+            )
+
+        self.assertEqual(result, {"approved": [], "errors": []})
+        self.assertIn("mark_error_fn", captured)
+        self.assertIs(captured["mark_error_fn"], base.mark_error)
+        self.assertIn("resolve_rule_fn", captured)
+        self.assertIs(captured["resolve_rule_fn"], base._resolve_rule)
 
 
 if __name__ == "__main__":

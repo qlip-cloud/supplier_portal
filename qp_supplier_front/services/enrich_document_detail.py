@@ -145,7 +145,7 @@ def _update_status_if_fully_paid(document):
         for product in document["productos_recepcion"]
     )
 
-    document_total = document.get("nvfac_totp") or 0
+    document_total = document.get("nvfac_stot") or 0
 
     if (total_receipt_amount == document_total
             and document.get("nvfac_esta") not in ("A", "R", "V", "BCC", "PA", "PR")):

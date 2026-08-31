@@ -91,6 +91,20 @@ class TestResolveAssigneeEmails(unittest.TestCase):
         emails = resolve_assignee_emails("01", "BOG", self.OC_TYPE_ROWS, rows)
         self.assertEqual(emails, ["a@x.com", "b@x.com"])
 
+    def test_catch_all_para_contado_sin_oc(self):
+        rows = [
+            {"headquarter": "", "oc_type": "", "user_emails": ["a@x.com", "b@x.com"]},
+            {"headquarter": "BOG", "oc_type": "01", "user_emails": ["c@x.com"]},
+        ]
+        emails = resolve_assignee_emails(None, None, self.OC_TYPE_ROWS, rows)
+        self.assertEqual(emails, ["a@x.com", "b@x.com"])
+
+    def test_catch_all_sin_fila_retorna_vacio(self):
+        emails = resolve_assignee_emails(
+            None, None, self.OC_TYPE_ROWS, self.ASSIGNMENT_ROWS
+        )
+        self.assertEqual(emails, [])
+
 
 class TestShouldAutoAssign(unittest.TestCase):
 
@@ -99,6 +113,7 @@ class TestShouldAutoAssign(unittest.TestCase):
             "nvfac_nume": "FAC001",
             "nvfac_orde": "OC001",
             "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
             "receipt_total": 400,
             "assigned_to": None,
             "has_assigned_users": False,
@@ -134,7 +149,8 @@ class TestShouldAutoAssign(unittest.TestCase):
 
 class TestAutoAssignOrchestration(unittest.TestCase):
 
-    def _callbacks(self, oc_context, receipt_total, emails, users, candidates):
+    def _callbacks(self, oc_context, receipt_total, emails, users, candidates,
+                   resolve_rule_fn=None, po_exists_fn=None):
         calls = []
 
         def candidates_fn():
@@ -162,6 +178,8 @@ class TestAutoAssignOrchestration(unittest.TestCase):
             "resolve_emails_fn": resolve_emails_fn,
             "resolve_users_fn": resolve_users_fn,
             "add_assignees_fn": add_assignees_fn,
+            "resolve_rule_fn": resolve_rule_fn,
+            "po_exists_fn": po_exists_fn,
         }
 
     def test_asigna_cuando_cumple_condicion(self):
@@ -169,6 +187,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
             "nvfac_nume": "FAC001",
             "nvfac_orde": "OC001",
             "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
             "assigned_to": None,
             "has_assigned_users": False,
             "in_queue": True,
@@ -191,6 +210,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
             "nvfac_nume": "FAC001",
             "nvfac_orde": "OC001",
             "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
             "assigned_to": None,
             "has_assigned_users": False,
             "in_queue": True,
@@ -213,6 +233,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
             "nvfac_nume": "FAC001",
             "nvfac_orde": "OC001",
             "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
             "assigned_to": None,
             "has_assigned_users": False,
             "in_queue": True,
@@ -235,6 +256,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
             "nvfac_nume": "FAC001",
             "nvfac_orde": "OC001",
             "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
             "assigned_to": None,
             "has_assigned_users": False,
             "in_queue": True,
@@ -267,6 +289,134 @@ class TestAutoAssignOrchestration(unittest.TestCase):
             emails=["a@x.com"],
             users=["a@x.com"],
             candidates=candidates,
+        )
+
+        assigned = auto_assign(**callbacks)
+
+        self.assertEqual(assigned, [])
+        self.assertEqual(calls, [])
+
+    def test_contado_sin_regla_no_se_asigna(self):
+        candidates = [{
+            "nvfac_nume": "FAC001",
+            "nvfac_conv": "1",
+            "nvfac_orde": None,
+            "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
+            "assigned_to": None,
+            "has_assigned_users": False,
+            "in_queue": True,
+        }]
+        calls, callbacks = self._callbacks(
+            oc_context=None,
+            receipt_total=None,
+            emails=["a@x.com"],
+            users=["a@x.com"],
+            candidates=candidates,
+            resolve_rule_fn=lambda doc: None,
+        )
+
+        assigned = auto_assign(**callbacks)
+
+        self.assertEqual(assigned, [])
+        self.assertEqual(calls, [])
+
+    def test_contado_no_action_no_se_asigna(self):
+        candidates = [{
+            "nvfac_nume": "FAC001",
+            "nvfac_conv": "1",
+            "nvfac_orde": None,
+            "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
+            "assigned_to": None,
+            "has_assigned_users": False,
+            "in_queue": True,
+        }]
+        calls, callbacks = self._callbacks(
+            oc_context=None,
+            receipt_total=None,
+            emails=["a@x.com"],
+            users=["a@x.com"],
+            candidates=candidates,
+            resolve_rule_fn=lambda doc: {"rule_code": "no_action"},
+        )
+
+        assigned = auto_assign(**callbacks)
+
+        self.assertEqual(assigned, [])
+        self.assertEqual(calls, [])
+
+    def test_contado_rompe_regla_sin_oc_se_asigna_catch_all(self):
+        candidates = [{
+            "nvfac_nume": "FAC001",
+            "nvfac_conv": "1",
+            "nvfac_orde": None,
+            "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
+            "assigned_to": None,
+            "has_assigned_users": False,
+            "in_queue": True,
+        }]
+        calls, callbacks = self._callbacks(
+            oc_context=None,
+            receipt_total=None,
+            emails=["a@x.com"],
+            users=["a@x.com"],
+            candidates=candidates,
+            resolve_rule_fn=lambda doc: {"rule_code": "no_po"},
+            po_exists_fn=lambda oc: bool(oc),
+        )
+
+        assigned = auto_assign(**callbacks)
+
+        self.assertEqual(assigned, ["FAC001"])
+        self.assertEqual(calls, [("FAC001", ["a@x.com"])])
+
+    def test_contado_rompe_regla_no_receipt_con_oc_se_asigna(self):
+        candidates = [{
+            "nvfac_nume": "FAC001",
+            "nvfac_conv": "1",
+            "nvfac_orde": "OC001",
+            "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
+            "assigned_to": None,
+            "has_assigned_users": False,
+            "in_queue": True,
+        }]
+        calls, callbacks = self._callbacks(
+            oc_context={"oc_type": "03", "headquarter": "BOG"},
+            receipt_total=None,
+            emails=["a@x.com"],
+            users=["a@x.com"],
+            candidates=candidates,
+            resolve_rule_fn=lambda doc: {"rule_code": "no_receipt"},
+            po_exists_fn=lambda oc: bool(oc),
+        )
+
+        assigned = auto_assign(**callbacks)
+
+        self.assertEqual(assigned, ["FAC001"])
+        self.assertEqual(calls, [("FAC001", ["a@x.com"])])
+
+    def test_contado_cumple_regla_no_po_con_oc_no_se_asigna(self):
+        candidates = [{
+            "nvfac_nume": "FAC001",
+            "nvfac_conv": "1",
+            "nvfac_orde": "OC001",
+            "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
+            "assigned_to": None,
+            "has_assigned_users": False,
+            "in_queue": True,
+        }]
+        calls, callbacks = self._callbacks(
+            oc_context={"oc_type": "03", "headquarter": "BOG"},
+            receipt_total=None,
+            emails=["a@x.com"],
+            users=["a@x.com"],
+            candidates=candidates,
+            resolve_rule_fn=lambda doc: {"rule_code": "no_po"},
+            po_exists_fn=lambda oc: bool(oc),
         )
 
         assigned = auto_assign(**callbacks)

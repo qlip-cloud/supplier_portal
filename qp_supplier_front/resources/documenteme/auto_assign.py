@@ -3,6 +3,10 @@ import frappe
 from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
     get_receipt_total as _adapter_get_receipt_total,
 )
+from qp_supplier_front.resources.documenteme.auto_reject import (
+    po_exists as _po_exists,
+    resolve_rule as _resolve_rule,
+)
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.qp_supplier_front.doctype.qp_sp_assignmentconfig.qp_sp_assignmentconfig import (
     _normalize_headquarter,
@@ -25,6 +29,8 @@ def run_auto_assign(doc_names=None):
         resolve_users_fn=resolve_assignee_users,
         add_assignees_fn=add_assignees,
         doc_names=doc_names,
+        resolve_rule_fn=_resolve_rule,
+        po_exists_fn=_po_exists,
     )
 
 
@@ -51,7 +57,7 @@ def get_candidates(doc_names=None):
     docs = frappe.get_all(
         "qp_SP_DocumentDetail",
         filters=filters,
-        fields=["name", "nvfac_nume", "nvfac_orde", "nvfac_totp", "nvfac_esta", "document_sync_line"],
+        fields=["name", "nvfac_nume", "nvfac_orde", "nvfac_totp", "nvfac_stot", "nvfac_esta", "nvfac_conv", "document_sync_line"],
     )
 
     candidates = []
@@ -71,6 +77,8 @@ def get_candidates(doc_names=None):
             "nvfac_nume": sync_line,
             "nvfac_orde": doc.get("nvfac_orde"),
             "nvfac_totp": doc.get("nvfac_totp"),
+            "nvfac_stot": doc.get("nvfac_stot"),
+            "nvfac_conv": doc.get("nvfac_conv"),
             "assigned_to": assigned_to,
             "has_assigned_users": has_assigned_users,
             "in_queue": True,

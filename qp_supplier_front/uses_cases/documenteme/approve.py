@@ -26,6 +26,12 @@ automatica (recurso auto_approve), replicando el patron del rechazo.
 """
 
 from qp_supplier_front.constant.endpoint import CREATE_PURCHASE_ORDER
+from qp_supplier_front.uses_cases.documenteme.auto_reject import (
+    RULE_NO_ACTION,
+    has_po_match,
+    has_receipt_match,
+    should_auto_reject,
+)
 from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
 
 FINAL_STATES = ("A", "R")
@@ -70,18 +76,52 @@ def get_registrable_blockers(doc):
     return ""
 
 
-def get_registrable_warnings(doc, po_exists_fn, receipts_total_fn):
+def _get_cash_registrable_warnings(doc, po_exists_fn, receipts_total_fn, resolve_rule_fn):
+    """Advertencias de la regla de rechazo aplicadas a una factura de CONTADO.
+
+    Las facturas de contado no se rechazan, pero si la regla activa (proveedor
+    o default de MasterSetup) exige OC/recibo y la factura no lo cumple, NO
+    se aprueba automaticamente y pasa a asignacion. Con "no_action" o sin
+    regla configurada, el contado se aprueba sin validar OC ni recibo.
+    """
+    if resolve_rule_fn is None:
+        return []
+
+    rule = resolve_rule_fn(doc)
+    if not rule:
+        return []
+
+    rule_code = rule.get("rule_code")
+    if not rule_code or rule_code == RULE_NO_ACTION:
+        return []
+
+    po_match = has_po_match(doc, po_exists_fn)
+    receipt_match = has_receipt_match(doc, receipts_total_fn)
+    if should_auto_reject(po_match, receipt_match, rule_code):
+        return [
+            "La factura de contado no cumple la regla de rechazo configurada "
+            "({}), por lo que no se aprueba automaticamente y debe asignarse".format(
+                rule_code
+            )
+        ]
+
+    return []
+
+
+def get_registrable_warnings(doc, po_exists_fn, receipts_total_fn, resolve_rule_fn=None):
     """Retorna todas las violaciones que impedirian la aprobacion automatica.
 
     Devuelve una lista de mensajes (una por regla incumplida) para la regla
     factura - orden - recepcion + montos. Estas violaciones se muestran al
     usuario en la aprobacion manual y pueden ser anuladas (aprobacion
-    forzada). Las facturas de CONTADO relajan OC y recibos/montos, por lo
-    que sus advertencias son generadas solo si llegan a la parte de credito
-    (nunca; la validacion de contado no exige estos datos).
+    forzada). Las facturas de CONTADO relajan OC y recibos/montos salvo que
+    la regla de rechazo configurada exija OC/recibo: en ese caso la violacion
+    bloquea la aprobacion automatica y la factura debe asignarse.
     """
     if is_cash_invoice(doc.get("nvfac_conv")):
-        return []
+        return _get_cash_registrable_warnings(
+            doc, po_exists_fn, receipts_total_fn, resolve_rule_fn
+        )
 
     warnings = []
 
@@ -100,17 +140,17 @@ def get_registrable_warnings(doc, po_exists_fn, receipts_total_fn):
                 )
             )
         else:
-            invoice_total = doc.get("nvfac_totp") or 0
+            invoice_total = doc.get("nvfac_stot") or 0
             if receipts_total != invoice_total:
                 warnings.append(
-                    "La sumatoria de recepciones ({}) no coincide con el total "
-                    "de la factura ({})".format(receipts_total, invoice_total)
+                    "La sumatoria de recepciones ({}) no coincide con el valor "
+                    "base de la factura ({})".format(receipts_total, invoice_total)
                 )
 
     return warnings
 
 
-def validate_registrable(doc, po_exists_fn, receipts_total_fn):
+def validate_registrable(doc, po_exists_fn, receipts_total_fn, resolve_rule_fn=None):
     """Valida la regla factura - orden - recepcion + montos.
 
     Retorna (ok, error).
@@ -121,13 +161,16 @@ def validate_registrable(doc, po_exists_fn, receipts_total_fn):
       de recepciones cubra exactamente el total de la factura (las facturas a
       credito se respaldan en recepciones).
     - Facturas de CONTADO: se relaja la validacion de OC y recibos/montos,
-      porque no siempre tienen recepcion.
+      salvo que la regla de rechazo activa (resolve_rule_fn) exija OC/recibo:
+      en ese caso la factura debe cumplirla para aprobarse.
     """
     blocker = get_registrable_blockers(doc)
     if blocker:
         return False, blocker
 
-    warnings = get_registrable_warnings(doc, po_exists_fn, receipts_total_fn)
+    warnings = get_registrable_warnings(
+        doc, po_exists_fn, receipts_total_fn, resolve_rule_fn=resolve_rule_fn
+    )
     first_warning = warnings[0] if warnings else ""
     if first_warning:
         return False, first_warning
@@ -135,7 +178,7 @@ def validate_registrable(doc, po_exists_fn, receipts_total_fn):
     return True, ""
 
 
-def collect_registrable_violations(docs, po_exists_fn, receipts_total_fn):
+def collect_registrable_violations(docs, po_exists_fn, receipts_total_fn, resolve_rule_fn=None):
     """Acumula todas las violaciones de aprobacion automatica por factura.
 
     Retorna una lista de dicts {"nvfac_nume", "violations": [mensaje, ...]}
@@ -149,7 +192,9 @@ def collect_registrable_violations(docs, po_exists_fn, receipts_total_fn):
         blocker = get_registrable_blockers(doc)
         if blocker:
             continue
-        warnings = get_registrable_warnings(doc, po_exists_fn, receipts_total_fn)
+        warnings = get_registrable_warnings(
+            doc, po_exists_fn, receipts_total_fn, resolve_rule_fn=resolve_rule_fn
+        )
         if warnings:
             violations.append({
                 "nvfac_nume": doc.get("nvfac_nume"),
@@ -158,11 +203,13 @@ def collect_registrable_violations(docs, po_exists_fn, receipts_total_fn):
     return violations
 
 
-def validate_registrables(docs, po_exists_fn, receipts_total_fn):
+def validate_registrables(docs, po_exists_fn, receipts_total_fn, resolve_rule_fn=None):
     valid = []
     errors = []
     for doc in (docs or []):
-        ok, error = validate_registrable(doc, po_exists_fn, receipts_total_fn)
+        ok, error = validate_registrable(
+            doc, po_exists_fn, receipts_total_fn, resolve_rule_fn=resolve_rule_fn
+        )
         if ok:
             valid.append(doc)
         else:
@@ -192,7 +239,7 @@ def _build_vendor_invoice_line(line, idx="10000"):
     }
 
 
-def homologate_lines(detail_lines, homologation_map):
+def homologate_lines(detail_lines, homologation_map, order_no="", receiving_no=""):
     """Mapea lineas de la factura del proveedor a lineas BC homologadas.
 
     Para cada linea de detalle usa nvpro_codi (codigo del proveedor) y lo
@@ -202,6 +249,10 @@ def homologate_lines(detail_lines, homologation_map):
     - lines: listas normalizadas (item_code, qty, rate, idx) listas para el
       payload. Las lineas sin nvpro_codi o sin homologacion se omiten.
     - missing_codes: lista de codigos de proveedor sin homologacion.
+
+    El JSON a BC lleva la informacion que la factura realmente tiene: si el
+    contado no tiene OC/recibo van vacios (BC decide); si solo tiene OC se
+    incluye NoPedido (order_no) con NoRecepcion vacio.
     """
     lines = []
     missing_codes = []
@@ -218,8 +269,8 @@ def homologate_lines(detail_lines, homologation_map):
             "qty": line.get("nvdet_tcan") or 0,
             "rate": line.get("nvdet_valo") or 0,
             "idx": i,
-            "receiving_no": "",
-            "order_no": "",
+            "receiving_no": receiving_no,
+            "order_no": order_no,
         })
     return lines, missing_codes
 
@@ -346,6 +397,7 @@ def approve_documents(
     now,
     mark_duplicate_registered_fn=None,
     force=False,
+    resolve_rule_fn=None,
 ):
     """Aprueba en lote las facturas: un solo envio a BC con array.
 
@@ -376,7 +428,9 @@ def approve_documents(
     if force:
         valid, errors = _split_by_blockers(docs)
     else:
-        valid, errors = validate_registrables(docs, po_exists_fn, receipts_total_fn)
+        valid, errors = validate_registrables(
+            docs, po_exists_fn, receipts_total_fn, resolve_rule_fn=resolve_rule_fn
+        )
 
     if not valid:
         return {"approved": [], "errors": errors}

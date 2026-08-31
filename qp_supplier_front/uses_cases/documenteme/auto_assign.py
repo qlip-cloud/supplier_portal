@@ -11,7 +11,22 @@ cubre el total de la factura. El destinatario se resuelve segun el tipo de OC:
 - Inventariable: el par exacto (oc_type, sede) configurado en
   qp_SP_AssignmentConfig. La orden determina ambas dimensiones.
 - No inventariable: solo el oc_type; la sede de la orden no se valida.
+
+Facturas de CONTADO: se asignan (no se aprueban) cuando la regla de rechazo
+activa (proveedor o default MasterSetup) exige OC/recibo y la factura no la
+cumple. Sin OC se resuelve via una fila catch-all de qp_SP_AssignmentConfig
+con oc_type y headquarter vacios. Si la regla no limita (no_action/sin regla)
+el contado se aprueba y no se asigna.
 """
+
+
+from qp_supplier_front.uses_cases.documenteme.auto_reject import (
+    RULE_NO_ACTION,
+    has_po_match,
+    has_receipt_match,
+    should_auto_reject,
+)
+from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
 
 
 def is_inventariable_oc_type(oc_type, oc_type_rows):
@@ -36,6 +51,19 @@ _MATCHERS = {
 
 
 def resolve_assignee_emails(oc_type, headquarter, oc_type_rows, assignment_rows):
+    if oc_type is None:
+        # Factura de contado sin OC: fila catch-all (headquarter y oc_type
+        # vacios) configurada como destinatarios por defecto.
+        matching = [
+            row for row in (assignment_rows or [])
+            if not row.get("oc_type") and not row.get("headquarter")
+        ]
+        return _dedupe([
+            email
+            for row in matching
+            for email in (row.get("user_emails") or [])
+        ])
+
     inventariable = is_inventariable_oc_type(oc_type, oc_type_rows)
 
     if inventariable is None:
@@ -67,7 +95,7 @@ def _dedupe(items):
 def should_auto_assign(invoice):
     has_purchase_order = bool(invoice.get("nvfac_orde"))
     receipt_total = invoice.get("receipt_total")
-    invoice_total = invoice.get("nvfac_totp") or 0
+    invoice_total = invoice.get("nvfac_stot") or 0
     no_receipt = receipt_total is None
     not_covered = receipt_total != invoice_total
     not_assigned = not invoice.get("assigned_to") and not invoice.get("has_assigned_users")
@@ -80,6 +108,29 @@ def should_auto_assign(invoice):
     )
 
 
+def should_assign_contado(invoice, resolve_rule_fn, po_exists_fn, receipt_for_po_fn):
+    """Una factura de CONTADO se asigna (no se aprueba) si la regla de
+    rechazo activa la vulnera (exige OC/recibo y la factura no lo cumplen).
+
+    Con "no_action" o sin regla configurada, el contado se aprueba
+    automaticamente y no se asigna.
+    """
+    if resolve_rule_fn is None:
+        return False
+
+    rule = resolve_rule_fn(invoice)
+    if not rule:
+        return False
+
+    rule_code = rule.get("rule_code")
+    if not rule_code or rule_code == RULE_NO_ACTION:
+        return False
+
+    po_match = has_po_match(invoice, po_exists_fn)
+    receipt_match = has_receipt_match(invoice, receipt_for_po_fn)
+    return should_auto_reject(po_match, receipt_match, rule_code)
+
+
 def auto_assign(
     candidates_fn,
     get_oc_context_fn,
@@ -88,23 +139,37 @@ def auto_assign(
     resolve_users_fn,
     add_assignees_fn,
     doc_names=None,
+    resolve_rule_fn=None,
+    po_exists_fn=None,
 ):
     assigned = []
     candidates = candidates_fn() if doc_names is None else candidates_fn(doc_names)
     for invoice in candidates:
         invoice["receipt_total"] = get_receipt_total_fn(invoice.get("nvfac_orde"))
 
-        if not should_auto_assign(invoice):
+        cash = is_cash_invoice(invoice.get("nvfac_conv"))
+        if cash:
+            # Contado: solo se asigna si la regla de rechazo lo bloquea.
+            if not should_assign_contado(
+                invoice, resolve_rule_fn, po_exists_fn, get_receipt_total_fn
+            ):
+                continue
+        elif not should_auto_assign(invoice):
             continue
 
         oc_context = get_oc_context_fn(invoice.get("nvfac_orde"))
-        if not oc_context:
+
+        if oc_context:
+            emails = resolve_emails_fn(
+                oc_context.get("oc_type"),
+                oc_context.get("headquarter"),
+            )
+        elif cash:
+            # Contado sin OC: destinatarios de la fila catch-all.
+            emails = resolve_emails_fn(None, None)
+        else:
             continue
 
-        emails = resolve_emails_fn(
-            oc_context.get("oc_type"),
-            oc_context.get("headquarter"),
-        )
         if not emails:
             continue
 
