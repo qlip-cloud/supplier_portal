@@ -4,6 +4,8 @@ test_auto_approve.py
 ====================
 Pruebas unitarias para resources/documenteme/auto_approve.py.
 
+Los accesos a datos van por el facade (runtime.resolve()["data"]); en los
+tests se inyecta un DataFacade que delega en el frappe mock de cada caso.
 Frappe se inyecta en sys.modules como mock (sin base de datos).
 Ejecutar con: python -m pytest qp_supplier_front/tests/test_auto_approve.py -v
 """
@@ -18,6 +20,20 @@ sys.modules["frappe.model.document"] = MagicMock()
 
 from qp_supplier_front.resources.documenteme import auto_approve as infra  # noqa: E402
 from qp_supplier_front.resources.documenteme import _approve_base as base  # noqa: E402
+from qp_supplier_front.infrastructure.adapters.data_facade import DataFacade  # noqa: E402
+
+
+def _bundle_for(frappe_mock):
+    return {"data": DataFacade(frappe=frappe_mock), "approve_callbacks": {}}
+
+
+def _patch_data(frappe_mock):
+    """Parchea el facade de datos (runtime.resolve) ademas de frappe."""
+    return [
+        patch.object(infra, "frappe", frappe_mock),
+        patch.object(infra.runtime, "resolve",
+                     return_value=_bundle_for(frappe_mock)),
+    ]
 
 
 def _doc(name="DOC1", nvfac_esta="E", nvfac_orde="45238", nvfac_rece="R108349",
@@ -35,13 +51,28 @@ def _doc(name="DOC1", nvfac_esta="E", nvfac_orde="45238", nvfac_rece="R108349",
     }
 
 
-class TestIsAutoApproveEnabled(unittest.TestCase):
+def _bank(amount=None):
+    if amount is None:
+        return []
+    return [{"name": "R1", "amount": amount, "date": "2026-01-01", "qp_invoice": None}]
+
+
+class _WithData(object):
+
+    def _ctx(self, frappe_mock, extra=None):
+        patches = _patch_data(frappe_mock) + list(extra or [])
+        start = [p.start() for p in patches]
+        self.addCleanup(lambda: [p.stop() for p in reversed(patches)])
+        return start
+
+
+class TestIsAutoApproveEnabled(_WithData, unittest.TestCase):
 
     def test_habilitado(self):
         frappe_mock = MagicMock()
         frappe_mock.db.get_single_value.return_value = 1
-        with patch.object(infra, "frappe", frappe_mock):
-            self.assertTrue(infra.is_auto_approve_enabled())
+        self._ctx(frappe_mock)
+        self.assertTrue(infra.is_auto_approve_enabled())
         frappe_mock.db.get_single_value.assert_called_once_with(
             "qp_SP_MasterSetup", "auto_approve"
         )
@@ -49,25 +80,31 @@ class TestIsAutoApproveEnabled(unittest.TestCase):
     def test_deshabilitado(self):
         frappe_mock = MagicMock()
         frappe_mock.db.get_single_value.return_value = 0
-        with patch.object(infra, "frappe", frappe_mock):
-            self.assertFalse(infra.is_auto_approve_enabled())
+        self._ctx(frappe_mock)
+        self.assertFalse(infra.is_auto_approve_enabled())
 
 
-class TestGetAnalysisCandidates(unittest.TestCase):
+class TestGetAnalysisCandidates(_WithData, unittest.TestCase):
 
     def test_filtra_estados_no_definitivos(self):
         frappe_mock = MagicMock()
         frappe_mock.get_all.return_value = [_doc()]
-
-        with patch.object(infra, "frappe", frappe_mock):
-            candidates = infra.get_analysis_candidates()
-
+        self._ctx(frappe_mock)
+        infra.get_analysis_candidates()
         filters = frappe_mock.get_all.call_args[1]["filters"]
         self.assertEqual(filters["nvfac_ueve"], ["is", "not set"])
         self.assertEqual(filters["nvfac_esta"], ["in", ("E", "V", "T")])
 
+    def test_get_analysis_candidates_incluye_nvfac_conv(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [_doc()]
+        self._ctx(frappe_mock)
+        infra.get_analysis_candidates()
+        fields = frappe_mock.get_all.call_args[1]["fields"]
+        self.assertIn("nvfac_conv", fields)
 
-class TestPromoteEligibleToV(unittest.TestCase):
+
+class TestPromoteEligibleToV(_WithData, unittest.TestCase):
 
     def _frappe(self):
         frappe_mock = MagicMock()
@@ -80,12 +117,11 @@ class TestPromoteEligibleToV(unittest.TestCase):
 
     def test_promueve_elegibles_a_v(self):
         frappe_mock = self._frappe()
-
-        with patch.object(infra, "frappe", frappe_mock), \
-             patch.object(infra, "po_exists", return_value=True), \
-             patch.object(infra, "receipts_total", return_value=50000):
-            promoted = infra.promote_eligible_to_v()
-
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "po_exists", return_value=True),
+            patch.object(infra, "receipt_bank", return_value=_bank(50000)),
+        ])
+        promoted = infra.promote_eligible_to_v()
         self.assertEqual(promoted, ["DOC1"])
         frappe_mock.db.set_value.assert_called_once_with(
             "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "V"
@@ -94,12 +130,11 @@ class TestPromoteEligibleToV(unittest.TestCase):
 
     def test_no_reescribe_ya_en_v(self):
         frappe_mock = self._frappe()
-
-        with patch.object(infra, "frappe", frappe_mock), \
-             patch.object(infra, "po_exists", return_value=True), \
-             patch.object(infra, "receipts_total", return_value=50000):
-            infra.promote_eligible_to_v()
-
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "po_exists", return_value=True),
+            patch.object(infra, "receipt_bank", return_value=_bank(50000)),
+        ])
+        infra.promote_eligible_to_v()
         set_calls = [
             call[0][1] for call in frappe_mock.db.set_value.call_args_list
         ]
@@ -107,12 +142,11 @@ class TestPromoteEligibleToV(unittest.TestCase):
 
     def test_no_promueve_quien_no_cumple_regla(self):
         frappe_mock = self._frappe()
-
-        with patch.object(infra, "frappe", frappe_mock), \
-             patch.object(infra, "po_exists", return_value=True), \
-             patch.object(infra, "receipts_total", return_value=None):
-            promoted = infra.promote_eligible_to_v()
-
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "po_exists", return_value=True),
+            patch.object(infra, "receipt_bank", return_value=_bank(None)),
+        ])
+        promoted = infra.promote_eligible_to_v()
         self.assertEqual(promoted, [])
 
     def test_promueve_contado_sin_oc_ni_recibos(self):
@@ -121,76 +155,65 @@ class TestPromoteEligibleToV(unittest.TestCase):
             _doc(name="DOC1", nvfac_esta="E", nvfac_orde=None,
                  nvfac_rece=None, nvfac_conv="1"),
         ]
-
-        with patch.object(infra, "frappe", frappe_mock), \
-             patch.object(infra, "po_exists", return_value=False), \
-             patch.object(infra, "receipts_total", return_value=None):
-            promoted = infra.promote_eligible_to_v()
-
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "po_exists", return_value=False),
+            patch.object(infra, "receipt_bank", return_value=_bank(None)),
+        ])
+        promoted = infra.promote_eligible_to_v()
         self.assertEqual(promoted, ["DOC1"])
         frappe_mock.db.set_value.assert_called_once_with(
             "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "V"
         )
 
-    def test_get_analysis_candidates_incluye_nvfac_conv(self):
-        frappe_mock = MagicMock()
-        frappe_mock.get_all.return_value = [_doc()]
 
-        with patch.object(infra, "frappe", frappe_mock):
-            infra.get_analysis_candidates()
-
-        fields = frappe_mock.get_all.call_args[1]["fields"]
-        self.assertIn("nvfac_conv", fields)
-
-
-class TestGetVDocNames(unittest.TestCase):
+class TestGetVDocNames(_WithData, unittest.TestCase):
 
     def test_filtra_solo_estado_v(self):
         frappe_mock = MagicMock()
         frappe_mock.get_all.return_value = ["DOC1"]
-
-        with patch.object(infra, "frappe", frappe_mock):
-            names = infra.get_v_doc_names()
-
+        self._ctx(frappe_mock)
+        names = infra.get_v_doc_names()
         filters = frappe_mock.get_all.call_args[1]["filters"]
         self.assertEqual(filters["nvfac_esta"], "V")
         self.assertEqual(filters["nvfac_ueve"], ["is", "not set"])
+        self.assertEqual(names, ["DOC1"])
 
 
-class TestRunAutoApprove(unittest.TestCase):
+class TestRunAutoApprove(_WithData, unittest.TestCase):
 
     def test_deshabilitado_no_hace_nada(self):
         with patch.object(infra, "frappe", MagicMock()), \
-             patch.object(infra, "is_auto_approve_enabled", return_value=False), \
+             patch.object(infra.runtime, "resolve",
+                          return_value=_bundle_for(MagicMock())), \
+             patch.object(infra, "is_auto_approve_enabled",
+                          return_value=False) as enabled, \
              patch.object(infra, "promote_eligible_to_v") as promote, \
              patch.object(infra, "get_v_doc_names") as get_v:
             result = infra.run_auto_approve()
-
         self.assertTrue(result["skipped"])
+        enabled.assert_called()
         promote.assert_not_called()
         get_v.assert_not_called()
 
     def test_sin_docs_v_no_encola(self):
         frappe_mock = MagicMock()
-
-        with patch.object(infra, "frappe", frappe_mock), \
-             patch.object(infra, "is_auto_approve_enabled", return_value=True), \
-             patch.object(infra, "promote_eligible_to_v", return_value=[]), \
-             patch.object(infra, "get_v_doc_names", return_value=[]):
-            result = infra.run_auto_approve()
-
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "is_auto_approve_enabled", return_value=True),
+            patch.object(infra, "promote_eligible_to_v", return_value=[]),
+            patch.object(infra, "get_v_doc_names", return_value=[]),
+        ])
+        result = infra.run_auto_approve()
         self.assertFalse(result["skipped"])
         frappe_mock.enqueue.assert_not_called()
 
     def test_con_docs_v_encola_job(self):
         frappe_mock = MagicMock()
-
-        with patch.object(infra, "frappe", frappe_mock), \
-             patch.object(infra, "is_auto_approve_enabled", return_value=True), \
-             patch.object(infra, "promote_eligible_to_v", return_value=["DOC1"]), \
-             patch.object(infra, "get_v_doc_names", return_value=["DOC1", "DOC2"]):
-            result = infra.run_auto_approve()
-
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "is_auto_approve_enabled", return_value=True),
+            patch.object(infra, "promote_eligible_to_v", return_value=["DOC1"]),
+            patch.object(infra, "get_v_doc_names", return_value=["DOC1", "DOC2"]),
+        ])
+        result = infra.run_auto_approve()
         self.assertEqual(result["enqueued"], 2)
         frappe_mock.enqueue.assert_called_once_with(
             infra.AUTO_APPROVE_JOB_METHOD,
@@ -201,21 +224,19 @@ class TestRunAutoApprove(unittest.TestCase):
         )
 
 
-class TestApproveBatchJob(unittest.TestCase):
+class TestApproveBatchJob(_WithData, unittest.TestCase):
 
     def test_aprueba_y_loguea_errores(self):
         frappe_mock = MagicMock()
-
-        def core(doc_names):
-            return {
-                "approved": [{"nvfac_nume": "FAC001"}],
-                "errors": [{"nvfac_nume": "FAC002", "error": "sin recepcion"}],
-            }
-
-        with patch.object(infra, "frappe", frappe_mock), \
-             patch.object(infra, "approve_documents_core", side_effect=core):
-            result = infra.approve_batch_job(["DOC1", "DOC2"])
-
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "approve_documents_core", side_effect=(
+                lambda doc_names: {
+                    "approved": [{"nvfac_nume": "FAC001"}],
+                    "errors": [{"nvfac_nume": "FAC002", "error": "sin recepcion"}],
+                }
+            )),
+        ])
+        result = infra.approve_batch_job(["DOC1", "DOC2"])
         self.assertEqual(len(result["approved"]), 1)
         self.assertEqual(len(result["errors"]), 1)
         frappe_mock.db.commit.assert_called()
@@ -242,6 +263,10 @@ class TestApproveDocumentsCoreWiring(unittest.TestCase):
             return {"approved": [], "errors": []}
 
         with patch.object(base, "frappe", frappe_mock), \
+             patch.object(base.runtime, "resolve", return_value={
+                 "approve_send_fn": lambda *a, **k: ({"Result": 1}, 200),
+                 "on_batch_approved_fn": None,
+             }), \
              patch.object(base, "approve_documents", side_effect=fake_approve_documents):
             result = base.approve_documents_core(
                 ["DOC1"], send_request_fn=lambda *a, **k: ({"Result": 1}, 200)

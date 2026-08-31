@@ -1,4 +1,27 @@
-def enrich_document_detail(document):
+# -*- coding: utf-8 -*-
+"""
+enrich_document_detail.py
+=========================
+Service para enriquecer el DETALLE de un documento documenteme con alertas,
+factura interna (confirmation_id de BC), ordenes de compra y recepciones.
+
+Los datos de referencia (Purchase Order / Purchase Receipt) se leen a traves
+de un adaptador inyectable (references): en modo simulador es
+MemoryReferenceSource (store en memoria); en modo real, por defecto, se usa
+RealReferenceSource (frappe). El facade (data) expone .references, de modo
+que la propia vista no cambia: con data presente usa el adaptador de memoria,
+sin data usa el real.
+"""
+
+
+def enrich_document_detail(document, data=None, references=None):
+    """Enriquece el detalle de un documento con referencias inyectadas.
+
+    - data: facade de datos (None en modo real; en memoria en modo simulador).
+    - references: adaptador de referencias de compras (Purchase Order /
+      Purchase Receipt). Si es None se resuelve desde data.references o, sin
+      data, se usa la implementacion real (frappe).
+    """
     document["factura_interna"] = ""
     purchase_order_number = document.get("nvfac_orde") or ""
 
@@ -7,19 +30,49 @@ def enrich_document_detail(document):
     document["productos_orden_compra"] = []
     document["productos_recepcion"] = []
 
-    _enrich_alerts(document)
-    _enrich_factura_interna(document)
+    _enrich_alerts(document, data)
+    _enrich_factura_interna(document, data)
 
     if purchase_order_number:
-        _enrich_purchase_orders(document, purchase_order_number)
-        _enrich_purchase_receipts(document, purchase_order_number)
-        _update_status_if_fully_paid(document)
+        _enrich_purchase_orders(document, purchase_order_number, references, data)
+        _enrich_purchase_receipts(document, purchase_order_number, references, data)
+        _update_status_if_fully_paid(document, data, references=references)
 
 
-def _enrich_factura_interna(document):
-    import frappe
+def _resolve_references(data, references):
+    """Adaptador de referencias: inyectado, o data.references, o real por defecto."""
+    if references is not None:
+        return references
+    if data is not None:
+        refs = getattr(data, "references", None)
+        if refs is not None:
+            return refs
+    from qp_supplier_front.infrastructure.adapters.reference_source import (
+        RealReferenceSource,
+    )
+    return RealReferenceSource()
 
-    confirmation = frappe.get_all(
+
+def _api(data, name):
+    """Facade (data) o frappe real. Compatible con data.db.set_value/exists."""
+    if data is None:
+        import frappe
+        if name == "exists":
+            return frappe.db.exists
+        if name == "set_value":
+            return frappe.db.set_value
+        return frappe.get_all if name == "get_all" else frappe.db.get_value
+    if name in ("get_all", "exists"):
+        return getattr(data, name)
+    if name == "set_value":
+        if hasattr(data, "db"):
+            return data.db.set_value
+        return data.set_value
+    return getattr(data, name)
+
+
+def _enrich_factura_interna(document, data=None):
+    confirmation = _api(data, "get_all")(
         "qp_SP_PurchaseInvoiceBC",
         filters={"purchase_invoice": document.get("name")},
         fields=["confirmation_id"],
@@ -42,10 +95,8 @@ def build_alert_tooltip(alerts):
     return "\n".join(lines)
 
 
-def _enrich_alerts(document):
-    import frappe
-
-    alerts = frappe.get_all(
+def _enrich_alerts(document, data=None):
+    alerts = _api(data, "get_all")(
         "qp_SP_Alert",
         filters={
             "parent": document.get("name"),
@@ -61,20 +112,13 @@ def _enrich_alerts(document):
     document["alert_tooltip"] = build_alert_tooltip(alerts)
 
 
-def _enrich_purchase_orders(document, purchase_order_number):
-    import frappe
-
-    if not frappe.db.exists("Purchase Order", purchase_order_number):
+def _enrich_purchase_orders(document, purchase_order_number, references=None,
+                            data=None):
+    refs = _resolve_references(data, references)
+    if not refs.po_exists(purchase_order_number):
         return
 
-    items = frappe.get_all(
-        "Purchase Order Item",
-        filters={
-            "parent": purchase_order_number,
-            "parenttype": "Purchase Order",
-        },
-        fields=["item_code", "uom", "qty", "qp_unit_cost", "qp_extd_cost"]
-    )
+    items = refs.po_items(purchase_order_number)
 
     document["ordenes_compra"] = [purchase_order_number]
     document["productos_orden_compra"] = build_po_products(items)
@@ -93,13 +137,15 @@ def build_po_products(items):
     return products
 
 
-def _enrich_purchase_receipts(document, purchase_order_number):
-    import frappe
-
-    receipts = frappe.get_all(
-        "Purchase Receipt",
-        filters={"qp_supplier_oc": purchase_order_number},
-        fields=["name", "supplier_delivery_note", "posting_date", "total"],
+def _enrich_purchase_receipts(document, purchase_order_number, references=None,
+                              data=None):
+    refs = _resolve_references(data, references)
+    # Solo los recibos asignados/procesados con ESTA factura (qp_invoice ==
+    # nvfac_nume); el resto de la OC que no forma parte de la factura no se
+    # muestra.
+    receipts = refs.receipts_for(
+        purchase_order_number,
+        qp_invoice=document.get("nvfac_nume"),
     )
 
     receipt_names = [
@@ -112,15 +158,7 @@ def _enrich_purchase_receipts(document, purchase_order_number):
         for receipt in receipts
     ]
 
-    items = frappe.get_all(
-        "Purchase Receipt Item",
-        filters={
-            "parent": ["in", receipt_names],
-            "parenttype": "Purchase Receipt",
-        },
-        fields=["item_code", "uom", "qty", "rate", "amount"],
-        order_by="parent, idx",
-    )
+    items = refs.receipt_items_for(receipt_names)
     document["productos_recepcion"] = build_receipt_products(items)
 
 
@@ -137,22 +175,36 @@ def build_receipt_products(items):
     return products
 
 
-def _update_status_if_fully_paid(document):
-    import frappe
+def _update_status_if_fully_paid(document, data=None, references=None):
+    """Marca en "V" una factura cubierta por una combinacion exacta de
+    recepciones no consumidas (banco). Lee el banco via el adaptador de
+    referencias (in-memory en simulacion, frappe en real) y respeta los
+    estados definitivos/en proceso."""
+    refs = _resolve_references(data, references)
 
-    total_receipt_amount = sum(
-        product["valor_total"]
-        for product in document["productos_recepcion"]
+    from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
+        DEFAULT_EPSILON,
+        solve_receipt_bank,
     )
 
     document_total = document.get("nvfac_stot") or 0
+    purchase_order_number = document.get("nvfac_orde")
 
-    if (total_receipt_amount == document_total
-            and document.get("nvfac_esta") not in ("A", "R", "V", "BCC", "PA", "PR")):
-        frappe.db.set_value(
-            "qp_SP_DocumentDetail",
-            document.get("name"),
-            "nvfac_esta",
-            "V",
-        )
-        document["nvfac_esta"] = "V"
+    if document.get("nvfac_esta") in ("A", "R", "V", "BCC", "PA", "PR"):
+        return
+
+    if not purchase_order_number:
+        return
+
+    bank = refs.receipt_bank_for(purchase_order_number)
+
+    if solve_receipt_bank(document_total, bank, DEFAULT_EPSILON) is None:
+        return
+
+    _api(data, "set_value")(
+        "qp_SP_DocumentDetail",
+        document.get("name"),
+        "nvfac_esta",
+        "V",
+    )
+    document["nvfac_esta"] = "V"

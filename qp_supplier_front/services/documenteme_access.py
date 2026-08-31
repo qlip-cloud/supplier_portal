@@ -68,12 +68,16 @@ def get_assigned_sync_lines_filters(
     return result
 
 
-def get_assigned_sync_line_names(user):
+def get_assigned_sync_line_names(user, data=None):
     """Retorna los nombres de qp_SP_DocumentSyncLine asignados al usuario.
 
     Incluye las sync lines donde el usuario aparece en el child table
     qp_SP_SyncLineAssignedUser y las donde es assigned_to directo.
+    Con data (facade) lee de ahi (memoria si simulacion); sin data usa frappe.
     """
+    if data is not None:
+        return _assigned_from_facade(data, user)
+
     import frappe
 
     names = set()
@@ -94,4 +98,20 @@ def get_assigned_sync_line_names(user):
     for row in direct_rows:
         names.add(row.get("name"))
 
+    return list(names)
+
+
+def _assigned_from_facade(data, user):
+    names = set()
+    for row in data.get_all(
+            "qp_SP_SyncLineAssignedUser",
+            filters={"user": user, "parenttype": "qp_SP_DocumentSyncLine"},
+            fields=["parent"]):
+        if row.get("parent"):
+            names.add(row.get("parent"))
+    for row in data.get_all(
+            "qp_SP_DocumentSyncLine",
+            filters={"assigned_to": user},
+            fields=["name"]):
+        names.add(row.get("name"))
     return list(names)

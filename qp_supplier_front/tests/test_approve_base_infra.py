@@ -96,5 +96,47 @@ class TestMarkDuplicateRegistered(unittest.TestCase):
         mocks["mark_registered"].assert_not_called()
 
 
+class TestConsumeReceipts(unittest.TestCase):
+
+    def test_sql_guardado_filtra_solo_no_consumidas(self):
+        frappe_mock = MagicMock()
+        doc = {"name": "DOC1", "nvfac_nume": "FAC001"}
+        with patch.object(infra, "frappe", frappe_mock):
+            infra.consume_receipts(doc, ["R1", "R2"])
+
+        frappe_mock.db.sql.assert_called_once()
+        sql, params = frappe_mock.db.sql.call_args[0]
+
+        self.assertIn("UPDATE `tabPurchase Receipt`", sql)
+        self.assertIn("SET qp_invoice = %s", sql)
+        self.assertIn("WHERE name IN (%s, %s)", sql)
+        self.assertIn("AND (qp_invoice IS NULL OR qp_invoice = '')", sql)
+        self.assertEqual(params, ["FAC001", "R1", "R2"])
+
+    def test_con_mas_recepciones_genera_placeholder_por_recibo(self):
+        frappe_mock = MagicMock()
+        doc = {"name": "DOC1", "nvfac_nume": "FAC001"}
+        with patch.object(infra, "frappe", frappe_mock):
+            infra.consume_receipts(doc, ["R1", "R2", "R3", "R4"])
+
+        sql, params = frappe_mock.db.sql.call_args[0]
+        self.assertIn("WHERE name IN (%s, %s, %s, %s)", sql)
+        self.assertEqual(params, ["FAC001", "R1", "R2", "R3", "R4"])
+
+    def test_sin_recepciones_no_ejecuta_sql(self):
+        frappe_mock = MagicMock()
+        with patch.object(infra, "frappe", frappe_mock):
+            infra.consume_receipts({"name": "DOC1", "nvfac_nume": "FAC001"}, [])
+
+        frappe_mock.db.sql.assert_not_called()
+
+    def test_sin_nvfac_nume_no_ejecuta_sql(self):
+        frappe_mock = MagicMock()
+        with patch.object(infra, "frappe", frappe_mock):
+            infra.consume_receipts({"name": "DOC1"}, ["R1"])
+
+        frappe_mock.db.sql.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

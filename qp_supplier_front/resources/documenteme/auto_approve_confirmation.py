@@ -23,16 +23,11 @@ import time
 
 import frappe
 
-from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
-    get_company_tax_id,
-    get_event_endpoint,
-    raw_http,
-)
 from qp_supplier_front.resources.documenteme._alerts import (
     insert_alert,
     resolve_open_alerts,
 )
-from qp_supplier_front.resources.documenteme import simulation
+from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.uses_cases.documenteme.event_notifier import (
     _append_log,
     _is_error,
@@ -123,30 +118,31 @@ def is_sequence_successful(sent):
 # =========================================================================
 # Job de fondo
 # =========================================================================
-def approve_confirmation_batch_job(doc_names):
-    if simulation.is_simulation_enabled():
-        company_tax_id = simulation.get_company_tax_id()
-        url, headers, method = simulation.get_event_endpoint()
-    else:
-        company_tax_id = get_company_tax_id()
-        url, headers, method = get_event_endpoint()
+def approve_confirmation_batch_job(doc_names, http_fn=None):
+    components = runtime.resolve()
+    company_tax_id = components["company_tax_id_fn"]()
+    url, headers, method = components["event_endpoint_fn"]()
     config = get_approval_config()
 
     all_results = []
     for doc_name in (doc_names or []):
         doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
-        result = _approve_one(doc, config, company_tax_id, url, headers, method)
+        result = _approve_one(doc, config, company_tax_id, url, headers, method,
+                              http_fn=http_fn)
         all_results.append((doc_name, result))
 
     frappe.db.commit()
     return all_results
 
 
-def _approve_one(doc, config, company_tax_id, url, headers, method):
+def _approve_one(doc, config, company_tax_id, url, headers, method, http_fn=None):
     result = {"doc": doc.name, "approved": False, "attempts": 0, "error": None}
 
-    # En la secuencia de aprobacion, los eventos 030/032 notifican con el
-    # estado "BCC" (Creada en BC); solo el 033 lleva "A" (Aprobado).
+    # En la secuencia de aprobacion, DOCUMENTEME_EVENT_STATES (event_notifier)
+    # fija el estado que sale en el payload por codigo: los eventos 030/032
+    # notifican con "E" (y el doc interno viaja en BCC/PA); solo el 033 lleva
+    # "A" (Aprobado). El base_state recibido por build_approval_events solo
+    # aplica a codigos sin mapeo explicito, por lo que nunca sale "BCC".
     base_state = "BCC"
 
     for attempt_no in range(1, config["max_attempts"] + 1):
@@ -162,7 +158,7 @@ def _approve_one(doc, config, company_tax_id, url, headers, method):
         sent = []
         for event in events:
             response, status = _send_event(
-                event["payload"], url, headers, method
+                event["payload"], url, headers, method, http_fn=http_fn
             )
             sent.append({
                 "event_code": event["event_code"],
@@ -202,11 +198,11 @@ def _approve_one(doc, config, company_tax_id, url, headers, method):
     return result
 
 
-def _send_event(payload, url, headers, method):
+def _send_event(payload, url, headers, method, http_fn=None):
     sender = (
-        simulation.http_event
-        if simulation.is_simulation_enabled()
-        else raw_http
+        http_fn
+        if http_fn is not None
+        else runtime.resolve()["event_http_fn"]
     )
     try:
         return sender(payload, url, headers, method)

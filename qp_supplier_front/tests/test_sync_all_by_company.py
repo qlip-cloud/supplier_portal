@@ -38,9 +38,22 @@ class TestSyncAllByCompany(unittest.TestCase):
 
         self.patches = [
             patch.object(saw, "frappe", self.frappe_mock),
+            patch.object(saw.runtime, "is_simulation_enabled", return_value=False),
+            patch.object(saw.runtime, "resolve", return_value={
+                "sync_send_fn": lambda *a, **k: ({}, 200),
+                "sync_tax_id_fn": saw.get_company_tax_id,
+                "sync_persist": {
+                    "create_log": lambda *a, **k: "LOG",
+                    "create_lines": lambda *a, **k: None,
+                    "get_uncompleted_lines": lambda: [],
+                    "get_log_company_tax_id": lambda *a, **k: None,
+                    "create_document_detail": lambda *a, **k: None,
+                    "log_sync_attempt": lambda *a, **k: None,
+                    "mark_line_completed": lambda *a, **k: None,
+                },
+            }),
             patch.object(saw, "sync_by_supplier", side_effect=fake_sync_by_supplier),
             patch.object(saw, "sync_detail", return_value=["DOC-NEW-1", "DOC-NEW-2"]),
-            patch.object(saw, "send_request_status", return_value=({}, 200)),
             patch.object(saw, "run_documenteme_auto_assign", side_effect=fake_assign),
             patch.object(saw, "_launch_reject", return_value=self.reject_results),
             patch.object(saw, "run_documenteme_auto_approve", return_value=self.approve_results),
@@ -120,9 +133,22 @@ class TestRefreshDocuments(unittest.TestCase):
 
         self.patches = [
             patch.object(saw, "frappe", self.frappe_mock),
+            patch.object(saw.runtime, "is_simulation_enabled", return_value=False),
+            patch.object(saw.runtime, "resolve", return_value={
+                "sync_send_fn": lambda *a, **k: ({}, 200),
+                "sync_tax_id_fn": saw.get_company_tax_id,
+                "sync_persist": {
+                    "create_log": lambda *a, **k: "LOG",
+                    "create_lines": lambda *a, **k: None,
+                    "get_uncompleted_lines": lambda: [],
+                    "get_log_company_tax_id": lambda *a, **k: None,
+                    "create_document_detail": lambda *a, **k: None,
+                    "log_sync_attempt": lambda *a, **k: None,
+                    "mark_line_completed": lambda *a, **k: None,
+                },
+            }),
             patch.object(saw, "sync_by_supplier", side_effect=fake_sync_by_supplier),
             patch.object(saw, "sync_detail", return_value=["DOC-NEW-1", "DOC-NEW-2"]),
-            patch.object(saw, "send_request_status", return_value=({}, 200)),
             patch.object(saw, "run_documenteme_auto_assign", side_effect=fake_assign),
             patch.object(saw, "_launch_reject", side_effect=fake_reject),
             patch.object(saw, "run_documenteme_auto_approve", return_value={"approved": []}),
@@ -377,6 +403,14 @@ class TestRunAutoApproveSync(unittest.TestCase):
         self.patch = patch.object(arapp, "frappe", self.frappe_mock)
         self.patch.start()
         self.addCleanup(self.patch.stop)
+        from qp_supplier_front.infrastructure.adapters.data_facade import DataFacade
+        self.patch_runtime = patch.object(
+            arapp.runtime, "resolve",
+            return_value={"data": DataFacade(frappe=self.frappe_mock),
+                          "approve_callbacks": {}},
+        )
+        self.patch_runtime.start()
+        self.addCleanup(self.patch_runtime.stop)
 
     def test_enqueue_false_no_encola_y_ejecuta_batch(self):
         approved = [{"nvfac_nume": "F1", "doc_number": "BC1"}]

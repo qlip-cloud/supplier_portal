@@ -184,9 +184,6 @@ class TestApproveBatchJob(unittest.TestCase):
             "retry_interval": 0,
             "event_delay": 0,
         }), \
-             patch.object(mod, "get_company_tax_id", return_value="890900123"), \
-             patch.object(mod, "get_event_endpoint", return_value=(
-                 "http://x", {"k": "v"}, "POST")), \
              patch.object(mod, "_send_event", return_value=(
                  {"Result": 0}, 200)), \
              patch.object(mod, "insert_alert") as insert_alert, \
@@ -216,9 +213,6 @@ class TestApproveBatchJob(unittest.TestCase):
             "retry_interval": 0,
             "event_delay": 0,
         }), \
-             patch.object(mod, "get_company_tax_id", return_value="890900123"), \
-             patch.object(mod, "get_event_endpoint", return_value=(
-                 "http://x", {"k": "v"}, "POST")), \
              patch.object(mod, "_send_event", return_value=(
                  {"Result": 1}, 200)), \
              patch.object(mod, "insert_alert") as insert_alert:
@@ -278,6 +272,88 @@ class TestApproveBatchJob(unittest.TestCase):
         self.assertEqual(doc.qp_is_event_completed, 1)
         resolve.assert_called_once_with(doc.name)
         insert_alert.assert_not_called()
+
+
+class TestApproveBatchJobHttpFn(unittest.TestCase):
+
+    def test_batch_job_inyecta_http_fn_a_approve_one(self):
+        doc = _make_doc()
+        calls = []
+
+        def fake_approve_one(doc, config, tax_id, url, headers, method, http_fn=None):
+            calls.append(http_fn)
+            return {"doc": doc.name, "approved": True, "attempts": 1, "error": None}
+
+        http = lambda payload, url, headers, method: ({"Result": 0}, 200)
+        bundle = {
+            "company_tax_id_fn": lambda: "890900123",
+            "event_endpoint_fn": lambda: ("http://x", {}, "POST"),
+            "event_http_fn": http,
+        }
+
+        with patch.object(mod, "get_approval_config", return_value={
+            "max_attempts": 2, "retry_interval": 0, "event_delay": 0,
+        }), \
+             patch.object(mod.runtime, "resolve", return_value=bundle), \
+             patch.object(mod, "_approve_one", side_effect=fake_approve_one):
+            mod.frappe.get_doc = lambda doctype, name: doc
+            results = mod.approve_confirmation_batch_job(["FAC001"], http_fn=http)
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(calls, [http])
+        self.assertTrue(results[0][1]["approved"])
+
+    def test_batch_job_sin_http_fn_usa_default(self):
+        doc = _make_doc()
+        calls = []
+
+        def fake_approve_one(doc, config, tax_id, url, headers, method, http_fn=None):
+            calls.append(http_fn)
+            return {"doc": doc.name, "approved": True, "attempts": 1, "error": None}
+
+        bundle = {
+            "company_tax_id_fn": lambda: "890900123",
+            "event_endpoint_fn": lambda: ("http://x", {}, "POST"),
+            "event_http_fn": lambda payload, url, headers, method: ({"Result": 0}, 200),
+        }
+
+        with patch.object(mod, "get_approval_config", return_value={
+            "max_attempts": 2, "retry_interval": 0, "event_delay": 0,
+        }), \
+             patch.object(mod.runtime, "resolve", return_value=bundle), \
+             patch.object(mod, "_approve_one", side_effect=fake_approve_one):
+            mod.frappe.get_doc = lambda doctype, name: doc
+            mod.approve_confirmation_batch_job(["FAC001"])
+
+        self.assertEqual(len(calls), 1)
+        self.assertIsNone(calls[0])
+
+
+class TestSendEventHttpFn(unittest.TestCase):
+
+    def test_http_fn_explicito_tiene_prioridad(self):
+        payload = {"Nveve_dian": "030"}
+        used = []
+
+        def custom(payload, url, headers, method):
+            used.append(payload)
+            return ({"Result": 0}, 200)
+
+        mod._send_event(payload, "http://x", {}, "POST", http_fn=custom)
+        self.assertEqual(used, [payload])
+
+    def test_sin_http_fn_usa_event_http_del_runtime(self):
+        payload = {"Nveve_dian": "030"}
+        simulated = lambda payload, url, headers, method: (
+            {"Result": 0, "Description": "OK"}, 200
+        )
+        with patch.object(mod.runtime, "resolve",
+                          return_value={"event_http_fn": simulated}):
+            response, status = mod._send_event(
+                payload, "http://x", {}, "POST", http_fn=None
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(response["Result"], 0)
 
 
 if __name__ == "__main__":

@@ -21,3 +21,5 @@ docs/REFACTOR-DEUDAS.md
 opencode.json
 .opencode/
 .coverage
+docs/BANCO-RECIBOS.md
+.gitignore

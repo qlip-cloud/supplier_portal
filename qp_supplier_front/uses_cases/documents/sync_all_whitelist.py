@@ -5,17 +5,8 @@ from qp_supplier_front.uses_cases.documents.sync_by_supplier import (
     get_default_nvfac_ffin,
 )
 from qp_supplier_front.uses_cases.documents.sync_detail import sync_detail
-from qp_supplier_front.services.document_sync import (
-    create_sync_log,
-    create_sync_lines,
-    get_uncompleted_lines,
-    get_log_company_tax_id,
-    create_document_detail,
-    log_sync_attempt,
-    mark_line_completed,
-)
 from qp_supplier_front.services import sync_lock
-from qp_authorization.use_case.basic.authorize import send_request_status
+from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.resources.documenteme.auto_assign import run_auto_assign
 from qp_supplier_front.resources.documenteme.auto_approve import run_auto_approve
 from qp_supplier_front.resources.documenteme.auto_reject import run_auto_reject
@@ -26,6 +17,27 @@ DOCUMENTS_LOCK_DOMAIN = "documents"
 
 def get_company_tax_id(company_name):
     return frappe.get_doc("Company", company_name).tax_id
+
+
+def _resolve_sync_runtime():
+    """Retorna (send_request_fn, get_tax_id_fn, sync_persist) del composition root.
+
+    En modo simulador las fases 1-2 del sync se sirven de fixtures JSON y la
+    persistencia es en memoria (nuevo store por sincronizacion); nada se
+    escribe en la base de datos real. La decision real vs simulado vive en
+    runtime.resolve().
+    """
+    if runtime.is_simulation_enabled():
+        _reset_simulation_session()
+    components = runtime.resolve()
+    return (components["sync_send_fn"], components["sync_tax_id_fn"],
+            components["sync_persist"])
+
+
+def _reset_simulation_session():
+    """Nueva sesion de simulacion: descarta el store en memoria anterior."""
+    from qp_supplier_front.simulation import session
+    session.reset()
 
 
 def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
@@ -42,15 +54,17 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
     """
     run_documenteme_stale_status_alerts()
 
+    send_request_fn, get_tax_id_fn, persist = _resolve_sync_runtime()
+
     companies = frappe.get_all("Company", pluck="name")
 
     for company_id in companies:
         sync_by_supplier(
             supplier_id=company_id,
-            get_tax_id_fn=get_company_tax_id,
-            send_request_fn=send_request_status,
-            create_log_fn=create_sync_log,
-            create_lines_fn=create_sync_lines,
+            get_tax_id_fn=get_tax_id_fn,
+            send_request_fn=send_request_fn,
+            create_log_fn=persist["create_log"],
+            create_lines_fn=persist["create_lines"],
             commit_fn=lambda: frappe.db.commit(),
             nvfac_esta=nvfac_esta,
             nvfac_fini=nvfac_fini,
@@ -58,13 +72,13 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
         )
 
     created_names = sync_detail(
-        get_uncompleted_lines_fn=get_uncompleted_lines,
-        send_request_fn=send_request_status,
-        create_document_detail_fn=create_document_detail,
-        log_sync_attempt_fn=log_sync_attempt,
-        mark_line_completed_fn=mark_line_completed,
+        get_uncompleted_lines_fn=persist["get_uncompleted_lines"],
+        send_request_fn=send_request_fn,
+        create_document_detail_fn=persist["create_document_detail"],
+        log_sync_attempt_fn=persist["log_sync_attempt"],
+        mark_line_completed_fn=persist["mark_line_completed"],
         commit_fn=lambda: frappe.db.commit(),
-        get_company_tax_id_fn=get_log_company_tax_id,
+        get_company_tax_id_fn=persist["get_log_company_tax_id"],
     )
 
     created_names = created_names or []
@@ -80,12 +94,19 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
 def _launch_reject(doc_names):
     """Lanza el auto-rechazo EN SEGUNDO PLANO (job de fondo).
 
-    Marcamos las facturas a rechazar como "P" (En proceso) de forma
-    sincrona y encolamos el job. Aunque ya haya un job de rechazo en
-    ejecucion, este llama encola con los documentos nuevos recibidos.
+    En modo simulador (facade in-memory) el rechazo corre inline sobre el
+    store de la sesion (el store no cruza workers); el resto encola el job
+    de fondo real.
     """
     try:
-        result = run_auto_reject(enqueue=True, doc_names=doc_names)
+        data = runtime.resolve().get("data")
+        if data is not None and data.is_in_memory:
+            from qp_supplier_front.simulation import reject_memory
+            from qp_supplier_front.simulation import session
+            result = reject_memory.run_reject(
+                session.store(), doc_names=doc_names)
+        else:
+            result = run_auto_reject(enqueue=True, doc_names=doc_names)
         frappe.db.commit()
         return result
     except Exception:
@@ -96,7 +117,13 @@ def _launch_reject(doc_names):
 
 def run_documenteme_auto_assign(doc_names=None):
     try:
-        run_auto_assign(doc_names=doc_names)
+        data = runtime.resolve().get("data")
+        if data is not None and data.is_in_memory:
+            from qp_supplier_front.simulation import assign_memory
+            from qp_supplier_front.simulation import session
+            assign_memory.run_auto_assign(session.store(), doc_names=doc_names)
+        else:
+            run_auto_assign(doc_names=doc_names)
         frappe.db.commit()
 
     except Exception:

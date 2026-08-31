@@ -10,7 +10,8 @@ _reject_base):
 - raw_http: envio HTTP del evento hacia documenteme.
 - get_event_endpoint: endpoint autenticado del evento de documenteme.
 - get_company_tax_id: NIT de la compania del usuario actual.
-- get_receipt_total: suma del total de Purchase Receipt por orden de compra.
+- get_receipt_bank: banco de recepciones (name, amount, date, qp_invoice) por OC.
+- get_receipt_total: suma del total de Purchase Receipt por orden de compra (deprecado).
 
 Reglas:
 - Todos los frameworks (frappe, requests, json, qp_authorization) se
@@ -66,25 +67,44 @@ def get_company_tax_id(frappe_module=None):
     return company.tax_id
 
 
-def get_receipt_total(purchase_order_number, frappe_module=None):
-    """Suma del total de Purchase Receipt asociados a una orden de compra.
+def get_receipt_bank(purchase_order_number, frappe_module=None):
+    """Banco de recepciones de una orden de compra.
 
-    Devuelve None si falta la OC o si no hay recibos. La suma ignora
-    recibos sin total (total None -> 0).
+    Devuelve una lista de filas {name, amount, date, qp_invoice} con todos
+    los Purchase Receipt asociados a la OC (incluido su estado de consumo).
+    Devuelve lista vacia si falta la OC o no hay recibos.
     """
     if frappe_module is None:
         import frappe as frappe_module
 
     if not purchase_order_number:
-        return None
+        return []
 
     receipts = frappe_module.get_all(
         "Purchase Receipt",
         filters={"qp_supplier_oc": purchase_order_number},
-        fields=["total"],
+        fields=["name", "total", "posting_date", "qp_invoice"],
     )
 
-    if not receipts:
-        return None
+    return [
+        {
+            "name": receipt.get("name"),
+            "amount": receipt.get("total") or 0,
+            "date": receipt.get("posting_date"),
+            "qp_invoice": receipt.get("qp_invoice"),
+        }
+        for receipt in receipts
+    ]
 
-    return sum(receipt.get("total") or 0 for receipt in receipts)
+
+def get_receipt_total(purchase_order_number, frappe_module=None):
+    """Suma del total de Purchase Receipt asociados a una orden de compra.
+
+    Deprecado: usar get_receipt_bank para validaciones de consumo. Se
+    conserva por compatibilidad con auto_reject. Devuelve None si falta la
+    OC o si no hay recibos.
+    """
+    bank = get_receipt_bank(purchase_order_number, frappe_module=frappe_module)
+    if not bank:
+        return None
+    return sum(receipt.get("amount") or 0 for receipt in bank)

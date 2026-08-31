@@ -1,6 +1,7 @@
 import frappe
 
 from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
+    get_receipt_bank as _adapter_get_receipt_bank,
     get_receipt_total as _adapter_get_receipt_total,
 )
 from qp_supplier_front.resources.documenteme.auto_reject import (
@@ -24,7 +25,7 @@ def run_auto_assign(doc_names=None):
     return auto_assign_core(
         candidates_fn=get_candidates,
         get_oc_context_fn=get_oc_context,
-        get_receipt_total_fn=get_receipt_total,
+        get_receipt_bank_fn=get_receipt_bank,
         resolve_emails_fn=get_assignee_emails,
         resolve_users_fn=resolve_assignee_users,
         add_assignees_fn=add_assignees,
@@ -106,6 +107,13 @@ def get_oc_context(purchase_order_number):
         return None
 
     return {"oc_type": values[0], "headquarter": values[1]}
+
+
+def get_receipt_bank(purchase_order_number):
+    """Banco de recepciones (name, amount, date, qp_invoice) por OC."""
+    return _adapter_get_receipt_bank(
+        purchase_order_number, frappe_module=frappe
+    )
 
 
 def get_receipt_total(purchase_order_number):
