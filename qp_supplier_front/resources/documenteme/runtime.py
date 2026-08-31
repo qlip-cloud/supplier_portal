@@ -28,6 +28,7 @@ def _real_bundle():
     from qp_supplier_front.resources.documenteme import _approve_base
     from qp_supplier_front.resources.documenteme import auto_reject
     from qp_supplier_front.infrastructure.adapters import documenteme_http_adapter
+    from qp_supplier_front.services import document_sync
     from qp_supplier_front.uses_cases.documents import sync_all_whitelist
 
     return {
@@ -38,6 +39,15 @@ def _real_bundle():
         "company_tax_id_fn": documenteme_http_adapter.get_company_tax_id,
         "event_endpoint_fn": documenteme_http_adapter.get_event_endpoint,
         "on_batch_approved_fn": None,
+        "sync_persist": {
+            "create_log": document_sync.create_sync_log,
+            "create_lines": document_sync.create_sync_lines,
+            "get_uncompleted_lines": document_sync.get_uncompleted_lines,
+            "get_log_company_tax_id": document_sync.get_log_company_tax_id,
+            "create_document_detail": document_sync.create_document_detail,
+            "log_sync_attempt": document_sync.log_sync_attempt,
+            "mark_line_completed": document_sync.mark_line_completed,
+        },
     }
 
 
@@ -51,7 +61,17 @@ def _apply_simulated_confirmation(result):
 
 def _simulated_bundle():
     """Adaptadores simulados: sin efectos externos (documenteme / BC)."""
+    from qp_supplier_front.simulation import documents_memory
+    from qp_supplier_front.simulation import session
+
     fixtures = simulation.load_fixtures()
+    store = session.store()
+
+    def _bind(fn):
+        def wrapped(*args, **kwargs):
+            return fn(store, *args, **kwargs)
+        return wrapped
+
     return {
         "sync_send_fn": simulation.build_inbound_sync_double(
             headers=fixtures.get("headers") or [],
@@ -63,6 +83,21 @@ def _simulated_bundle():
         "company_tax_id_fn": simulation.get_company_tax_id,
         "event_endpoint_fn": simulation.get_event_endpoint,
         "on_batch_approved_fn": _apply_simulated_confirmation,
+        "sync_persist": {
+            "create_log": _bind(documents_memory.memory_create_sync_log),
+            "create_lines": _bind(documents_memory.memory_create_sync_lines),
+            "get_uncompleted_lines": _bind(
+                documents_memory.memory_get_uncompleted_lines),
+            "get_log_company_tax_id": _bind(
+                documents_memory.memory_get_log_company_tax_id),
+            "create_document_detail": _bind(
+                documents_memory.memory_create_document_detail),
+            "log_sync_attempt": _bind(
+                documents_memory.memory_log_sync_attempt),
+            "mark_line_completed": _bind(
+                documents_memory.memory_mark_line_completed),
+        },
+        "_simulation_store": store,
     }
 
 

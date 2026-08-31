@@ -38,9 +38,19 @@ class TestSyncAllByCompany(unittest.TestCase):
 
         self.patches = [
             patch.object(saw, "frappe", self.frappe_mock),
+            patch.object(saw.runtime, "is_simulation_enabled", return_value=False),
             patch.object(saw.runtime, "resolve", return_value={
                 "sync_send_fn": lambda *a, **k: ({}, 200),
                 "sync_tax_id_fn": saw.get_company_tax_id,
+                "sync_persist": {
+                    "create_log": lambda *a, **k: "LOG",
+                    "create_lines": lambda *a, **k: None,
+                    "get_uncompleted_lines": lambda: [],
+                    "get_log_company_tax_id": lambda *a, **k: None,
+                    "create_document_detail": lambda *a, **k: None,
+                    "log_sync_attempt": lambda *a, **k: None,
+                    "mark_line_completed": lambda *a, **k: None,
+                },
             }),
             patch.object(saw, "sync_by_supplier", side_effect=fake_sync_by_supplier),
             patch.object(saw, "sync_detail", return_value=["DOC-NEW-1", "DOC-NEW-2"]),
@@ -123,9 +133,19 @@ class TestRefreshDocuments(unittest.TestCase):
 
         self.patches = [
             patch.object(saw, "frappe", self.frappe_mock),
+            patch.object(saw.runtime, "is_simulation_enabled", return_value=False),
             patch.object(saw.runtime, "resolve", return_value={
                 "sync_send_fn": lambda *a, **k: ({}, 200),
                 "sync_tax_id_fn": saw.get_company_tax_id,
+                "sync_persist": {
+                    "create_log": lambda *a, **k: "LOG",
+                    "create_lines": lambda *a, **k: None,
+                    "get_uncompleted_lines": lambda: [],
+                    "get_log_company_tax_id": lambda *a, **k: None,
+                    "create_document_detail": lambda *a, **k: None,
+                    "log_sync_attempt": lambda *a, **k: None,
+                    "mark_line_completed": lambda *a, **k: None,
+                },
             }),
             patch.object(saw, "sync_by_supplier", side_effect=fake_sync_by_supplier),
             patch.object(saw, "sync_detail", return_value=["DOC-NEW-1", "DOC-NEW-2"]),

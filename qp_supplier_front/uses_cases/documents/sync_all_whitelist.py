@@ -5,15 +5,6 @@ from qp_supplier_front.uses_cases.documents.sync_by_supplier import (
     get_default_nvfac_ffin,
 )
 from qp_supplier_front.uses_cases.documents.sync_detail import sync_detail
-from qp_supplier_front.services.document_sync import (
-    create_sync_log,
-    create_sync_lines,
-    get_uncompleted_lines,
-    get_log_company_tax_id,
-    create_document_detail,
-    log_sync_attempt,
-    mark_line_completed,
-)
 from qp_supplier_front.services import sync_lock
 from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.resources.documenteme.auto_assign import run_auto_assign
@@ -29,15 +20,24 @@ def get_company_tax_id(company_name):
 
 
 def _resolve_sync_runtime():
-    """Retorna (send_request_fn, get_tax_id_fn) del composition root.
+    """Retorna (send_request_fn, get_tax_id_fn, sync_persist) del composition root.
 
-    En modo simulador las fases 1-2 del sync se sirven de fixtures JSON y el
-    NIT de la compania es el NIT simulado para etiquetar las filas y permitir
-    la limpieza manual posterior (cleanup_simulation). La decision real vs
-    simulado vive en runtime.resolve().
+    En modo simulador las fases 1-2 del sync se sirven de fixtures JSON y la
+    persistencia es en memoria (nuevo store por sincronizacion); nada se
+    escribe en la base de datos real. La decision real vs simulado vive en
+    runtime.resolve().
     """
+    if runtime.is_simulation_enabled():
+        _reset_simulation_session()
     components = runtime.resolve()
-    return components["sync_send_fn"], components["sync_tax_id_fn"]
+    return (components["sync_send_fn"], components["sync_tax_id_fn"],
+            components["sync_persist"])
+
+
+def _reset_simulation_session():
+    """Nueva sesion de simulacion: descarta el store en memoria anterior."""
+    from qp_supplier_front.simulation import session
+    session.reset()
 
 
 def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
@@ -54,7 +54,7 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
     """
     run_documenteme_stale_status_alerts()
 
-    send_request_fn, get_tax_id_fn = _resolve_sync_runtime()
+    send_request_fn, get_tax_id_fn, persist = _resolve_sync_runtime()
 
     companies = frappe.get_all("Company", pluck="name")
 
@@ -63,8 +63,8 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
             supplier_id=company_id,
             get_tax_id_fn=get_tax_id_fn,
             send_request_fn=send_request_fn,
-            create_log_fn=create_sync_log,
-            create_lines_fn=create_sync_lines,
+            create_log_fn=persist["create_log"],
+            create_lines_fn=persist["create_lines"],
             commit_fn=lambda: frappe.db.commit(),
             nvfac_esta=nvfac_esta,
             nvfac_fini=nvfac_fini,
@@ -72,13 +72,13 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
         )
 
     created_names = sync_detail(
-        get_uncompleted_lines_fn=get_uncompleted_lines,
+        get_uncompleted_lines_fn=persist["get_uncompleted_lines"],
         send_request_fn=send_request_fn,
-        create_document_detail_fn=create_document_detail,
-        log_sync_attempt_fn=log_sync_attempt,
-        mark_line_completed_fn=mark_line_completed,
+        create_document_detail_fn=persist["create_document_detail"],
+        log_sync_attempt_fn=persist["log_sync_attempt"],
+        mark_line_completed_fn=persist["mark_line_completed"],
         commit_fn=lambda: frappe.db.commit(),
-        get_company_tax_id_fn=get_log_company_tax_id,
+        get_company_tax_id_fn=persist["get_log_company_tax_id"],
     )
 
     created_names = created_names or []

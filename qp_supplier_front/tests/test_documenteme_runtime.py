@@ -49,6 +49,7 @@ class TestResolveRealBundle(unittest.TestCase):
         from qp_authorization.use_case.basic.authorize import send_request_status
         from qp_supplier_front.resources.documenteme import _approve_base
         from qp_supplier_front.resources.documenteme import auto_reject
+        from qp_supplier_front.services import document_sync
 
         with patch.object(runtime, "is_simulation_enabled", return_value=False):
             bundle = runtime.resolve()
@@ -62,6 +63,46 @@ class TestResolveRealBundle(unittest.TestCase):
         self.assertIn("sync_tax_id_fn", bundle)
         self.assertIn("company_tax_id_fn", bundle)
         self.assertIn("event_endpoint_fn", bundle)
+        self.assertIs(bundle["sync_persist"]["create_log"],
+                      document_sync.create_sync_log)
+
+
+class TestSyncPersistSimulated(unittest.TestCase):
+
+    def test_simulado_escribe_en_memoria(self):
+        from qp_supplier_front.simulation import session
+
+        session.reset()
+        with patch.object(runtime, "is_simulation_enabled", return_value=True), \
+             patch.object(runtime.simulation, "load_fixtures",
+                          return_value={"headers": [], "details": {}}):
+            bundle = runtime.resolve()
+
+        store = session.store()
+        self.assertIs(bundle["_simulation_store"], store)
+
+        log_name = bundle["sync_persist"]["create_log"](
+            "COMP-1", "999999999", "documenteme_list_documents", "p",
+            {"Result": 0}, 200)
+        self.assertTrue(store.exists("qp_SP_DocumentSyncLog", log_name))
+
+        bundle["sync_persist"]["create_lines"](
+            log_name, [{"Nvfac_nume": "F1", "Nvpro_ndoc": "999999999",
+                        "Nvfac_ueve": ""}])
+        self.assertTrue(store.exists("qp_SP_DocumentSyncLine", "999999999:F1"))
+        session.reset()
+
+    def test_bundle_reutiliza_el_mismo_store(self):
+        from qp_supplier_front.simulation import session
+
+        session.reset()
+        with patch.object(runtime, "is_simulation_enabled", return_value=True), \
+             patch.object(runtime.simulation, "load_fixtures",
+                          return_value={"headers": [], "details": {}}):
+            first = runtime.resolve()
+            second = runtime.resolve()
+        self.assertIs(first["_simulation_store"], second["_simulation_store"])
+        session.reset()
 
 
 class TestResolveSimulatedBundle(unittest.TestCase):
