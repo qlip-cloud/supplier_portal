@@ -52,7 +52,10 @@ def _enrich_doc(doc, doctype, data=None):
     _enrich_allowance_charges(doc, doctype, data)
     _enrich_attached_files(doc, doctype, data)
     _enrich_assignment(doc, data)
-    enrich_document_detail(doc)
+    if data is not None:
+        enrich_document_detail(doc, data=data)
+    else:
+        enrich_document_detail(doc)
 
 
 def _enrich_detail_lines(doc, doctype, data=None):

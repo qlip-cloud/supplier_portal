@@ -1,4 +1,16 @@
-def enrich_document_detail(document):
+# -*- coding: utf-8 -*-
+"""
+enrich_document_detail.py
+=========================
+Service para enriquecer el DETALLE de un documento documenteme con alertas,
+factura interna (confirmation_id de BC), ordenes de compra y recepciones.
+
+Acepta un facade de datos (data): en modo simulador lee del store en memoria;
+sin data usa frappe real (comportamiento original).
+"""
+
+
+def enrich_document_detail(document, data=None):
     document["factura_interna"] = ""
     purchase_order_number = document.get("nvfac_orde") or ""
 
@@ -7,19 +19,35 @@ def enrich_document_detail(document):
     document["productos_orden_compra"] = []
     document["productos_recepcion"] = []
 
-    _enrich_alerts(document)
-    _enrich_factura_interna(document)
+    _enrich_alerts(document, data)
+    _enrich_factura_interna(document, data)
 
     if purchase_order_number:
-        _enrich_purchase_orders(document, purchase_order_number)
-        _enrich_purchase_receipts(document, purchase_order_number)
-        _update_status_if_fully_paid(document)
+        _enrich_purchase_orders(document, purchase_order_number, data)
+        _enrich_purchase_receipts(document, purchase_order_number, data)
+        _update_status_if_fully_paid(document, data)
 
 
-def _enrich_factura_interna(document):
-    import frappe
+def _api(data, name):
+    """Facade (data) o frappe real. Compatible con data.db.set_value/exists."""
+    if data is None:
+        import frappe
+        if name == "exists":
+            return frappe.db.exists
+        if name == "set_value":
+            return frappe.db.set_value
+        return frappe.get_all if name == "get_all" else frappe.db.get_value
+    if name in ("get_all", "exists"):
+        return getattr(data, name)
+    if name == "set_value":
+        if hasattr(data, "db"):
+            return data.db.set_value
+        return data.set_value
+    return getattr(data, name)
 
-    confirmation = frappe.get_all(
+
+def _enrich_factura_interna(document, data=None):
+    confirmation = _api(data, "get_all")(
         "qp_SP_PurchaseInvoiceBC",
         filters={"purchase_invoice": document.get("name")},
         fields=["confirmation_id"],
@@ -42,10 +70,8 @@ def build_alert_tooltip(alerts):
     return "\n".join(lines)
 
 
-def _enrich_alerts(document):
-    import frappe
-
-    alerts = frappe.get_all(
+def _enrich_alerts(document, data=None):
+    alerts = _api(data, "get_all")(
         "qp_SP_Alert",
         filters={
             "parent": document.get("name"),
@@ -61,13 +87,11 @@ def _enrich_alerts(document):
     document["alert_tooltip"] = build_alert_tooltip(alerts)
 
 
-def _enrich_purchase_orders(document, purchase_order_number):
-    import frappe
-
-    if not frappe.db.exists("Purchase Order", purchase_order_number):
+def _enrich_purchase_orders(document, purchase_order_number, data=None):
+    if not _api(data, "exists")("Purchase Order", purchase_order_number):
         return
 
-    items = frappe.get_all(
+    items = _api(data, "get_all")(
         "Purchase Order Item",
         filters={
             "parent": purchase_order_number,
@@ -93,10 +117,8 @@ def build_po_products(items):
     return products
 
 
-def _enrich_purchase_receipts(document, purchase_order_number):
-    import frappe
-
-    receipts = frappe.get_all(
+def _enrich_purchase_receipts(document, purchase_order_number, data=None):
+    receipts = _api(data, "get_all")(
         "Purchase Receipt",
         filters={"qp_supplier_oc": purchase_order_number},
         fields=["name", "supplier_delivery_note", "posting_date", "total"],
@@ -112,7 +134,7 @@ def _enrich_purchase_receipts(document, purchase_order_number):
         for receipt in receipts
     ]
 
-    items = frappe.get_all(
+    items = _api(data, "get_all")(
         "Purchase Receipt Item",
         filters={
             "parent": ["in", receipt_names],
@@ -137,9 +159,7 @@ def build_receipt_products(items):
     return products
 
 
-def _update_status_if_fully_paid(document):
-    import frappe
-
+def _update_status_if_fully_paid(document, data=None):
     total_receipt_amount = sum(
         product["valor_total"]
         for product in document["productos_recepcion"]
@@ -149,7 +169,7 @@ def _update_status_if_fully_paid(document):
 
     if (total_receipt_amount == document_total
             and document.get("nvfac_esta") not in ("A", "R", "V", "BCC", "PA", "PR")):
-        frappe.db.set_value(
+        _api(data, "set_value")(
             "qp_SP_DocumentDetail",
             document.get("name"),
             "nvfac_esta",

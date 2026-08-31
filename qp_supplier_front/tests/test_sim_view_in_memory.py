@@ -9,7 +9,6 @@ y no de la DB real.
 Ejecutar con: python -m pytest qp_supplier_front/tests/test_sim_view_in_memory.py -v
 """
 import unittest
-from unittest.mock import patch
 
 from qp_supplier_front.services.pagination import get_paginated_filtered
 from qp_supplier_front.services.enrich_document_list import enrich_document_list
@@ -57,19 +56,29 @@ class TestSimViewInMemory(unittest.TestCase):
         self.assertEqual(len(docs), 1)
         self.assertEqual(docs[0]["name"], "999999999:SIM-FAC-0002")
 
-    def test_enrich_agrega_lineas_adjuntos_y_asignacion(self):
+    def test_enrich_agrega_lineas_adjuntos_asignacion_y_detalle(self):
+        self.store.insert("qp_SP_PurchaseInvoiceBC", {
+            "invoice_id": "SIMF2",
+            "purchase_invoice": "999999999:SIM-FAC-0002",
+            "confirmation_id": "CONF-1",
+        })
+        self.store.insert("qp_SP_Alert", {
+            "parent": "999999999:SIM-FAC-0002",
+            "parenttype": "qp_SP_DocumentDetail",
+            "status": "Abierta",
+            "alert_message": "Falta OC",
+        })
         doc = get_paginated_filtered(
             0, "qp_SP_DocumentDetail", "nvfac_fech", {}, data=self.data)[0]
-        with patch(
-            "qp_supplier_front.services.enrich_document_list.enrich_document_detail"
-        ):
-            enrich_document_list([doc], "qp_SP_DocumentDetail", data=self.data)
+        enrich_document_list([doc], "qp_SP_DocumentDetail", data=self.data)
 
         self.assertEqual(len(doc["detail_lines"]), 1)
         self.assertEqual(doc["detail_lines"][0]["nvpro_codi"], "ITEM-2")
         self.assertEqual(len(doc["attached_files"]), 1)
         self.assertEqual(doc["non_xml_count"], 1)
         self.assertEqual(doc["assigned_to_ids"], ["user@x.com"])
+        self.assertEqual(doc["factura_interna"], "CONF-1")
+        self.assertTrue(doc["has_alert"])
 
     def test_access_devuelve_sync_lines_asignadas(self):
         names = get_assigned_sync_line_names("user@x.com", data=self.data)
