@@ -543,6 +543,34 @@ def bulk_insert_all_records(records: dict):
     bulk_insert_bank_accounts(records.get("bank_accounts", []))
 
 
+def ensure_primary_contacts(supplier_names):
+    """
+    Designa el contacto primario de proveedores sin primario tras la sync.
+
+    Los contactos sincronizados ({index}-{vendorId}) llegan con user=mail y
+    mobile_no=phone pero sin is_primary_contact. Si el proveedor no tiene
+    ningun contacto primario, se marca como primario el contacto oficial
+    (con user, creation mas antigua).
+    """
+    for supplier_name in supplier_names or []:
+        if not supplier_name:
+            continue
+        filters = [
+            ["Dynamic Link", "link_doctype", "=", "Supplier"],
+            ["Dynamic Link", "link_name", "=", supplier_name],
+            ["Dynamic Link", "parenttype", "=", "Contact"]
+        ]
+        contacts = frappe.get_all("Contact", filters=filters, fields=["name", "user", "creation", "is_primary_contact"])
+        if not contacts:
+            continue
+        if any(c.is_primary_contact for c in contacts):
+            continue
+        candidates = [c for c in contacts if c.user] or contacts
+        official = min(candidates, key=lambda c: c.creation or "")
+        frappe.db.set_value("Contact", official.name, "is_primary_contact", 1)
+        frappe.db.commit()
+
+
 
 @frappe.whitelist(allow_guest=True)
 def handler():
@@ -573,6 +601,12 @@ def handler():
                 sync_datetime = nuevo_sync_datetime
 
             bulk_insert_all_records(records)
+
+            touched_names = list(supplier_names)
+            for vendor_id in vendor_ids:
+                if vendor_id not in existing_suppliers and vendor_id not in touched_names:
+                    touched_names.append(vendor_id)
+            ensure_primary_contacts(touched_names)
 
         frappe.db.set_value('qp_SP_MasterSetup', None, 'supplier_date_sync', sync_datetime)
     except Exception as error:
