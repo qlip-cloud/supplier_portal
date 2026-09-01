@@ -50,16 +50,16 @@ APPROVAL_EVENT_CONFIG = {
 }
 
 
-def get_approval_config():
+def get_approval_config(master_setup=None):
     """Reutiliza la configuracion de reintentos del setup global."""
-    return {
-        "max_attempts": int(frappe.db.get_single_value(
-            "qp_SP_MasterSetup", "reject_retry_max_attempts") or 5),
-        "retry_interval": int(frappe.db.get_single_value(
-            "qp_SP_MasterSetup", "reject_retry_interval_seconds") or 60),
-        "event_delay": int(frappe.db.get_single_value(
-            "qp_SP_MasterSetup", "reject_event_delay_seconds") or 60),
-    }
+    if master_setup is not None:
+        source = master_setup
+    else:
+        from qp_supplier_front.infrastructure.adapters.master_setup_source import (
+            RealMasterSetupSource,
+        )
+        source = RealMasterSetupSource(frappe_module=frappe)
+    return source.reject_config()
 
 
 def enqueue_approve_confirmation(doc_name):

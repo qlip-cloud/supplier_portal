@@ -12,6 +12,7 @@ in-memory, para que las facturas sin combinacion exacta de recepciones queden
 asignadas a los usuarios configurados (qp_SP_AssignmentConfig).
 """
 
+from qp_supplier_front.simulation import references_memory
 from qp_supplier_front.uses_cases.documenteme.auto_assign import (
     auto_assign as auto_assign_core,
     is_inventariable_oc_type,
@@ -175,9 +176,9 @@ def _add_assignees(store, sync_line_name, users):
 def run_auto_assign(store, doc_names=None):
     """Asignacion automatica del escenario sobre el store de la sesion.
 
-    No hay regla de rechazo activa (None), por lo que los contados no se
-    asignan; se asignan las facturas de credito con OC sin combinacion
-    exacta de recepciones.
+    La regla de rechazo activa (MemoryMasterSetupSource) decide el contado:
+    si la viola (ej. no_po sin OC) se asigna via catch-all; si no hay regla
+    (None) el contado no se asigna (aprueba).
     """
     return auto_assign_core(
         candidates_fn=lambda names=None: _candidates(store, names),
@@ -189,7 +190,8 @@ def run_auto_assign(store, doc_names=None):
         add_assignees_fn=lambda line, users: _add_assignees(
             store, line, users),
         doc_names=doc_names,
-        resolve_rule_fn=None,
+        resolve_rule_fn=lambda doc: references_memory.memory_resolve_rule(
+            store, doc),
         po_exists_fn=lambda po: _po_exists(store, po),
     )
 

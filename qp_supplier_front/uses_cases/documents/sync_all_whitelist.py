@@ -22,13 +22,14 @@ def get_company_tax_id(company_name):
 def _resolve_sync_runtime():
     """Retorna (send_request_fn, get_tax_id_fn, sync_persist) del composition root.
 
-    En modo simulador las fases 1-2 del sync se sirven de fixtures JSON y la
-    persistencia es en memoria (nuevo store por sincronizacion); nada se
-    escribe en la base de datos real. La decision real vs simulado vive en
-    runtime.resolve().
+    En modo simulador las fases 1-2 del sync se sirven de fixtures JSON,
+    la sesion se resetea y se siembra el escenario (seeds) en el nuevo store,
+    y la persistencia es en memoria; nada se escribe en la base de datos real.
+    La decision real vs simulado vive en runtime.resolve().
     """
     if runtime.is_simulation_enabled():
         _reset_simulation_session()
+        _seed_simulation_scenario()
     components = runtime.resolve()
     return (components["sync_send_fn"], components["sync_tax_id_fn"],
             components["sync_persist"])
@@ -38,6 +39,14 @@ def _reset_simulation_session():
     """Nueva sesion de simulacion: descarta el store en memoria anterior."""
     from qp_supplier_front.simulation import session
     session.reset()
+
+
+def _seed_simulation_scenario():
+    """Siembra el escenario de referencia (PO, recibos, regla, config de
+    asignacion) en el store de la sesion para alimentar approve/assign/reject."""
+    from qp_supplier_front.simulation import seeds
+    from qp_supplier_front.simulation import session
+    seeds.seed_scenario(session.store())
 
 
 def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,

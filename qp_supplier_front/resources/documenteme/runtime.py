@@ -99,8 +99,6 @@ def _simulated_bundle():
 
     fixtures = simulation.load_fixtures()
     store = session.store()
-    from qp_supplier_front.simulation import seeds
-    seeds.seed_scenario(store)
 
     def _bind(fn):
         def wrapped(*args, **kwargs):
@@ -140,7 +138,7 @@ def _simulated_bundle():
                 documents_memory.memory_mark_duplicate_registered),
             "get_supplier_by_tax_id_fn": _bind(
                 references_memory.memory_get_supplier_by_tax_id),
-            "resolve_rule_fn": lambda _doc: None,
+            "resolve_rule_fn": _bind(references_memory.memory_resolve_rule),
         },
         "sync_persist": {
             "create_log": _bind(documents_memory.memory_create_sync_log),

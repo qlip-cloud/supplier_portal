@@ -148,7 +148,8 @@ def seed_scenario(store):
       cubierta -> ninguna aprueba) sobre una OC compartida con varios recibos.
     """
     seed_supplier(store, SIM_NIT)
-    seed_master_setup(store, auto_approve=1)
+    seed_reject_rule(store, "RULE-NO-PO", "no_po",
+                     motive="Rechazo: la factura no coincide con ninguna orden de compra")
     seed_sede(store, "HQ01")
     seed_oc_type(store, "COMPRA")
     seed_user(store, ASSIGNEE_EMAIL, full_name="Asignado Simulacion")
@@ -156,6 +157,12 @@ def seed_scenario(store):
         store, "CFG-COMPRA", oc_type="COMPRA", headquarter="",
         user_emails=[ASSIGNEE_EMAIL],
     )
+    # Fila catch-all para contado sin OC que rompe la regla (se asigna).
+    seed_assignment_config(
+        store, "CFG-CATCHALL", oc_type="", headquarter="",
+        user_emails=[ASSIGNEE_EMAIL],
+    )
+    seed_master_setup(store, auto_approve=1, auto_reject="RULE-NO-PO")
 
     seed_purchase_order(store, "PO-SIM-0001", headquarter="HQ01", oc_type="COMPRA")
     seed_purchase_order(store, "PO-A-0001", headquarter="HQ01", oc_type="COMPRA")

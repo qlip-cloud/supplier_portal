@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 test_sim_reject_in_memory.py
-============================
+=============================
 Rechazo automatico en memoria: run_reject (simulation/reject_memory.py) sobre
-el store de la sesion con eventos simulados (030/032/031). Contado -> R directo;
-credito sin OC -> R; credito con OC -> no se rechaza.
+el store de la sesion con eventos simulados (030/032/031) y regla activa
+no_po sembrada. Contado NUNCA se rechaza por la regla; credito sin OC -> R;
+credito con OC -> no se rechaza.
 
 Ejecutar con: python -m pytest qp_supplier_front/tests/test_sim_reject_in_memory.py -v
 """
@@ -26,10 +27,17 @@ def _doc(store, name, nume, estado="E", conv="2", orde=None, ueve=""):
     })
 
 
+def _seed_rule(store):
+    """Regla no_po activa por default del MasterSetup."""
+    seeds.seed_reject_rule(store, "RULE-NO-PO", "no_po")
+    seeds.seed_master_setup(store, auto_approve=1, auto_reject="RULE-NO-PO")
+
+
 class TestRejectCredit(unittest.TestCase):
 
     def setUp(self):
         self.store = MemoryStore()
+        _seed_rule(self.store)
 
     def test_credito_sin_oc_termina_en_r(self):
         _doc(self.store, "999999999:F1", "F1", conv="2", orde="PO-X")
@@ -57,15 +65,16 @@ class TestRejectCredit(unittest.TestCase):
         doc = self.store.get("qp_SP_DocumentDetail", "999999999:F1")
         self.assertEqual(doc["nvfac_esta"], "E")
 
-    def test_contado_termina_en_r_sin_eventos(self):
+    def test_contado_nunca_se_rechaza_por_regla(self):
         _doc(self.store, "999999999:F1", "F1", conv="1")
         with patch(
             "qp_supplier_front.resources.documenteme.runtime.is_simulation_enabled",
             return_value=True):
             result = reject_memory.run_reject(self.store, doc_names=["999999999:F1"])
-        self.assertEqual(result["rejected"], ["F1"])
+        self.assertEqual(result["rejected"], [])
+        self.assertEqual(result["pending"], [])
         doc = self.store.get("qp_SP_DocumentDetail", "999999999:F1")
-        self.assertEqual(doc["nvfac_esta"], "R")
+        self.assertEqual(doc["nvfac_esta"], "E")
         self.assertEqual(
             len(self.store.query("qp_SP_EventLog",
                                  filters={"parent": "999999999:F1"})), 0)
@@ -97,13 +106,14 @@ class TestRejectCredit(unittest.TestCase):
 
 
 class TestFullFlowInMemory(unittest.TestCase):
-    """Combo: credito se rechaza (R) y contado se aprueba (A), en memoria."""
+    """Combo bajo no_po: contado CON OC se aprueba (A) y credito sin OC se
+    rechaza (R); el contado SIN OC no se aprobaria (iria a asignacion)."""
 
     def setUp(self):
         self.store = MemoryStore()
         self.addCleanup(session.reset)
 
-    def test_contado_a_y_credito_r(self):
+    def test_contado_con_oc_a_y_credito_sin_oc_r(self):
         from unittest.mock import MagicMock
 
         from qp_supplier_front.resources.documenteme import _approve_base
@@ -111,9 +121,10 @@ class TestFullFlowInMemory(unittest.TestCase):
         from qp_supplier_front.simulation import session
 
         session.reset()
-        self.store.insert("qp_SP_MasterSetup", {"auto_approve": 1})
-        _doc(self.store, "999999999:F2", "F2", conv="1")
-        _doc(self.store, "999999999:F1", "F1", conv="2", orde="PO-X")
+        _seed_rule(self.store)
+        seeds.seed_purchase_order(self.store, "PO-X", headquarter="HQ01")
+        _doc(self.store, "999999999:F2", "F2", conv="1", orde="PO-X")
+        _doc(self.store, "999999999:F1", "F1", conv="2")
 
         with patch("qp_supplier_front.simulation.session.store",
                    return_value=self.store), \

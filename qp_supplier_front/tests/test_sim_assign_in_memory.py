@@ -48,14 +48,18 @@ class TestSimAssignInMemory(unittest.TestCase):
         _seed_doc(self.store, "SIM-POB-0001", "E", "PO-B-0001", 1000, "2")
         _seed_doc(self.store, "SIM-POB-0003", "E", "PO-B-0001", 2500, "2")
         _seed_doc(self.store, "SIM-POC-0001", "E", "PO-C-0001", 1000, "2")
-        # Contado con OC: sin regla activa no se asigna.
+        # Contado con OC (no rompe no_po -> no se asigna) y contado sin OC
+        # (rompe no_po -> se asigna via catch-all).
         _seed_doc(self.store, "SIM-FAC-0003", "E", "PO-SIM-0001", 400000, "1")
+        _seed_doc(self.store, "SIM-FAC-0004", "E", "", 600000, "1")
 
     def test_asigna_solo_descubiertas(self):
         assigned = assign_memory.run_auto_assign(self.store)
         self.assertEqual(
             sorted(assigned),
-            ["999999999:SIM-POB-0003", "999999999:SIM-POC-0001"],
+            ["999999999:SIM-FAC-0004",
+             "999999999:SIM-POB-0003",
+             "999999999:SIM-POC-0001"],
         )
 
     def test_add_assignees_es_idempotente_y_agrega_child(self):
@@ -69,7 +73,7 @@ class TestSimAssignInMemory(unittest.TestCase):
 
     def test_contado_cubierto_y_oc_cubierta_no_reciben_asignacion(self):
         assign_memory.run_auto_assign(self.store)
-        for nume in ("SIM-POB-0003", "SIM-POC-0001"):
+        for nume in ("SIM-POB-0003", "SIM-POC-0001", "SIM-FAC-0004"):
             self.assertGreater(self.store.count(
                 "qp_SP_SyncLineAssignedUser",
                 filters={"parent": "{}:{}".format(SIM_NIT, nume)}), 0)

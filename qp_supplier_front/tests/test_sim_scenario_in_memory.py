@@ -28,11 +28,11 @@ SIM_NIT = "999999999"
 
 REJECTED = {"SIM-FAC-0001", "SIM-FAC-0002"}
 APPROVED = {
-    "SIM-FAC-0003", "SIM-FAC-0004",
+    "SIM-FAC-0003",
     "SIM-POA-0001", "SIM-POA-0002",
     "SIM-POB-0001", "SIM-POB-0002",
 }
-ASSIGNED = {"SIM-POB-0003", "SIM-POC-0001", "SIM-POC-0002"}
+ASSIGNED = {"SIM-POB-0003", "SIM-POC-0001", "SIM-POC-0002", "SIM-FAC-0004"}
 
 
 class TestSimScenarioInMemory(unittest.TestCase):
@@ -75,11 +75,11 @@ class TestSimScenarioInMemory(unittest.TestCase):
             self.assertEqual(states[nume], "E", nume)
 
         # Aprobadas de credito notificaron 030/032/033; contado va directo a A.
-        for nume in ("SIM-FAC-0003", "SIM-FAC-0004"):
-            row = store.query("qp_SP_DocumentDetail",
-                              filters={"nvfac_nume": nume}, limit=1)[0]
-            self.assertEqual(row["nvfac_ueve"], "")
-            self.assertEqual(row["qp_is_event_completed"], 1)
+        # Solo el contado CON OC aprueba (no_po); el contado SIN OC se asigna.
+        row = store.query("qp_SP_DocumentDetail",
+                          filters={"nvfac_nume": "SIM-FAC-0003"}, limit=1)[0]
+        self.assertEqual(row["nvfac_ueve"], "")
+        self.assertEqual(row["qp_is_event_completed"], 1)
         for nume in ("SIM-POA-0001", "SIM-POB-0002"):
             row = store.query("qp_SP_DocumentDetail",
                               filters={"nvfac_nume": nume}, limit=1)[0]

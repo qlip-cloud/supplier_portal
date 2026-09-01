@@ -71,3 +71,43 @@ def memory_user_exists(store, email):
     if not email:
         return False
     return store.exists("qp_User", email) or store.exists("User", email)
+
+
+def memory_get_rule(store, rule_name):
+    """Regla qp_SP_AutoRejectRule por name (misma forma que auto_reject.get_rule)."""
+    if not rule_name:
+        return None
+    row = store.get("qp_SP_AutoRejectRule", rule_name)
+    if not row:
+        return None
+    return {
+        "rule_name": row.get("rule_name"),
+        "rule_code": row.get("rule_code"),
+        "enabled": row.get("enabled", 1),
+        "motive": row.get("motive"),
+    }
+
+
+def memory_resolve_rule(store, doc):
+    """Regla activa (proveedor con fallback al default del MasterSetup).
+
+    Espejo de resources/documenteme/auto_reject.resolve_rule sobre el store.
+    Devuelve None si no hay regla activa (equivale a "no action").
+    """
+    from qp_supplier_front.simulation.master_setup_source import (
+        MemoryMasterSetupSource,
+    )
+    from qp_supplier_front.uses_cases.documenteme.auto_reject import (
+        resolve_auto_reject_config,
+    )
+
+    supplier = memory_get_supplier_by_tax_id(store, doc.get("nvpro_ndoc"))
+    supplier_rule = None
+    if supplier:
+        supplier_rule = memory_get_rule(
+            store, memory_get_supplier_auto_reject_rule(store, supplier))
+
+    setup_rule = memory_get_rule(
+        store, MemoryMasterSetupSource(store).auto_reject_rule())
+
+    return resolve_auto_reject_config(supplier_rule, setup_rule)

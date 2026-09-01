@@ -3,8 +3,16 @@
 reject_memory.py (documenteme simulation)
 =========================================
 Rechazo automatico en memoria: replica el flujo de auto_reject sobre el
-MemoryStore con eventos simulados (030/032/031), para que en el modo
-simulador el documento termine en "R" sin tocar la DB real.
+MemoryStore con la regla activa (supplier o default del MasterSetup) y
+eventos simulados (030/032/031), para que en el modo simulador el documento
+termine en "R" sin tocar la DB real.
+
+Reglas:
+- Contado (nvfac_conv 1): NUNCA se auto-rechaza por la regla (gate de
+  aprobacion/asignacion); se omite.
+- Credito: se rechaza si la regla activa lo exige (should_auto_reject) y la
+  secuencia de eventos tiene exito.
+- Sin regla activa (None / no_action): no se rechaza nadie.
 
 El composition root (sync_all_whitelist._launch_reject) lo invoca en lugar de
 reject_batch_job cuando el facade de datos es in-memory.
@@ -12,8 +20,7 @@ reject_batch_job cuando el facade de datos es in-memory.
 
 import json
 
-APPROVAL = "aprobacion"
-REJECT = "rechazo"
+from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
 
 
 def _payload(doc, event_code, company_tax_id):
@@ -55,16 +62,32 @@ def _resolve_alerts(store, doc_name):
         store.set_value("qp_SP_Alert", alert["name"], "resolved", 1)
 
 
-def run_reject(store, doc_names=None):
-    """Rechaza automaticamente las facturas simuladas sin OC (regla no_po).
+def _receipt_for_po(store):
+    """Callback escalar (total o None) de recibos por OC para has_receipt_match."""
+    from qp_supplier_front.simulation import references_memory
 
-    - Contado: R directo (sin eventos).
-    - Credito: PR -> secuencia 030/032/031 -> R (nvfac_ueve 031).
+    def fn(purchase_order):
+        return references_memory.memory_receipts_total(store, purchase_order)
+    return fn
+
+
+def run_reject(store, doc_names=None):
+    """Rechaza automaticamente las facturas simuladas segun la regla activa.
+
+    - Contado: nunca se rechaza (se omite; va a aprobacion/asignacion).
+    - Credito: PR -> 030/032/031 -> R solo si la regla activa lo exige.
+    - Sin regla activa: no se rechaza nada.
 
     Retorna {"rejected": [...], "pending": [...]}.
     """
     from qp_supplier_front.resources.documenteme import runtime
     from qp_supplier_front.simulation import references_memory
+    from qp_supplier_front.uses_cases.documenteme.auto_reject import (
+        has_po_match,
+        has_receipt_match,
+        is_active_rule,
+        should_auto_reject,
+    )
 
     components = runtime.resolve()
     event_http_fn = components["event_http_fn"]
@@ -80,18 +103,19 @@ def run_reject(store, doc_names=None):
             continue
         if str(doc.get("nvfac_esta")) not in ("E", "PR"):
             continue
-
-        is_cash = str(doc.get("nvfac_conv")) == "1"
-        if is_cash:
-            store.set_value("qp_SP_DocumentDetail", name, "nvfac_esta", "R")
-            store.set_value("qp_SP_DocumentDetail", name,
-                            "qp_is_event_completed", 1)
-            _resolve_alerts(store, name)
-            rejected.append(doc.get("nvfac_nume"))
+        if is_cash_invoice(str(doc.get("nvfac_conv"))):
             continue
 
-        po = doc.get("nvfac_orde")
-        if po and references_memory.memory_po_exists(store, po):
+        rule = references_memory.memory_resolve_rule(store, doc)
+        if not is_active_rule(rule):
+            continue
+
+        po_match = has_po_match(
+            doc, lambda po: references_memory.memory_po_exists(store, po))
+        receipt_match = has_receipt_match(doc, _receipt_for_po(store))
+
+        if not should_auto_reject(po_match, receipt_match,
+                                  rule.get("rule_code")):
             continue
 
         store.set_value("qp_SP_DocumentDetail", name, "nvfac_esta", "PR")

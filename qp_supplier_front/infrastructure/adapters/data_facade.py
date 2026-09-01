@@ -92,6 +92,13 @@ class _Real(object):
         )
         return RealReferenceSource()
 
+    @property
+    def master_setup(self):
+        from qp_supplier_front.infrastructure.adapters.master_setup_source import (
+            RealMasterSetupSource,
+        )
+        return RealMasterSetupSource(frappe_module=self._frappe)
+
 
 class _MemRow(object):
 
@@ -237,6 +244,13 @@ class _Memory(object):
         )
         return MemoryReferenceSource(self._store)
 
+    @property
+    def master_setup(self):
+        from qp_supplier_front.simulation.master_setup_source import (
+            MemoryMasterSetupSource,
+        )
+        return MemoryMasterSetupSource(self._store)
+
 
 class DataFacade(object):
 
@@ -286,6 +300,10 @@ class DataFacade(object):
     @property
     def references(self):
         return self._impl.references
+
+    @property
+    def master_setup(self):
+        return self._impl.master_setup
 
     @property
     def db(self):

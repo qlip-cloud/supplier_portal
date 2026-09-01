@@ -50,11 +50,19 @@ def _callbacks():
     return runtime.resolve().get("approve_callbacks") or {}
 
 
-def is_auto_approve_enabled():
-    data = _data()
-    if data is None:
-        return bool(frappe.db.get_single_value("qp_SP_MasterSetup", "auto_approve"))
-    return bool(data.get_single_value("qp_SP_MasterSetup", "auto_approve"))
+def _master_setup_source(master_setup=None):
+    """Adaptador de config del setup (memoria o real), inyectable."""
+    if master_setup is not None:
+        return master_setup
+    from qp_supplier_front.infrastructure.adapters.master_setup_source import (
+        resolve_master_setup_source,
+    )
+    return resolve_master_setup_source(data=_data(), frappe_module=frappe)
+
+
+def is_auto_approve_enabled(master_setup=None):
+    source = _master_setup_source(master_setup)
+    return bool(source.auto_approve_enabled())
 
 
 def get_analysis_candidates(doc_names=None):

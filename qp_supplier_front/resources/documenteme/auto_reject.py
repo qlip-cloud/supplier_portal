@@ -67,16 +67,19 @@ REJECT_JOB_METHOD = "qp_supplier_front.resources.documenteme.auto_reject.reject_
 EVENT_CONFIG = {"031": {"nvfac_esta": "R"}}
 
 
-def get_reject_config():
+def _master_setup_source(master_setup=None):
+    """Adaptador de config del setup (real por defecto), inyectable."""
+    if master_setup is not None:
+        return master_setup
+    from qp_supplier_front.infrastructure.adapters.master_setup_source import (
+        RealMasterSetupSource,
+    )
+    return RealMasterSetupSource(frappe_module=frappe)
+
+
+def get_reject_config(master_setup=None):
     """Configuracion global de reintentos desde qp_SP_MasterSetup."""
-    return {
-        "max_attempts": int(frappe.db.get_single_value(
-            "qp_SP_MasterSetup", "reject_retry_max_attempts") or 5),
-        "retry_interval": int(frappe.db.get_single_value(
-            "qp_SP_MasterSetup", "reject_retry_interval_seconds") or 60),
-        "event_delay": int(frappe.db.get_single_value(
-            "qp_SP_MasterSetup", "reject_event_delay_seconds") or 60),
-    }
+    return _master_setup_source(master_setup).reject_config()
 
 
 def run_auto_reject(http_fn=None, enqueue=True, doc_names=None):
@@ -200,9 +203,9 @@ def get_candidates(doc_names=None):
     )
 
 
-def resolve_rule(doc):
+def resolve_rule(doc, master_setup=None):
     supplier_rule = get_supplier_rule(doc.get("nvpro_ndoc"))
-    setup_rule = get_setup_default_rule()
+    setup_rule = get_setup_default_rule(master_setup=master_setup)
     return resolve_auto_reject_config(supplier_rule, setup_rule)
 
 
@@ -221,8 +224,8 @@ def get_supplier_rule(tax_id):
     return get_rule(rule_name)
 
 
-def get_setup_default_rule():
-    rule_name = frappe.db.get_single_value("qp_SP_MasterSetup", "auto_reject")
+def get_setup_default_rule(master_setup=None):
+    rule_name = _master_setup_source(master_setup).auto_reject_rule()
     return get_rule(rule_name)
 
 
