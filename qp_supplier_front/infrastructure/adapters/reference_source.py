@@ -68,6 +68,21 @@ class RealReferenceSource(object):
 
         return documenteme_http_adapter.get_receipt_bank(purchase_order)
 
+    def bank_for_invoice(self, purchase_order, invoice_number):
+        """Banco visible para la seleccion manual de una factura (nuevo flujo)."""
+        from qp_supplier_front.infrastructure.adapters.receipt_claim_adapter import (
+            get_bank_for_invoice,
+        )
+
+        return get_bank_for_invoice(purchase_order, invoice_number)
+
+    def has_claimed_receipts(self, invoice_number):
+        from qp_supplier_front.infrastructure.adapters.receipt_claim_adapter import (
+            has_claimed_receipts as _real_has_claims,
+        )
+
+        return _real_has_claims(invoice_number)
+
     def receipt_items_for(self, receipt_names):
         frappe = _frappe()
         if not receipt_names:

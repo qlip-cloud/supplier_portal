@@ -49,8 +49,14 @@ def _candidates(store, doc_names=None):
                 "nvfac_esta", "nvfac_conv", "document_sync_line"],
     )
 
+    # Seleccion manual en curso (recibos reclamados): se excluye del flujo
+    # automatico (manual excluye auto).
+    claimed = references_memory.memory_claimed_invoice_numbers(store)
+
     candidates = []
     for doc in docs:
+        if doc.get("nvfac_nume") in claimed:
+            continue
         sync_line = _sync_line(store, doc)
         if sync_line is None:
             continue

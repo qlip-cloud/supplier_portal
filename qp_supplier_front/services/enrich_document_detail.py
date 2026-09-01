@@ -29,6 +29,8 @@ def enrich_document_detail(document, data=None, references=None):
     document["recepciones"] = []
     document["productos_orden_compra"] = []
     document["productos_recepcion"] = []
+    document["banco_recepciones"] = []
+    document["hide_unselected_recibos"] = False
 
     _enrich_alerts(document, data)
     _enrich_factura_interna(document, data)
@@ -36,6 +38,7 @@ def enrich_document_detail(document, data=None, references=None):
     if purchase_order_number:
         _enrich_purchase_orders(document, purchase_order_number, references, data)
         _enrich_purchase_receipts(document, purchase_order_number, references, data)
+        _enrich_receipt_bank(document, purchase_order_number, references, data)
         _update_status_if_fully_paid(document, data, references=references)
 
 
@@ -175,6 +178,45 @@ def build_receipt_products(items):
     return products
 
 
+DEFINITIVE_VIEW_STATES = ("BCC", "PA", "PR", "A", "R")
+
+
+def _enrich_receipt_bank(document, purchase_order_number, references=None,
+                         data=None):
+    """Banco de recepciones visible para la seleccion manual de la factura.
+
+    - Estado no definitivo: se listan los recibos reclamables (no reclamados
+      + los reclamados por esta factura) con checkbox.
+    - Estado definitivo: solo se muestran los recibos reclamados por la
+      factura, sin checkbox (hide_unselected_recibos = True oculta los no
+      seleccionados).
+    """
+    refs = _resolve_references(data, references)
+    invoice_number = document.get("nvfac_nume")
+    definitive = document.get("nvfac_esta") in DEFINITIVE_VIEW_STATES
+    document["hide_unselected_recibos"] = definitive
+
+    if definitive:
+        claimed = refs.receipts_for(
+            purchase_order_number, qp_invoice=invoice_number
+        )
+        document["banco_recepciones"] = [
+            {
+                "name": receipt.get("name"),
+                "amount": receipt.get("total") or 0,
+                "date": receipt.get("posting_date"),
+                "claimed_by_me": True,
+                "selectable": False,
+            }
+            for receipt in claimed
+        ]
+        return
+
+    document["banco_recepciones"] = refs.bank_for_invoice(
+        purchase_order_number, invoice_number
+    )
+
+
 def _update_status_if_fully_paid(document, data=None, references=None):
     """Marca en "V" una factura cubierta por una combinacion exacta de
     recepciones no consumidas (banco). Lee el banco via el adaptador de
@@ -197,6 +239,14 @@ def _update_status_if_fully_paid(document, data=None, references=None):
         return
 
     bank = refs.receipt_bank_for(purchase_order_number)
+
+    # Seleccion manual en curso: la factura queda a la espera de que el
+    # usuario complete y aplique; el flujo automatico no la promueve a "V".
+    if any(
+        receipt.get("qp_invoice") == document.get("nvfac_nume")
+        for receipt in (bank or [])
+    ):
+        return
 
     if solve_receipt_bank(document_total, bank, DEFAULT_EPSILON) is None:
         return

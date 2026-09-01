@@ -43,6 +43,84 @@ def memory_get_receipt_bank(store, purchase_order):
     ]
 
 
+def memory_get_receipt_bank_for_invoice(store, purchase_order, invoice_number):
+    """Banco visible para la seleccion manual de una factura (en memoria).
+
+    Recibos no reclamados + los reclamados por ESTA factura; los reclamados
+    por otras facturas se excluyen (no visibles ni seleccionables).
+    """
+    if not purchase_order or not invoice_number:
+        return []
+    rows = store.query("qp_SP_PurchaseReceipt",
+                       filters={"qp_supplier_oc": purchase_order})
+    result = []
+    for row in rows:
+        owner = row.get("qp_invoice")
+        if owner and owner != invoice_number:
+            continue
+        result.append({
+            "name": row.get("name"),
+            "amount": row.get("total") or 0,
+            "date": row.get("posting_date"),
+            "qp_invoice": owner,
+            "claimed_by_me": owner == invoice_number,
+            "selectable": True,
+        })
+    return result
+
+
+def memory_has_claimed_receipts(store, invoice_number):
+    if not invoice_number:
+        return False
+    rows = store.query("qp_SP_PurchaseReceipt",
+                       filters={"qp_invoice": invoice_number},
+                       fields=["name"], limit=1)
+    return bool(rows)
+
+
+def memory_claimed_invoice_numbers(store):
+    values = store.query("qp_SP_PurchaseReceipt",
+                         filters={"qp_invoice": ["is", "set"]},
+                         pluck="qp_invoice")
+    return set(value for value in values if value)
+
+
+def memory_claim_receipts(store, doc, receipt_names):
+    """Vincula recepciones a la factura en memoria (espejo del UPDATE guardado).
+
+    Retorna los nombres que no pudieron reclamarse (ya reclamados por otra
+    factura).
+    """
+    if not receipt_names:
+        return []
+    invoice_number = doc.get("nvfac_nume")
+    if not invoice_number:
+        return list(receipt_names)
+    failed = []
+    for name in receipt_names:
+        row = store.get("qp_SP_PurchaseReceipt", name)
+        if row and row.get("qp_invoice"):
+            failed.append(name)
+            continue
+        store.set_value("qp_SP_PurchaseReceipt", name,
+                        "qp_invoice", invoice_number)
+    return failed
+
+
+def memory_release_receipts(store, doc, receipt_names):
+    """Libera recepciones reclamadas por ESTA factura (qp_invoice = None)."""
+    if not receipt_names:
+        return
+    invoice_number = doc.get("nvfac_nume")
+    if not invoice_number:
+        return
+    for name in receipt_names:
+        row = store.get("qp_SP_PurchaseReceipt", name)
+        if row and row.get("qp_invoice") == invoice_number:
+            store.set_value("qp_SP_PurchaseReceipt", name,
+                            "qp_invoice", None)
+
+
 def memory_get_headquarter(store, purchase_order):
     if not purchase_order:
         return ""

@@ -46,6 +46,19 @@ def _data():
     return runtime.resolve().get("data")
 
 
+def _claimed_invoice_numbers():
+    """Facturas con al menos un recibo reclamado manualmente (seleccion en
+    curso). Se excluyen del flujo automatico (manual excluye auto)."""
+    components = runtime.resolve()
+    fn = components.get("claimed_invoice_numbers_fn")
+    if fn is None:
+        from qp_supplier_front.infrastructure.adapters.receipt_claim_adapter import (
+            claimed_invoice_numbers,
+        )
+        return claimed_invoice_numbers()
+    return fn()
+
+
 def _callbacks():
     return runtime.resolve().get("approve_callbacks") or {}
 
@@ -74,8 +87,9 @@ def get_analysis_candidates(doc_names=None):
         filters["name"] = ["in", list(doc_names)]
 
     data = _data()
+    claimed = _claimed_invoice_numbers()
     if data is None:
-        return frappe.get_all(
+        docs = frappe.get_all(
             "qp_SP_DocumentDetail",
             filters=filters,
             fields=[
@@ -90,21 +104,23 @@ def get_analysis_candidates(doc_names=None):
                 "nvfac_conv",
             ],
         )
-    return data.get_all(
-        "qp_SP_DocumentDetail",
-        filters=filters,
-        fields=[
-            "name",
-            "nvfac_nume",
-            "nvfac_orde",
-            "nvfac_rece",
-            "nvfac_totp",
-            "nvfac_stot",
-            "nvfac_esta",
-            "nvfac_ueve",
-            "nvfac_conv",
-        ],
-    )
+    else:
+        docs = data.get_all(
+            "qp_SP_DocumentDetail",
+            filters=filters,
+            fields=[
+                "name",
+                "nvfac_nume",
+                "nvfac_orde",
+                "nvfac_rece",
+                "nvfac_totp",
+                "nvfac_stot",
+                "nvfac_esta",
+                "nvfac_ueve",
+                "nvfac_conv",
+            ],
+        )
+    return [doc for doc in docs if doc.get("nvfac_nume") not in claimed]
 
 
 def promote_eligible_to_v(doc_names=None):
@@ -152,16 +168,29 @@ def get_v_doc_names(doc_names=None):
 
     data = _data()
     if data is None:
-        return frappe.get_all(
+        docs = frappe.get_all(
             "qp_SP_DocumentDetail",
             filters=filters,
-            pluck="name",
+            fields=["name", "nvfac_nume"],
         )
-    return data.get_all(
-        "qp_SP_DocumentDetail",
-        filters=filters,
-        pluck="name",
-    )
+    else:
+        docs = data.get_all(
+            "qp_SP_DocumentDetail",
+            filters=filters,
+            fields=["name", "nvfac_nume"],
+        )
+
+    claimed = _claimed_invoice_numbers()
+    names = []
+    claimed_positions = set()
+    for doc in docs:
+        if isinstance(doc, dict):
+            names.append(doc.get("name"))
+            if doc.get("nvfac_nume") in claimed:
+                claimed_positions.add(doc.get("name"))
+        else:
+            names.append(doc)
+    return [name for name in names if name not in claimed_positions]
 
 
 def run_auto_approve(enqueue=True, doc_names=None):

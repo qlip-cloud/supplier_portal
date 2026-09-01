@@ -41,6 +41,9 @@ from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
     solve_receipt_bank,
     unconsumed_receipts,
 )
+from qp_supplier_front.uses_cases.documenteme.receipt_selection import (
+    validate_apply,
+)
 
 FINAL_STATES = ("A", "R")
 
@@ -542,6 +545,76 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
     return valid, errors, allocation
 
 
+def _bank_available_for_invoice(bank, invoice_number):
+    """Banco disponible para UNA factura: no reclamados + reclamados por ella.
+
+    Los recibos reclamados por otras facturas se excluyen (la seleccion manual
+    los hace invisibles/no seleccionables fuera de la factura a la que
+    pertenecen).
+    """
+    return [
+        receipt for receipt in (bank or [])
+        if not receipt.get("qp_invoice")
+        or receipt.get("qp_invoice") == invoice_number
+    ]
+
+
+def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon):
+    """Valida la seleccion manual de recepciones por factura.
+
+    A diferencia de _allocate_registrables, NO re-runnea pack_oc_group: la
+    combinacion la eligio el usuario (recibos ya vinculados via "aplicar") y
+    aqui solo se re-valida que el set siga cubriendo el total y que la factura
+    sea registrable. Retorna (valid, errors, allocation) como la variante
+    automatica.
+    """
+    valid = []
+    errors = []
+    allocation = {}
+    for doc in (docs or []):
+        blocker = get_registrable_blockers(doc)
+        if blocker:
+            errors.append({
+                "nvfac_nume": doc.get("nvfac_nume"),
+                "error": blocker,
+            })
+            continue
+        receipt_names = ((selected_receipts or {}).get(doc.get("name")) or [])
+        if not receipt_names:
+            errors.append({
+                "nvfac_nume": doc.get("nvfac_nume"),
+                "error": "La factura no tiene recepciones seleccionadas",
+            })
+            continue
+        bank = _bank_available_for_invoice(
+            receipt_bank_fn(doc.get("nvfac_orde")) or [],
+            doc.get("nvfac_nume"),
+        )
+        ok, error, classification = validate_apply(
+            doc, receipt_names, bank, epsilon
+        )
+        if not ok:
+            errors.append({
+                "nvfac_nume": doc.get("nvfac_nume"),
+                "error": error,
+            })
+            continue
+        # La aprobacion exige seleccion completa: una seleccion parcial solo
+        # reserva recibos (no inicia el proceso de aprobacion).
+        if classification != "completo":
+            errors.append({
+                "nvfac_nume": doc.get("nvfac_nume"),
+                "error": "La selección de recepciones no cubre el total de la factura",
+            })
+            continue
+        valid.append(doc)
+        names = set(receipt_names)
+        allocation[doc.get("name")] = [
+            receipt for receipt in bank if receipt.get("name") in names
+        ]
+    return valid, errors, allocation
+
+
 def approve_documents(
     doc_names,
     get_docs_fn,
@@ -562,6 +635,7 @@ def approve_documents(
     receipt_bank_fn=None,
     consume_receipts_fn=None,
     epsilon=DEFAULT_EPSILON,
+    selected_receipts=None,
 ):
     """Aprueba en lote las facturas: un solo envio a BC con array.
 
@@ -570,6 +644,9 @@ def approve_documents(
        contado). Con receipt_bank_fn inyectado la validacion es batch-aware
        por orden de compra y usa el banco de recepciones no consumidas
        (pack_oc_group); las facturas sin combinacion exacta caen a error.
+       Con selected_receipts (seleccion manual del banco) se usa
+       _allocate_selected: re-valida el set elegido por el usuario sin
+       re-runnear pack_oc_group (la combinacion ya la decidio el usuario).
        Con force=True (aprobacion manual con confirmacion del usuario) se
        ignoran las advertencias de OC - recepcion - montos, pero los bloqueos
        duros (estados definitivos/en proceso) siguen impidiendo la aprobacion.
@@ -589,6 +666,10 @@ def approve_documents(
     if force:
         valid, errors = _split_by_blockers(docs)
         allocation = {}
+    elif selected_receipts is not None:
+        valid, errors, allocation = _allocate_selected(
+            docs, selected_receipts, receipt_bank_fn, epsilon
+        )
     elif receipt_bank_fn is not None:
         valid, errors, allocation = _allocate_registrables(
             docs, po_exists_fn, receipt_bank_fn, epsilon,

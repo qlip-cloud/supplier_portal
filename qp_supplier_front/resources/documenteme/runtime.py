@@ -46,9 +46,12 @@ def _real_bundle():
     simulacion (memoria).
     """
     from qp_authorization.use_case.basic.authorize import send_request_status
+    from qp_supplier_front.infrastructure.adapters import (
+        documenteme_http_adapter,
+        receipt_claim_adapter,
+    )
     from qp_supplier_front.resources.documenteme import _approve_base
     from qp_supplier_front.resources.documenteme import auto_reject
-    from qp_supplier_front.infrastructure.adapters import documenteme_http_adapter
     from qp_supplier_front.services import document_sync
     from qp_supplier_front.uses_cases.documents import sync_all_whitelist
 
@@ -60,6 +63,11 @@ def _real_bundle():
         "company_tax_id_fn": documenteme_http_adapter.get_company_tax_id,
         "event_endpoint_fn": documenteme_http_adapter.get_event_endpoint,
         "on_batch_approved_fn": None,
+        "receipt_bank_for_invoice_fn": receipt_claim_adapter.get_bank_for_invoice,
+        "claim_receipts_fn": receipt_claim_adapter.claim_receipts,
+        "release_receipts_fn": receipt_claim_adapter.release_receipts,
+        "has_claimed_receipts_fn": receipt_claim_adapter.has_claimed_receipts,
+        "claimed_invoice_numbers_fn": receipt_claim_adapter.claimed_invoice_numbers,
         "sync_persist": {
             "create_log": document_sync.create_sync_log,
             "create_lines": document_sync.create_sync_lines,
@@ -117,6 +125,14 @@ def _simulated_bundle():
         "event_endpoint_fn": simulation.get_event_endpoint,
         "on_batch_approved_fn": _apply_simulated_confirmation,
         "data": data_facade.DataFacade(store=store),
+        "receipt_bank_for_invoice_fn": _bind(
+            references_memory.memory_get_receipt_bank_for_invoice),
+        "claim_receipts_fn": _bind(references_memory.memory_claim_receipts),
+        "release_receipts_fn": _bind(references_memory.memory_release_receipts),
+        "has_claimed_receipts_fn": _bind(
+            references_memory.memory_has_claimed_receipts),
+        "claimed_invoice_numbers_fn": _bind(
+            references_memory.memory_claimed_invoice_numbers),
         "approve_callbacks": {
             "get_docs_fn": _bind(documents_memory.memory_get_docs),
             "get_lines_fn": _bind(documents_memory.memory_get_lines),

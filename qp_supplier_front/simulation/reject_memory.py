@@ -97,9 +97,15 @@ def run_reject(store, doc_names=None):
     rejected = []
     pending = []
 
+    # Seleccion manual en curso (recibos reclamados): se excluye del rechazo
+    # automatico (manual excluye auto).
+    claimed = references_memory.memory_claimed_invoice_numbers(store)
+
     for name in (doc_names or []):
         doc = store.get("qp_SP_DocumentDetail", name) or {}
         if not doc or doc.get("nvfac_ueve"):
+            continue
+        if doc.get("nvfac_nume") in claimed:
             continue
         if str(doc.get("nvfac_esta")) not in ("E", "PR"):
             continue

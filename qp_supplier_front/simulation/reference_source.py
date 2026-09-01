@@ -53,6 +53,14 @@ class MemoryReferenceSource(object):
         return references_memory.memory_get_receipt_bank(
             self._store, purchase_order)
 
+    def bank_for_invoice(self, purchase_order, invoice_number):
+        return references_memory.memory_get_receipt_bank_for_invoice(
+            self._store, purchase_order, invoice_number)
+
+    def has_claimed_receipts(self, invoice_number):
+        return references_memory.memory_has_claimed_receipts(
+            self._store, invoice_number)
+
     def receipt_items_for(self, receipt_names):
         store = self._store
         if not receipt_names:

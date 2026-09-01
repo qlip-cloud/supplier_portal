@@ -99,8 +99,13 @@ def get_lines(doc):
     return get_lines_from_invoice(doc)
 
 
-def get_lines_from_receipts(purchase_order):
-    """Lineas desde los Purchase Receipt Items de una OC (codigo ya BC)."""
+def get_lines_from_receipts(purchase_order, receipt_names=None):
+    """Lineas desde los Purchase Receipt Items de una OC (codigo ya BC).
+
+    Con receipt_names se restringe a SOLO esos recibos (seleccion manual del
+    banco); sin el parametro conserva el comportamiento original (todos los
+    recibos de la OC).
+    """
     if not purchase_order:
         return []
     receipts = frappe.get_all(
@@ -108,6 +113,9 @@ def get_lines_from_receipts(purchase_order):
         filters={"qp_supplier_oc": purchase_order},
         pluck="name",
     )
+    if receipt_names is not None:
+        wanted = set(receipt_names)
+        receipts = [name for name in receipts if name in wanted]
     if not receipts:
         return []
     items = frappe.get_all(
@@ -393,15 +401,42 @@ def send_purchase_invoice_request(endpoint_code, payload):
 # =========================================================================
 # Orquestacion compartida
 # =========================================================================
-def approve_documents_core(doc_names, send_request_fn=None, force=False):
+def _get_lines_for_selected(base_get_lines, selected_receipts, data):
+    """get_lines restringido a los recibos de la seleccion manual.
+
+    En modo real lee los items de SOLO los recibos vinculados al doc
+    (get_lines_from_receipts con receipt_names); en simulador delega en el
+    get_lines del bundle (lineas de la factura del proveedor en memoria).
+    """
+
+    def get_selected_lines(doc):
+        receipt_names = ((selected_receipts or {}).get(doc.get("name")) or [])
+        if not receipt_names:
+            return [], "La factura no tiene recepciones seleccionadas"
+        if data is not None:
+            return base_get_lines(doc)
+        return get_lines_from_receipts(
+            doc.get("nvfac_orde"), receipt_names=receipt_names
+        )
+
+    return get_selected_lines
+
+
+def approve_documents_core(doc_names, send_request_fn=None, force=False,
+                           selected_receipts=None):
     components = runtime.resolve()
     if send_request_fn is None:
         send_request_fn = components["approve_send_fn"]
     cb = components.get("approve_callbacks") or {}
+    get_lines_fn = cb.get("get_lines_fn", get_lines)
+    if selected_receipts is not None:
+        get_lines_fn = _get_lines_for_selected(
+            get_lines_fn, selected_receipts, components.get("data")
+        )
     result = approve_documents(
         doc_names,
         get_docs_fn=cb.get("get_docs_fn", get_docs),
-        get_lines_fn=cb.get("get_lines_fn", get_lines),
+        get_lines_fn=get_lines_fn,
         get_headquarter_fn=cb.get("get_headquarter_fn", get_headquarter),
         po_exists_fn=cb.get("po_exists_fn", po_exists),
         receipts_total_fn=cb.get("receipts_total_fn", receipts_total),
@@ -418,12 +453,31 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False):
         now=_make_now(),
         force=force,
         resolve_rule_fn=cb.get("resolve_rule_fn", _resolve_rule),
+        selected_receipts=selected_receipts,
     )
 
     on_batch_approved = components["on_batch_approved_fn"]
     if on_batch_approved is not None:
         on_batch_approved(result)
 
+    return result
+
+
+def run_approve_with_receipts(doc_names, selected_receipts,
+                              send_request_fn=None):
+    """Aprueba facturas cuya seleccion manual de recibos ya fue aplicada.
+
+    Los recibos ya estan vinculados (qp_invoice = nvfac_nume); esta funcion
+    reutiliza el pipeline de aprobacion (crear en BC -> BCC) pero con el set
+    explicito del usuario, sin re-runnear pack_oc_group.
+    """
+    result = approve_documents_core(
+        doc_names,
+        send_request_fn=send_request_fn,
+        force=False,
+        selected_receipts=selected_receipts,
+    )
+    frappe.db.commit()
     return result
 
 

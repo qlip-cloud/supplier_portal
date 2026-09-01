@@ -180,6 +180,10 @@ def toggle_reject_retry(doc_name):
 # Callbacks de infraestructura (scan)
 # =========================================================================
 def get_candidates(doc_names=None):
+    from qp_supplier_front.infrastructure.adapters.receipt_claim_adapter import (
+        claimed_invoice_numbers,
+    )
+
     filters = {
         "nvfac_ueve": ["is", "not set"],
         "nvfac_esta": ["in", list(REJECT_PENDING_STATES)],
@@ -187,7 +191,7 @@ def get_candidates(doc_names=None):
     if doc_names:
         filters["name"] = ["in", list(doc_names)]
 
-    return frappe.get_all(
+    docs = frappe.get_all(
         "qp_SP_DocumentDetail",
         filters=filters,
         fields=[
@@ -201,6 +205,13 @@ def get_candidates(doc_names=None):
             "nvfac_conv",
         ],
     )
+
+    # Seleccion manual en curso (recibos reclamados): se excluye del rechazo
+    # automatico (manual excluye auto).
+    claimed = claimed_invoice_numbers()
+    return [
+        doc for doc in docs if doc.get("nvfac_nume") not in claimed
+    ]
 
 
 def resolve_rule(doc, master_setup=None):

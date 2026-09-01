@@ -358,4 +358,154 @@ $(document).ready(function () {
         );
     });
 
+    // =====================================================================
+    // Banco de recepciones: seleccion manual con "Aplicar"
+    // =====================================================================
+    function fmtMoney(value) {
+        var n = parseFloat(value) || 0;
+        return "$" + n.toLocaleString("es-CO", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function receiptBankState($bank) {
+        var stot = parseFloat($bank.attr("data-stot")) || 0;
+        var sum = 0;
+        var count = 0;
+        $bank.find(".receipt-select:checked").each(function () {
+            sum += parseFloat($(this).attr("data-amount")) || 0;
+            count++;
+        });
+        var epsilon = 0.01;
+        var classification;
+        if (sum > stot + epsilon) {
+            classification = "excede";
+        } else if (Math.abs(sum - stot) <= epsilon) {
+            classification = "completo";
+        } else {
+            classification = "parcial";
+        }
+        return { sum: sum, count: count, stot: stot, classification: classification };
+    }
+
+    var RECEIPT_CLASS_LABELS = {
+        completo: "Completo",
+        parcial: "Parcial",
+        excede: "Excede el total"
+    };
+    var RECEIPT_CLASS_COLORS = {
+        completo: "#28a745",
+        parcial: "#ffc107",
+        excede: "#dc3545"
+    };
+
+    function renderReceiptBank($bank) {
+        if ($bank.length === 0) {
+            return;
+        }
+        var state = receiptBankState($bank);
+        $bank.find(".receipt-selected-sum").text(
+            fmtMoney(state.sum) + " / " + fmtMoney(state.stot)
+        );
+        var $badge = $bank.find(".receipt-classification");
+        $badge.text(RECEIPT_CLASS_LABELS[state.classification] || "");
+        $badge.css("background-color", RECEIPT_CLASS_COLORS[state.classification] || "#6c757d");
+        $badge.css("color", "#fff");
+
+        $bank.find(".receipt-apply").prop(
+            "disabled",
+            state.classification === "excede" || state.count === 0
+        );
+
+        // Completo: ya se cubre el total; bloquea marcar mas recibos.
+        $bank.find(".receipt-select").each(function () {
+            var $chk = $(this);
+            if (!$chk.prop("checked") && state.classification === "completo") {
+                $chk.prop("disabled", true);
+            } else if (!$chk.hasClass("force-disabled")) {
+                $chk.prop("disabled", false);
+            }
+        });
+    }
+
+    function initReceiptBanks() {
+        $(".receipt-bank").each(function () {
+            renderReceiptBank($(this));
+        });
+    }
+
+    $(document).on("change", ".receipt-select", function () {
+        renderReceiptBank($(this).closest(".receipt-bank"));
+    });
+
+    $(document).on("click", ".receipt-apply", function () {
+        var $bank = $(this).closest(".receipt-bank");
+        var docName = $bank.attr("data-doc");
+        var state = receiptBankState($bank);
+        var receiptNames = [];
+        $bank.find(".receipt-select:checked").each(function () {
+            receiptNames.push($(this).val());
+        });
+
+        if (state.classification === "excede") {
+            frappe.msgprint("La selecci\u00f3n excede el total de la factura; desmarque recibos para aplicar.");
+            return;
+        }
+        if (receiptNames.length === 0) {
+            frappe.msgprint("Seleccione al menos un recibo para aplicar.");
+            return;
+        }
+
+        var msg;
+        if (state.classification === "completo") {
+            msg = "Al confirmar se aprobar\u00e1 autom\u00e1ticamente la factura con " +
+                state.count + " recibo(s) seleccionado(s), se iniciar\u00e1 el proceso de aprobaci\u00f3n y los recibos quedar\u00e1n vinculados definitivamente. \u00bfDesea continuar?";
+        } else {
+            msg = "El monto seleccionado (" + fmtMoney(state.sum) + ") no cubre el total de la factura (" +
+                fmtMoney(state.stot) + "). Al confirmar, los recibos quedar\u00e1n reservados para esta factura y no estar\u00e1n disponibles para otras. \u00bfDesea continuar?";
+        }
+
+        frappe.confirm(msg, function () {
+            var overlayEl = document.getElementById("overlay");
+            var savedOnClick = overlayEl ? overlayEl.onclick : null;
+            if (overlayEl) {
+                overlayEl.onclick = null;
+                overlayEl.style.display = "block";
+            }
+
+            petition_get_data({
+                doc_name: docName,
+                receipt_names: JSON.stringify(receiptNames)
+            }, "qp_supplier_front.resources.documenteme.receipt_selection.apply", function (response) {
+                if (overlayEl) {
+                    overlayEl.onclick = savedOnClick;
+                    overlayEl.style.display = "none";
+                }
+                frappe.msgprint(response.msg);
+                if (response.status === 200) {
+                    window.filter_init();
+                }
+            });
+        }, function () {
+            // Cancelar: la seleccion queda intacta.
+        });
+    });
+
+    // Render inicial + re-render tras scroll infinito / filtros.
+    initReceiptBanks();
+    var accordionEl = document.getElementById("accordion");
+    if (accordionEl && window.MutationObserver) {
+        var receiptBankObserver = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                if (mutation.addedNodes && mutation.addedNodes.length) {
+                    $(mutation.addedNodes).find(".receipt-bank").each(function () {
+                        renderReceiptBank($(this));
+                    });
+                }
+            });
+        });
+        receiptBankObserver.observe(accordionEl, { childList: true, subtree: true });
+    }
+
 });

@@ -200,6 +200,48 @@
                 {% else %}
                 <div style="color:#8a9099;font-size:12px">Sin datos</div>
                 {% endif %}
+
+                {% if row.banco_recepciones %}
+                <div class="receipt-bank" data-doc="{{ row.name }}" data-stot="{{ row.nvfac_stot or 0 }}">
+                    <table class="table inner-table receipt-bank-table">
+                        <thead>
+                            <tr>
+                                <th style="width:30px"></th>
+                                <th>Recibo</th>
+                                <th>Fecha</th>
+                                <th style="text-align:right">Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rb in row.banco_recepciones %}
+                            {% if rb.claimed_by_me or not row.hide_unselected_recibos %}
+                            <tr class="receipt-bank-row" data-name="{{ rb.name }}">
+                                <td>
+                                    <input type="checkbox" class="receipt-select{% if not rb.selectable %} force-disabled{% endif %}" name="recepcion"
+                                        value="{{ rb.name }}" data-amount="{{ rb.amount or 0 }}"
+                                        {% if rb.claimed_by_me %}checked{% endif %}
+                                        {% if not rb.selectable %}disabled{% endif %}
+                                        onclick="event.stopPropagation()">
+                                </td>
+                                <td>{{ rb.name }}</td>
+                                <td>{{ frappe.utils.formatdate(rb.date, "dd-MM-yyyy") if rb.date else "-" }}</td>
+                                <td style="text-align:right">{{ frappe.utils.fmt_money(rb.amount or 0, currency="COP") }}</td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% if not row.hide_unselected_recibos %}
+                    <div class="receipt-selection-summary" style="font-size:12px;margin:8px 0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center">
+                        <button type="button" class="btn btn-primary btn-sm receipt-apply" style="justify-self:start" data-doc="{{ row.name }}" data-stot="{{ row.nvfac_stot or 0 }}" title="Aplicar" disabled>
+                            Aplicar
+                        </button>
+                        <span class="receipt-classification badge" style="justify-self:center;white-space:nowrap;font-size:11px"></span>
+                        <span class="receipt-selected-sum" style="font-weight:bold;text-align:right;justify-self:end">$0 / $0</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
         </div>
     </td>

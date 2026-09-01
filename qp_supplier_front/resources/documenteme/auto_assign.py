@@ -48,6 +48,10 @@ def auto_assign():
 
 
 def get_candidates(doc_names=None):
+    from qp_supplier_front.infrastructure.adapters.receipt_claim_adapter import (
+        claimed_invoice_numbers,
+    )
+
     filters = {
         "nvfac_ueve": ["is", "not set"],
         "nvfac_esta": ["not in", ["BCC", "PA", "PR", "A", "R"]],
@@ -61,8 +65,14 @@ def get_candidates(doc_names=None):
         fields=["name", "nvfac_nume", "nvfac_orde", "nvfac_totp", "nvfac_stot", "nvfac_esta", "nvfac_conv", "document_sync_line"],
     )
 
+    # Seleccion manual en curso (recibos reclamados): se excluye del flujo
+    # automatico (manual excluye auto).
+    claimed = claimed_invoice_numbers()
+
     candidates = []
     for doc in docs:
+        if doc.get("nvfac_nume") in claimed:
+            continue
         sync_line = doc.get("document_sync_line") or doc.get("nvfac_nume")
         if not sync_line or not frappe.db.exists("qp_SP_DocumentSyncLine", sync_line):
             continue
