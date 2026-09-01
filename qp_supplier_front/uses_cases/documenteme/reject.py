@@ -5,6 +5,7 @@ def reject_document(doc_name, motive, is_invoice_error,
                     get_doc_fn, send_request_fn, commit_fn,
                     get_company_tax_id_fn, now_fn, persist_rejection_fn=None):
     doc = get_doc_fn("qp_SP_DocumentDetail", doc_name)
+    doc.qp_motive = motive
 
     if is_invoice_error:
         event_config = {

@@ -21,6 +21,7 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     is_definitive,
     is_error_response,
     is_invoice_already_registered,
+    plan_unregistrable,
     validate_registrable,
     validate_registrables,
 )
@@ -625,6 +626,34 @@ class TestApproveDocuments(unittest.TestCase):
         self.assertEqual(calls["commits"], 1)
 
 
+class TestPlanUnregistrable(unittest.TestCase):
+
+    def _doc(self, name, nvfac_esta):
+        return {"name": name, "nvfac_nume": name, "nvfac_esta": nvfac_esta}
+
+    def _error(self, name):
+        return {"name": name, "nvfac_nume": name, "error": "sin match"}
+
+    def test_plan_incluye_solo_docs_en_v(self):
+        docs = [self._doc("DOC1", "V"), self._doc("DOC2", "E")]
+        errors = [self._error("DOC1"), self._error("DOC2")]
+        plan = plan_unregistrable(docs, errors)
+        self.assertEqual(
+            plan,
+            [{"name": "DOC1", "nvfac_nume": "DOC1", "error": "sin match"}],
+        )
+
+    def test_plan_ignora_errores_de_docs_desconocidos(self):
+        docs = [self._doc("DOC1", "V")]
+        plan = plan_unregistrable(docs, [self._error("DOCX")])
+        self.assertEqual(plan, [])
+
+    def test_force_no_degrada(self):
+        docs = [self._doc("DOC1", "V")]
+        plan = plan_unregistrable(docs, [self._error("DOC1")], force=True)
+        self.assertEqual(plan, [])
+
+
 class TestApproveDocumentsReceiptBank(unittest.TestCase):
     """Ruta batch-aware (receipt_bank_fn): asignacion por banco + consumo."""
 
@@ -740,6 +769,43 @@ class TestApproveDocumentsReceiptBank(unittest.TestCase):
         self.assertIn("combinación", result["errors"][0]["error"])
         self.assertEqual(calls["sent"], [])
         self.assertEqual(calls["consumed"], [])
+
+    def test_competencia_misma_oc_deja_perdedora_en_unregistrable(self):
+        docs = [
+            _doc(name="DOC1", nvfac_nume="FAC001", nvfac_orde="OC111",
+                 nvfac_totp=400000, nvfac_stot=400000),
+            _doc(name="DOC2", nvfac_nume="FAC002", nvfac_orde="OC111",
+                 nvfac_totp=800000, nvfac_stot=800000),
+        ]
+        bank_by_po = {
+            "OC111": [
+                {"name": "R1", "amount": 400000, "date": "2026-01-01", "qp_invoice": None},
+                {"name": "R2", "amount": 200000, "date": "2026-01-02", "qp_invoice": None},
+                {"name": "R3", "amount": 400000, "date": "2026-01-03", "qp_invoice": None},
+            ],
+        }
+        results = [{"doc_number": "BC1001", "error": ""}]
+        calls, kwargs = self._callbacks(
+            docs,
+            {"Result": 0, "invoices": results},
+            200,
+            invoice_results=results,
+            bank_by_po=bank_by_po,
+        )
+        result = approve_documents(["DOC1", "DOC2"], now=self.NOW, **kwargs)
+
+        # Solo una factura de la misma OC obtiene reparto: la perdedora queda
+        # en estado "V" y debe reportarse en "unregistrable" para degradarla.
+        self.assertEqual(len(result["approved"]), 1)
+        self.assertEqual(len(result["errors"]), 1)
+        self.assertIn("combinación", result["errors"][0]["error"])
+        self.assertEqual(
+            result["unregistrable"][0]["nvfac_nume"],
+            result["errors"][0]["nvfac_nume"],
+        )
+        loser = result["errors"][0]["nvfac_nume"]
+        consumed = [nvfac for nvfac, _ in calls["consumed"]]
+        self.assertNotIn(loser, consumed)
 
     def test_dos_facturas_misma_oc_en_batched_se_sirven_del_resto(self):
         docs = [

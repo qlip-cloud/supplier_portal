@@ -34,7 +34,7 @@ def _payload(doc, event_code, company_tax_id):
         "Nvfac_cont": doc.get("nvfac_cont"),
         "Nvfac_esta": DOCUMENTEME_EVENT_STATES.get(event_code, "E"),
         "Nveve_dian": event_code,
-        "Nvint_desc": "Rechazo por error de factura",
+        "Nvint_desc": doc.get("qp_motive") or "Rechazo por error de factura",
     }
 
 
@@ -83,6 +83,7 @@ def run_reject(store, doc_names=None):
     from qp_supplier_front.resources.documenteme import runtime
     from qp_supplier_front.simulation import references_memory
     from qp_supplier_front.uses_cases.documenteme.auto_reject import (
+        get_reject_motive,
         has_po_match,
         has_receipt_match,
         is_active_rule,
@@ -124,6 +125,8 @@ def run_reject(store, doc_names=None):
                                   rule.get("rule_code")):
             continue
 
+        store.set_value("qp_SP_DocumentDetail", name, "qp_motive",
+                        get_reject_motive(rule))
         store.set_value("qp_SP_DocumentDetail", name, "nvfac_esta", "PR")
         ok = _send_sequence(store, name, company_tax_id,
                             event_http_fn, url, headers, method)

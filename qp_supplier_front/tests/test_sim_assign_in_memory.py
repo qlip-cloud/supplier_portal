@@ -45,9 +45,9 @@ class TestSimAssignInMemory(unittest.TestCase):
         self.store = MemoryStore()
         seeds.seed_scenario(self.store)
         # Cubierta (no se asigna) y descubiertas (se asignan).
-        _seed_doc(self.store, "SIM-POB-0001", "E", "PO-B-0001", 1000, "2")
-        _seed_doc(self.store, "SIM-POB-0003", "E", "PO-B-0001", 2500, "2")
-        _seed_doc(self.store, "SIM-POC-0001", "E", "PO-C-0001", 1000, "2")
+        _seed_doc(self.store, "SIM-POB-0001", "E", "PO-POB-0001", 1000, "2")
+        _seed_doc(self.store, "SIM-POB-0003", "E", "PO-POB-0003", 2500, "2")
+        _seed_doc(self.store, "SIM-POC-0001", "E", "PO-POC-0001", 1000, "2")
         # Contado con OC (no rompe no_po -> no se asigna) y contado sin OC
         # (rompe no_po -> se asigna via catch-all).
         _seed_doc(self.store, "SIM-FAC-0003", "E", "PO-SIM-0001", 400000, "1")

@@ -102,17 +102,18 @@ class TestSimScenarioInMemory(unittest.TestCase):
             self.assertEqual(len(assigned), 1, nume)
             self.assertEqual(assigned[0]["user"], "asignado@sim.local")
 
-        # Recibos consumidos solo en los aprobados (PO-A completo, PO-B parcial).
+        # Recibos consumidos solo en los aprobados (PO-POA completo, PO-POB
+        # parcial).
         consumed = {
             row["name"] for row in store.query("qp_SP_PurchaseReceipt",
                                                filters={"qp_invoice": ["is", "set"]})
         }
-        self.assertTrue({"REC-A-1", "REC-A-4"}.issubset(consumed))
-        self.assertIn("REC-B-1", consumed)
-        self.assertIn("REC-B-2", consumed)
-        # No cubiertos: REC-B-3 y todo el banco C siguen sin consumir.
-        self.assertNotIn("REC-B-3", consumed)
-        self.assertFalse({"REC-C-1", "REC-C-2"}.intersection(consumed))
+        self.assertTrue({"REC-POA1-1", "REC-POA1-2"}.issubset(consumed))
+        self.assertIn("REC-POB1-1", consumed)
+        self.assertIn("REC-POB2-1", consumed)
+        # No cubiertos: REC-POB3-1 y los bancos POC quedan sin consumir.
+        self.assertNotIn("REC-POB3-1", consumed)
+        self.assertFalse({"REC-POC1-1", "REC-POC2-1"}.intersection(consumed))
 
         # Todas las aprobadas persistieron su factura en BC.
         invoices = store.query("qp_SP_PurchaseInvoice")
@@ -133,26 +134,26 @@ class TestSimScenarioInMemory(unittest.TestCase):
 
         doc_poa = next(d for d in docs if d["nvfac_nume"] == "SIM-POA-0001")
         enrich_document_list([doc_poa], "qp_SP_DocumentDetail", data=facade)
-        self.assertEqual(doc_poa["ordenes_compra"], ["PO-A-0001"])
+        self.assertEqual(doc_poa["ordenes_compra"], ["PO-POA-0001"])
         # Solo los recibos asignados a ESTA factura (qp_invoice == nvfac_nume):
-        # SIM-POA-0001 consume REC-A-1 y REC-A-2 (500+1500); el resto del banco
-        # A no forma parte de la factura y no se muestra.
+        # SIM-POA-0001 consume REC-POA1-1 y REC-POA1-2 (500+1500).
         self.assertEqual(
             doc_poa["recepciones"],
-            ["RECIBO A1 · 500", "RECIBO A2 · 1500"],
+            ["RECIBO POA1-1 · 500", "RECIBO POA1-2 · 1500"],
         )
         self.assertEqual(
             [p["codigo"] for p in doc_poa["productos_orden_compra"]],
-            ["ITEM-POA1", "ITEM-POA2"],
+            ["ITEM-POA1"],
         )
         self.assertEqual(len(doc_poa["productos_recepcion"]), 2)
 
-        # La hermana de la misma OC muestra solo SU recibos asignados.
+        # La factura hermana usa SU propia OC y muestra SU solo recibos.
         doc_poa2 = next(d for d in docs if d["nvfac_nume"] == "SIM-POA-0002")
         enrich_document_list([doc_poa2], "qp_SP_DocumentDetail", data=facade)
+        self.assertEqual(doc_poa2["ordenes_compra"], ["PO-POA-0002"])
         self.assertEqual(
             doc_poa2["recepciones"],
-            ["RECIBO A3 · 1000", "RECIBO A4 · 3000"],
+            ["RECIBO POA2-1 · 1000", "RECIBO POA2-2 · 3000"],
         )
 
         # Factura asignada (sin aprobar) no tiene recibos asignados.

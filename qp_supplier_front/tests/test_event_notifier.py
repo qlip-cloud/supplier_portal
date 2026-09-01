@@ -245,6 +245,40 @@ class TestSendEventSequenceHappyPath(unittest.TestCase):
         payload_031 = captured[2]["payload"]
         self.assertEqual(payload_031["Nvfac_esta"], "R")
 
+    def test_reenvia_el_motivo_del_doc_como_nvint_desc(self):
+        doc = _make_doc()
+        doc.qp_motive = "Falta de orden de compra"
+        event_config = {"031": {"nvfac_esta": "R"}}
+        send_fn, captured = _make_send_request_success()
+
+        send_event_sequence(
+            doc, event_config, send_fn, _make_commit, _get_company_tax_id, _now_fn,
+            required_nvfac_esta="E",
+        )
+
+        for call in captured:
+            self.assertEqual(
+                call["payload"]["Nvint_desc"], "Falta de orden de compra"
+            )
+
+    def test_descripcion_configurada_gana_al_motivo_del_doc(self):
+        doc = _make_doc()
+        doc.qp_motive = "Motivo manual ignorado"
+        event_config = {
+            "030": {"nvint_desc": "Factura aprobada"},
+            "032": {"nvint_desc": "Factura aprobada"},
+            "031": {"nvfac_esta": "R", "nvint_desc": "Factura aprobada"},
+        }
+        send_fn, captured = _make_send_request_success()
+
+        send_event_sequence(
+            doc, event_config, send_fn, _make_commit, _get_company_tax_id, _now_fn,
+            required_nvfac_esta="E",
+        )
+
+        for call in captured:
+            self.assertEqual(call["payload"]["Nvint_desc"], "Factura aprobada")
+
     def test_030_032_use_doc_nvfac_esta(self):
         doc = _make_doc(nvfac_esta="E")
         send_fn, captured = _make_send_request_success()
@@ -456,6 +490,21 @@ class TestRejectDocument(unittest.TestCase):
         self.assertEqual(result.nvfac_ueve, "031")
         self.assertTrue(result._saved)
         self.assertEqual(len(captured), 3)
+
+    def test_payload_envia_el_motivo_escrito_por_el_usuario(self):
+        doc = _make_doc()
+        send_fn, captured = _make_send_request_success()
+        get_doc_fn = lambda doctype, name: doc
+
+        reject_document(
+            "002", "Error en el calculo del IVA", True,
+            get_doc_fn, send_fn, _make_commit, _get_company_tax_id, _now_fn,
+        )
+
+        for call in captured:
+            self.assertEqual(
+                call["payload"]["Nvint_desc"], "Error en el calculo del IVA"
+            )
 
     def test_reject_without_events_does_not_set_ueve(self):
         doc = _make_doc()

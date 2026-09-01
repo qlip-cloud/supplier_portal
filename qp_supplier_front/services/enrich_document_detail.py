@@ -30,6 +30,7 @@ def enrich_document_detail(document, data=None, references=None):
     document["productos_orden_compra"] = []
     document["productos_recepcion"] = []
     document["banco_recepciones"] = []
+    document["recepciones_detalle"] = []
     document["hide_unselected_recibos"] = False
 
     _enrich_alerts(document, data)
@@ -39,6 +40,7 @@ def enrich_document_detail(document, data=None, references=None):
         _enrich_purchase_orders(document, purchase_order_number, references, data)
         _enrich_purchase_receipts(document, purchase_order_number, references, data)
         _enrich_receipt_bank(document, purchase_order_number, references, data)
+        _enrich_receipts_detail(document, purchase_order_number, references, data)
         _update_status_if_fully_paid(document, data, references=references)
 
 
@@ -215,6 +217,49 @@ def _enrich_receipt_bank(document, purchase_order_number, references=None,
     document["banco_recepciones"] = refs.bank_for_invoice(
         purchase_order_number, invoice_number
     )
+
+
+def _enrich_receipts_detail(document, purchase_order_number, references=None,
+                            data=None):
+    """Detalle unificado por recepcion: cabecera (banco) + productos agrupados.
+
+    Construye document['recepciones_detalle'] con una entrada por recibo
+    visible (las mismas filas de banco_recepciones), cada una con la etiqueta
+    del recibo y la tabla de SUS productos.
+    """
+    bank = document.get("banco_recepciones") or []
+    if not bank:
+        document["recepciones_detalle"] = []
+        return
+
+    refs = _resolve_references(data, references)
+    receipts = refs.receipts_for(purchase_order_number)
+    labels = {
+        receipt.get("name"):
+            receipt.get("supplier_delivery_note") or receipt.get("name")
+        for receipt in receipts
+    }
+
+    names = [row.get("name") for row in bank]
+    items = refs.receipt_items_for(names)
+    products = build_receipt_products(items)
+
+    products_by_receipt = {}
+    for item, product in zip(items, products):
+        products_by_receipt.setdefault(item.get("parent"), []).append(product)
+
+    document["recepciones_detalle"] = [
+        {
+            "name": row.get("name"),
+            "etiqueta": labels.get(row.get("name")) or row.get("name"),
+            "fecha": row.get("date"),
+            "monto": row.get("amount") or 0,
+            "claimed_by_me": row.get("claimed_by_me"),
+            "selectable": row.get("selectable", False),
+            "productos": products_by_receipt.get(row.get("name"), []),
+        }
+        for row in bank
+    ]
 
 
 def _update_status_if_fully_paid(document, data=None, references=None):

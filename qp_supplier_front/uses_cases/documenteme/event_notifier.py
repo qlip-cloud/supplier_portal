@@ -40,8 +40,10 @@ def _build_payload(doc, event_code, event_config, company_tax_id, base_state=Non
         "Nvfac_cont": doc.nvfac_cont,
         "Nvfac_esta": _get_nvfac_esta(doc, event_code, event_config, base_state),
         "Nveve_dian": event_code,
-        "Nvint_desc": event_config.get(event_code, {}).get(
-            "nvint_desc", "Rechazo por error de factura"
+        "Nvint_desc": (
+            event_config.get(event_code, {}).get("nvint_desc")
+            or getattr(doc, "qp_motive", None)
+            or "Rechazo por error de factura"
         ),
     }
 

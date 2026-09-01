@@ -165,6 +165,29 @@ class TestPromoteEligibleToV(_WithData, unittest.TestCase):
             "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "V"
         )
 
+    def test_solo_quien_obtiene_reparto_se_promueve(self):
+        frappe_mock = MagicMock()
+        doc1 = _doc(name="DOC1", nvfac_orde="OC111", nvfac_totp=400000)
+        doc1["nvfac_stot"] = 400000
+        doc2 = _doc(name="DOC2", nvfac_orde="OC111", nvfac_totp=800000)
+        doc2["nvfac_stot"] = 800000
+        frappe_mock.get_all.return_value = [doc1, doc2]
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "po_exists", return_value=True),
+            patch.object(infra, "receipt_bank", return_value=[
+                {"name": "R1", "amount": 400000, "date": "2026-01-01", "qp_invoice": None},
+                {"name": "R2", "amount": 200000, "date": "2026-01-02", "qp_invoice": None},
+                {"name": "R3", "amount": 400000, "date": "2026-01-03", "qp_invoice": None},
+            ]),
+        ])
+        invited = infra.promote_eligible_to_v()
+        # Solo una factura de la misma OC obtiene reparto: la perdedora queda E.
+        self.assertEqual(len(invited), 1)
+        set_names = [
+            call[0][1] for call in frappe_mock.db.set_value.call_args_list
+        ]
+        self.assertEqual(set_names, invited)
+
 
 class TestGetVDocNames(_WithData, unittest.TestCase):
 
@@ -245,6 +268,30 @@ class TestApproveBatchJob(_WithData, unittest.TestCase):
             frappe_mock.log_error.call_args[1]["title"],
             "Auto approve - error",
         )
+
+    def test_degrada_unregistrable_a_e(self):
+        frappe_mock = MagicMock()
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "approve_documents_core", return_value={
+                "approved": [],
+                "errors": [{
+                    "name": "DOC1",
+                    "nvfac_nume": "FAC001",
+                    "error": "sin combinacion",
+                }],
+                "unregistrable": [{
+                    "name": "DOC1",
+                    "nvfac_nume": "FAC001",
+                    "error": "sin combinacion",
+                }],
+            }),
+        ])
+        result = infra.approve_batch_job(["DOC1"])
+        self.assertEqual(result["approved"], [])
+        frappe_mock.db.set_value.assert_called_once_with(
+            "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "E"
+        )
+        frappe_mock.db.commit.assert_called()
 
 
 class TestApproveDocumentsCoreWiring(unittest.TestCase):

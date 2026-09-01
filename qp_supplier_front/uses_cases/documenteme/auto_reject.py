@@ -41,17 +41,10 @@ import qp_supplier_front.uses_cases.documenteme.reject_retry
 REJECT_PENDING_STATES = qp_supplier_front.uses_cases.documenteme.reject_retry.REJECT_PENDING_STATES
 
 DEFAULT_MOTIVES = {
-    RULE_NO_PO: (
-        "Rechazo automático: la factura no coincide con ninguna "
-        "orden de compra."
-    ),
-    RULE_NO_RECEIPT: (
-        "Rechazo automático: la factura no coincide con ningún "
-        "recibo de compra."
-    ),
+    RULE_NO_PO: "Rechazada por falta de orden de compra",
+    RULE_NO_RECEIPT: "Rechazada por falta de recibo de compra",
     RULE_NO_PO_NO_RECEIPT: (
-        "Rechazo automático: la factura no coincide con ninguna "
-        "orden de compra ni recibo de compra."
+        "Rechazada por falta de orden de compra y recibo de compra"
     ),
 }
 

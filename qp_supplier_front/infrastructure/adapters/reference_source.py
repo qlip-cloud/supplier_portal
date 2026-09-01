@@ -93,6 +93,6 @@ class RealReferenceSource(object):
                 "parent": ["in", receipt_names],
                 "parenttype": "Purchase Receipt",
             },
-            fields=["item_code", "uom", "qty", "rate", "amount"],
+            fields=["parent", "item_code", "uom", "qty", "rate", "amount"],
             order_by="parent, idx",
         )

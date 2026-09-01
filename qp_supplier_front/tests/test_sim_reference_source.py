@@ -32,13 +32,13 @@ class TestMemoryReferenceSource(unittest.TestCase):
         self.assertEqual(items[0]["qp_unit_cost"], 2000)
 
     def test_receipts_y_items_con_delivery_note(self):
-        receipts = self.refs.receipts_for("PO-C-0001")
+        receipts = self.refs.receipts_for("PO-POC-0001")
         self.assertEqual(
-            [r["name"] for r in receipts], ["REC-C-1", "REC-C-2"])
-        self.assertEqual(receipts[0]["supplier_delivery_note"], "RECIBO C1 · 500")
-        items = self.refs.receipt_items_for(["REC-C-1", "REC-C-2"])
+            [r["name"] for r in receipts], ["REC-POC1-1"])
+        self.assertEqual(receipts[0]["supplier_delivery_note"], "RECIBO POC1-1 · 500")
+        items = self.refs.receipt_items_for(["REC-POC1-1"])
         self.assertEqual(
-            [i["item_code"] for i in items], ["ITEM-REC-C1", "ITEM-REC-C2"])
+            [i["item_code"] for i in items], ["ITEM-REC-POC1-1"])
         self.assertEqual(items[0]["amount"], 500)
 
     def test_receipt_bank_for(self):
@@ -61,9 +61,9 @@ class TestMemoryReferenceSource(unittest.TestCase):
     def test_facade_expone_references_de_memoria(self):
         from qp_supplier_front.infrastructure.adapters.data_facade import DataFacade
         facade = DataFacade(store=self.store)
-        self.assertTrue(facade.references.po_exists("PO-B-0001"))
+        self.assertTrue(facade.references.po_exists("PO-POB-0001"))
         self.assertEqual(
-            facade.references.receipt_bank_for("PO-A-0001")[0]["name"], "REC-A-1")
+            facade.references.receipt_bank_for("PO-POA-0001")[0]["name"], "REC-POA1-1")
 
 
 if __name__ == "__main__":

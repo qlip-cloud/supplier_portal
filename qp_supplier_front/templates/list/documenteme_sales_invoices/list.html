@@ -167,70 +167,59 @@
             </div>
             <div class="col-lg-4">
                 <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Recepción</h5>
-                <div style="color:#8a9099;font-size:12px;margin-bottom:8px">
-                    {% if row.recepciones %}
-                    <select style="border:none;background:transparent;color:#004D90;font-size:12px">
-                        {% for rep in row.recepciones %}<option>{{ rep }}</option>{% endfor %}
-                    </select>
-                    {% else %}<span>-</span>{% endif %}
-                </div>
-                {% if row.productos_recepcion %}
-                <table class="table inner-table">
-                    <thead>
-                        <tr>
-                            <th>Código</th>
-                            <th>UDM</th>
-                            <th>Cantidad</th>
-                            <th>Valor unitario</th>
-                            <th>Valor total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for p in row.productos_recepcion %}
-                        <tr>
-                            <td>{{ p.codigo }}</td>
-                            <td>{{ p.udm }}</td>
-                            <td>{{ p.cantidad }}</td>
-                            <td>{{ frappe.utils.fmt_money(p.valor_unitario, currency="COP") }}</td>
-                            <td>{{ frappe.utils.fmt_money(p.valor_total, currency="COP") }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <div style="color:#8a9099;font-size:12px">Sin datos</div>
-                {% endif %}
-
-                {% if row.banco_recepciones %}
+                {% if row.recepciones_detalle %}
                 <div class="receipt-bank" data-doc="{{ row.name }}" data-stot="{{ row.nvfac_stot or 0 }}">
-                    <table class="table inner-table receipt-bank-table">
-                        <thead>
-                            <tr>
-                                <th style="width:30px"></th>
-                                <th>Recibo</th>
-                                <th>Fecha</th>
-                                <th style="text-align:right">Monto</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for rb in row.banco_recepciones %}
-                            {% if rb.claimed_by_me or not row.hide_unselected_recibos %}
-                            <tr class="receipt-bank-row" data-name="{{ rb.name }}">
-                                <td>
-                                    <input type="checkbox" class="receipt-select{% if not rb.selectable %} force-disabled{% endif %}" name="recepcion"
-                                        value="{{ rb.name }}" data-amount="{{ rb.amount or 0 }}"
-                                        {% if rb.claimed_by_me %}checked{% endif %}
-                                        {% if not rb.selectable %}disabled{% endif %}
-                                        onclick="event.stopPropagation()">
-                                </td>
-                                <td>{{ rb.name }}</td>
-                                <td>{{ frappe.utils.formatdate(rb.date, "dd-MM-yyyy") if rb.date else "-" }}</td>
-                                <td style="text-align:right">{{ frappe.utils.fmt_money(rb.amount or 0, currency="COP") }}</td>
-                            </tr>
-                            {% endif %}
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    {% for rb in row.recepciones_detalle %}
+                    <div class="receipt-item">
+                        <div class="receipt-header" data-toggle="collapse"
+                            data-target="#receipt-products-{{ rb.name.replace(':', '_') }}" aria-expanded="false">
+                            <span class="receipt-left">
+                                <input type="checkbox" class="receipt-select{% if not rb.selectable %} force-disabled{% endif %}" name="recepcion"
+                                    value="{{ rb.name }}" data-name="{{ rb.name }}" data-amount="{{ rb.monto or 0 }}"
+                                    {% if rb.claimed_by_me %}checked{% endif %}
+                                    {% if not rb.selectable %}disabled{% endif %}
+                                    onclick="event.stopPropagation()"
+                                    onchange="window.renderReceiptBankFor && renderReceiptBankFor(this)">
+                                <span class="receipt-label">{{ rb.etiqueta }}</span>
+                            </span>
+                            <span class="receipt-center">{{ frappe.utils.formatdate(rb.fecha, "dd-MM-yyyy") if rb.fecha else "-" }}</span>
+                            <span class="receipt-right">
+                                <span class="receipt-amount">{{ frappe.utils.fmt_money(rb.monto or 0, currency="COP") }}</span>
+                                <span class="material-symbols-outlined receipt-chevron">expand_more</span>
+                            </span>
+                        </div>
+                        <div class="collapse" id="receipt-products-{{ rb.name.replace(':', '_') }}">
+                            <div class="receipt-card-body">
+                                {% if rb.productos %}
+                                <table class="table inner-table receipt-products-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>UDM</th>
+                                            <th>Cantidad</th>
+                                            <th>Valor unitario</th>
+                                            <th>Valor total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for p in rb.productos %}
+                                        <tr>
+                                            <td>{{ p.codigo }}</td>
+                                            <td>{{ p.udm }}</td>
+                                            <td>{{ p.cantidad }}</td>
+                                            <td style="text-align:right !important">{{ frappe.utils.fmt_money(p.valor_unitario, currency="COP") }}</td>
+                                            <td style="text-align:right !important">{{ frappe.utils.fmt_money(p.valor_total, currency="COP") }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                                {% else %}
+                                <div style="color:#8a9099;font-size:12px">Sin datos</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
                     {% if not row.hide_unselected_recibos %}
                     <div class="receipt-selection-summary" style="font-size:12px;margin:8px 0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center">
                         <button type="button" class="btn btn-primary btn-sm receipt-apply" style="justify-self:start" data-doc="{{ row.name }}" data-stot="{{ row.nvfac_stot or 0 }}" title="Aplicar" disabled>
@@ -241,6 +230,8 @@
                     </div>
                     {% endif %}
                 </div>
+                {% else %}
+                <div style="color:#8a9099;font-size:12px">Sin datos</div>
                 {% endif %}
             </div>
         </div>

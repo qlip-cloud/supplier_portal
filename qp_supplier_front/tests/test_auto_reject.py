@@ -135,15 +135,21 @@ class TestGetRejectMotive(unittest.TestCase):
         self.assertEqual(get_reject_motive(rule), "Motivo custom")
 
     def test_fallback_al_default_por_codigo(self):
-        self.assertIn(
-            "orden de compra",
+        self.assertEqual(
             get_reject_motive(_rule(RULE_NO_PO, motive="")),
+            "Rechazada por falta de orden de compra",
         )
 
     def test_default_recibo(self):
-        self.assertIn(
-            "recibo de compra",
+        self.assertEqual(
             get_reject_motive(_rule(RULE_NO_RECEIPT, motive="")),
+            "Rechazada por falta de recibo de compra",
+        )
+
+    def test_default_orden_y_recibo(self):
+        self.assertEqual(
+            get_reject_motive(_rule(RULE_NO_PO_NO_RECEIPT, motive="")),
+            "Rechazada por falta de orden de compra y recibo de compra",
         )
 
 

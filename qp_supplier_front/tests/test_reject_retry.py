@@ -37,12 +37,14 @@ def _err_log(code):
     }
 
 
-def _doc():
+def _doc(qp_motive=None):
     class Doc(object):
         nvpro_ndoc = "900123456"
         nvfac_cont = 1
         nvfac_esta = "E"
-    return Doc()
+    doc = Doc()
+    doc.qp_motive = qp_motive
+    return doc
 
 
 class TestIsAlreadyApplied(unittest.TestCase):
@@ -165,6 +167,29 @@ class TestBuildRetryEvents(unittest.TestCase):
         self.assertEqual(events[0]["payload"]["Nvfac_esta"], "E")
         self.assertEqual(events[1]["payload"]["Nvfac_esta"], "E")
         self.assertEqual(events[2]["payload"]["Nvfac_esta"], "R")
+
+    def test_payload_envia_el_motivo_del_doc(self):
+        events = build_retry_events(
+            _doc(qp_motive="Rechazada por falta de orden de compra"),
+            {"031": {"nvfac_esta": "R"}}, "890900",
+            resume_index=0,
+        )
+        for event in events:
+            self.assertEqual(
+                event["payload"]["Nvint_desc"],
+                "Rechazada por falta de orden de compra",
+            )
+
+    def test_payload_sin_motivo_usa_descripcion_default(self):
+        events = build_retry_events(
+            _doc(), {"031": {"nvfac_esta": "R"}}, "890900",
+            resume_index=0,
+        )
+        for event in events:
+            self.assertEqual(
+                event["payload"]["Nvint_desc"],
+                "Rechazo por error de factura",
+            )
 
 
 class TestIsSequenceSuccessful(unittest.TestCase):

@@ -261,6 +261,7 @@ def validate_registrables(docs, po_exists_fn, receipt_bank_fn, resolve_rule_fn=N
             valid.append(doc)
         else:
             errors.append({
+                "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": error,
             })
@@ -420,12 +421,37 @@ def _split_by_blockers(docs):
         blocker = get_registrable_blockers(doc)
         if blocker:
             errors.append({
+                "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": blocker,
             })
         else:
             valid.append(doc)
     return valid, errors
+
+
+def plan_unregistrable(docs, errors, force=False):
+    """Plan de degradacion V -> E para facturas que ya no completan recibos.
+
+    Devuelve la lista de docs que estaban en estado "V" (Lista para Registro)
+    y fallaron la regla OC - recepcion - montos en la validacion/asignacion,
+    para que el flujo automatico las devuelva a "E" (Registrado) y queden
+    disponibles para asignacion. En modo forzado (force) no se degrada nada:
+    el usuario confirmo explicitamente omitir esas advertencias.
+    """
+    if force:
+        return []
+    by_name = {doc.get("name"): doc for doc in (docs or [])}
+    unregistrable = []
+    for error in (errors or []):
+        doc = by_name.get(error.get("name"))
+        if doc and doc.get("nvfac_esta") == "V":
+            unregistrable.append({
+                "name": doc.get("name"),
+                "nvfac_nume": doc.get("nvfac_nume"),
+                "error": error.get("error"),
+            })
+    return unregistrable
 
 
 def _scalar_bank_fn(receipts_total_fn):
@@ -477,6 +503,7 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
         blocker = get_registrable_blockers(doc)
         if blocker:
             errors.append({
+                "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": blocker,
             })
@@ -490,6 +517,7 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
             )
             if warnings:
                 errors.append({
+                    "name": doc.get("name"),
                     "nvfac_nume": doc.get("nvfac_nume"),
                     "error": warnings[0],
                 })
@@ -499,12 +527,14 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
         purchase_order = doc.get("nvfac_orde")
         if not purchase_order:
             errors.append({
+                "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": _no_order_warning(),
             })
             continue
         if not po_exists_fn(purchase_order):
             errors.append({
+                "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": _order_not_exists_warning(purchase_order),
             })
@@ -520,6 +550,7 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
         if not unconsumed_receipts(bank):
             for doc in group:
                 errors.append({
+                    "name": doc.get("name"),
                     "nvfac_nume": doc.get("nvfac_nume"),
                     "error": _no_receipts_warning(purchase_order),
                 })
@@ -535,6 +566,7 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
             matched = packed.get(doc.get("nvfac_nume"))
             if matched is None:
                 errors.append({
+                    "name": doc.get("name"),
                     "nvfac_nume": doc.get("nvfac_nume"),
                     "error": _no_match_warning(doc.get("nvfac_stot") or 0),
                 })
@@ -575,6 +607,7 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon):
         blocker = get_registrable_blockers(doc)
         if blocker:
             errors.append({
+                "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": blocker,
             })
@@ -582,6 +615,7 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon):
         receipt_names = ((selected_receipts or {}).get(doc.get("name")) or [])
         if not receipt_names:
             errors.append({
+                "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": "La factura no tiene recepciones seleccionadas",
             })
@@ -595,6 +629,7 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon):
         )
         if not ok:
             errors.append({
+                "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": error,
             })
@@ -603,6 +638,7 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon):
         # reserva recibos (no inicia el proceso de aprobacion).
         if classification != "completo":
             errors.append({
+                "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": "La selección de recepciones no cubre el total de la factura",
             })
@@ -659,7 +695,9 @@ def approve_documents(
        facturas realmente persistidas). Las que fallan (o duplicadas) no
        consumen y se registran via mark_error_fn / mark_duplicate_registered_fn.
 
-    Retorna {"approved": [...], "errors": [...]}.
+    Retorna {"approved": [...], "errors": [...], "unregistrable": [...]}.
+    "unregistrable" lista docs que estaban en "V" y fallaron la regla
+    OC - recepcion - montos (para que el flujo automatico los devuelva a "E").
     """
     docs = get_docs_fn(doc_names)
 
@@ -682,8 +720,10 @@ def approve_documents(
         )
         allocation = {}
 
+    unregistrable = plan_unregistrable(docs, errors, force=force)
+
     if not valid:
-        return {"approved": [], "errors": errors}
+        return {"approved": [], "errors": errors, "unregistrable": unregistrable}
 
     payload_docs = []
     payload = []
@@ -697,7 +737,7 @@ def approve_documents(
         payload.append(_build_invoice(doc, lines, headquarter))
 
     if not payload:
-        return {"approved": [], "errors": errors}
+        return {"approved": [], "errors": errors, "unregistrable": unregistrable}
 
     try:
         response, status = send_request_fn(
@@ -707,13 +747,13 @@ def approve_documents(
     except Exception as e:
         for doc in payload_docs:
             _record_error(errors, mark_error_fn, doc, str(e))
-        return {"approved": [], "errors": errors}
+        return {"approved": [], "errors": errors, "unregistrable": unregistrable}
 
     if is_error_response(response, status):
         message = get_error_message(response)
         for doc in payload_docs:
             _record_error(errors, mark_error_fn, doc, message)
-        return {"approved": [], "errors": errors}
+        return {"approved": [], "errors": errors, "unregistrable": unregistrable}
 
     invoice_results = parse_doc_numbers_fn(response)
 
@@ -758,4 +798,4 @@ def approve_documents(
 
     commit_fn()
 
-    return {"approved": approved, "errors": errors}
+    return {"approved": approved, "errors": errors, "unregistrable": unregistrable}

@@ -33,8 +33,9 @@ from qp_supplier_front.resources.documenteme.auto_reject import (
 )
 from qp_supplier_front.uses_cases.documenteme.approve import (
     ANALYSIS_STATES,
-    validate_registrable,
+    _allocate_registrables,
 )
+from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILON
 
 AUTO_APPROVE_JOB_METHOD = (
     "qp_supplier_front.resources.documenteme.auto_approve.approve_batch_job"
@@ -124,33 +125,52 @@ def get_analysis_candidates(doc_names=None):
 
 
 def promote_eligible_to_v(doc_names=None):
+    """Fase analisis: promueve a "V" solo facturas con combinacion real.
+
+    Reparte el banco cooperativamente por orden de compra (_allocate_registrables,
+    el mismo reparto que usa la aprobacion). Solo las facturas que OBTIENEN una
+    combinacion exacta de recepciones no consumidas suben a "V"; las perdedoras
+    quedan en "E" y seran asignadas por el flujo de asignacion. Si en un ciclo
+    posterior llegan recibos que la completan, vuelve a ser candidata y se
+    promueve (independientemente de si ya esta asignada: la asignacion no
+    bloquea la auto-aprobacion cuando la factura se completa).
+    """
     data = _data()
     cb = _callbacks()
     po_ok = cb.get("po_exists_fn", po_exists)
     bank_fn = cb.get("receipt_bank_fn", receipt_bank)
     resolve_rule = cb.get("resolve_rule_fn", _resolve_rule)
 
+    candidates = [
+        doc
+        for doc in get_analysis_candidates(doc_names)
+        if doc.get("nvfac_esta") != "V"
+    ]
+    valid, _errors, _allocation = _allocate_registrables(
+        candidates,
+        po_ok,
+        bank_fn,
+        DEFAULT_EPSILON,
+        resolve_rule_fn=resolve_rule,
+    )
+
     promoted = []
-    for doc in get_analysis_candidates(doc_names):
-        ok, _ = validate_registrable(
-            doc, po_ok, bank_fn, resolve_rule_fn=resolve_rule
-        )
-        if ok and doc.get("nvfac_esta") != "V":
-            if data is None:
-                frappe.db.set_value(
-                    "qp_SP_DocumentDetail",
-                    doc.get("name"),
-                    "nvfac_esta",
-                    "V",
-                )
-            else:
-                data.set_value(
-                    "qp_SP_DocumentDetail",
-                    doc.get("name"),
-                    "nvfac_esta",
-                    "V",
-                )
-            promoted.append(doc.get("nvfac_nume"))
+    for doc in valid:
+        if data is None:
+            frappe.db.set_value(
+                "qp_SP_DocumentDetail",
+                doc.get("name"),
+                "nvfac_esta",
+                "V",
+            )
+        else:
+            data.set_value(
+                "qp_SP_DocumentDetail",
+                doc.get("name"),
+                "nvfac_esta",
+                "V",
+            )
+        promoted.append(doc.get("nvfac_nume"))
     if data is None:
         frappe.db.commit()
     else:
@@ -232,6 +252,7 @@ def run_auto_approve(enqueue=True, doc_names=None):
 def approve_batch_job(doc_names):
     result = approve_documents_core(doc_names)
     data = _data()
+    _demote_unregistrable(result, data)
     if data is None:
         frappe.db.commit()
     else:
@@ -246,6 +267,30 @@ def approve_batch_job(doc_names):
         )
 
     return result
+
+
+def _demote_unregistrable(result, data):
+    """Red de seguridad: devuelve a "E" facturas "V" sin combinacion de recibos.
+
+    Una factura promovida a "V" que al aprobarse no logra combinacion de
+    recepciones (p. ej. otra factura de la misma OC se quedo con los recibos)
+    vuelve a "E" (Registrado) en lugar de quedar atascada en "V". No inserta
+    alerta: el proximo ciclo la re-evalua y, si llegan recibos que la completen,
+    se vuelve a promover y aprobar; mientras tanto queda disponible para que el
+    flujo de asignacion la asigne.
+    """
+    for item in (result.get("unregistrable") or []):
+        name = item.get("name")
+        if not name:
+            continue
+        if data is None:
+            frappe.db.set_value(
+                "qp_SP_DocumentDetail", name, "nvfac_esta", "E"
+            )
+        else:
+            data.set_value(
+                "qp_SP_DocumentDetail", name, "nvfac_esta", "E"
+            )
 
 
 @frappe.whitelist()

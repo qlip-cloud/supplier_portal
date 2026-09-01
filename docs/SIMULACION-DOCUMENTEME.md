@@ -83,13 +83,17 @@ vista) para saber qué se está probando a simple vista.
 | `SIM-FAC-0002` | Crédito sin OC | — | **R** (rechazada) |
 | `SIM-FAC-0003` | Contado con OC `PO-SIM-0001` | PO | **A** (aprobada, directo sin evento) |
 | `SIM-FAC-0004` | Contado sin OC | — | **E + asignada** (no aprueba: rompe `no_po`) |
-| `SIM-POA-0001` | Crédito · OC `PO-A-0001` | banco A | **A** (2000 = 500+1500) |
-| `SIM-POA-0002` | Crédito · OC `PO-A-0001` | banco A | **A** (4000 = 1000+3000) |
-| `SIM-POB-0001` | Crédito · OC `PO-B-0001` | banco B | **A** (1000) |
-| `SIM-POB-0002` | Crédito · OC `PO-B-0001` | banco B | **A** (2000) |
-| `SIM-POB-0003` | Crédito · OC `PO-B-0001` | banco B | **E + asignada** (2500 no cubre) |
-| `SIM-POC-0001` | Crédito · OC `PO-C-0001` | banco C | **E + asignada** (ninguno cubre) |
-| `SIM-POC-0002` | Crédito · OC `PO-C-0001` | banco C | **E + asignada** (ninguno cubre) |
+| `SIM-POA-0001` | Crédito · OC `PO-POA-0001` | banco A | **A** (2000 = 500+1500) |
+| `SIM-POA-0002` | Crédito · OC `PO-POA-0002` | banco A | **A** (4000 = 1000+3000) |
+| `SIM-POB-0001` | Crédito · OC `PO-POB-0001` | banco B | **A** (1000) |
+| `SIM-POB-0002` | Crédito · OC `PO-POB-0002` | banco B | **A** (2000) |
+| `SIM-POB-0003` | Crédito · OC `PO-POB-0003` | banco B | **E + asignada** (2500 no cubre) |
+| `SIM-POC-0001` | Crédito · OC `PO-POC-0001` | banco C | **E + asignada** (ninguno cubre) |
+| `SIM-POC-0002` | Crédito · OC `PO-POC-0002` | banco C | **E + asignada** (ninguno cubre) |
+
+> Cada factura del escenario tiene **SU PROPIA orden de compra** (1:1). El
+> modelo admite además **varias facturas por una misma OC** (caso evaluado en
+> la OC compartida `PO-A-0001`, ver `docs/BANCO-RECIBOS.md`).
 
 Seeds de referencia (mismo NIT `999999999`):
 
@@ -99,12 +103,13 @@ Seeds de referencia (mismo NIT `999999999`):
 - `qp_md_headquarter` — `HQ01`.
 - `qp_SP_OCType` — `COMPRA` (no inventariable).
 - `qp_SP_AssignmentConfig` `CFG-COMPRA` + user `asignado@sim.local` (oc_type) y **`CFG-CATCHALL`** (oc_type/headquarter vacíos = destinatarios por defecto del contado sin OC).
-- POs: `PO-SIM-0001`, `PO-A-0001`, `PO-B-0001`, `PO-C-0001` (headquarter `HQ01`).
+- POs (headquarter `HQ01`): `PO-SIM-0001`, `PO-A-0001` (OC compartida de evaluación), y las OC propias `PO-POA-0001/0002`, `PO-POB-0001/0002/0003`, `PO-POC-0001/0002`.
 - Recibos `qp_SP_PurchaseReceipt` con `total`/`posting_date`/`qp_invoice=''`/`supplier_delivery_note`:
-  - **Banco A** (PO-A-0001): `REC-A-1=500`, `REC-A-2=1500`, `REC-A-3=1000`, `REC-A-4=3000` → **caso A: consistente, aprueban todas**.
-  - **Banco B** (PO-B-0001): `REC-B-1=1000`, `REC-B-2=2000`, `REC-B-3=1000` → **caso B: parcial, aprueban solo las cubiertas** (2500 no es combinable).
-  - **Banco C** (PO-C-0001): `REC-C-1=500`, `REC-C-2=700` → **caso C: ninguna factura cubre ninguna recepción** (1000 y 800 no combinables).
-- Items (child tables): `qp_SP_PurchaseOrderItem` (por PO) y `qp_SP_PurchaseReceiptItem` (por recibo) para la vista (detalle de OC/recibos).
+  - **OC compartida de evaluación** (PO-A-0001): `REC-A-1=500`, `REC-A-2=1500`, `REC-A-3=1000`, `REC-A-4=3000` → ejercicio de **varias facturas por una OC** (selección manual del banco). No la usan los fixtures del escenario.
+  - **Caso A** (`PO-POA-0001`/`PO-POA-0002`): `REC-POA1-1=500`+`REC-POA1-2=1500` → cubre SIM-POA-0001; `REC-POA2-1=1000`+`REC-POA2-2=3000` → cubre SIM-POA-0002. **Aprueban ambas**.
+  - **Caso B** (`PO-POB-0001`/`PO-POB-0002`/`PO-POB-0003`): `REC-POB1-1=1000`, `REC-POB2-1=2000`, `REC-POB3-1=1000` → aprueban solo las cubiertas (SIM-POB-0003 no cubre 2500).
+  - **Caso C** (`PO-POC-0001`/`PO-POC-0002`): `REC-POC1-1=500`, `REC-POC2-1=700` → ninguna factura cubre su OC (1000 y 800 no combinables).
+- Items (child tables): `qp_SP_PurchaseOrderItem` (por PO, 1-1 con la factura) y `qp_SP_PurchaseReceiptItem` (por recibo) para la vista (detalle de OC/recibos).
 
 > Los seeds son **idempotentes** (insert-if-missing): al re-resolverse el
 > composition root dentro del mismo sync **no** pisan el estado mutado de los

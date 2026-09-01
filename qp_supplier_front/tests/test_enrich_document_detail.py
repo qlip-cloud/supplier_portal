@@ -255,5 +255,136 @@ class TestEnrichDocumentDetail(unittest.TestCase):
         frappe_mock.db.set_value.assert_not_called()
 
 
+class _DetailFakeRefs(object):
+    """Referencias fake para probar recepciones_detalle agrupado por recibo."""
+
+    def __init__(self):
+        self.claims = {}
+        self.rows = [
+            {"name": "REC1", "supplier_delivery_note": "RECIBO 1",
+             "posting_date": "2026-07-16", "total": 600},
+            {"name": "REC2", "supplier_delivery_note": "RECIBO 2",
+             "posting_date": "2026-07-17", "total": 400},
+        ]
+        self.items = [
+            {"parent": "REC1", "item_code": "SH00086", "uom": "UN",
+             "qty": 1, "rate": 600, "amount": 600},
+            {"parent": "REC1", "item_code": "SH00087", "uom": "CAJA",
+             "qty": 2, "rate": 300, "amount": 600},
+            {"parent": "REC2", "item_code": "SH00088", "uom": "UN",
+             "qty": 4, "rate": 100, "amount": 400},
+        ]
+
+    def po_exists(self, purchase_order):
+        return True
+
+    def po_items(self, purchase_order):
+        return []
+
+    def receipts_for(self, purchase_order, qp_invoice=None):
+        if qp_invoice is not None:
+            return [
+                r for r in self.rows
+                if self.claims.get(r["name"]) == qp_invoice
+            ]
+        return self.rows
+
+    def receipt_bank_for(self, purchase_order):
+        return [
+            {"name": r["name"], "amount": r["total"], "date": r["posting_date"],
+             "qp_invoice": None}
+            for r in self.rows
+        ]
+
+    def bank_for_invoice(self, purchase_order, invoice_number):
+        return [
+            {"name": r["name"], "amount": r["total"], "date": r["posting_date"],
+             "qp_invoice": None, "claimed_by_me": False, "selectable": True}
+            for r in self.rows
+            if self.claims.get(r["name"]) in (None, invoice_number)
+        ]
+
+    def has_claimed_receipts(self, invoice_number):
+        return bool(self.claims) if invoice_number else False
+
+    def receipt_items_for(self, receipt_names):
+        return [i for i in self.items if i["parent"] in receipt_names]
+
+
+class TestRecepcionesDetalle(unittest.TestCase):
+
+    def _run(self, document, refs):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = []
+        with patch.dict(sys.modules, {"frappe": frappe_mock}):
+            enrich_document_detail(document, references=refs)
+        return document
+
+    def test_agrupa_productos_por_recibo(self):
+        refs = _DetailFakeRefs()
+        document = {
+            "name": "DOC1",
+            "nvfac_nume": "FAC1",
+            "nvfac_orde": "OC111",
+            "nvfac_totp": 1190,
+            "nvfac_stot": 1000,
+            "nvfac_esta": "E",
+        }
+        self._run(document, refs)
+
+        detalle = document["recepciones_detalle"]
+        self.assertEqual(len(detalle), 2)
+
+        rec1 = detalle[0]
+        self.assertEqual(rec1["name"], "REC1")
+        self.assertEqual(rec1["etiqueta"], "RECIBO 1")
+        self.assertEqual(rec1["monto"], 600)
+        self.assertTrue(rec1["selectable"])
+        self.assertEqual(
+            [p["codigo"] for p in rec1["productos"]], ["SH00086", "SH00087"])
+
+        rec2 = detalle[1]
+        self.assertEqual(rec2["name"], "REC2")
+        self.assertEqual(rec2["etiqueta"], "RECIBO 2")
+        self.assertEqual(
+            [p["codigo"] for p in rec2["productos"]], ["SH00088"])
+
+    def test_sin_recibos_detalle_vacio(self):
+        refs = _DetailFakeRefs()
+        refs.rows = []
+        document = {
+            "name": "DOC1",
+            "nvfac_nume": "FAC1",
+            "nvfac_orde": "OC111",
+            "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
+            "nvfac_esta": "E",
+        }
+        self._run(document, refs)
+        self.assertEqual(document["recepciones_detalle"], [])
+
+    def test_estado_definitivo_solo_recibos_vinculados(self):
+        refs = _DetailFakeRefs()
+        refs.claims["REC1"] = "FAC1"
+        document = {
+            "name": "DOC1",
+            "nvfac_nume": "FAC1",
+            "nvfac_orde": "OC111",
+            "nvfac_totp": 1190,
+            "nvfac_stot": 1000,
+            "nvfac_esta": "BCC",
+        }
+        self._run(document, refs)
+
+        self.assertTrue(document["hide_unselected_recibos"])
+        detalle = document["recepciones_detalle"]
+        self.assertEqual(len(detalle), 1)
+        self.assertEqual(detalle[0]["name"], "REC1")
+        self.assertTrue(detalle[0]["claimed_by_me"])
+        self.assertFalse(detalle[0]["selectable"])
+        self.assertEqual(
+            [p["codigo"] for p in detalle[0]["productos"]], ["SH00086", "SH00087"])
+
+
 if __name__ == "__main__":
     unittest.main()

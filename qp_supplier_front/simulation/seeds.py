@@ -143,9 +143,11 @@ def seed_scenario(store):
 
     Siembra la data de referencia que alimenta los 11 fixtures del escenario:
     - 4 facturas de casuistica general (credito/contado, R/A).
-    - Banco de recibos: verifica los casos A (consistente -> aprueban todas),
-      B (consistencia parcial -> aprueban solo las cubiertas) y C (ninguna
-      cubierta -> ninguna aprueba) sobre una OC compartida con varios recibos.
+    - Cada factura del banco de recibos tiene SU PROPIA OC (1:1). Verifica los
+      casos A (consistente -> aprueba), B (parcial) y C (ninguna cubierta ->
+      asignada).
+    - PO-A-0001 se conserva como OC compartida de evaluacion (varias facturas
+      por una OC); no la usan los fixtures del escenario.
     """
     seed_supplier(store, SIM_NIT)
     seed_reject_rule(store, "RULE-NO-PO", "no_po",
@@ -164,22 +166,32 @@ def seed_scenario(store):
     )
     seed_master_setup(store, auto_approve=1, auto_reject="RULE-NO-PO")
 
+    # Ordenes de compra: CADA factura del escenario tiene su PROPIA OC (1:1).
+    # PO-A-0001 se conserva como OC compartida de evaluacion (varias facturas
+    # por una OC), usada por la seleccion manual del banco.
     seed_purchase_order(store, "PO-SIM-0001", headquarter="HQ01", oc_type="COMPRA")
     seed_purchase_order(store, "PO-A-0001", headquarter="HQ01", oc_type="COMPRA")
-    seed_purchase_order(store, "PO-B-0001", headquarter="HQ01", oc_type="COMPRA")
-    seed_purchase_order(store, "PO-C-0001", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POA-0001", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POA-0002", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POB-0001", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POB-0002", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POB-0003", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POC-0001", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POC-0002", headquarter="HQ01", oc_type="COMPRA")
 
     seed_purchase_order_item(store, "PO-SIM-0001", "ITEM-0003", 4, 100000)
     seed_purchase_order_item(store, "PO-A-0001", "ITEM-POA1", 1, 2000)
     seed_purchase_order_item(store, "PO-A-0001", "ITEM-POA2", 1, 4000)
-    seed_purchase_order_item(store, "PO-B-0001", "ITEM-POB1", 1, 1000)
-    seed_purchase_order_item(store, "PO-B-0001", "ITEM-POB2", 1, 2000)
-    seed_purchase_order_item(store, "PO-B-0001", "ITEM-POB3", 1, 2500)
-    seed_purchase_order_item(store, "PO-C-0001", "ITEM-POC1", 1, 1000)
-    seed_purchase_order_item(store, "PO-C-0001", "ITEM-POC2", 1, 800)
+    seed_purchase_order_item(store, "PO-POA-0001", "ITEM-POA1", 1, 2000)
+    seed_purchase_order_item(store, "PO-POA-0002", "ITEM-POA2", 1, 4000)
+    seed_purchase_order_item(store, "PO-POB-0001", "ITEM-POB1", 1, 1000)
+    seed_purchase_order_item(store, "PO-POB-0002", "ITEM-POB2", 1, 2000)
+    seed_purchase_order_item(store, "PO-POB-0003", "ITEM-POB3", 1, 2500)
+    seed_purchase_order_item(store, "PO-POC-0001", "ITEM-POC1", 1, 1000)
+    seed_purchase_order_item(store, "PO-POC-0002", "ITEM-POC2", 1, 800)
 
-    # Caso A: recibos consistentes con ambas facturas (2000 = 500+1500,
-    # 4000 = 1000+3000) -> se aprueban todas.
+    # OC compartida de evaluacion (varias facturas por una OC): PO-A-0001 con
+    # su banco de 4 recibos. NO la usan las facturas del escenario.
     seed_purchase_receipt(store, "REC-A-1", "PO-A-0001", 500, posting_date="2026-08-20",
                           supplier_delivery_note="RECIBO A1 · 500")
     seed_purchase_receipt(store, "REC-A-2", "PO-A-0001", 1500, posting_date="2026-08-21",
@@ -194,23 +206,51 @@ def seed_scenario(store):
     seed_purchase_receipt_item(store, "REC-A-3", "ITEM-REC-A3", 1, 1000)
     seed_purchase_receipt_item(store, "REC-A-4", "ITEM-REC-A4", 1, 3000)
 
-    # Caso B: cubren 1000 y 2000 pero NO 2500 -> aprueban solo 2 de 3.
-    seed_purchase_receipt(store, "REC-B-1", "PO-B-0001", 1000, posting_date="2026-08-20",
-                          supplier_delivery_note="RECIBO B1 · 1000")
-    seed_purchase_receipt(store, "REC-B-2", "PO-B-0001", 2000, posting_date="2026-08-21",
-                          supplier_delivery_note="RECIBO B2 · 2000")
-    seed_purchase_receipt(store, "REC-B-3", "PO-B-0001", 1000, posting_date="2026-08-22",
-                          supplier_delivery_note="RECIBO B3 · 1000")
+    # Caso A: cada factura con su OC y banco consistente -> se aprueban todas.
+    # SIM-POA-0001 (2000 = 500+1500) sobre PO-POA-0001.
+    seed_purchase_receipt(store, "REC-POA1-1", "PO-POA-0001", 500,
+                          posting_date="2026-08-20",
+                          supplier_delivery_note="RECIBO POA1-1 · 500")
+    seed_purchase_receipt(store, "REC-POA1-2", "PO-POA-0001", 1500,
+                          posting_date="2026-08-21",
+                          supplier_delivery_note="RECIBO POA1-2 · 1500")
+    seed_purchase_receipt_item(store, "REC-POA1-1", "ITEM-REC-POA1-1", 1, 500)
+    seed_purchase_receipt_item(store, "REC-POA1-2", "ITEM-REC-POA1-2", 1, 1500)
 
-    seed_purchase_receipt_item(store, "REC-B-1", "ITEM-REC-B1", 1, 1000)
-    seed_purchase_receipt_item(store, "REC-B-2", "ITEM-REC-B2", 1, 2000)
-    seed_purchase_receipt_item(store, "REC-B-3", "ITEM-REC-B3", 1, 1000)
+    # SIM-POA-0002 (4000 = 1000+3000) sobre PO-POA-0002.
+    seed_purchase_receipt(store, "REC-POA2-1", "PO-POA-0002", 1000,
+                          posting_date="2026-08-22",
+                          supplier_delivery_note="RECIBO POA2-1 · 1000")
+    seed_purchase_receipt(store, "REC-POA2-2", "PO-POA-0002", 3000,
+                          posting_date="2026-08-23",
+                          supplier_delivery_note="RECIBO POA2-2 · 3000")
+    seed_purchase_receipt_item(store, "REC-POA2-1", "ITEM-REC-POA2-1", 1, 1000)
+    seed_purchase_receipt_item(store, "REC-POA2-2", "ITEM-REC-POA2-2", 1, 3000)
 
-    # Caso C: ninguna factura cubre ninguna recepcion -> ninguna aprueba.
-    seed_purchase_receipt(store, "REC-C-1", "PO-C-0001", 500, posting_date="2026-08-20",
-                          supplier_delivery_note="RECIBO C1 · 500")
-    seed_purchase_receipt(store, "REC-C-2", "PO-C-0001", 700, posting_date="2026-08-21",
-                          supplier_delivery_note="RECIBO C2 · 700")
+    # Caso B: parcial -> SIM-POB-0001 y SIM-POB-0002 aprobadas; SIM-POB-0003
+    # no cubre su OC (2500 frente a un solo recibo de 1000) -> asignada.
+    seed_purchase_receipt(store, "REC-POB1-1", "PO-POB-0001", 1000,
+                          posting_date="2026-08-20",
+                          supplier_delivery_note="RECIBO POB1-1 · 1000")
+    seed_purchase_receipt_item(store, "REC-POB1-1", "ITEM-REC-POB1-1", 1, 1000)
 
-    seed_purchase_receipt_item(store, "REC-C-1", "ITEM-REC-C1", 1, 500)
-    seed_purchase_receipt_item(store, "REC-C-2", "ITEM-REC-C2", 1, 700)
+    seed_purchase_receipt(store, "REC-POB2-1", "PO-POB-0002", 2000,
+                          posting_date="2026-08-21",
+                          supplier_delivery_note="RECIBO POB2-1 · 2000")
+    seed_purchase_receipt_item(store, "REC-POB2-1", "ITEM-REC-POB2-1", 1, 2000)
+
+    seed_purchase_receipt(store, "REC-POB3-1", "PO-POB-0003", 1000,
+                          posting_date="2026-08-22",
+                          supplier_delivery_note="RECIBO POB3-1 · 1000")
+    seed_purchase_receipt_item(store, "REC-POB3-1", "ITEM-REC-POB3-1", 1, 1000)
+
+    # Caso C: ninguna factura cubre su OC -> ambas asignadas.
+    seed_purchase_receipt(store, "REC-POC1-1", "PO-POC-0001", 500,
+                          posting_date="2026-08-20",
+                          supplier_delivery_note="RECIBO POC1-1 · 500")
+    seed_purchase_receipt_item(store, "REC-POC1-1", "ITEM-REC-POC1-1", 1, 500)
+
+    seed_purchase_receipt(store, "REC-POC2-1", "PO-POC-0002", 700,
+                          posting_date="2026-08-21",
+                          supplier_delivery_note="RECIBO POC2-1 · 700")
+    seed_purchase_receipt_item(store, "REC-POC2-1", "ITEM-REC-POC2-1", 1, 700)

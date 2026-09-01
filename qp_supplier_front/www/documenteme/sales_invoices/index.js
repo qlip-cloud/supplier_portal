@@ -435,8 +435,17 @@ $(document).ready(function () {
         });
     }
 
+    function renderReceiptBankFor(element) {
+        renderReceiptBank($(element).closest(".receipt-bank"));
+    }
+
+    // Fallback robusto accesible desde el onchange inline del checkbox: en
+    // algunos flujos (accordion dentro de la fila desplegable) el cambio de
+    // estado del check no se propaga por delegacion.
+    window.renderReceiptBankFor = renderReceiptBankFor;
+
     $(document).on("change", ".receipt-select", function () {
-        renderReceiptBank($(this).closest(".receipt-bank"));
+        renderReceiptBankFor(this);
     });
 
     $(document).on("click", ".receipt-apply", function () {
