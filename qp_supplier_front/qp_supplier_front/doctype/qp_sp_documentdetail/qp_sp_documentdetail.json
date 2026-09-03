@@ -49,12 +49,14 @@
    "nvpro_dire",
    "nvfac_tota",
    "nvfac_votr",
-     "detail_lines",
-     "attached_files",
-     "event_logs",
-     "allowance_charges",
-     "alertas"
-   ],
+"detail_lines",
+      "attached_files",
+      "event_logs",
+      "allowance_charges",
+      "timeline",
+      "timeline_read",
+      "alertas"
+    ],
  "fields": [
   {
    "fieldname": "document_sync_line",
@@ -309,6 +311,18 @@
     "label": "Allowance Charges",
     "options": "qp_SP_AllowanceCharge"
    },
+{
+    "fieldname": "timeline",
+    "fieldtype": "Table",
+    "label": "Timeline",
+    "options": "qp_SP_TimelineEntry"
+   },
+   {
+    "fieldname": "timeline_read",
+    "fieldtype": "Table",
+    "label": "Lectura de conversaci\u00f3n",
+    "options": "qp_SP_TimelineRead"
+   },
    {
     "fieldname": "alertas",
     "fieldtype": "Table",
@@ -316,9 +330,9 @@
     "options": "qp_SP_Alert"
    }
   ],
- "index_web_pages_for_search": 1,
- "links": [],
-  "modified": "2026-08-24 18:00:00.000000",
+  "index_web_pages_for_search": 1,
+  "links": [],
+   "modified": "2026-09-03 18:05:12.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DocumentDetail",

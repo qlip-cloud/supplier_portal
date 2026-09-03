@@ -13,8 +13,12 @@ aprueba (o se rechaza).
 import frappe
 
 
-def insert_alert(parent_name, message, now):
-    """Inserta una alerta Abierta en la child table de la factura."""
+def insert_alert(parent_name, message, now, alert_type="Alerta"):
+    """Inserta una alerta Abierta en la child table de la factura.
+
+    alert_type: "Alerta" (no urgente) o "ErrorUrgente" (requiere atencion
+    inmediata; pinta el icono de la factura en rojo).
+    """
     if not parent_name:
         return
 
@@ -32,9 +36,9 @@ def insert_alert(parent_name, message, now):
     frappe.db.sql(
         """
         INSERT INTO `tabqp_SP_Alert`
-        (name, parent, parentfield, parenttype, idx, alert_date, alert_message, status,
-         creation, modified, modified_by, owner)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        (name, parent, parentfield, parenttype, idx, alert_date, alert_message,
+         alert_type, status, creation, modified, modified_by, owner)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             alert_name,
@@ -44,6 +48,7 @@ def insert_alert(parent_name, message, now):
             idx,
             now,
             message,
+            alert_type,
             "Abierta",
             now,
             now,

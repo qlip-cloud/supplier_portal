@@ -70,13 +70,35 @@ def _is_error(response, status):
 
 
 def _append_log(doc, event_code, payload, response, status, now_fn):
+    from qp_supplier_front.uses_cases.documenteme.event_logs import (
+        event_is_success,
+        filter_by_code,
+        plan_event_log,
+    )
+
+    new_is_success = event_is_success(response, status)
+    existing = filter_by_code(doc.get("event_logs"), event_code)
+    error_message = "" if new_is_success else _get_error_message(response)
+    serialized = (
+        json.dumps(response) if not isinstance(response, str) else response
+    )
+
+    if plan_event_log(existing, new_is_success) == "update":
+        last = existing[-1]
+        last.status = status
+        last.response = serialized
+        last.error_message = error_message
+        last.attempt_date = now_fn()
+        return last
+
     log_row = doc.append("event_logs")
     log_row.event_code = event_code
     log_row.payload = json.dumps(payload)
-    log_row.response = json.dumps(response) if not isinstance(response, str) else response
+    log_row.response = serialized
     log_row.status = status
-    log_row.error_message = _get_error_message(response) if _is_error(response, status) else ""
+    log_row.error_message = error_message
     log_row.attempt_date = now_fn()
+    return log_row
 
 
 def send_event_sequence(doc, event_config, send_request_fn, commit_fn,

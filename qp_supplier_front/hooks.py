@@ -109,6 +109,9 @@ doc_events = {
     },
     "qp_SP_PurchaseInvoiceBC": {
         "on_update": "qp_supplier_front.resources.documenteme.confirmation.on_purchase_invoice_bc_update"
+    },
+    "qp_SP_DocumentDetail": {
+        "before_save": "qp_supplier_front.resources.documenteme.timeline.on_document_before_save"
     }
 }
 

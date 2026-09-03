@@ -23,6 +23,11 @@ import json
 from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
 
 
+def _memory_timeline(store):
+    from qp_supplier_front.simulation.timeline_memory import MemoryTimelineAdapter
+    return MemoryTimelineAdapter(store)
+
+
 def _payload(doc, event_code, company_tax_id):
     from qp_supplier_front.uses_cases.documenteme.event_notifier import (
         DOCUMENTEME_EVENT_STATES,
@@ -39,27 +44,56 @@ def _payload(doc, event_code, company_tax_id):
 
 
 def _append_event(store, doc_name, event_code, payload, response, status):
+    from datetime import datetime
+
+    from qp_supplier_front.uses_cases.documenteme.event_logs import (
+        event_is_success,
+        plan_event_log,
+    )
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    serialized = (
+        json.dumps(response) if not isinstance(response, str) else response
+    )
+    existing = store.query(
+        "qp_SP_EventLog",
+        filters={"parent": doc_name, "event_code": event_code},
+    )
+    if plan_event_log(existing, event_is_success(response, status)) == "update":
+        store.update("qp_SP_EventLog", existing[-1]["name"], {
+            "status": status,
+            "response": serialized,
+            "error_message": "",
+            "attempt_date": now,
+        })
+        return
     store.insert("qp_SP_EventLog", {
         "parent": doc_name,
         "event_code": event_code,
         "payload": json.dumps(payload),
-        "response": json.dumps(response) if not isinstance(response, str) else response,
+        "response": serialized,
         "status": status,
+        "error_message": "",
+        "attempt_date": now,
     })
 
 
-def _alert(store, doc_name, message):
+def _alert(store, doc_name, message, alert_type="Alerta"):
     from datetime import datetime
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     store.insert("qp_SP_Alert", {
         "parent": doc_name,
-        "message": message,
-        "creation": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "alert_message": message,
+        "alert_type": alert_type,
+        "status": "Abierta",
+        "alert_date": now,
+        "creation": now,
     })
 
 
 def _resolve_alerts(store, doc_name):
     for alert in store.query("qp_SP_Alert", filters={"parent": doc_name}):
-        store.set_value("qp_SP_Alert", alert["name"], "resolved", 1)
+        store.set_value("qp_SP_Alert", alert["name"], "status", "Resuelta")
 
 
 def _receipt_for_po(store):
@@ -127,19 +161,28 @@ def run_reject(store, doc_names=None):
 
         store.set_value("qp_SP_DocumentDetail", name, "qp_motive",
                         get_reject_motive(rule))
+        old_state = store.get_value("qp_SP_DocumentDetail", name, "nvfac_esta")
         store.set_value("qp_SP_DocumentDetail", name, "nvfac_esta", "PR")
+        _memory_timeline(store).set_state(name, "PR", old_state=old_state)
         ok = _send_sequence(store, name, company_tax_id,
                             event_http_fn, url, headers, method)
         if ok:
+            old_state = store.get_value("qp_SP_DocumentDetail", name, "nvfac_esta")
             store.set_value("qp_SP_DocumentDetail", name, "nvfac_esta", "R")
             store.set_value("qp_SP_DocumentDetail", name,
                             "qp_is_event_completed", 1)
             store.set_value("qp_SP_DocumentDetail", name, "nvfac_ueve", "031")
+            _memory_timeline(store).set_state(
+                name, "R",
+                extra_fields={"qp_is_event_completed": 1},
+                old_state=old_state,
+            )
             _resolve_alerts(store, name)
             rejected.append(doc.get("nvfac_nume"))
         else:
             _alert(store, name,
-                   "No se ha podido rechazar en documenteme. Se reintentara.")
+                   "No se ha podido rechazar en documenteme. Se reintentara.",
+                   alert_type="ErrorUrgente")
             pending.append(doc.get("nvfac_nume"))
 
     return {"rejected": rejected, "pending": pending}

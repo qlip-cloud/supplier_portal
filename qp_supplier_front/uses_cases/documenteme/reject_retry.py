@@ -19,6 +19,10 @@ Reglas de reanudacion (segun el flujo definido):
 
 import json
 
+from qp_supplier_front.uses_cases.documenteme.event_logs import (
+    ALREADY_APPLIED_MARKERS,  # noqa: F401  (re-export para compatibilidad)
+    is_already_applied,
+)
 from qp_supplier_front.uses_cases.documenteme.event_notifier import (
     EVENT_ORDER,
     _build_payload,
@@ -34,61 +38,6 @@ def _to_int(value):
         return int(value)
     except (TypeError, ValueError):
         return None
-
-
-# Marcadores que indican que el evento YA fue emitido / ya esta aplicado.
-# Ajustar si documenteme cambia la redaccion de estos mensajes.
-ALREADY_APPLIED_MARKERS = (
-    "ya cuenta",
-    "ya fue emitido",
-    "ya existe",
-    "estado exitoso",
-    "estado exitosamente",
-)
-
-
-def _extract_message(response):
-    """Extrae el texto del mensaje del response (dict o string)."""
-    if isinstance(response, str):
-        return response
-    if not isinstance(response, dict):
-        return str(response)
-    return str(
-        response.get("Description")
-        or response.get("Message")
-        or response.get("message")
-        or response.get("error")
-        or response.get("Error")
-        or ""
-    )
-
-
-def is_already_applied(response):
-    """True si documenteme responde que el evento ya fue emitido/aplicado.
-
-    En el flujo de rechazo, un evento que "ya existe y esta en estado
-    exitoso" se considera aplicado correctamente: se debe AVANZAR al
-    siguiente evento y no contar como error (ni retroceder).
-
-    Marcadores directos ("ya fue emitido", "ya existe") indican por si solos
-    que el evento ya fue aplicado. El caso compuesto "ya cuenta con ... en
-    estado exitoso" exige ademas un indicio de aplicado/exitoso.
-    """
-    if not isinstance(response, dict) and not isinstance(response, str):
-        return False
-    message = _extract_message(response)
-    text = message.lower()
-
-    direct_markers = ("ya fue emitido", "ya existe")
-    if any(m in text for m in direct_markers):
-        return True
-
-    ya_markers = ("ya cuenta", "ya tiene")
-    applied_markers = ("estado exitoso", "estado exitosamente",
-                       "estado existoso", "estado existosamente")
-    has_ya = any(m in text for m in ya_markers)
-    has_applied = any(m in text for m in applied_markers)
-    return has_ya and has_applied
 
 
 def _log_is_error(log):

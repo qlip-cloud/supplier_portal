@@ -8,7 +8,7 @@ $(document).ready(function () {
         assignTargetDoc = null;
         $("#assign_invoice_modal_label").text("Asignar Facturas");
 
-        var selected = $('tbody input[type="checkbox"]:checked');
+        var selected = $('tbody input[name="seleccion"]:checked');
         if (selected.length === 0) {
             frappe.msgprint("Seleccione al menos una factura");
             return;
@@ -51,7 +51,7 @@ $(document).ready(function () {
     });
 
     $("#approve-document").on("click", function () {
-        var selected = $('tbody input[type="checkbox"]:checked');
+        var selected = $('tbody input[name="seleccion"]:checked');
         if (selected.length === 0) {
             frappe.msgprint("Seleccione al menos una factura");
             return;
@@ -79,7 +79,7 @@ $(document).ready(function () {
                     var approvedNames = (response.data && response.data.approved || []).map(function (item) {
                         return item.name;
                     });
-                    $('tbody input[type="checkbox"]:checked').each(function () {
+                    $('tbody input[name="seleccion"]:checked').each(function () {
                         var $row = $(this).closest("tr");
                         if (approvedNames.indexOf($(this).val()) !== -1) {
                             $row.find(".status-badge")
@@ -146,7 +146,7 @@ $(document).ready(function () {
     });
 
     $("#reject-document").on("click", function () {
-        var selected = $('tbody input[type="checkbox"]:checked');
+        var selected = $('tbody input[name="seleccion"]:checked');
         if (selected.length === 0) {
             frappe.msgprint("Seleccione al menos una factura");
             return;
@@ -163,10 +163,12 @@ $(document).ready(function () {
     });
 
     $(document).on("click", ".btn-control-alert", function () {
-        var tooltip = $(this).attr("title");
-        if (tooltip && tooltip !== "Alerta") {
-            frappe.msgprint(tooltip);
-        }
+        var name = $(this).data("name");
+        $("#notification-alerts").html("<div style=\"color:#8a9099;font-size:12px\">Cargando...</div>");
+        $("#notification-summary").empty();
+        $("#notification-history").html("<div style=\"color:#8a9099;font-size:12px;text-align:center;padding:12px\">Cargando...</div>");
+        loadNotifications(name);
+        $("#notifications_invoice_modal").modal("show");
     });
 
     $(document).on("click", ".btn-control-assign", function () {
@@ -214,9 +216,335 @@ $(document).ready(function () {
         window.open(noCacheUrl, "_blank");
     });
 
+    // =====================================================================
+    // Conversación (comentarios) de facturas documenteme
+    // =====================================================================
+    var timelineDocName = null;
+
+    var TIMELINE_TYPE_META = {
+        creacion: {
+            icon: "history",
+            color: "#6c757d",
+            title: "Registro en el sistema"
+        },
+        estado: {
+            icon: "sync_alt",
+            color: "#004D90",
+            title: "Cambio de estado"
+        },
+        comentario: {
+            icon: "comment",
+            color: "#28a745",
+            title: "Comentario"
+        }
+    };
+
+    var TIMELINE_STATE_LABELS = {
+        "A": "Aprobado",
+        "E": "Registrado",
+        "V": "Lista para Registro",
+        "R": "Rechazada",
+        "BCC": "Creada en BC",
+        "PA": "En proceso de aprobaci\u00f3n",
+        "PR": "En proceso de rechazo",
+        "T": ""
+    };
+
+    function timelineStateLabel(code) {
+        return TIMELINE_STATE_LABELS[code] || (code || "-");
+    }
+
+    function formatTimelineDate(value) {
+        if (!value) {
+            return "";
+        }
+        var date = new Date(String(value).replace(" ", "T"));
+        if (isNaN(date.getTime())) {
+            return value;
+        }
+        var dd = ("0" + date.getDate()).slice(-2);
+        var mm = ("0" + (date.getMonth() + 1)).slice(-2);
+        var yyyy = date.getFullYear();
+        var hh = ("0" + date.getHours()).slice(-2);
+        var min = ("0" + date.getMinutes()).slice(-2);
+        return dd + "/" + mm + "/" + yyyy + " " + hh + ":" + min;
+    }
+
+    function escapeHtml(value) {
+        return String(value == null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function renderTimelineEntry(entry) {
+        var meta = TIMELINE_TYPE_META[entry.type] || {
+            icon: "history",
+            color: "#6c757d",
+            title: "Historial"
+        };
+        var color = meta.color || "#6c757d";
+        var isComment = entry.type === "comentario";
+        var message = entry.message || "";
+        if (entry.type === "estado") {
+            message = "Cambio de estado: " + escapeHtml(timelineStateLabel(entry.old_state)) +
+                " -> " + escapeHtml(timelineStateLabel(entry.new_state));
+        } else {
+            message = escapeHtml(message);
+        }
+        // En los comentarios la linea principal es el autor + fecha (sin la
+        // etiqueta "Comentario"); el pie de autor/fecha solo aplica a las
+        // demas entradas (creacion/estado).
+        var titleLine = isComment
+            ? escapeHtml(entry.entry_by || "") + " &middot; " + formatTimelineDate(entry.entry_date)
+            : escapeHtml(meta.title || "");
+        var footer = isComment
+            ? ""
+            : "<div style=\"color:#8a9099;font-size:11px;margin-top:3px\">" +
+                escapeHtml(entry.entry_by || "") + " &middot; " + formatTimelineDate(entry.entry_date) +
+                "</div>";
+        var body = "<div class=\"timeline-entry\">" +
+            "<span class=\"timeline-dot\" style=\"border-color:" + color + "\">" +
+            "<span class=\"material-symbols-outlined\" style=\"color:" + color + "\">" + meta.icon + "</span>" +
+            "</span>" +
+            "<div style=\"font-size:13px\">" +
+            "<div style=\"color:#333;font-weight:bold;font-size:12px;margin-bottom:2px\">" + titleLine + "</div>" +
+            "<div style=\"color:#444;white-space:pre-wrap;word-break:break-word\">" + message + "</div>" +
+            footer +
+            "</div></div>";
+        return body;
+    }
+
+    function renderCommentList(entries) {
+        var $list = $("#timeline-list");
+        $list.empty();
+        if (!entries || entries.length === 0) {
+            $list.html("<div style=\"color:#8a9099;font-size:12px;text-align:center;padding:12px\">Sin comentarios.</div>");
+            return;
+        }
+        var html = "";
+        entries.forEach(function (entry) {
+            html += renderTimelineEntry(entry);
+        });
+        $list.html(html);
+    }
+
+    function updateCommentButton(docName, hasUnread) {
+        var $btn = $('.btn-control-timeline[data-name="' + docName + '"]');
+        if ($btn.length) {
+            $btn.css("color", hasUnread ? "#004D90" : "#6c757d");
+        }
+    }
+
+    function loadConversation(docName, callback) {
+        petition_get_data({
+            doc_name: docName
+        }, "qp_supplier_front.resources.documenteme.timeline.get_conversation", function (response) {
+            if (response.status === 200) {
+                renderCommentList(response.data.comments);
+                var unread = response.data.unread_count || 0;
+                $("#timeline_unread_hint").text(
+                    unread > 0 ? unread + " comentario(s) sin leer" : ""
+                );
+                updateCommentButton(docName, false);
+            } else {
+                frappe.msgprint(response.msg || "Error al obtener la conversaci\u00f3n");
+            }
+            if (callback) {
+                callback();
+            }
+        });
+    }
+
+    function markConversationRead(docName) {
+        petition_get_data({
+            doc_name: docName
+        }, "qp_supplier_front.resources.documenteme.timeline.mark_conversation_read", function (response) {
+            if (response.status === 200) {
+                $("#timeline_unread_hint").text(
+                    (response.data && response.data.unread_count > 0)
+                        ? response.data.unread_count + " comentario(s) sin leer"
+                        : ""
+                );
+                updateCommentButton(docName, false);
+            }
+        });
+    }
+
+    $(document).on("click", ".btn-control-timeline", function (event) {
+        event.stopPropagation();
+        timelineDocName = $(this).data("name");
+        $("#timeline_comment_text").val("");
+        $("#confirm-timeline-comment").prop("disabled", true);
+        $("#timeline_unread_hint").text("");
+        loadConversation(timelineDocName, function () {
+            $("#timeline_invoice_modal").modal("show");
+            markConversationRead(timelineDocName);
+        });
+    });
+
+    $("#timeline_comment_text").on("input", function () {
+        $("#confirm-timeline-comment").prop(
+            "disabled",
+            String($(this).val() || "").trim() === ""
+        );
+    });
+
+    $("#confirm-timeline-comment").on("click", function () {
+        var comment = String($("#timeline_comment_text").val() || "").trim();
+        if (!timelineDocName || !comment) {
+            return;
+        }
+        $("#confirm-timeline-comment").prop("disabled", true);
+
+        petition_get_data({
+            doc_name: timelineDocName,
+            comment: comment
+        }, "qp_supplier_front.resources.documenteme.timeline.add_comment", function (response) {
+            if (response.status === 200) {
+                $("#timeline_comment_text").val("");
+                renderCommentList(response.data);
+                updateCommentButton(timelineDocName, false);
+            } else {
+                $("#confirm-timeline-comment").prop("disabled", false);
+                frappe.msgprint(response.msg || "Error al agregar comentario");
+            }
+        });
+    });
+
+    $("#timeline_invoice_modal").on("hidden.bs.modal", function () {
+        timelineDocName = null;
+    });
+
+    // =====================================================================
+    // Notificaciones y alertas (modal del icono de alerta)
+    // =====================================================================
+    var NOTIF_STATUS_META = {
+        ok: { label: "Ok", color: "#28a745", icon: "check_circle" },
+        fail: { label: "Error", color: "#dc3545", icon: "error" },
+        en_proceso: { label: "En proceso", color: "#ff8c00", icon: "sync" }
+    };
+
+    function notifMeta(status) {
+        return NOTIF_STATUS_META[status] || {
+            label: status || "Desconocido",
+            color: "#6c757d",
+            icon: "history"
+        };
+    }
+
+    function renderNotificationSummary(items) {
+        var $el = $("#notification-summary");
+        $el.empty();
+        if (!items || items.length === 0) {
+            return;
+        }
+        var html = "";
+        items.forEach(function (item) {
+            var meta = notifMeta(item.status);
+            html += "<span style=\"display:inline-flex;align-items:center;gap:4px;border:1px solid " + meta.color + ";color:" + meta.color + ";border-radius:4px;padding:2px 8px;font-size:12px;margin:0 6px 6px 0\">" +
+                "<span class=\"material-symbols-outlined\" style=\"font-size:14px\">" + meta.icon + "</span>" +
+                "<strong>" + escapeHtml(item.event_code) + "</strong> " +
+                escapeHtml(meta.label) +
+                " <span style=\"font-size:11px;opacity:.85\">" + formatTimelineDate(item.date) + "</span>" +
+                "</span>";
+        });
+        $el.html(html);
+    }
+
+    function renderNotificationHistory(events, stateEntries) {
+        var $el = $("#notification-history");
+        $el.empty();
+        var items = [];
+
+        (events || []).forEach(function (ev) {
+            var meta = notifMeta(ev.status);
+            items.push({
+                date: ev.date || "",
+                html: "<div class=\"notification-entry\">" +
+                    "<span class=\"notification-dot\" style=\"border-color:" + meta.color + "\">" +
+                    "<span class=\"material-symbols-outlined\" style=\"color:" + meta.color + "\">" + meta.icon + "</span>" +
+                    "</span>" +
+                    "<div style=\"font-size:13px\">" +
+                    "<div style=\"color:#333;font-weight:bold;font-size:12px;margin-bottom:2px\">Evento " + escapeHtml(ev.event_code) + " &mdash; <span style=\"color:" + meta.color + "\">" + escapeHtml(meta.label) + "</span></div>" +
+                    "<div style=\"color:#8a9099;font-size:11px\">" + formatTimelineDate(ev.date) + "</div>" +
+                    (ev.error_message
+                        ? "<div style=\"color:#dc3545;font-size:11px;word-break:break-word\">" + escapeHtml(ev.error_message) + "</div>"
+                        : "") +
+                    "</div></div>"
+            });
+        });
+
+        (stateEntries || []).forEach(function (entry) {
+            items.push({
+                date: entry.entry_date || "",
+                html: renderTimelineEntry(entry)
+            });
+        });
+
+        items.sort(function (a, b) {
+            return (b.date < a.date) ? -1 : ((b.date > a.date) ? 1 : 0);
+        });
+
+        if (items.length === 0) {
+            $el.html("<div style=\"color:#8a9099;font-size:12px;text-align:center;padding:12px\">Sin historial.</div>");
+            return;
+        }
+        var html = "";
+        items.forEach(function (item) {
+            html += item.html;
+        });
+        $el.html(html);
+    }
+
+    function renderAlertList(alerts) {
+        var $el = $("#notification-alerts");
+        $el.empty();
+        if (!alerts || alerts.length === 0) {
+            $el.html("<div style=\"color:#8a9099;font-size:12px;text-align:center;padding:12px\">Sin alertas abiertas.</div>");
+            return;
+        }
+        var html = "";
+        alerts.forEach(function (alert) {
+            var urgent = alert.alert_type === "ErrorUrgente";
+            var color = urgent ? "#dc3545" : "#ff8c00";
+            html += "<div style=\"padding:6px 0;border-bottom:1px solid #eee\">" +
+                "<div style=\"color:" + color + ";font-weight:bold;font-size:12px\">" + (urgent ? "Urgente" : "Alerta") + "</div>" +
+                "<div style=\"font-size:12px;color:#444;white-space:pre-wrap;word-break:break-word\">" + escapeHtml(alert.alert_message) + "</div>" +
+                "<div style=\"color:#8a9099;font-size:11px\">" + formatTimelineDate(alert.alert_date) + "</div>" +
+                "</div>";
+        });
+        $el.html(html);
+    }
+
+    function loadNotifications(docName) {
+        petition_get_data({
+            doc_name: docName
+        }, "qp_supplier_front.resources.documenteme.timeline.get_notifications", function (response) {
+            if (response.status === 200) {
+                renderAlertList(response.data.alerts);
+                renderNotificationSummary(response.data.summary);
+                renderNotificationHistory(
+                    response.data.events,
+                    response.data.state_entries
+                );
+            } else {
+                frappe.msgprint(response.msg || "Error al obtener notificaciones");
+            }
+        });
+    }
+
+    $("#notifications_invoice_modal").on("hidden.bs.modal", function () {
+        $("#notification-summary").empty();
+        $("#notification-history").empty();
+        $("#notification-alerts").empty();
+    });
+
     $("#confirm-reject").on("click", function () {
         var doc_names = [];
-        $('tbody input[type="checkbox"]:checked').each(function () {
+        $('tbody input[name="seleccion"]:checked').each(function () {
             doc_names.push($(this).val());
         });
         var motive = $("#motive_text").val().trim();
@@ -239,7 +567,7 @@ $(document).ready(function () {
             overlayEl.style.display = "none";
             frappe.msgprint(response.msg);
             if (response.status === 200) {
-                $('tbody input[type="checkbox"]:checked').each(function () {
+                $('tbody input[name="seleccion"]:checked').each(function () {
                     $(this).closest("tr").find(".status-badge")
                         .removeClass("status-open status-ready status-paid status-default status-cancelled")
                         .addClass("status-progress")
@@ -268,7 +596,7 @@ $(document).ready(function () {
         if (targetDoc) {
             doc_names.push(targetDoc);
         } else {
-            $('tbody input[type="checkbox"]:checked').each(function () {
+            $('tbody input[name="seleccion"]:checked').each(function () {
                 doc_names.push($(this).val());
             });
         }
@@ -296,12 +624,12 @@ $(document).ready(function () {
                     $btn.css("color", "#007bff");
                     $btn.attr("title", "Asignado a:\n- " + userName);
                 } else {
-                    $('tbody input[type="checkbox"]:checked').each(function () {
+                    $('tbody input[name="seleccion"]:checked').each(function () {
                         var $btn = $(this).closest("tr").find(".btn-control-assign");
                         $btn.css("color", "#007bff");
                         $btn.attr("title", "Asignado a:\n- " + userName);
                     });
-                    $('tbody input[type="checkbox"]:checked').prop("checked", false);
+                    $('tbody input[name="seleccion"]:checked').prop("checked", false);
                 }
             }
             assignTargetDoc = null;

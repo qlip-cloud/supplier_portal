@@ -25,6 +25,7 @@ MODULE_DOCTYPES = (
     "qp_SP_Alert",
     "qp_SP_DetailSyncAttempt",
     "qp_SP_SyncLineAssignedUser",
+    "qp_SP_TimelineEntry",
 )
 
 
@@ -98,6 +99,13 @@ class _Real(object):
             RealMasterSetupSource,
         )
         return RealMasterSetupSource(frappe_module=self._frappe)
+
+    @property
+    def timeline(self):
+        from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+            RealTimelineAdapter,
+        )
+        return RealTimelineAdapter(frappe_module=self._frappe)
 
 
 class _MemRow(object):
@@ -251,13 +259,25 @@ class _Memory(object):
         )
         return MemoryMasterSetupSource(self._store)
 
+    @property
+    def timeline(self):
+        from qp_supplier_front.simulation.timeline_memory import (
+            MemoryTimelineAdapter,
+        )
+        return MemoryTimelineAdapter(self._store)
+
 
 class DataFacade(object):
 
     def __init__(self, store=None, frappe=None):
         self._store = store
-        import frappe as actual_frappe
-        self._frappe = frappe or actual_frappe
+        self._frappe = frappe
+        if self._frappe is None:
+            try:
+                import frappe as actual_frappe
+                self._frappe = actual_frappe
+            except ImportError:
+                self._frappe = None
         self._impl = _Memory(store, self._frappe) if store is not None else _Real(self._frappe)
 
     @property
@@ -304,6 +324,10 @@ class DataFacade(object):
     @property
     def master_setup(self):
         return self._impl.master_setup
+
+    @property
+    def timeline(self):
+        return self._impl.timeline
 
     @property
     def db(self):

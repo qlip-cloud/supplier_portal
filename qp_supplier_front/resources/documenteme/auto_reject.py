@@ -371,6 +371,7 @@ def _reject_one(doc, config, company_tax_id, url, headers, method, sender):
         "No se ha podido rechazar la factura en documenteme. Se reintentara "
         "en la proxima sincronizacion.",
         make_now(),
+        alert_type="ErrorUrgente",
     )
     result["error"] = "Maximo de intentos alcanzado"
     return result

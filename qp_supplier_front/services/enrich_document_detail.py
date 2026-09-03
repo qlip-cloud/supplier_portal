@@ -34,6 +34,8 @@ def enrich_document_detail(document, data=None, references=None):
     document["hide_unselected_recibos"] = False
 
     _enrich_alerts(document, data)
+    _enrich_notification(document, data)
+    _enrich_conversation(document, data)
     _enrich_factura_interna(document, data)
 
     if purchase_order_number:
@@ -100,21 +102,90 @@ def build_alert_tooltip(alerts):
     return "\n".join(lines)
 
 
+def _current_user(data):
+    """Usuario activo para las marcas de lectura (real: sesion; memoria: Admin)."""
+    if data is not None:
+        return "Administrator"
+
+    import frappe
+    return getattr(frappe.session, "user", "Administrator")
+
+
 def _enrich_alerts(document, data=None):
     alerts = _api(data, "get_all")(
         "qp_SP_Alert",
         filters={
             "parent": document.get("name"),
-            "parenttype": "qp_SP_DocumentDetail",
             "status": "Abierta",
         },
-        fields=["alert_date", "alert_message"],
+        fields=["alert_date", "alert_message", "alert_type"],
         order_by="alert_date desc",
     )
 
     document["alertas"] = alerts
     document["has_alert"] = bool(alerts)
     document["alert_tooltip"] = build_alert_tooltip(alerts)
+    document["alert_severity"] = "ninguno"
+
+
+def _enrich_notification(document, data=None):
+    """Resumen de la notificacion documenteme (event_logs) para tooltip y color.
+
+    - notification_summary: una linea por evento de la secuencia (Ok/En proceso).
+    - notification_tooltip: texto compacto del tooltip del icono de alerta.
+    - in_progress: True si hay algun evento que aun no termina en Ok (se sigue
+      reintentando) o hay alertas abiertas.
+    """
+    from qp_supplier_front.uses_cases.documenteme.event_logs import (
+        build_notification_tooltip,
+        notification_summary,
+        resolve_sequence,
+    )
+
+    events = _api(data, "get_all")(
+        "qp_SP_EventLog",
+        filters={"parent": document.get("name")},
+        fields=["event_code", "status", "response", "attempt_date",
+                "error_message"],
+    )
+
+    doc_state = document.get("nvfac_esta")
+    sequence = resolve_sequence(doc_state, events)
+    summary = notification_summary(events, sequence, doc_state)
+
+    document["notification_summary"] = summary
+    document["notification_tooltip"] = build_notification_tooltip(summary)
+    in_progress = any(
+        item.get("status") != "ok" for item in summary
+    )
+
+    alerts = document.get("alertas") or []
+    urgent = any(
+        alert.get("alert_type") == "ErrorUrgente" for alert in alerts
+    )
+
+    if urgent:
+        document["alert_severity"] = "urgente"
+    elif document.get("has_alert") or in_progress:
+        document["alert_severity"] = "alerta"
+    else:
+        document["alert_severity"] = "ninguno"
+
+    tooltip = document.get("notification_tooltip")
+    document["alert_tooltip"] = tooltip or build_alert_tooltip(alerts)
+
+
+def _enrich_conversation(document, data=None):
+    """Marca de lectura de la conversacion (comentarios) por usuario actual."""
+    user = _current_user(data)
+    if data is not None:
+        unread = data.timeline.unread_count(document.get("name"), user)
+    else:
+        from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+            RealTimelineAdapter,
+        )
+        unread = RealTimelineAdapter().unread_count(document.get("name"), user)
+    document["has_unread_conversation"] = unread > 0
 
 
 def _enrich_purchase_orders(document, purchase_order_number, references=None,
@@ -296,10 +367,11 @@ def _update_status_if_fully_paid(document, data=None, references=None):
     if solve_receipt_bank(document_total, bank, DEFAULT_EPSILON) is None:
         return
 
-    _api(data, "set_value")(
-        "qp_SP_DocumentDetail",
-        document.get("name"),
-        "nvfac_esta",
-        "V",
-    )
+    if data is None:
+        from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+            RealTimelineAdapter,
+        )
+        RealTimelineAdapter().set_state(document.get("name"), "V")
+    else:
+        data.timeline.set_state(document.get("name"), "V")
     document["nvfac_esta"] = "V"

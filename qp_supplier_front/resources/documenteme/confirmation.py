@@ -73,12 +73,10 @@ def set_confirmation_id(doc, confirmation_id):
 
 
 def mark_pending_approval(doc):
-    frappe.db.set_value(
-        DOCUMENT_DETAIL,
-        doc["name"],
-        "nvfac_esta",
-        "PA",
+    from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+        RealTimelineAdapter,
     )
+    RealTimelineAdapter(frappe_module=frappe).set_state(doc["name"], "PA")
 
 
 def enqueue_approve(doc):
@@ -86,11 +84,11 @@ def enqueue_approve(doc):
         DOCUMENT_DETAIL, doc["name"], ["nvfac_conv"], as_dict=True
     ) or {}
     if is_cash_invoice(detail.get("nvfac_conv")):
-        frappe.db.set_value(
-            DOCUMENT_DETAIL, doc["name"], {
-                "nvfac_esta": "A",
-                "qp_is_event_completed": 1,
-            }
+        from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+            RealTimelineAdapter,
+        )
+        RealTimelineAdapter(frappe_module=frappe).set_state(
+            doc["name"], "A", extra_fields={"qp_is_event_completed": 1}
         )
         from qp_supplier_front.resources.documenteme._alerts import resolve_open_alerts
         resolve_open_alerts(doc["name"])
@@ -137,17 +135,21 @@ def on_purchase_invoice_bc_update(doc, method):
             DOCUMENT_DETAIL, document_detail_name, ["nvfac_conv", "nvfac_esta"], as_dict=True
         ) or {}
         if is_cash_invoice(detail.get("nvfac_conv")):
-            frappe.db.set_value(
-                DOCUMENT_DETAIL, document_detail_name, {
-                    "nvfac_esta": "A",
-                    "qp_is_event_completed": 1,
-                }
+            from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+                RealTimelineAdapter,
+            )
+            RealTimelineAdapter(frappe_module=frappe).set_state(
+                document_detail_name, "A",
+                extra_fields={"qp_is_event_completed": 1},
             )
             from qp_supplier_front.resources.documenteme._alerts import resolve_open_alerts
             resolve_open_alerts(document_detail_name)
             frappe.db.commit()
             return
-        frappe.db.set_value(DOCUMENT_DETAIL, document_detail_name, "nvfac_esta", "PA")
+        from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+            RealTimelineAdapter,
+        )
+        RealTimelineAdapter(frappe_module=frappe).set_state(document_detail_name, "PA")
         approval.enqueue_approve_confirmation(document_detail_name)
         frappe.db.commit()
     except Exception:

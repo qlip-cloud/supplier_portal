@@ -205,13 +205,21 @@ def memory_create_document_detail(store, sync_line_name, document_data,
 
     doc = _set_detail_fields(sync_line_name, document_data)
     if store.exists("qp_SP_DocumentDetail", name):
+        previous = store.get("qp_SP_DocumentDetail", name) or {}
+        old_state = previous.get("nvfac_esta")
+        new_state = doc.get("nvfac_esta")
         for child_doctype in ("qp_SP_DetailLine", "qp_SP_DetailLineTax",
                               "qp_SP_DocumentAttach", "qp_SP_AllowanceCharge"):
             for child in store.query(child_doctype, filters={"parent": name}):
                 store.delete(child_doctype, child["name"])
         store.update("qp_SP_DocumentDetail", name, doc)
+        if (old_state or "") != (new_state or ""):
+            _memory_timeline(store).set_state(
+                name, new_state, old_state=old_state
+            )
     else:
         store.insert("qp_SP_DocumentDetail", doc, name=name)
+        _memory_timeline(store).record_creation(name)
 
     _build_detail_lines(store, name, document_data.get("Detalle"))
     _build_attached_files(store, name, attached_list)
@@ -332,9 +340,15 @@ def memory_persist_invoice(store, doc, doc_number, now):
 
 
 def memory_mark_registered(store, doc, doc_number=None):
+    old_state = store.get_value(
+        "qp_SP_DocumentDetail", doc.get("name"), "nvfac_esta"
+    )
     store.set_value("qp_SP_DocumentDetail", doc.get("name"), "nvfac_esta", "BCC")
+    _memory_timeline(store).set_state(
+        doc.get("name"), "BCC", old_state=old_state
+    )
     for alert in store.query("qp_SP_Alert", filters={"parent": doc.get("name")}):
-        store.set_value("qp_SP_Alert", alert["name"], "resolved", 1)
+        store.set_value("qp_SP_Alert", alert["name"], "status", "Resuelta")
 
 
 def memory_mark_error(store, doc, error):
@@ -363,12 +377,21 @@ def memory_consume_receipts(store, doc, receipt_names):
 
 
 def memory_mark_duplicate_registered(store, doc, error, now):
+    old_state = store.get_value(
+        "qp_SP_DocumentDetail", doc.get("name"), "nvfac_esta"
+    )
     store.set_value("qp_SP_DocumentDetail", doc.get("name"), "nvfac_esta", "BCC")
+    _memory_timeline(store).set_state(
+        doc.get("name"), "BCC", old_state=old_state
+    )
     store.insert("qp_SP_Alert", {
         "parent": doc.get("name"),
-        "message": ("La factura ya existe en BC; se detuvo el reintento. "
-                    "No se pudo obtener el codigo BC para enlazar su confirmacion. "
-                    "Error: {}".format(error or "")),
+        "alert_message": ("La factura ya existe en BC; se detuvo el reintento. "
+                          "No se pudo obtener el codigo BC para enlazar su confirmacion. "
+                          "Error: {}".format(error or "")),
+        "alert_type": "ErrorUrgente",
+        "status": "Abierta",
+        "alert_date": now or _now_str(),
         "creation": now or _now_str(),
     })
 
@@ -395,20 +418,34 @@ def memory_set_confirmation_id(store, doc, confirmation_id):
 
 
 def memory_mark_pending_approval(store, doc):
+    old_state = store.get_value(
+        "qp_SP_DocumentDetail", doc.get("name"), "nvfac_esta"
+    )
     store.set_value("qp_SP_DocumentDetail", doc.get("name"), "nvfac_esta", "PA")
+    _memory_timeline(store).set_state(
+        doc.get("name"), "PA", old_state=old_state
+    )
 
 
 def memory_enqueue_approve(store, doc):
     """Cash: directo a A. Credito: secuencia 030/032/033 simulada -> A."""
     conv = store.get_value("qp_SP_DocumentDetail", doc.get("name"), "nvfac_conv")
     if str(conv) == "1":
+        old_state = store.get_value(
+            "qp_SP_DocumentDetail", doc.get("name"), "nvfac_esta"
+        )
         store.set_value("qp_SP_DocumentDetail", doc.get("name"),
                         "nvfac_esta", "A")
         store.set_value("qp_SP_DocumentDetail", doc.get("name"),
                         "qp_is_event_completed", 1)
+        _memory_timeline(store).set_state(
+            doc.get("name"), "A",
+            extra_fields={"qp_is_event_completed": 1},
+            old_state=old_state,
+        )
         for alert in store.query("qp_SP_Alert",
                                  filters={"parent": doc.get("name")}):
-            store.set_value("qp_SP_Alert", alert["name"], "resolved", 1)
+            store.set_value("qp_SP_Alert", alert["name"], "status", "Resuelta")
     else:
         memory_run_credit_confirmation(store, doc.get("name"))
 
@@ -420,6 +457,10 @@ def memory_run_credit_confirmation(store, doc_name):
     import json
 
     from qp_supplier_front.resources.documenteme import runtime
+    from qp_supplier_front.uses_cases.documenteme.event_logs import (
+        event_is_success,
+        plan_event_log,
+    )
     from qp_supplier_front.uses_cases.documenteme.event_notifier import (
         DOCUMENTEME_EVENT_STATES,
         _is_error,
@@ -442,27 +483,52 @@ def memory_run_credit_confirmation(store, doc_name):
             "Nvint_desc": "Factura aprobada",
         }
         response, status = event_http_fn(payload, url, headers, method)
-        store.insert("qp_SP_EventLog", {
-            "parent": doc_name,
-            "event_code": event_code,
-            "payload": json.dumps(payload),
-            "response": json.dumps(response) if not isinstance(response, str) else response,
-            "status": status,
-        })
+        now = _now_str()
+        serialized = (
+            json.dumps(response) if not isinstance(response, str) else response
+        )
+        existing = store.query(
+            "qp_SP_EventLog",
+            filters={"parent": doc_name, "event_code": event_code},
+        )
+        if plan_event_log(existing, event_is_success(response, status)) == "update":
+            store.update("qp_SP_EventLog", existing[-1]["name"], {
+                "status": status,
+                "response": serialized,
+                "attempt_date": now,
+            })
+        else:
+            store.insert("qp_SP_EventLog", {
+                "parent": doc_name,
+                "event_code": event_code,
+                "payload": json.dumps(payload),
+                "response": serialized,
+                "status": status,
+                "attempt_date": now,
+            })
         if _is_error(response, status):
             store.insert("qp_SP_Alert", {
                 "parent": doc_name,
-                "message": ("No se ha podido notificar la aprobacion de {} "
-                            "en documenteme.".format(event_code)),
-                "creation": _now_str(),
+                "alert_message": ("No se ha podido notificar la aprobacion de {} "
+                                  "en documenteme.".format(event_code)),
+                "alert_type": "ErrorUrgente",
+                "status": "Abierta",
+                "alert_date": now,
+                "creation": now,
             })
             return False
 
+    old_state = store.get_value("qp_SP_DocumentDetail", doc_name, "nvfac_esta")
     store.set_value("qp_SP_DocumentDetail", doc_name, "nvfac_esta", "A")
     store.set_value("qp_SP_DocumentDetail", doc_name, "nvfac_ueve", "033")
     store.set_value("qp_SP_DocumentDetail", doc_name, "qp_is_event_completed", 1)
+    _memory_timeline(store).set_state(
+        doc_name, "A",
+        extra_fields={"qp_is_event_completed": 1},
+        old_state=old_state,
+    )
     for alert in store.query("qp_SP_Alert", filters={"parent": doc_name}):
-        store.set_value("qp_SP_Alert", alert["name"], "resolved", 1)
+        store.set_value("qp_SP_Alert", alert["name"], "status", "Resuelta")
     return True
 
 
@@ -483,6 +549,11 @@ def memory_process_confirmation(store, invoice_id, confirmation_id):
         enqueue_approve_fn=lambda doc: memory_enqueue_approve(store, doc),
         commit_fn=lambda: None,
     )
+
+
+def _memory_timeline(store):
+    from qp_supplier_front.simulation.timeline_memory import MemoryTimelineAdapter
+    return MemoryTimelineAdapter(store)
 
 
 def _now_str():

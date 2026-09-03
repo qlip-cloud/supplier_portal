@@ -157,19 +157,12 @@ def promote_eligible_to_v(doc_names=None):
     promoted = []
     for doc in valid:
         if data is None:
-            frappe.db.set_value(
-                "qp_SP_DocumentDetail",
-                doc.get("name"),
-                "nvfac_esta",
-                "V",
+            from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+                RealTimelineAdapter,
             )
+            RealTimelineAdapter(frappe_module=frappe).set_state(doc.get("name"), "V")
         else:
-            data.set_value(
-                "qp_SP_DocumentDetail",
-                doc.get("name"),
-                "nvfac_esta",
-                "V",
-            )
+            data.timeline.set_state(doc.get("name"), "V")
         promoted.append(doc.get("nvfac_nume"))
     if data is None:
         frappe.db.commit()
@@ -284,13 +277,12 @@ def _demote_unregistrable(result, data):
         if not name:
             continue
         if data is None:
-            frappe.db.set_value(
-                "qp_SP_DocumentDetail", name, "nvfac_esta", "E"
+            from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+                RealTimelineAdapter,
             )
+            RealTimelineAdapter(frappe_module=frappe).set_state(name, "E")
         else:
-            data.set_value(
-                "qp_SP_DocumentDetail", name, "nvfac_esta", "E"
-            )
+            data.timeline.set_state(name, "E")
 
 
 @frappe.whitelist()

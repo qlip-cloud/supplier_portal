@@ -326,18 +326,16 @@ def _create_purchase_invoice_bc(doc_number, document_detail_name):
 
 
 def mark_registered(doc, doc_number):
-    frappe.db.set_value(
-        "qp_SP_DocumentDetail",
-        doc.get("name"),
-        "nvfac_esta",
-        "BCC",
+    from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+        RealTimelineAdapter,
     )
+    RealTimelineAdapter(frappe_module=frappe).set_state(doc.get("name"), "BCC")
     doc["nvfac_esta"] = "BCC"
     resolve_open_alerts(doc.get("name"))
 
 
 def mark_error(doc, error):
-    insert_alert(doc.get("name"), error, _make_now())
+    insert_alert(doc.get("name"), error, _make_now(), alert_type="ErrorUrgente")
 
 
 def mark_duplicate_registered(doc, error, now):
@@ -350,12 +348,10 @@ def mark_duplicate_registered(doc, error, now):
     qp_SP_PurchaseInvoiceBC) porque un invoice_id falso romperia el enlace de
     la confirmacion externa.
     """
-    frappe.db.set_value(
-        "qp_SP_DocumentDetail",
-        doc.get("name"),
-        "nvfac_esta",
-        "BCC",
+    from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+        RealTimelineAdapter,
     )
+    RealTimelineAdapter(frappe_module=frappe).set_state(doc.get("name"), "BCC")
     doc["nvfac_esta"] = "BCC"
     resolve_open_alerts(doc.get("name"))
     insert_alert(
@@ -366,6 +362,7 @@ def mark_duplicate_registered(doc, error, now):
             "Error: {}".format(error)
         ),
         now,
+        alert_type="ErrorUrgente",
     )
 
 

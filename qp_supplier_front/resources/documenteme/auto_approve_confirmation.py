@@ -193,6 +193,7 @@ def _approve_one(doc, config, company_tax_id, url, headers, method, http_fn=None
         "No se ha podido notificar la aprobacion en documenteme. "
         "Se reintentara en la proxima sincronizacion.",
         make_now(),
+        alert_type="ErrorUrgente",
     )
     result["error"] = "Maximo de intentos alcanzado"
     return result
