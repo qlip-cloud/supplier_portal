@@ -1,5 +1,5 @@
 import frappe
-from qp_supplier_front.services.get_data import get_party, get_supplier, get_document_types, get_business_types, get_dynamic_link,get_bank_accounts, get_regimes, get_ciius, has_recent_news, get_has_dispatch_permission
+from qp_supplier_front.services.get_data import get_party, get_supplier, get_document_types, get_business_types, get_dynamic_link, get_bank_accounts, get_regimes, get_ciius, has_recent_news, get_has_dispatch_permission
 
 def get_context(context):
     
@@ -17,8 +17,31 @@ def get_context(context):
     
     if supplier_id:
         
-        supplier = get_supplier(supplier_id)
-    
+        try:
+            supplier = get_supplier(supplier_id)
+        except frappe.DoesNotExistError:
+            frappe.local.flags.redirect_location = "/welcome?error=no_encontrado"
+            raise frappe.Redirect
+        
+        user = frappe.session.user
+        user_roles = frappe.get_roles(user)
+        context.is_alpla_admin = get_is_alpla_admin(user_roles)
+        
+        if not context.is_alpla_admin:
+            contact_name = frappe.get_value("Contact", {"user": user}, "name")
+            if not contact_name:
+                frappe.local.flags.redirect_location = "/welcome?error=sin_acceso"
+                raise frappe.Redirect
+            
+            contact = frappe.get_doc("Contact", contact_name)
+            is_allowed = any(
+                link.link_doctype == "Supplier" and link.link_name == supplier_id
+                for link in contact.links
+            )
+            if not is_allowed:
+                frappe.local.flags.redirect_location = "/welcome?error=sin_acceso"
+                raise frappe.Redirect
+        
         party = get_party(supplier)
         
         context.addresses = get_dynamic_link(supplier, "Address")
@@ -35,12 +58,6 @@ def get_context(context):
         document_settings = setup_document_settings(supplier.qp_documents)
     
         context.document_settings = document_settings
-        
-        user = frappe.session.user
-        
-        user_roles = frappe.get_roles(user)
-
-        context.is_alpla_admin = get_is_alpla_admin(user_roles)
         
         context.qp_preapproved = supplier.qp_preapproved
         
@@ -59,6 +76,7 @@ def get_context(context):
             context.modified_tabs = frappe.as_json(modified_tabs)
             context.modified_items = frappe.as_json(modified_items)
         
+    
     context.is_estatus_editable = (not supplier or supplier.qp_status not in ("En revisión", "Aprobado")) and not context.is_alpla_admin
 
     setup_document_types(context, party)
@@ -100,7 +118,14 @@ def get_context(context):
     
     context.supplier_id = supplier_id
 
+    config = frappe.get_single("qp_SP_MasterSetup")
+    context.show_terms_conditions = config.show_terms_conditions
+    context.terms_content = config.terms_content
+    context.conditions_content = config.conditions_content
+
     context.has_recent_news = has_recent_news()
+    
+    setup_wizard_tabs(context)
      
 def resolve_primary_phone(contacts):
     """
@@ -118,6 +143,93 @@ def resolve_primary_phone(contacts):
             return phone
     return None
 
+def setup_wizard_tabs(context):
+    
+    sections = frappe.get_all(
+        "qp_SP_FieldSection",
+        filters={"is_active": 1},
+        fields=["code", "tab_label", "tab_group", "tab_order", "show_in_wizard", "has_finish_button", "number_valid"],
+        order_by="tab_order asc, creation asc"
+    )
+    
+    TAB_LABEL_FALLBACK = {
+        "basic": u"Informaci\u00f3n B\u00e1sica",
+        "address": u"Direcciones",
+        "contact": "Contactos",
+        "legal": u"Representante Legal",
+        "bank_account": u"Cuentas Bancarias",
+        "bank_account_complement": u"Cuentas Bancarias",
+        "tax": u"Informaci\u00f3n Tributaria",
+        "financial": u"Informaci\u00f3n Financiera",
+        "international": u"Operaciones Internacionales",
+        "shareholder": u"Accionistas y Asociados",
+        "document": "Documentos",
+    }
+    
+    TEMPLATE_MAP = {
+        "basic": "basic",
+        "address": "address",
+        "contact": "contact",
+        "legal": "legal",
+        "bank_account": "bank_account",
+        "bank_account_complement": "bank_account",
+        "tax": "tax",
+        "financial": "financial",
+        "international": "international",
+        "shareholder": "shareholder",
+        "document": "document",
+    }
+    
+    groups = {}
+    for s in sections:
+        group = s.tab_group or s.code
+        if group not in groups:
+            groups[group] = {
+                "sections": [],
+                "show_in_wizard": False,
+                "label": s.tab_label or TAB_LABEL_FALLBACK.get(s.code, s.code),
+                "order": s.tab_order or 0,
+                "has_finish_button": False,
+                "templates": set(),
+            }
+        groups[group]["sections"].append(s)
+        if s.show_in_wizard:
+            groups[group]["show_in_wizard"] = True
+            if s.tab_label:
+                groups[group]["label"] = s.tab_label
+            if s.tab_order:
+                groups[group]["order"] = s.tab_order
+            if s.has_finish_button:
+                groups[group]["has_finish_button"] = True
+        template = TEMPLATE_MAP.get(s.code)
+        if template:
+            groups[group]["templates"].add(template)
+    
+    wizard_tabs = []
+    for group_key, group_data in groups.items():
+        if not group_data["show_in_wizard"]:
+            continue
+        wizard_tabs.append({
+            "key": group_key,
+            "label": group_data["label"],
+            "order": group_data["order"],
+            "sections": [s.code for s in group_data["sections"]],
+            "section_codes": " ".join(s.code for s in group_data["sections"]),
+            "has_finish_button": group_data["has_finish_button"],
+            "templates": sorted(group_data["templates"]),
+        })
+    
+    wizard_tabs.sort(key=lambda t: t["order"])
+    
+    for idx, tab in enumerate(wizard_tabs):
+        tab["tab_id"] = "tab{}".format(idx + 1)
+        tab["prev_tab_id"] = "tab{}".format(idx) if idx > 0 else None
+        tab["prev_tab_label"] = wizard_tabs[idx - 1]["label"] if idx > 0 else None
+        tab["next_tab_id"] = "tab{}".format(idx + 2) if idx < len(wizard_tabs) - 1 else None
+        tab["next_tab_label"] = wizard_tabs[idx + 1]["label"] if idx < len(wizard_tabs) - 1 else None
+    
+    context.wizard_tabs = wizard_tabs
+    
 def get_is_alpla_admin(user_roles, add_rol = None, only_admin = False):
     
     admin_roles = {"Alpla Administrator", "Administrator"}

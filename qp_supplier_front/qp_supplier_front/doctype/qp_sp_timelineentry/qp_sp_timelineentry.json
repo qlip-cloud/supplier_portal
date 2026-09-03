@@ -1,0 +1,63 @@
+{
+ "actions": [],
+ "creation": "2026-09-02 18:05:12",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "entry_type",
+  "message",
+  "old_state",
+  "new_state",
+  "entry_by",
+  "entry_date"
+ ],
+ "fields": [
+  {
+   "fieldname": "entry_type",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Tipo de entrada"
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Long Text",
+   "label": "Mensaje"
+  },
+  {
+   "fieldname": "old_state",
+   "fieldtype": "Data",
+   "label": "Estado anterior"
+  },
+  {
+   "fieldname": "new_state",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Estado nuevo"
+  },
+  {
+   "fieldname": "entry_by",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Usuario"
+  },
+  {
+   "fieldname": "entry_date",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Fecha"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-02 18:05:12",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_TimelineEntry",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 0
+}

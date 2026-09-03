@@ -10,6 +10,9 @@
             </div>
             <div class="modal-body modal-content-scroll" id="modal-content"
                 style="max-height: 400px; overflow-y: auto;">
+                {% if conditions_content %}
+                {{ conditions_content | safe }}
+                {% else %}
                 <h5>1. Objetivo</h5>
                 <p>La visión sostenible holística de ALPLA es la de usar los recursos humanos y naturales de
                     forma eficiente y sostenible y tratamos de mejorar nuestro desempeño constantemente.
@@ -160,6 +163,7 @@
                         anónima. Los hechos del caso se investigarán imparcialmente y con el debido cuidado. Si se
                         identifican incumplimientos, se iniciarán las medidas correctivas y/o disciplinarias necesarias.
                     </p>
+                {% endif %}
             </div>
             <div class="modal-footer">
                 {% if supplier.qp_accept_conduct_code %}

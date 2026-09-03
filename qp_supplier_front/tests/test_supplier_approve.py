@@ -2,7 +2,8 @@
 """
 test_supplier_approve.py
 ========================
-Pruebas unitarias para la aprobacion de proveedores (uses_cases/supplier/approve.py).
+Pruebas unitarias para el fallback de contacto del payload GP
+(infrastructure/strategies/gp/supplier_strategy.py).
 Cubren get_contact y get_contact_mail: el fallback a email_ids cuando el contacto
 no tiene user (caso que rompia con AttributeError: 'str' object has no attribute 'user').
 Aisladas de la base de datos y de Frappe usando mocks de sys.modules.
@@ -26,7 +27,10 @@ sys.modules['qp_supplier_front.www.information.index'] = MagicMock()
 
 import unittest
 
-from qp_supplier_front.uses_cases.supplier.approve import get_contact, get_contact_mail
+from qp_supplier_front.infrastructure.strategies.gp.supplier_strategy import (
+    get_contact,
+    get_contact_mail,
+)
 
 
 def _make_contact(is_primary_contact=None, user="", email_ids=None):
@@ -45,13 +49,13 @@ class TestGetContact(unittest.TestCase):
 
     def setUp(self):
         self.mock_get_dynamic_link = MagicMock()
-        import qp_supplier_front.uses_cases.supplier.approve as approve
-        self._original = approve.get_dynamic_link
-        approve.get_dynamic_link = self.mock_get_dynamic_link
+        import qp_supplier_front.infrastructure.strategies.gp.supplier_strategy as strategy
+        self._original = strategy.get_dynamic_link
+        strategy.get_dynamic_link = self.mock_get_dynamic_link
 
     def tearDown(self):
-        import qp_supplier_front.uses_cases.supplier.approve as approve
-        approve.get_dynamic_link = self._original
+        import qp_supplier_front.infrastructure.strategies.gp.supplier_strategy as strategy
+        strategy.get_dynamic_link = self._original
 
     def test_primary_contact_without_user_is_returned(self):
         contact = _make_contact(is_primary_contact=1, email_ids=[SimpleNamespace(email_id="a@example.com")])

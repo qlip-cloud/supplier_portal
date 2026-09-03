@@ -5,6 +5,10 @@
 frappe.ui.form.on('qp_SP_MasterSetup', {
 	refresh: function(frm) {
 
+		if (!frappe.user.has_role('Administrator')) {
+			frm.toggle_display('documenteme_simulation', false);
+		}
+
 		if (!(frm.is_new())){
 
 				frm.add_custom_button(__('Facturas'), function() {
@@ -44,6 +48,26 @@ frappe.ui.form.on('qp_SP_MasterSetup', {
 				frm.add_custom_button(__('Proveedores'), function() {
 					if (!frm.is_dirty()){
 						sync_customer(frm, frm.doc.name)
+					}
+					else{
+						show_alert (__("Unable to sync, <br> There are unsaved changes"))
+					}
+				}, __("Sincronizar"));
+
+				frm.add_custom_button(__('Recibos'), function() {
+					if (!frm.is_dirty()){
+						sync(frm.doc.name, 'qp_supplier_front.uses_cases.payment_receipt.sync_by_supplier.sync_full',
+							`Sincronización general de recibos ejecutada en segundo plano, revise el Sync Log`);
+					}
+					else{
+						show_alert (__("Unable to sync, <br> There are unsaved changes"))
+					}
+				}, __("Sincronizar"));
+
+				frm.add_custom_button(__('Facturas'), function() {
+					if (!frm.is_dirty()){
+						sync(frm.doc.name, 'qp_supplier_front.uses_cases.purchase_invoice.sync_by_supplier.sync_full',
+							`Sincronización general de facturas ejecutada en segundo plano, revise el Sync Log`);
 					}
 					else{
 						show_alert (__("Unable to sync, <br> There are unsaved changes"))

@@ -4,26 +4,153 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
- "field_order": [
-  "supplier_date_sync",
-  "init_fiscal_year"
- ],
- "fields": [
-  {
-   "fieldname": "supplier_date_sync",
-   "fieldtype": "Datetime",
-   "label": "supplier_date_sync"
-  },
-  {
-   "fieldname": "init_fiscal_year",
-   "fieldtype": "Int",
-   "label": "init_fiscal_year"
-  }
- ],
+"field_order": [
+    "supplier_date_sync",
+    "auto_reject",
+    "reject_retry_max_attempts",
+    "reject_retry_interval_seconds",
+    "reject_event_delay_seconds",
+    "auto_approve",
+    "documenteme_simulation",
+    "sede_source_doctype",
+    "init_fiscal_year",
+    "invoices_date_sync",
+    "receipts_date_sync",
+    "section_break_redirect",
+    "redirect_to_welcome",
+    "column_break_welcome_content",
+    "welcome_title",
+    "welcome_image",
+    "section_break_terms",
+    "show_terms_conditions",
+    "terms_content",
+    "conditions_content"
+   ],
+  "fields": [
+   {
+    "fieldname": "supplier_date_sync",
+    "fieldtype": "Datetime",
+    "label": "supplier_date_sync"
+   },
+    {
+     "fieldname": "auto_reject",
+     "fieldtype": "Link",
+     "label": "Rechazo autom\u00e1tico por defecto",
+     "description": "Regla de rechazo autom\u00e1tico aplicada a proveedores sin configuraci\u00f3n propia. Campo vac\u00edo = No configurado.",
+     "options": "qp_SP_AutoRejectRule"
+    },
+    {
+     "default": "5",
+     "fieldname": "reject_retry_max_attempts",
+     "fieldtype": "Int",
+     "label": "Rechazo - m\u00e1ximo de intentos",
+     "description": "N\u00famero de intentos de la secuencia 030 -> 032 -> 031 por ciclo antes de marcar la factura como no rechazada."
+    },
+    {
+     "default": "60",
+     "fieldname": "reject_retry_interval_seconds",
+     "fieldtype": "Int",
+     "label": "Rechazo - segundos entre intentos",
+     "description": "Espera entre un intento fallido y el siguiente (por defecto 60 segundos)."
+    },
+    {
+     "default": "60",
+     "fieldname": "reject_event_delay_seconds",
+     "fieldtype": "Int",
+     "label": "Rechazo - segundos entre eventos",
+     "description": "Espera entre cada evento de la secuencia 030 -> 032 -> 031 dentro de un mismo intento (el servidor externo tarda en aplicar los cambios)."
+    },
+   {
+    "default": "0",
+    "fieldname": "auto_approve",
+    "fieldtype": "Check",
+    "label": "Aprobaci\u00f3n autom\u00e1tica de facturas",
+    "description": "Env\u00eda a BC autom\u00e1ticamente las facturas en estado 'Lista para Registro' (V). Si est\u00e1 apagado, quedan en V hasta aprobaci\u00f3n manual."
+   },
+   {
+    "default": "0",
+    "fieldname": "documenteme_simulation",
+    "fieldtype": "Check",
+    "label": "Modo simulador documenteme",
+    "description": "Solo visible para Administrador. Al activarlo, los flujos de aprobaci\u00f3n y rechazo (manual y autom\u00e1tico) se ejecutan sin crear facturas en BC ni notificar el rechazo a documenteme; simula respuestas exitosas para pruebas.",
+    "permlevel": 1
+   },
+   {
+    "default": "qp_md_headquarter",
+    "description": "Doctype del cual se leen los datos de sedes para la asignaci\u00f3n autom\u00e1tica. El doctype debe tener un campo 'code' con el c\u00f3digo de la sede.",
+    "fieldname": "sede_source_doctype",
+    "fieldtype": "Select",
+    "label": "Origen de datos de sedes",
+    "options": "\nqp_md_headquarter"
+   },
+   {
+    "fieldname": "init_fiscal_year",
+    "fieldtype": "Int",
+    "label": "init_fiscal_year"
+   },
+   {
+    "fieldname": "invoices_date_sync",
+    "fieldtype": "Datetime",
+    "label": "Facturas BC - \u00faltima fecha sincronizada",
+    "description": "Fecha de inicio del full sync de facturas BC. Se actualiza automaticamente a la \u00faltima fecha sincronizada."
+   },
+   {
+    "fieldname": "receipts_date_sync",
+    "fieldtype": "Datetime",
+    "label": "Recibos BC - \u00faltima fecha sincronizada",
+    "description": "Fecha de inicio del full sync de recibos BC. Se actualiza automaticamente a la \u00faltima fecha sincronizada."
+   },
+   {
+    "fieldname": "section_break_redirect",
+    "fieldtype": "Section Break",
+    "label": "Redirecci\u00f3n"
+   },
+   {
+    "default": "1",
+    "fieldname": "redirect_to_welcome",
+    "fieldtype": "Check",
+    "label": "Redirigir a /welcome al iniciar sesi\u00f3n"
+   },
+   {
+    "fieldname": "column_break_welcome_content",
+    "fieldtype": "Column Break"
+   },
+   {
+    "fieldname": "welcome_title",
+    "fieldtype": "Data",
+    "label": "T\u00edtulo de bienvenida"
+   },
+   {
+    "fieldname": "welcome_image",
+    "fieldtype": "Attach Image",
+    "label": "Imagen de bienvenida"
+   },
+   {
+    "fieldname": "section_break_terms",
+    "fieldtype": "Section Break",
+    "label": "T\u00e9rminos y Condiciones"
+   },
+   {
+    "default": "1",
+    "fieldname": "show_terms_conditions",
+    "fieldtype": "Check",
+    "label": "Mostrar t\u00e9rminos y condiciones"
+   },
+   {
+    "fieldname": "terms_content",
+    "fieldtype": "Text Editor",
+    "label": "Contenido de t\u00e9rminos"
+   },
+   {
+    "fieldname": "conditions_content",
+    "fieldtype": "Text Editor",
+    "label": "Contenido de condiciones"
+   }
+  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-03-04 09:50:02.458287",
+  "modified": "2026-08-21 09:30:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_MasterSetup",
@@ -36,6 +163,17 @@
    "print": 1,
    "read": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "permlevel": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Administrator",
    "share": 1,
    "write": 1
   }

@@ -1,0 +1,100 @@
+{
+ "actions": [],
+ "creation": "2026-07-03 10:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "nvdet_cont",
+  "nvpro_codi",
+  "nvdet_desc",
+  "nvdet_tcan",
+  "nvdet_valo",
+  "nvdet_stot",
+  "nvdet_orde",
+  "nvdet_rece",
+  "nvdet_vdes",
+  "nvuni_desc",
+  "nvdet_nota",
+  "impuestos"
+ ],
+ "fields": [
+  {
+   "fieldname": "nvdet_cont",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Nvdet Cont"
+  },
+  {
+   "fieldname": "nvpro_codi",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nvpro Codi"
+  },
+  {
+   "fieldname": "nvdet_desc",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nvdet Desc"
+  },
+  {
+   "fieldname": "nvdet_tcan",
+   "fieldtype": "Float",
+   "label": "Nvdet Tcan"
+  },
+  {
+   "fieldname": "nvdet_valo",
+   "fieldtype": "Float",
+   "label": "Nvdet Valo"
+  },
+  {
+   "fieldname": "nvdet_stot",
+   "fieldtype": "Float",
+   "label": "Nvdet Stot"
+  },
+  {
+   "fieldname": "nvdet_orde",
+   "fieldtype": "Data",
+   "label": "Nvdet Orde"
+  },
+  {
+   "fieldname": "nvdet_rece",
+   "fieldtype": "Data",
+   "label": "Nvdet Rece"
+  },
+  {
+   "fieldname": "nvdet_vdes",
+   "fieldtype": "Float",
+   "label": "Nvdet Vdes"
+  },
+  {
+   "fieldname": "nvuni_desc",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nvuni Desc"
+  },
+  {
+   "fieldname": "nvdet_nota",
+   "fieldtype": "Data",
+   "label": "Nvdet Nota"
+  },
+  {
+   "fieldname": "impuestos",
+   "fieldtype": "Table",
+   "label": "Impuestos",
+   "options": "qp_SP_DetailLineTax"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-03 10:00:00",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_DetailLine",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

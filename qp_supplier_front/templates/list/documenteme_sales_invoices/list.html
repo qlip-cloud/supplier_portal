@@ -1,0 +1,248 @@
+{%- set tipo_doc_labels = {
+    "F": "FAC",
+    "C": "NC",
+    "D": "ND"
+} -%}
+
+{%- set status_class = {
+    "A": "status-paid",
+    "E": "status-open",
+    "V": "status-ready",
+    "R": "status-cancelled",
+    "BCC": "status-default",
+    "PA": "status-progress",
+    "PR": "status-progress",
+    "T": "status-default"
+} -%}
+
+{%- set estado_labels = {
+    "A": "Aprobado",
+    "E": "Registrado",
+    "V": "Lista para Registro",
+    "R": "Rechazada",
+    "BCC": "Creada en BC",
+    "PA": "En proceso de aprobación",
+    "PR": "En proceso de rechazo",
+    "T": ""
+} -%}
+
+{% if documenteme_sales_invoices %}
+{% for row in documenteme_sales_invoices %}
+<tr class="card-header" data-toggle="collapse" data-target="#detail-{{ row.name.replace(':', '_') }}" aria-expanded="false">
+    <td class="text-center">
+        <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()" {% if row.nvfac_esta in ["A", "R", "BCC", "PA", "PR"] %}disabled{% endif %}>
+    </td>
+    <td>{{ row.nvpro_ndoc }}</td>
+    <td>{{ row.nvpro_nomb or "" }}</td>
+    <td class="text-center">{{ tipo_doc_labels.get(row.nvtip_docu, "") }}</td>
+    <td>
+        {{ row.nvfac_nume }}
+        <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">expand_more</span>
+    </td>
+    <td>{{ row.factura_interna or "" }}</td>
+    <td>{{ frappe.utils.formatdate(row.nvfac_fech, "dd-MM-yyyy") if row.nvfac_fech else "" }}</td>
+    <td>
+        {% if row.ordenes_compra %}
+            {{ row.nvfac_orde }}
+        {% else %}
+            <span class="material-symbols-outlined" style="color:#004D90;font-size:18px;cursor:pointer">add_circle</span>
+        {% endif %}
+    </td>
+    <td>
+        {% if row.recepciones %}
+            {% for rep in row.recepciones %}
+            <span class="receipt-badge" title="Recibo de compra">{{ rep }}</span>
+            {% endfor %}
+        {% else %}
+            <span class="material-symbols-outlined" style="color:#004D90;font-size:18px;cursor:pointer">add_circle</span>
+        {% endif %}
+    </td>
+    <td>{{ frappe.utils.fmt_money(row.nvfac_stot, currency="COP") }}</td>
+    <td>{{ frappe.utils.fmt_money(row.nvfac_viva, currency="COP") }}</td>
+    <td>{{ frappe.utils.fmt_money(row.nvfac_totp, currency="COP") }}</td>
+    <td>
+        <span class="status-badge {{ status_class.get(row.nvfac_esta, 'status-default') }}">{{ estado_labels.get(row.nvfac_esta, "") }}</span>
+    </td>
+    <td class="text-center" style="white-space:nowrap">
+        <button type="button" class="btn-control-timeline" style="color:{{ '#004D90' if row.has_unread_conversation else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="Observaciones" data-name="{{ row.name }}">
+            <span class="material-symbols-outlined" style="font-size:22px">comment</span>
+        </button>
+        <button type="button" class="btn-control-alert" style="color:{{ '#dc3545' if row.alert_severity == 'urgente' else ('#ff8c00' if row.alert_severity == 'alerta' else '#6c757d') }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ row.notification_tooltip or row.alert_tooltip or 'Alerta' }}" data-name="{{ row.name }}">
+            <span class="material-symbols-outlined" style="font-size:22px">warning</span>
+        </button>
+        <button type="button" class="btn-control-download" style="color:{{ '#28a745' if row.non_xml_count > 0 else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{% if row.non_xml_count > 0 %}Descargar documentos{% else %}Sin documentos{% endif %}" data-name="{{ row.name }}" data-nvfac-nume="{{ row.nvfac_nume }}">
+            <span class="material-symbols-outlined" style="font-size:22px">download</span>
+        </button>
+        {% if not is_sede_documenteme %}
+        <button type="button" class="btn-control-assign" style="color:{{ '#007bff' if row.assigned_to_name else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ row.assigned_to_name or 'Asignado a' }}" data-name="{{ row.name }}">
+            <span class="material-symbols-outlined" style="font-size:22px">assignment_ind</span>
+        </button>
+        {% endif %}
+        </td>
+</tr>
+<tr class="collapse" id="detail-{{ row.name.replace(':', '_') }}" data-parent="#accordion">
+    <td colspan="14">
+        <div class="row">
+            <div class="col-lg-4">
+                <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Factura</h5>
+                <div style="color:#8a9099;font-size:12px;margin-bottom:8px">
+                    Fecha Vencimiento: {{ frappe.utils.formatdate(row.nvfac_venc, "dd-MM-yyyy") if row.nvfac_venc else "-" }}
+                    {% if row.nvfac_conv == "1" %}
+                    <span class="badge" style="background-color:#17a2b8;color:#fff;font-size:11px;margin-left:6px">Contado</span>
+                    {% elif row.nvfac_conv == "2" %}
+                    <span class="badge" style="background-color:#6c757d;color:#fff;font-size:11px;margin-left:6px">Crédito</span>
+                    {% endif %}
+                </div>
+                {% if row.detail_lines %}
+                <table class="table inner-table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>UDM</th>
+                            <th>Cantidad</th>
+                            <th>Valor unitario</th>
+                            <th>Valor total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in row.detail_lines %}
+                        <tr>
+                            <td>{{ p.nvpro_codi }}</td>
+                            <td>{{ p.nvuni_desc }}</td>
+                            <td>{{ p.nvdet_tcan }}</td>
+                            <td style="text-align:right !important">
+                                {{ frappe.utils.fmt_money(p.nvdet_valo, currency="COP") }}
+                                {% if p.nvdet_vdes | int > 0 %}
+                                <br><span style="color:#dc3545;font-size:11px; text-align: right;">-{{ frappe.utils.fmt_money(p.nvdet_vdes, currency="COP") }}</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:right !important">{{ frappe.utils.fmt_money(p.nvdet_stot, currency="COP") }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% for ac in row.allowance_charges %}
+                        <tr>
+                            <td colspan="3" style="font-size:11px">{{ ac.reason }}</td>
+                            <td style="text-align:right !important;font-size:11px;color:{% if ac.signed_amount < 0 %}#dc3545{% endif %}">{{ frappe.utils.fmt_money(ac.signed_amount, currency="COP") }}</td>
+                            <td style="text-align:right !important;font-size:11px">{{ frappe.utils.fmt_money(ac.running_total, currency="COP") }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div style="color:#8a9099;font-size:12px">Sin datos</div>
+                {% endif %}
+            </div>
+            <div class="col-lg-4">
+                <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Orden de compra</h5>
+                <div style="color:#8a9099;font-size:12px;margin-bottom:8px">
+                    {% if row.ordenes_compra %}
+                    <select style="border:none;background:transparent;color:#004D90;font-size:12px">
+                        {% for oc in row.ordenes_compra %}<option>{{ oc }}</option>{% endfor %}
+                    </select>
+                    {% else %}<span>-</span>{% endif %}
+                </div>
+                {% if row.productos_orden_compra %}
+                <table class="table inner-table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>UDM</th>
+                            <th>Cantidad</th>
+                            <th>Valor unitario</th>
+                            <th>Valor total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in row.productos_orden_compra %}
+                        <tr>
+                            <td>{{ p.codigo }}</td>
+                            <td>{{ p.udm }}</td>
+                            <td>{{ p.cantidad }}</td>
+                            <td>{{ frappe.utils.fmt_money(p.valor_unitario, currency="COP") }}</td>
+                            <td>{{ frappe.utils.fmt_money(p.valor_total, currency="COP") }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div style="color:#8a9099;font-size:12px">Sin datos</div>
+                {% endif %}
+            </div>
+            <div class="col-lg-4">
+                <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Recepción</h5>
+                {% if row.recepciones_detalle %}
+                <div class="receipt-bank" data-doc="{{ row.name }}" data-stot="{{ row.nvfac_stot or 0 }}">
+                    {% for rb in row.recepciones_detalle %}
+                    <div class="receipt-item">
+                        <div class="receipt-header" data-toggle="collapse"
+                            data-target="#receipt-products-{{ rb.name.replace(':', '_') }}" aria-expanded="false">
+                            <span class="receipt-left">
+                                <input type="checkbox" class="receipt-select{% if not rb.selectable %} force-disabled{% endif %}" name="recepcion"
+                                    value="{{ rb.name }}" data-name="{{ rb.name }}" data-amount="{{ rb.monto or 0 }}"
+                                    {% if rb.claimed_by_me %}checked{% endif %}
+                                    {% if not rb.selectable %}disabled{% endif %}
+                                    onclick="event.stopPropagation()"
+                                    onchange="window.renderReceiptBankFor && renderReceiptBankFor(this)">
+                                <span class="receipt-label">{{ rb.etiqueta }}</span>
+                            </span>
+                            <span class="receipt-center">{{ frappe.utils.formatdate(rb.fecha, "dd-MM-yyyy") if rb.fecha else "-" }}</span>
+                            <span class="receipt-right">
+                                <span class="receipt-amount">{{ frappe.utils.fmt_money(rb.monto or 0, currency="COP") }}</span>
+                                <span class="material-symbols-outlined receipt-chevron">expand_more</span>
+                            </span>
+                        </div>
+                        <div class="collapse" id="receipt-products-{{ rb.name.replace(':', '_') }}">
+                            <div class="receipt-card-body">
+                                {% if rb.productos %}
+                                <table class="table inner-table receipt-products-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Código</th>
+                                            <th>UDM</th>
+                                            <th>Cantidad</th>
+                                            <th>Valor unitario</th>
+                                            <th>Valor total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for p in rb.productos %}
+                                        <tr>
+                                            <td>{{ p.codigo }}</td>
+                                            <td>{{ p.udm }}</td>
+                                            <td>{{ p.cantidad }}</td>
+                                            <td style="text-align:right !important">{{ frappe.utils.fmt_money(p.valor_unitario, currency="COP") }}</td>
+                                            <td style="text-align:right !important">{{ frappe.utils.fmt_money(p.valor_total, currency="COP") }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                                {% else %}
+                                <div style="color:#8a9099;font-size:12px">Sin datos</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% if not row.hide_unselected_recibos %}
+                    <div class="receipt-selection-summary" style="font-size:12px;margin:8px 0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center">
+                        <button type="button" class="btn btn-primary btn-sm receipt-apply" style="justify-self:start" data-doc="{{ row.name }}" data-stot="{{ row.nvfac_stot or 0 }}" title="Aplicar" disabled>
+                            Aplicar
+                        </button>
+                        <span class="receipt-classification badge" style="justify-self:center;white-space:nowrap;font-size:11px"></span>
+                        <span class="receipt-selected-sum" style="font-weight:bold;text-align:right;justify-self:end">$0 / $0</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div style="color:#8a9099;font-size:12px">Sin datos</div>
+                {% endif %}
+            </div>
+        </div>
+    </td>
+</tr>
+{% endfor %}
+{% elif show_result %}
+<tr>
+    <td colspan="14" class="text-center" style="padding:24px;color:#8a9099">No hay facturas para mostrar.</td>
+</tr>
+{% endif %}

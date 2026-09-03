@@ -8,6 +8,9 @@
             </div>
             <div class="modal-body modal-content-scroll" id="modal-content"
                 style="max-height: 400px; overflow-y: auto;">
+                {% if terms_content %}
+                {{ terms_content | safe }}
+                {% else %}
                 <p><strong>ALPLA COLOMBIA LTDA. </strong>sociedad identificada con NIT 830.007.240-4 (en adelante LA
                     ORGANIZACIÓN), ostentará la calidad de Responsable del Tratamiento de Datos
                     Personales y por ende, es quien decidirá sobre el tratamiento que se le dé a sus datos
@@ -41,6 +44,7 @@
                     atenderá a la duración de la relación contractual y el almacenamiento contable que exige
                     la Legislación en Colombia, además me comprometo a actualizar cada año toda mi
                     información y dentro de los 10 días siguientes a la fecha en que se produzca cualquier</p>
+                {% endif %}
             </div>
             <div class="modal-footer">
                 {% if supplier.qp_accept_autorization_processing %}

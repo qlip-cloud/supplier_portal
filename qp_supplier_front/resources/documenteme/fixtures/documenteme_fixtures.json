@@ -1,0 +1,578 @@
+{
+  "headers": [
+    {
+      "Nvfac_nume": "SIM-FAC-0001",
+      "Nvfac_cont": "22222",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO · CREDITO SIN OC (rechazada)",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-25T10:00:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 1500000,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "2"
+    },
+    {
+      "Nvfac_nume": "SIM-FAC-0002",
+      "Nvfac_cont": "33333",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO · CREDITO SIN OC (rechazada)",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-25T11:00:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 800000,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "2"
+    },
+    {
+      "Nvfac_nume": "SIM-FAC-0003",
+      "Nvfac_cont": "44444",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO · CONTADO CON OC (aprueba 400000)",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-26T10:00:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 400000,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "PO-SIM-0001",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "1"
+    },
+    {
+      "Nvfac_nume": "SIM-FAC-0004",
+      "Nvfac_cont": "55555",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO · CONTADO SIN OC (aprueba 600000)",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-26T11:00:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 600000,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "1"
+    },
+    {
+      "Nvfac_nume": "SIM-POA-0001",
+      "Nvfac_cont": "61001",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS A · 2000 = 500+1500",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-27T10:00:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 2000,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "PO-POA-0001",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "2"
+    },
+    {
+      "Nvfac_nume": "SIM-POA-0002",
+      "Nvfac_cont": "61002",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS A · 4000 = 1000+3000",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-27T10:30:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 4000,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "PO-POA-0002",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "2"
+    },
+    {
+      "Nvfac_nume": "SIM-POB-0001",
+      "Nvfac_cont": "62001",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS B · 1000 (aprueba)",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-27T11:00:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 1000,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "PO-POB-0001",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "2"
+    },
+    {
+      "Nvfac_nume": "SIM-POB-0002",
+      "Nvfac_cont": "62002",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS B · 2000 (aprueba)",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-27T11:30:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 2000,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "PO-POB-0002",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "2"
+    },
+    {
+      "Nvfac_nume": "SIM-POB-0003",
+      "Nvfac_cont": "62003",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS B · 2500 (no cubre -> asignada)",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-27T12:00:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 2500,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "PO-POB-0003",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "2"
+    },
+    {
+      "Nvfac_nume": "SIM-POC-0001",
+      "Nvfac_cont": "63001",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS C · 1000 (ninguno cubre -> asignada)",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-27T13:00:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 1000,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "PO-POC-0001",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "2"
+    },
+    {
+      "Nvfac_nume": "SIM-POC-0002",
+      "Nvfac_cont": "63002",
+      "Nvtip_docu": "FAC",
+      "Nvfac_cufe": "",
+      "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS C · 800 (ninguno cubre -> asignada)",
+      "Nvpro_ndoc": "999999999",
+      "Nvfac_fech": "2026-08-27T13:30:00",
+      "Nvmon_codi": "COP",
+      "Nvfac_totp": 800,
+      "Nvfac_esta": "E",
+      "Nvfac_orde": "PO-POC-0002",
+      "Nvfac_rece": "",
+      "Nvfac_ueve": "",
+      "Nvfac_conv": "2"
+    }
+  ],
+  "details": {
+    "SIM-FAC-0001": {
+      "Document": {
+        "Nvfac_nume": "SIM-FAC-0001",
+        "Nvfac_cont": "22222",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-0001",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO · CREDITO SIN OC (rechazada)",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-25T10:00:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 1500000,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "2",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 1500000,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 1500000,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-0001",
+            "Nvdet_desc": "ITEM SIMULADO 1",
+            "Nvdet_tcan": 10,
+            "Nvdet_valo": 150000,
+            "Nvdet_stot": 1500000,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    },
+    "SIM-FAC-0002": {
+      "Document": {
+        "Nvfac_nume": "SIM-FAC-0002",
+        "Nvfac_cont": "33333",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-0002",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO · CREDITO SIN OC (rechazada)",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-25T11:00:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 800000,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "2",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 800000,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 800000,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-0002",
+            "Nvdet_desc": "ITEM SIMULADO 2",
+            "Nvdet_tcan": 2,
+            "Nvdet_valo": 400000,
+            "Nvdet_stot": 800000,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    },
+    "SIM-FAC-0003": {
+      "Document": {
+        "Nvfac_nume": "SIM-FAC-0003",
+        "Nvfac_cont": "44444",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-0003",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO · CONTADO CON OC (aprueba 400000)",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-26T10:00:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 400000,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "PO-SIM-0001",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "1",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 400000,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 400000,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-0003",
+            "Nvdet_desc": "ITEM SIMULADO 3",
+            "Nvdet_tcan": 4,
+            "Nvdet_valo": 100000,
+            "Nvdet_stot": 400000,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    },
+    "SIM-FAC-0004": {
+      "Document": {
+        "Nvfac_nume": "SIM-FAC-0004",
+        "Nvfac_cont": "55555",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-0004",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO · CONTADO SIN OC (aprueba 600000)",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-26T11:00:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 600000,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "1",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 600000,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 600000,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-0004",
+            "Nvdet_desc": "ITEM SIMULADO 4",
+            "Nvdet_tcan": 2,
+            "Nvdet_valo": 300000,
+            "Nvdet_stot": 600000,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    },
+    "SIM-POA-0001": {
+      "Document": {
+        "Nvfac_nume": "SIM-POA-0001",
+        "Nvfac_cont": "61001",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-POA1",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS A · 2000 = 500+1500",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-27T10:00:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 2000,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "PO-POA-0001",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "2",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 2000,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 2000,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-POA1",
+            "Nvdet_desc": "ITEM BANCO RECIBOS A1",
+            "Nvdet_tcan": 1,
+            "Nvdet_valo": 2000,
+            "Nvdet_stot": 2000,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    },
+    "SIM-POA-0002": {
+      "Document": {
+        "Nvfac_nume": "SIM-POA-0002",
+        "Nvfac_cont": "61002",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-POA2",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS A · 4000 = 1000+3000",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-27T10:30:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 4000,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "PO-POA-0002",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "2",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 4000,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 4000,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-POA2",
+            "Nvdet_desc": "ITEM BANCO RECIBOS A2",
+            "Nvdet_tcan": 1,
+            "Nvdet_valo": 4000,
+            "Nvdet_stot": 4000,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    },
+    "SIM-POB-0001": {
+      "Document": {
+        "Nvfac_nume": "SIM-POB-0001",
+        "Nvfac_cont": "62001",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-POB1",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS B · 1000 (aprueba)",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-27T11:00:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 1000,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "PO-POB-0001",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "2",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 1000,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 1000,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-POB1",
+            "Nvdet_desc": "ITEM BANCO RECIBOS B1",
+            "Nvdet_tcan": 1,
+            "Nvdet_valo": 1000,
+            "Nvdet_stot": 1000,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    },
+    "SIM-POB-0002": {
+      "Document": {
+        "Nvfac_nume": "SIM-POB-0002",
+        "Nvfac_cont": "62002",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-POB2",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS B · 2000 (aprueba)",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-27T11:30:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 2000,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "PO-POB-0002",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "2",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 2000,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 2000,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-POB2",
+            "Nvdet_desc": "ITEM BANCO RECIBOS B2",
+            "Nvdet_tcan": 1,
+            "Nvdet_valo": 2000,
+            "Nvdet_stot": 2000,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    },
+    "SIM-POB-0003": {
+      "Document": {
+        "Nvfac_nume": "SIM-POB-0003",
+        "Nvfac_cont": "62003",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-POB3",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS B · 2500 (no cubre -> asignada)",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-27T12:00:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 2500,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "PO-POB-0003",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "2",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 2500,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 2500,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-POB3",
+            "Nvdet_desc": "ITEM BANCO RECIBOS B3",
+            "Nvdet_tcan": 1,
+            "Nvdet_valo": 2500,
+            "Nvdet_stot": 2500,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    },
+    "SIM-POC-0001": {
+      "Document": {
+        "Nvfac_nume": "SIM-POC-0001",
+        "Nvfac_cont": "63001",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-POC1",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS C · 1000 (ninguno cubre -> asignada)",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-27T13:00:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 1000,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "PO-POC-0001",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "2",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 1000,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 1000,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-POC1",
+            "Nvdet_desc": "ITEM BANCO RECIBOS C1",
+            "Nvdet_tcan": 1,
+            "Nvdet_valo": 1000,
+            "Nvdet_stot": 1000,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    },
+    "SIM-POC-0002": {
+      "Document": {
+        "Nvfac_nume": "SIM-POC-0002",
+        "Nvfac_cont": "63002",
+        "Nvtip_docu": "FAC",
+        "Nvfac_cufe": "CUFE-SIM-POC2",
+        "Nvpro_nomb": "PROVEEDOR SIMULADO · BANCO RECIBOS C · 800 (ninguno cubre -> asignada)",
+        "Nvpro_ndoc": "999999999",
+        "Nvfac_fech": "2026-08-27T13:30:00",
+        "Nvmon_codi": "COP",
+        "Nvfac_totp": 800,
+        "Nvfac_esta": "E",
+        "Nvfac_orde": "PO-POC-0002",
+        "Nvfac_rece": "",
+        "Nvfac_ueve": "",
+        "Nvfac_conv": "2",
+        "Nvfac_fpag": "",
+        "Nvfac_stot": 800,
+        "Nvfac_viva": 0,
+        "Nvfac_tota": 800,
+        "Detalle": [
+          {
+            "Nvdet_cont": "1",
+            "Nvpro_codi": "ITEM-POC2",
+            "Nvdet_desc": "ITEM BANCO RECIBOS C2",
+            "Nvdet_tcan": 1,
+            "Nvdet_valo": 800,
+            "Nvdet_stot": 800,
+            "Nvdet_orde": "",
+            "Nvdet_rece": "",
+            "lImpuestos": []
+          }
+        ]
+      },
+      "lAttached": []
+    }
+  }
+}

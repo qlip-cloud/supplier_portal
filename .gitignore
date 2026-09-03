@@ -1,18 +1,26 @@
 .DS_Store
 *.pyc
+__pycache__/
 *.egg-info
 *.swp
 tags
 qp_supplier_front/docs/current
-qp_supplier_front/context/ConsultarPagosProveedores.json
+AGENTS.md
+demo/get_detail_document.json
+demo/get_list_document.json
+.gitignore
 qp_supplier_front/segunda peticion.json
 qp_supplier_front/primera_peticion.json
 qp_supplier_front/documentdetail.xml
-demo/get_list_document.json
-demo/get_detail_document.json
-AGENTS.md
+qp_supplier_front/context/ConsultarPagosProveedores.json
+
+# AI/opencode context: agents, skills, commands, plans, config
+opencode.json
+.opencode/
+.coverage
+docs/
 .opencode/skills/supplier-edit-workflow/SKILL.md
+.opencode/skills/bc-sync/SKILL.md
 .opencode/plans/REFACTOR-sync_by_supplier.md
 .opencode/plans/ADD-BC-strategy.md
-docs/
-.opencode/skills/bc-sync/SKILL.md
+docs/SIMULACION-DOCUMENTEME.md

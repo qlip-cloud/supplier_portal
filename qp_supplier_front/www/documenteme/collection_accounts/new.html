@@ -1,0 +1,90 @@
+{% extends "qp_supplier_front/templates/includes/container.html" %}
+
+{% block content_page %}
+<div class="row">
+    <div class="col-lg-12" id="area">
+        <div class="row row-line mb-3">
+            <div class="col-12">
+                <a href="/documenteme/collection_accounts?supplier={{ supplier_id }}" class="btn btn-link ps-0">&larr; Volver a Cuentas de Cobro</a>
+                <h4 class="mb-1">Nueva Cuenta de Cobro</h4>
+                <div class="text-muted small">Selecciona una orden y completa los valores antes de guardar.</div>
+            </div>
+        </div>
+
+        <div class="row row-line mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-6 mb-3">
+                                <label for="purchase_order_select" class="form-label">Orden</label>
+                                <select class="form-control" id="purchase_order_select">
+                                    {% if purchase_orders %}
+                                        {% for order in purchase_orders %}
+                                            <option value="{{ order.name }}"
+                                                data-order-label="{{ order.qp_order_id or order.name }}"
+                                                data-total-value="{{ order.grand_total or 0 }}"
+                                                data-available-value="{{ order.available_value or 0 }}"
+                                                data-currency="{{ order.currency or 'COP' }}">
+                                                {{ order.qp_order_id or order.name }}
+                                            </option>
+                                        {% endfor %}
+                                    {% else %}
+                                        <option value="">No hay órdenes disponibles</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="col-lg-6 mb-3">
+                                <label for="order_total_value" class="form-label">Valor total de la orden</label>
+                                <input type="text" class="form-control" id="order_total_value" readonly>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-6 mb-3">
+                                <label for="available_value" class="form-label">Valor disponible</label>
+                                <input type="text" class="form-control" id="available_value" readonly>
+                            </div>
+                             <div class="col-lg-6 mb-3">
+                                <label for="amount_to_invoice" class="form-label">Monto a facturar</label>
+                                <input type="number" class="form-control" id="amount_to_invoice" min="0" step="0.01">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-6 mb-3">
+                                <label for="observations" class="form-label">Observaciones</label>
+                                <textarea class="form-control" id="observations" rows="1" style="resize: none; height: 75px;" placeholder="Agrega observaciones de la cuenta de cobro"></textarea>
+                            </div>  
+                            <div class="col-lg-6 mb-3">
+                                <div class="doc-upload-option">
+                                    <div class="doc-icon">📄</div>
+                                    <div class="doc-info">
+                                        <div class="doc-title">Documentos Requeridos</div>
+                                        <div class="doc-subtext" id="status-docs">Archivo no cargado</div>
+                                    </div>
+                                    <div class="doc-action" id="action-docs">
+                                        <label class="upload-btn upload-docs">
+                                            Subir
+                                            <input type="file" id="docs" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx">
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                          
+                            <div class="col-lg-4 mb-3 d-flex align-items-end">
+                                <button type="button" class="btn btn-primary" id="submit_collection_account">
+                                    Guardar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

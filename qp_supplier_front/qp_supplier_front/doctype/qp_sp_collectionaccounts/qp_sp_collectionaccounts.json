@@ -1,0 +1,113 @@
+{
+ "actions": [],
+ "creation": "2026-07-27 19:32:29.341402",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "supplier_id",
+  "purchase_order",
+  "available_amount",
+  "status",
+  "observations",
+  "cb_1",
+  "supplier",
+  "total_due",
+  "amount_payable",
+  "creation_date",
+  "docs"
+ ],
+ "fields": [
+  {
+   "fieldname": "supplier_id",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "ID Proveedor",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "purchase_order",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Orden de Compra",
+   "options": "Purchase Order"
+  },
+  {
+   "fieldname": "available_amount",
+   "fieldtype": "Currency",
+   "label": "Disponible por Ejecutar"
+  },
+  {
+   "fieldname": "cb_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "supplier_id.supplier_name",
+   "fieldname": "supplier",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Proveedor"
+  },
+  {
+   "fieldname": "amount_payable",
+   "fieldtype": "Currency",
+   "label": "Monto a Facturar"
+  },
+  {
+   "fieldname": "observations",
+   "fieldtype": "Small Text",
+   "label": "Observaciones"
+  },
+  {
+   "fieldname": "docs",
+   "fieldtype": "Attach",
+   "label": "Parafiscales"
+  },
+  {
+   "fieldname": "total_due",
+   "fieldtype": "Currency",
+   "label": "Monto Original"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Estado",
+   "options": "Borrador\nFacturado"
+  },
+  {
+   "fieldname": "creation_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Fecha de Creaci\u00f3n"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-28 13:02:55.465604",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_CollectionAccounts",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

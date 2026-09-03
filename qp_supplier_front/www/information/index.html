@@ -53,116 +53,71 @@
         <div class="container-tab">
             <div class="tabs-container">
                 <div class="tabs wizard-tabs">
-                    <button class="tab basic active" data-step="01" onclick="saveShowTab('tab1')">
-                        <span>Información Básica</span>
-                    </button>
-                    {% if supplier_id %}
-                        <button class="tab address" data-step="02" onclick="saveShowTab('tab2')">
-                            <span>Direcciones</span>
-                        </button>
-                        <button class="tab contact" data-step="03" onclick="saveShowTab('tab3')">
-                            <span>Contactos</span>
-                        </button>
-                        <button class="tab legal" data-step="04" onclick="saveShowTab('tab4')">
-                            <span>Representante Legal</span>
-                        </button>
-                        <button class="tab bank_account bank_account_complement" data-step="05" onclick="saveShowTab('tab5')">
-                            <span>Cuentas Bancarias</span>
-                        </button>
-                        <button class="tab tax" data-step="06" onclick="saveShowTab('tab6')">
-                            <span>Información Tributaria</span>
-                        </button>
-                        <button class="tab financial" data-step="07" onclick="saveShowTab('tab7')">
-                            <span>Información Financiera</span>
-                        </button>
-                        {% if not supplier.qp_is_foreigner_supplier %}
-                            <button class="tab international" data-step="08" onclick="saveShowTab('tab8')">
-                                <span>Operaciones Internacionales</span>
+                    {% for tab in wizard_tabs %}
+                        {% if loop.first or supplier_id %}
+                            {% if tab.key == "international" and supplier.qp_is_foreigner_supplier %}
+                            {% else %}
+                            <button class="tab {{ tab.section_codes }} {% if loop.first %}active{% endif %}"
+                                data-step="{{ '%02d' % loop.index }}"
+                                onclick="saveShowTab('{{ tab.tab_id }}')">
+                                <span>{{ tab.label }}</span>
                             </button>
+                            {% endif %}
                         {% endif %}
-                        <button class="tab shareholder" data-step="09" onclick="saveShowTab('tab9')">
-                            <span>Accionistas y Asociados</span>
-                        </button>
-                        <button class="tab document" data-step="10" onclick="saveShowTab('tab10')" id="document">
-                            <span>Documentos</span>
-                        </button>
-                    {% endif %}
+                    {% endfor %}
                 </div>                
                 <div class="dropdown-menu">
                     <select id="dropdown">
-                        <option value="tab1">Información Básica</option>
-                        {% if supplier_id %}
-
-                        <option value="tab2">Direcciones</option>
-                        <option value="tab3">Contactos</option>
-                        <option value="tab4">Representante Legal</option>
-                        <option value="tab5">Cuentas Bancarias</option>
-                        <option value="tab6">Información Tributaria</option>
-                        <option value="tab7">Información Financiera</option>
-                        {% if not supplier.qp_is_foreigner_supplier %}
-                        <option value="tab8">Operaciones Internacionales</option>
-                        {% endif %}
-                        <option value="tab9">Accionistas y Asociados</option>
-                        <option value="tab10">Documentos</option>
-                        {% endif %}
-
+                        {% for tab in wizard_tabs %}
+                            {% if loop.first or supplier_id %}
+                                {% if tab.key == "international" and supplier.qp_is_foreigner_supplier %}
+                                {% else %}
+                                <option value="{{ tab.tab_id }}">{{ tab.label }}</option>
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
                     </select>
                 </div>
                 <div class="content">
-                    <div id="tab1" class="tab-content">
-
-                        {% include "qp_supplier_front/templates/form/information/basic.html" %}
-
-                    </div>
-                    {% if supplier_id %}
-
-                        <div id="tab2" class="tab-content">
-                            {% include "qp_supplier_front/templates/form/information/address.html" %}
-
-                        </div>
-                        <div id="tab3" class="tab-content">
-                            {% include "qp_supplier_front/templates/form/information/contact.html" %}
-                        </div>
-                        <div id="tab4" class="tab-content">
-
-                            {% include "qp_supplier_front/templates/form/information/legal.html" %}
-
-                        </div>
-                        <div id="tab5" class="tab-content">
-
-                            {% include "qp_supplier_front/templates/form/information/bank_account.html" %}
-
-                        </div>
-                        <div id="tab6" class="tab-content">
-
-                            {% include "qp_supplier_front/templates/form/information/tax.html" %}
-
-                        </div>
-                        <div id="tab7" class="tab-content">
-
-                            {% include "qp_supplier_front/templates/form/information/financial.html" %}
-
-                        </div>
-                        {% if not supplier.qp_is_foreigner_supplier %}
-                        <div id="tab8" class="tab-content">
-
-                            {% include "qp_supplier_front/templates/form/information/international.html" %}
-
-                        </div>
+                    {% for tab in wizard_tabs %}
+                        {% if loop.first or supplier_id %}
+                            {% if tab.key == "international" and supplier.qp_is_foreigner_supplier %}
+                            {% else %}
+                            <div id="{{ tab.tab_id }}" class="tab-content" {% if not loop.first %}style="display: none;"{% endif %}>
+                                {% for template_name in tab.templates %}
+                                    {% set template_path = "qp_supplier_front/templates/form/information/" ~ template_name ~ ".html" %}
+                                    {% include template_path %}
+                                {% endfor %}
+                                {% if supplier_id or is_estatus_editable %}
+                                <div class="row row-line justify-content-between">
+                                    {% if tab.prev_tab_id %}
+                                    <div class="col-4 text-left">
+                                        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save tab-nav-btn"
+                                            data-control="{{ tab.prev_tab_id }}">
+                                            <span class="material-symbols-outlined" style="font-size: 14px; margin-right: 2px;">arrow_back_ios</span>
+                                            {{ tab.prev_tab_label }}
+                                        </button>
+                                    </div>
+                                    {% endif %}
+                                    <div class="col-{% if tab.prev_tab_id %}4{% else %}12{% endif %} text-right">
+                                        {% if tab.has_finish_button %}
+                                        {% if is_estatus_editable %}
+                                        <button class="btn btn-primary btn-sm primary-action finish button-save">Finalizar</button>
+                                        {% endif %}
+                                        {% elif tab.next_tab_id %}
+                                        <button class="btn btn-primary btn-sm primary-action {{ 'is_estatus_editable' if is_estatus_editable else '' }} button-save tab-nav-btn"
+                                            data-control="{{ tab.next_tab_id }}">
+                                            {{ tab.next_tab_label }}
+                                            <span class="material-symbols-outlined" style="font-size: 14px; margin-left: 2px;">arrow_forward_ios</span>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         {% endif %}
-                        <div id="tab9" class="tab-content">
-
-                            {% include "qp_supplier_front/templates/form/information/shareholder.html" %}
-
-                        </div>
-                        <div id="tab10" class="tab-content">
-
-                            {% include "qp_supplier_front/templates/form/information/document.html" %}
-
-                        </div>
-                    {% endif %}
-
-                    <!-- Más secciones del formulario -->
+                    {% endfor %}
                 </div>
             </div>
 
@@ -211,8 +166,10 @@
     {% include "qp_supplier_front/templates/modal/bank_account.html" %}
     {% include "qp_supplier_front/templates/modal/shareholder.html" %}
     {% include "qp_supplier_front/templates/modal/motivo.html" %}
+    {% if show_terms_conditions %}
     {% include "qp_supplier_front/templates/modal/authorization_processing.html" %}
     {% include "qp_supplier_front/templates/modal/conduct_code.html" %}
+    {% endif %}
     
 {% endif %}
 
