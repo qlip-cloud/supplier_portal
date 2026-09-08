@@ -1,0 +1,54 @@
+{%- set status_class = {
+    "A": "status-paid",
+    "E": "status-open",
+    "V": "status-ready",
+    "R": "status-cancelled",
+    "BCC": "status-default",
+    "PA": "status-progress",
+    "PR": "status-progress",
+    "T": "status-default"
+} -%}
+
+{%- set estado_labels = {
+    "A": "Aprobado",
+    "E": "Registrado",
+    "V": "Lista para Registro",
+    "R": "Rechazada",
+    "BCC": "Creada en BC",
+    "PA": "En proceso de aprobación",
+    "PR": "En proceso de rechazo",
+    "T": ""
+} -%}
+
+{% if purchase_invoice_collection %}
+{% for row in purchase_invoice_collection %}
+<tr class="card-header">
+    <td class="text-center">
+        <input type="checkbox" name="seleccion" value="{{ row.name }}" {% if row.qp_status in ["A", "R", "BCC", "PA", "PR"] %}disabled{% endif %}>
+    </td>
+    <td>{{ row.nvpro_ndoc or "" }}</td>
+    <td>{{ row.supplier or "" }}</td>
+    <td>
+        {{ row.invoice_id or "-" }}
+    </td>
+    <td>{{ frappe.utils.formatdate(row.nvfac_fech or row.registration_date, "dd-MM-yyyy") if (row.nvfac_fech or row.registration_date) else "" }}</td>
+    <td>{{ row.purchase_order_id or "" }}</td>
+    <td>{{ row.collection_account or "" }}</td>
+    <td>{{ frappe.utils.fmt_money(row.subtotal or 0, currency=row.currency or "COP") }}</td>
+    <td>{{ frappe.utils.fmt_money(row.tax or 0, currency=row.currency or "COP") }}</td>
+    <td>{{ frappe.utils.fmt_money(row.total or 0, currency=row.currency or "COP") }}</td>
+    <td>
+        <span class="status-badge {{ status_class.get(row.qp_status, 'status-default') }}">{{ estado_labels.get(row.qp_status, "") }}</span>
+    </td>
+    <td class="text-center" style="white-space:nowrap">
+        <button type="button" class="btn-control-notification" style="color:{{ '#dc3545' if row.notification_urgent else ('#ff8c00' if row.notification_open else '#6c757d') }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ 'Notificaciones abiertas: ' ~ row.notification_open if row.notification_open else 'Notificaciones' }}" data-name="{{ row.name }}">
+            <span class="material-symbols-outlined" style="font-size:22px">warning</span>
+        </button>
+    </td>
+</tr>
+{% endfor %}
+{% elif show_result %}
+<tr>
+    <td colspan="12" class="text-center" style="padding:24px;color:#8a9099">No hay facturas para mostrar.</td>
+</tr>
+{% endif %}

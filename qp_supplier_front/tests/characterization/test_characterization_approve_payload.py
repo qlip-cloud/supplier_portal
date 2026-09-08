@@ -81,7 +81,7 @@ def _golden_invoice(no_factura_proveedor, cufe, almacen="HQ01"):
         "invoiceDate": "2026-07-09",
         "postingDate": "2026-07-09",
         "vendorNumber": "050633410",
-        "puntofacturacion": "",
+        "puntofacturacion": "estandar",
         "NoFacturaProveedor": no_factura_proveedor,
         "Cufe": cufe,
         "Almacen": almacen,
@@ -136,10 +136,10 @@ class TestBuildPayloadGolden(unittest.TestCase):
         self.assertEqual(payload[0]["Almacen"], "HQ01")
 
     def test_puntofacturacion_sin_headquarter_equivalente(self):
-        """`puntofacturacion` es fijo ""; el headquarter viaja en "Almacen"."""
+        """`puntofacturacion` es fijo "estandar"; el headquarter viaja en "Almacen"."""
         payload = build_payload([_doc()], self._get_lines, self._get_headquarter)
         factura = payload[0]
-        self.assertEqual(factura["puntofacturacion"], "")
+        self.assertEqual(factura["puntofacturacion"], "estandar")
         self.assertEqual(factura["Almacen"], "HQ01")
 
     def test_almacen_vacio_golden(self):

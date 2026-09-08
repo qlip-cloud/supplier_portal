@@ -45,6 +45,12 @@ def _match_value(value, operator, expected):
             ">=": left >= right,
             "<=": left <= right,
         }[operator]
+    if operator == "between":
+        bounds = list(expected or [])
+        if len(bounds) != 2:
+            return False
+        start, end = str(bounds[0] or ""), str(bounds[1] or "")
+        return start <= str(value) <= end
     return str(value) == str(expected)
 
 
@@ -61,7 +67,8 @@ def _like_match(value, pattern):
 def _normalize_filter(value):
     """Convierte {field: value} a (operador, esperado) tipo Frappe."""
     if isinstance(value, list) and len(value) == 2 and value[0] in (
-            "=", "in", "not in", "like", ">", "<", ">=", "<=", "is"):
+            "=", "in", "not in", "like", ">", "<", ">=", "<=", "is",
+            "between"):
         return value[0], value[1]
     return "=", value
 

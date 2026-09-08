@@ -17,6 +17,8 @@ MODULE_DOCTYPES = (
     "qp_SP_DocumentSyncLog",
     "qp_SP_PurchaseInvoice",
     "qp_SP_PurchaseInvoiceBC",
+    "qp_SP_CollectionAccounts",
+    "qp_SP_PurchaseInvoiceNotification",
     "qp_SP_DetailLine",
     "qp_SP_DetailLineTax",
     "qp_SP_DocumentAttach",

@@ -12,6 +12,7 @@
     "reject_event_delay_seconds",
     "auto_approve",
     "documenteme_simulation",
+    "collection_invoices_simulation",
     "sede_source_doctype",
     "init_fiscal_year",
     "invoices_date_sync",
@@ -73,6 +74,14 @@
     "fieldtype": "Check",
     "label": "Modo simulador documenteme",
     "description": "Solo visible para Administrador. Al activarlo, los flujos de aprobaci\u00f3n y rechazo (manual y autom\u00e1tico) se ejecutan sin crear facturas en BC ni notificar el rechazo a documenteme; simula respuestas exitosas para pruebas.",
+    "permlevel": 1
+   },
+   {
+    "default": "0",
+    "fieldname": "collection_invoices_simulation",
+    "fieldtype": "Check",
+    "label": "Modo simulador facturas de cuentas de cobro",
+    "description": "Solo visible para Administrador. Al activarlo, el flujo de cuentas de cobro - facturas de compra (creaci\u00f3n, validaci\u00f3n, aprobaci\u00f3n/rechazo) se ejecuta en memoria sin crear facturas en BC ni escribir en la base de datos real, para pruebas.",
     "permlevel": 1
    },
    {
@@ -147,10 +156,10 @@
     "label": "Contenido de condiciones"
    }
   ],
- "index_web_pages_for_search": 1,
- "issingle": 1,
- "links": [],
-  "modified": "2026-08-21 09:30:00.000000",
+"index_web_pages_for_search": 1,
+  "issingle": 1,
+  "links": [],
+   "modified": "2026-09-03 15:30:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_MasterSetup",
