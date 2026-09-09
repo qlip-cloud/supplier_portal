@@ -4,6 +4,18 @@ $(document).ready(function () {
 
     $('tbody input[type="checkbox"]').prop("checked", false);
 
+    $("#go-collections").on("click", function (event) {
+        event.preventDefault();
+        closeNav();
+        var loader = document.getElementById("page-loader");
+        if (loader) {
+            loader.style.display = "flex";
+        }
+        setTimeout(function () {
+            window.location.href = $(event.currentTarget).attr("href");
+        }, 400);
+    });
+
     $("#assign-document").on("click", function () {
         assignTargetDoc = null;
         $("#assign_invoice_modal_label").text("Asignar Facturas");

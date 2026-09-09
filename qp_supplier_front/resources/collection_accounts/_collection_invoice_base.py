@@ -437,6 +437,42 @@ def attach_assignment_info(rows, data=None):
     return rows
 
 
+def _guess_doc_type(file_name):
+    """Tipo de archivo derivado de la extension (p. ej. 'pdf' -> 'PDF')."""
+    parts = (file_name or "").rsplit(".", 1)
+    if len(parts) == 2 and parts[1].strip():
+        return parts[1].strip().upper()
+    return ""
+
+
+def _account_docs_by_name(account_names, data=None):
+    """Docs (Attach URL) de las cuentas de cobro, agrupados por cuenta."""
+    account_names = [
+        name for name in (account_names or []) if name
+    ]
+    if not account_names:
+        return {}
+
+    if data is not None:
+        accounts = data.get_all(
+            COLLECTION_ACCOUNT,
+            filters={"name": ["in", account_names]},
+            fields=["name", "docs"],
+        )
+    else:
+        accounts = frappe.get_all(
+            COLLECTION_ACCOUNT,
+            filters={"name": ["in", account_names]},
+            fields=["name", "docs"],
+        )
+
+    return {
+        account.get("name"): (account.get("docs") or "").strip()
+        for account in (accounts or [])
+        if (account.get("docs") or "").strip()
+    }
+
+
 def attach_document_info(rows, data=None):
     """Adjunta a cada fila de qp_SP_PurchaseInvoice el resumen de sus
     documentos adjuntos (child docs_attach).
@@ -444,6 +480,11 @@ def attach_document_info(rows, data=None):
     - row["doc_count"]: cantidad de archivos adjuntos de la factura.
     - row["non_xml_count"]: cantidad de archivos no-XML (para el icono de
       descarga).
+
+    Cuando la factura no tiene adjuntos no-XML en el child, se cae al
+    documento de la cuenta de cobro (docs de qp_SP_CollectionAccounts), de
+    modo que el icono de descarga se pinta aunque el docs_attach no se haya
+    propagado (p. ej. facturas creadas antes de ese feature).
 
     Con data (facade) lee del store (memoria si simulacion); sin data usa
     frappe (real).
@@ -475,11 +516,34 @@ def attach_document_info(rows, data=None):
     for doc in docs or []:
         docs_by_parent.setdefault(doc.get("parent"), []).append(doc)
 
+    account_docs_by_name = _account_docs_by_name(
+        [row.get("collection_account") for row in (rows or [])],
+        data=data,
+    )
+
     for row in (rows or []):
-        docs = docs_by_parent.get(row.get("name")) or []
-        row["doc_count"] = len(docs)
+        row_docs = docs_by_parent.get(row.get("name")) or []
+        has_non_xml = any(
+            (doc.get("file_type") or "").upper() != "XML"
+            for doc in row_docs
+        )
+
+        # Fallback al documento de la cuenta de cobro cuando la factura no
+        # tiene adjuntos no-XML (icono de descarga verde/downloadable).
+        if not has_non_xml:
+            account_docs = account_docs_by_name.get(
+                row.get("collection_account")
+            )
+            if account_docs and _guess_doc_type(account_docs).upper() != "XML":
+                row_docs = list(row_docs) + [{
+                    "file_url": account_docs,
+                    "file_type": _guess_doc_type(account_docs),
+                }]
+                docs_by_parent[row.get("name")] = row_docs
+
+        row["doc_count"] = len(row_docs)
         row["non_xml_count"] = len([
-            doc for doc in docs
+            doc for doc in row_docs
             if (doc.get("file_type") or "").upper() != "XML"
         ])
 

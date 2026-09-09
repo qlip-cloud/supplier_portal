@@ -29,7 +29,7 @@
     <td>{{ row.nvpro_ndoc or "" }}</td>
     <td>{{ row.supplier or "" }}</td>
     <td>
-        {{ row.invoice_id or row.nvfac_nume or "-" }}
+        {{ row.invoice_id or "-" }}
         <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">expand_more</span>
     </td>
     <td>{{ frappe.utils.formatdate(row.nvfac_fech or row.registration_date, "dd-MM-yyyy") if (row.nvfac_fech or row.registration_date) else "" }}</td>
@@ -70,7 +70,7 @@
             <div class="col-lg-4">
                 <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Detalle de la factura</h5>
                 <div style="color:#8a9099;font-size:12px;margin-bottom:8px">
-                    Factura: <strong>{{ row.invoice_id or row.nvfac_nume or "-" }}</strong> &middot;
+                    Factura: <strong>{{ row.invoice_id or "-" }}</strong> &middot;
                     Proveedor: {{ row.supplier or "-" }} &middot;
                     NIT: {{ row.nvpro_ndoc or "-" }}
                 </div>

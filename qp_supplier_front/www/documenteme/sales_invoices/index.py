@@ -25,6 +25,7 @@ def get_context(context):
     context.has_dispatch_permission = get_has_dispatch_permission(supplier_id)
     context.has_recent_news = has_recent_news()
     context.show_result = True
+    context.is_monitor_view = True
 
     user_roles = frappe.get_roles()
     context.active_role = get_active_role(user_roles)

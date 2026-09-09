@@ -21,6 +21,18 @@ $(document).ready(function () {
 		}).format(numericValue);
 	}
 
+	function maskCurrency(value) {
+		const numericValue = Number(value || 0);
+		const cents = Math.round(numericValue * 100);
+		return formatColombianCurrency(String(cents));
+	}
+
+	function parseCurrency(value) {
+		const cleaned = String(value || "").replace(/\./g, "").replace(",", ".");
+		const num = parseFloat(cleaned);
+		return isNaN(num) ? 0 : num;
+	}
+
 	function updateOrderValues() {
 		const $selectedOption = $orderSelect.find(":selected");
 
@@ -37,7 +49,7 @@ $(document).ready(function () {
 
 		$totalValue.val(formatCurrency(totalValue, currency));
 		$availableValue.val(formatCurrency(availableValue, currency));
-		$amountToInvoice.val(Number(availableValue || 0));
+		$amountToInvoice.val(maskCurrency(availableValue));
 	}
 
 	$orderSelect.on("change", updateOrderValues);
@@ -61,7 +73,7 @@ $(document).ready(function () {
 
 	$submitButton.on("click", function () {
 		const orderName = $orderSelect.val();
-		const amount = Number($amountToInvoice.val() || 0);
+		const amount = parseCurrency($amountToInvoice.val());
 
 		if (!orderName) {
 			frappe.msgprint("Selecciona una orden.");

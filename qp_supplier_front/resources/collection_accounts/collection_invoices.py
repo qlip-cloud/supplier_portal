@@ -223,9 +223,19 @@ def render_detail(doc_name):
 def download_files(doc_name, invoice_number):
     """Descarga (zip) los documentos adjuntos de una factura de collection
     (child docs_attach), igual que el flujo documenteme con sus adjuntos.
+
+    Cuando la factura no tiene adjuntos no-XML en el child, cae al documento
+    de la cuenta de cobro (docs de qp_SP_CollectionAccounts): el icono de
+    descarga apunta al mismo archivo que el usuario subio al crear la cuenta.
     """
     import zipfile
     from io import BytesIO
+
+    from posixpath import basename
+
+    from qp_supplier_front.resources.collection_accounts.collection_accounts import (
+        _guess_file_type,
+    )
 
     try:
         docs = frappe.get_all(
@@ -238,6 +248,27 @@ def download_files(doc_name, invoice_number):
             f for f in docs
             if (f.get("file_type") or "").upper() != "XML"
         ]
+
+        if not non_xml_files:
+            account_name = frappe.db.get_value(
+                "qp_SP_PurchaseInvoice", doc_name, "collection_account"
+            )
+            account_docs = (
+                frappe.db.get_value(
+                    "qp_SP_CollectionAccounts", account_name, "docs"
+                )
+                if account_name else ""
+            )
+            account_docs = (account_docs or "").strip()
+            if account_docs:
+                file_name = basename(account_docs.split("?", 1)[0]) or "documento"
+                non_xml_files = [{
+                    "file_name": file_name,
+                    "file_type": _guess_file_type(file_name),
+                    "file_id": frappe.db.get_value(
+                        "File", {"file_url": account_docs}, "name"
+                    ) or "",
+                }]
 
         if not non_xml_files:
             frappe.local.response.filename = "{}.txt".format(invoice_number)

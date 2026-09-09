@@ -9,6 +9,7 @@ Escenario del modo simulador de cuentas de cobro 100% en memoria: crear
 
     No toca la base de datos real ni Frappe.
 """
+import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -252,6 +253,52 @@ class TestCollectionSimInMemory(unittest.TestCase):
             filters={"parent": result["purchase_invoice"]},
         )
         self.assertEqual(docs, [])
+
+    def test_icono_descarga_cae_al_docs_de_la_cuenta(self):
+        # Una factura SIN child docs_attach (p. ej. creada antes del feature
+        # de _attach_docs) igual debe pintar el icono de descarga usable si su
+        # cuenta de cobro tiene el documento en el campo docs (Attach).
+        from qp_supplier_front.infrastructure.adapters.data_facade import DataFacade
+
+        with patch.dict(sys.modules, {"frappe": MagicMock()}):
+            from qp_supplier_front.resources.collection_accounts import (
+                _collection_invoice_base as base,
+            )
+
+        seeds.seed_collection_po(
+            self.store, "PO-CA-0007", "999999999", 1000000)
+        seeds.seed_collection_po_item(
+            self.store, "PO-CA-0007", "ITEM-0012", 1, 1000000)
+
+        result = mem.memory_create_collection_account(
+            self.store, "PO-CA-0007", 500000
+        )
+        self.assertIsNone(result.get("error"))
+        pi = result["purchase_invoice"]
+
+        # Simula factura legada: el docs queda solo en la cuenta de cobro.
+        self.store.set_value(
+            "qp_SP_CollectionAccounts", result["name"], "docs",
+            "/files/legacy.pdf",
+        )
+        for row in self.store.query(
+                "qp_SP_PurchaseInvoiceDoc",
+                filters={"parent": pi, "parenttype": "qp_SP_PurchaseInvoice"}):
+            self.store.delete("qp_SP_PurchaseInvoiceDoc", row["name"])
+
+        facade = DataFacade(store=self.store)
+        rows = [{"name": pi, "collection_account": result["name"]}]
+        base.attach_document_info(rows, data=facade)
+        self.assertEqual(rows[0]["doc_count"], 1)
+        self.assertEqual(rows[0]["non_xml_count"], 1)
+
+        # Sin docs en la cuenta: sigue sin documentos (icono gris).
+        self.store.set_value(
+            "qp_SP_CollectionAccounts", result["name"], "docs", "")
+        rows = [{"name": pi, "collection_account": result["name"]}]
+        base.attach_document_info(rows, data=facade)
+        self.assertEqual(rows[0]["doc_count"], 0)
+        self.assertEqual(rows[0]["non_xml_count"], 0)
 
     def test_comentarios_y_lectura_en_memoria(self):
         # Los endpoints de comentarios escriben con data.insert_child (ruta

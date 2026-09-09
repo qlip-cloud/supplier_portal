@@ -397,6 +397,7 @@ function showPopup() {
 }
 
 $('.sidebar-menu').on('click', function () {
+    if ($(this).hasClass('sidebar-no-sync')) return;
     closeNav();
     $('#syncModal').modal('show');
 });

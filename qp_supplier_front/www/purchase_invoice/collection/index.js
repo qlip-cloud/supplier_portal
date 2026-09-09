@@ -46,6 +46,18 @@ $(document).ready(function () {
         }
     }
 
+    $("#go-documenteme").on("click", function (event) {
+        event.preventDefault();
+        closeNav();
+        var loader = document.getElementById("page-loader");
+        if (loader) {
+            loader.style.display = "flex";
+        }
+        setTimeout(function () {
+            window.location.href = $(event.currentTarget).attr("href");
+        }, 400);
+    });
+
     function reload() {
         var $accordion = $("#accordion");
         petition_get_data({
