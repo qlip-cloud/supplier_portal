@@ -28,7 +28,11 @@
      "qp_motive",
      "qp_reject_is_invoice_error",
      "collection_account",
-     "confirmation_id"
+     "confirmation_id",
+     "assigned_users",
+     "docs_attach",
+     "comments",
+     "comment_read"
     ],
  "fields": [
   {
@@ -170,11 +174,39 @@
     "fieldname": "confirmation_id",
     "fieldtype": "Data",
     "label": "Confirmation ID"
+   },
+   {
+    "fieldname": "assigned_users",
+    "fieldtype": "Table",
+    "label": "Usuarios asignados",
+    "options": "qp_SP_PurchaseInvoiceAssignedUser",
+    "read_only": 1
+   },
+   {
+    "fieldname": "docs_attach",
+    "fieldtype": "Table",
+    "label": "Documentos",
+    "options": "qp_SP_PurchaseInvoiceDoc",
+    "read_only": 1
+   },
+   {
+    "fieldname": "comments",
+    "fieldtype": "Table",
+    "label": "Comentarios",
+    "options": "qp_SP_PurchaseInvoiceComment",
+    "read_only": 1
+   },
+   {
+    "fieldname": "comment_read",
+    "fieldtype": "Table",
+    "label": "Lectura de comentarios",
+    "options": "qp_SP_PurchaseInvoiceCommentRead",
+    "read_only": 1
    }
   ],
   "index_web_pages_for_search": 1,
   "links": [],
-   "modified": "2026-09-03 15:30:00.000000",
+   "modified": "2026-09-08 23:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_PurchaseInvoice",

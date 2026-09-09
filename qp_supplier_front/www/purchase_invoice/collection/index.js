@@ -74,6 +74,14 @@ $(document).ready(function () {
     });
 
     // =====================================================================
+    // Detalle expandible (factura / OC / recepciones)
+    // =====================================================================
+    // El detalle viene renderizado en el HTML (igual que documenteme); el
+    // acordeon usa data-toggle="collapse". Quitar el handler delegado generico
+    // (qp_supplier_front.js) ligado a filas de detalle para esta vista.
+    $("#accordion").off("click", ".detail-row");
+
+    // =====================================================================
     // Aprobacion (con pre-validacion y confirmacion de violaciones)
     // =====================================================================
     $("#approve-document").on("click", function () {
@@ -182,52 +190,220 @@ $(document).ready(function () {
         return dd + "/" + mm + "/" + yyyy + " " + hh + ":" + min;
     }
 
-    function renderNotificationList(notifications) {
-        var $list = $("#ci-notifications-list");
-        $list.empty();
-        if (!notifications || notifications.length === 0) {
-            $list.html("<div style=\"color:#8a9099;font-size:12px;text-align:center;padding:12px\">Sin notificaciones.</div>");
+    function renderNotificationEntry(item) {
+        var urgent = item.notification_type === "ErrorUrgente";
+        var meta = urgent
+            ? { label: "Error urgente", color: "#dc3545", icon: "error" }
+            : { label: "Alerta", color: "#ff8c00", icon: "warning" };
+        var resolved = item.status !== "Abierta";
+        var color = resolved ? "#6c757d" : meta.color;
+        var statusLabel = resolved ? "Resuelta" : "Abierta";
+        var icon = resolved ? "check_circle" : meta.icon;
+        return "<div class=\"ci-notification-entry\">" +
+            "<span class=\"ci-notification-dot\" style=\"border-color:" + color + "\">" +
+            "<span class=\"material-symbols-outlined\" style=\"color:" + color + "\">" + icon + "</span>" +
+            "</span>" +
+            "<div style=\"font-size:13px\">" +
+            "<div style=\"color:#333;font-weight:bold;font-size:12px;margin-bottom:2px\">" +
+                escapeHtml(meta.label) +
+                " <span style=\"font-size:11px;color:#8a9099;font-weight:normal\">&middot; " +
+                    formatNotificationDate(item.notification_date) + "</span>" +
+                " <span style=\"font-size:11px;color:#8a9099;font-weight:normal\">(" +
+                    escapeHtml(statusLabel) + ")</span>" +
+            "</div>" +
+            "<div style=\"color:#444;white-space:pre-wrap;word-break:break-word\">" +
+                escapeHtml(item.notification_message) + "</div>" +
+            "</div></div>";
+    }
+
+    function renderAlertList(alerts) {
+        var $el = $("#ci-notification-alerts");
+        $el.empty();
+        if (!alerts || alerts.length === 0) {
+            $el.html("<div style=\"color:#8a9099;font-size:12px;text-align:center;padding:12px\">Sin alertas abiertas.</div>");
             return;
         }
         var html = "";
-        notifications.forEach(function (item) {
-            var urgent = item.notification_type === "ErrorUrgente";
-            var color = urgent ? "#dc3545" : "#ff8c00";
-            var statusLabel = item.status === "Abierta" ? "Abierta" : "Resuelta";
-            html += "<div style=\"padding:8px 0;border-bottom:1px solid #eee\">" +
-                "<div style=\"display:flex;align-items:center;gap:6px\">" +
-                "<span style=\"display:inline-block;width:10px;height:10px;border-radius:50%;background:" + color + "\"></span>" +
-                "<strong style=\"font-size:12px;color:" + color + "\">" +
-                    escapeHtml(urgent ? "Error urgente" : "Alerta") + "</strong>" +
-                "<span style=\"font-size:11px;color:#8a9099\">" + formatNotificationDate(item.notification_date) + "</span>" +
-                "<span style=\"font-size:11px;color:#8a9099\">(" + escapeHtml(statusLabel) + ")</span>" +
-                "</div>" +
-                "<div style=\"font-size:12px;color:#444;white-space:pre-wrap;word-break:break-word;margin-top:3px\">" +
-                    escapeHtml(item.notification_message) + "</div>" +
-            "</div>";
+        alerts.forEach(function (item) {
+            html += renderNotificationEntry(item);
         });
-        $list.html(html);
+        $el.html(html);
     }
 
-    $(document).on("click", ".btn-control-notification", function () {
+    function renderHistoryList(history) {
+        var $el = $("#ci-notification-history");
+        $el.empty();
+        if (!history || history.length === 0) {
+            $el.html("<div style=\"color:#8a9099;font-size:12px;text-align:center;padding:12px\">Sin historial.</div>");
+            return;
+        }
+        var html = "";
+        history.forEach(function (item) {
+            html += renderNotificationEntry(item);
+        });
+        $el.html(html);
+    }
+
+    $(".btn-control-alert").off("click");
+    $(document).on("click", ".btn-control-alert", function (event) {
+        event.stopPropagation();
         var docName = $(this).data("name");
-        $("#ci-notifications-list").html("<div style=\"color:#8a9099;font-size:12px;text-align:center;padding:12px\">Cargando...</div>");
+        $("#ci-notification-alerts").html("<div style=\"color:#8a9099;font-size:12px;text-align:center;padding:12px\">Cargando...</div>");
+        $("#ci-notification-history").html("<div style=\"color:#8a9099;font-size:12px;text-align:center;padding:12px\">Cargando...</div>");
         $("#ci_notifications_modal").modal("show");
 
         petition_get_data({
             doc_name: docName
         }, "qp_supplier_front.resources.collection_accounts.collection_invoices.get_notifications", function (response) {
             if (!response || response.status !== 200) {
-                $("#ci-notifications-list").html("<div style=\"color:#dc3545;font-size:12px;text-align:center;padding:12px\">" +
+                $("#ci-notification-history").html("<div style=\"color:#dc3545;font-size:12px;text-align:center;padding:12px\">" +
                     escapeHtml((response && response.msg) || "Error al obtener notificaciones") + "</div>");
                 return;
             }
-            renderNotificationList(response.data);
+            var data = response.data || {};
+            renderAlertList(data.alerts);
+            renderHistoryList(data.history);
         });
     });
 
     $("#ci_notifications_modal").on("hidden.bs.modal", function () {
-        $("#ci-notifications-list").empty();
+        $("#ci-notification-alerts").empty();
+        $("#ci-notification-history").empty();
+    });
+
+    // =====================================================================
+    // Comentarios / observaciones (modal timeline.html)
+    // =====================================================================
+    var timelineDocName = null;
+
+    function renderCommentList(entries) {
+        var $list = $("#timeline-list");
+        $list.empty();
+        if (!entries || entries.length === 0) {
+            $list.html("<div style=\"color:#8a9099;font-size:12px;text-align:center;padding:12px\">Sin comentarios.</div>");
+            return;
+        }
+        var html = "";
+        entries.forEach(function (entry) {
+            html += "<div class=\"timeline-entry\">" +
+                "<span class=\"timeline-dot\" style=\"border-color:#28a745\">" +
+                "<span class=\"material-symbols-outlined\" style=\"color:#28a745\">comment</span>" +
+                "</span>" +
+                "<div style=\"font-size:13px\">" +
+                "<div style=\"color:#333;font-weight:bold;font-size:12px;margin-bottom:2px\">" +
+                    escapeHtml(entry.entry_by || "") +
+                    " <span style=\"color:#8a9099;font-weight:normal\">&middot; " +
+                    formatNotificationDate(entry.entry_date) + "</span>" +
+                "</div>" +
+                "<div style=\"color:#444;white-space:pre-wrap;word-break:break-word\">" +
+                    escapeHtml(entry.message || "") + "</div>" +
+                "</div></div>";
+        });
+        $list.html(html);
+    }
+
+    function updateCommentButton(docName, hasUnread) {
+        var $btn = $('.btn-control-timeline[data-name="' + docName + '"]');
+        if ($btn.length) {
+            $btn.css("color", hasUnread ? "#004D90" : "#6c757d");
+        }
+    }
+
+    function loadConversation(docName, callback) {
+        petition_get_data({
+            doc_name: docName
+        }, "qp_supplier_front.resources.collection_accounts.comments.get_conversation", function (response) {
+            if (response.status === 200) {
+                var data = response.data || {};
+                renderCommentList(data.comments);
+                var unread = data.unread_count || 0;
+                $("#timeline_unread_hint").text(
+                    unread > 0 ? unread + " comentario(s) sin leer" : ""
+                );
+                updateCommentButton(docName, false);
+            } else {
+                frappe.msgprint(response.msg || "Error al obtener la conversaci\u00f3n");
+            }
+            if (callback) {
+                callback();
+            }
+        });
+    }
+
+    function markConversationRead(docName) {
+        petition_get_data({
+            doc_name: docName
+        }, "qp_supplier_front.resources.collection_accounts.comments.mark_conversation_read", function (response) {
+            if (response.status === 200) {
+                var unread = (response.data && response.data.unread_count > 0)
+                    ? response.data.unread_count
+                    : 0;
+                $("#timeline_unread_hint").text(unread > 0 ? unread + " comentario(s) sin leer" : "");
+                updateCommentButton(docName, unread > 0);
+            }
+        });
+    }
+
+    $(document).on("click", ".btn-control-timeline", function (event) {
+        event.stopPropagation();
+        timelineDocName = $(this).data("name");
+        $("#timeline_comment_text").val("");
+        $("#confirm-timeline-comment").prop("disabled", true);
+        $("#timeline_unread_hint").text("");
+        loadConversation(timelineDocName, function () {
+            $("#timeline_invoice_modal").modal("show");
+            markConversationRead(timelineDocName);
+        });
+    });
+
+    $("#timeline_comment_text").on("input", function () {
+        $("#confirm-timeline-comment").prop(
+            "disabled",
+            String($(this).val() || "").trim() === ""
+        );
+    });
+
+    $("#timeline_invoice_modal").off("click", "#confirm-timeline-comment");
+    $("#confirm-timeline-comment").on("click", function () {
+        var comment = String($("#timeline_comment_text").val() || "").trim();
+        if (!timelineDocName || !comment) {
+            return;
+        }
+        $("#confirm-timeline-comment").prop("disabled", true);
+
+        petition_get_data({
+            doc_name: timelineDocName,
+            comment: comment
+        }, "qp_supplier_front.resources.collection_accounts.comments.add_comment", function (response) {
+            if (response.status === 200) {
+                $("#timeline_comment_text").val("");
+                renderCommentList(response.data);
+                updateCommentButton(timelineDocName, false);
+            } else {
+                $("#confirm-timeline-comment").prop("disabled", false);
+                frappe.msgprint(response.msg || "Error al agregar comentario");
+            }
+        });
+    });
+
+    $("#timeline_invoice_modal").on("hidden.bs.modal", function () {
+        timelineDocName = null;
+    });
+
+    $(document).on("click", ".btn-control-download", function (event) {
+        event.stopPropagation();
+        var name = $(this).data("name");
+        var nvfacNume = $(this).data("nvfac-nume") || name;
+        var url = "/api/method/qp_supplier_front.resources.collection_accounts.collection_invoices.download_files";
+        var noCacheUrl = url + "?nocache=" + new Date().getTime() +
+                         "&doc_name=" + encodeURIComponent(name) +
+                         "&invoice_number=" + encodeURIComponent(nvfacNume);
+        window.open(noCacheUrl, "_blank");
+    });
+
+    $(document).on("click", ".btn-control-assign", function (event) {
+        event.stopPropagation();
+        frappe.msgprint("Asignación: pendiente de configuración");
     });
 
     $("#confirm-reject").on("click", function () {

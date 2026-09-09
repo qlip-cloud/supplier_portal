@@ -36,6 +36,12 @@ ALLOWED_ROLES = {"Administrador Documenteme", "Administrador Sede Documenteme"}
 PURCHASE_INVOICE = "qp_SP_PurchaseInvoice"
 COLLECTION_ACCOUNT = "qp_SP_CollectionAccounts"
 NOTIFICATIONS = "qp_SP_PurchaseInvoiceNotification"
+ASSIGNED_USERS_DOCTYPE = "qp_SP_PurchaseInvoiceAssignedUser"
+PURCHASE_INVOICE_DOC = "qp_SP_PurchaseInvoiceDoc"
+COMMENT_DOCTYPE = "qp_SP_PurchaseInvoiceComment"
+COMMENT_READ_DOCTYPE = "qp_SP_PurchaseInvoiceCommentRead"
+
+DEFINITIVE_VIEW_STATES = ("BCC", "PA", "PR", "A", "R")
 
 
 def _has_permission(user_roles):
@@ -263,6 +269,300 @@ def attach_notification_info(rows, data=None):
         row["notification_open"] = info.get("open", 0)
         row["notification_urgent"] = info.get("urgent", 0)
         row["notification_count"] = info.get("count", 0)
+
+    return rows
+
+
+def _resolve_references(data):
+    """Adaptador de referencias de compras (real o memoria segun data)."""
+    if data is not None:
+        return data.references
+    from qp_supplier_front.infrastructure.adapters.reference_source import (
+        RealReferenceSource,
+    )
+    return RealReferenceSource()
+
+
+def attach_reception_info(rows, data=None):
+    """Enriquece cada fila de qp_SP_PurchaseInvoice para la lista (formato
+    documenteme).
+
+    - row["recepciones"]: recibos visibles de la OC (el banco de la factura)
+      para la columna Recepcion.
+    - row["productos_orden_compra"]: items de la OC (tabla 2 del detalle).
+    - row["recepciones_detalle"]: banco visible de la OC agrupado por recibo
+      (tabla 3 del detalle), con sus productos.
+    - row["hide_unselected_recibos"]: True en estados definitivos (solo se
+      muestran los reclamados por la factura).
+
+    Con data (facade) lee del store (memoria si simulacion); sin data usa
+    frappe (real).
+    """
+    from qp_supplier_front.services.enrich_document_detail import (
+        build_po_products,
+        build_receipt_products,
+    )
+
+    refs = _resolve_references(data)
+
+    for row in (rows or []):
+        purchase_order = row.get("purchase_order_id") or ""
+        invoice_number = row.get("nvfac_nume") or ""
+        definitive = row.get("qp_status") in DEFINITIVE_VIEW_STATES
+
+        row["hide_unselected_recibos"] = definitive
+        row["productos_orden_compra"] = (
+            build_po_products(refs.po_items(purchase_order))
+            if purchase_order
+            else []
+        )
+
+        bank = []
+        if purchase_order and invoice_number:
+            bank = refs.bank_for_invoice(
+                purchase_order, invoice_number
+            ) or []
+            if definitive:
+                bank = [
+                    item for item in bank if item.get("claimed_by_me")
+                ]
+
+        # Etiquetas por recibo (supplier_delivery_note o name) para badges y
+        # detalle. Los badges muestran el banco de la OC (igual que el
+        # detalle): antes de la aprobacion los recibos no estan reclamados
+        # (qp_invoice vacio) y con la regla de "solo asignados" el badge
+        # quedaria en blanco, a diferencia de documenteme.
+        labels = {}
+        if purchase_order:
+            labels = {
+                receipt.get("name"):
+                    receipt.get("supplier_delivery_note") or receipt.get("name")
+                for receipt in (refs.receipts_for(purchase_order) or [])
+            }
+        row["recepciones"] = [
+            labels.get(item.get("name")) or item.get("name")
+            for item in bank
+        ]
+
+        names = [item.get("name") for item in bank if item.get("name")]
+        items = refs.receipt_items_for(names) if names else []
+        products = build_receipt_products(items)
+
+        products_by_receipt = {}
+        for item, product in zip(items, products):
+            products_by_receipt.setdefault(item.get("parent"), []).append(product)
+
+        row["recepciones_detalle"] = [
+            {
+                "name": item.get("name"),
+                "etiqueta": labels.get(item.get("name")) or item.get("name"),
+                "fecha": item.get("date"),
+                "monto": item.get("amount") or 0,
+                "claimed_by_me": item.get("claimed_by_me"),
+                "selectable": item.get("selectable", False),
+                "productos": products_by_receipt.get(item.get("name"), []),
+            }
+            for item in bank
+        ]
+
+    return rows
+
+
+def attach_assignment_info(rows, data=None):
+    """Adjunta a cada fila de qp_SP_PurchaseInvoice los usuarios asignados
+    (child assigned_users) con su nombre completo.
+
+    - row["assigned_to_names"]: lista de nombres de los asignados.
+    - row["assigned_to_name"]: texto multilinea "Asignado a:\n- name..." o None.
+
+    Con data (facade) lee del store (memoria si simulacion); sin data usa
+    frappe (real).
+    """
+    names = [row.get("name") for row in (rows or []) if row.get("name")]
+    if not names:
+        return rows
+
+    if data is not None:
+        children = data.get_all(
+            ASSIGNED_USERS_DOCTYPE,
+            filters={"parent": ["in", names], "parenttype": PURCHASE_INVOICE},
+            fields=["parent", "user"],
+        )
+    else:
+        children = frappe.get_all(
+            ASSIGNED_USERS_DOCTYPE,
+            filters={"parent": ["in", names], "parenttype": PURCHASE_INVOICE},
+            fields=["parent", "user"],
+        )
+
+    user_ids = sorted({
+        item.get("user") for item in children if item.get("user")
+    })
+    full_names = {}
+    if user_ids:
+        if data is not None:
+            users = data.get_all(
+                "User",
+                filters={"name": ["in", user_ids]},
+                fields=["name", "full_name"],
+            )
+        else:
+            users = frappe.get_all(
+                "User",
+                filters={"name": ["in", user_ids]},
+                fields=["name", "full_name"],
+            )
+        full_names = {
+            user.get("name"): user.get("full_name") or user.get("name")
+            for user in (users or [])
+        }
+
+    by_parent = {}
+    for item in children or []:
+        by_parent.setdefault(item.get("parent"), []).append(item.get("user"))
+
+    for row in (rows or []):
+        user_ids_row = by_parent.get(row.get("name")) or []
+        names_row = [
+            full_names.get(user_id) or user_id
+            for user_id in user_ids_row
+        ]
+        row["assigned_to_names"] = names_row
+        row["assigned_to_name"] = (
+            "Asignado a:\n" + "\n".join("- " + name for name in names_row)
+            if names_row
+            else None
+        )
+
+    return rows
+
+
+def attach_document_info(rows, data=None):
+    """Adjunta a cada fila de qp_SP_PurchaseInvoice el resumen de sus
+    documentos adjuntos (child docs_attach).
+
+    - row["doc_count"]: cantidad de archivos adjuntos de la factura.
+    - row["non_xml_count"]: cantidad de archivos no-XML (para el icono de
+      descarga).
+
+    Con data (facade) lee del store (memoria si simulacion); sin data usa
+    frappe (real).
+    """
+    names = [row.get("name") for row in (rows or []) if row.get("name")]
+    if not names:
+        return rows
+
+    if data is not None:
+        docs = data.get_all(
+            PURCHASE_INVOICE_DOC,
+            filters={
+                "parent": ["in", names],
+                "parenttype": PURCHASE_INVOICE,
+            },
+            fields=["parent", "file_type"],
+        )
+    else:
+        docs = frappe.get_all(
+            PURCHASE_INVOICE_DOC,
+            filters={
+                "parent": ["in", names],
+                "parenttype": PURCHASE_INVOICE,
+            },
+            fields=["parent", "file_type"],
+        )
+
+    docs_by_parent = {}
+    for doc in docs or []:
+        docs_by_parent.setdefault(doc.get("parent"), []).append(doc)
+
+    for row in (rows or []):
+        docs = docs_by_parent.get(row.get("name")) or []
+        row["doc_count"] = len(docs)
+        row["non_xml_count"] = len([
+            doc for doc in docs
+            if (doc.get("file_type") or "").upper() != "XML"
+        ])
+
+    return rows
+
+
+def _comment_session_user(data):
+    """Usuario activo (real: sesion; memoria: Administrator)."""
+    if data is not None:
+        return "Administrator"
+    return getattr(frappe.session, "user", "Administrator")
+
+
+def _comment_own_name(data, user):
+    """Nombre visible del usuario (real: fullname; memoria: Administrator)."""
+    if data is not None:
+        return "Administrator"
+    try:
+        return frappe.utils.get_fullname(user) or user
+    except Exception:
+        return user
+
+
+def attach_comment_info(rows, data=None):
+    """Adjunta a cada fila de qp_SP_PurchaseInvoice el resumen de su
+    conversacion (child comments + comment_read).
+
+    - row["comment_count"]: cantidad de comentarios de la factura.
+    - row["has_unread_comment"]: True si el usuario actual tiene comentarios
+      ajenos posteriores a su ultima lectura.
+
+    Con data (facade) lee del store (memoria si simulacion); sin data usa
+    frappe (real).
+    """
+    names = [row.get("name") for row in (rows or []) if row.get("name")]
+    if not names:
+        return rows
+
+    user = _comment_session_user(data)
+    own = _comment_own_name(data, user)
+
+    if data is not None:
+        comments = data.get_all(
+            COMMENT_DOCTYPE,
+            filters={"parent": ["in", names]},
+            fields=["parent", "entry_by", "entry_date"],
+        )
+        reads = data.get_all(
+            COMMENT_READ_DOCTYPE,
+            filters={"parent": ["in", names], "user": user},
+            fields=["parent", "last_read"],
+        )
+    else:
+        comments = frappe.get_all(
+            COMMENT_DOCTYPE,
+            filters={"parent": ["in", names]},
+            fields=["parent", "entry_by", "entry_date"],
+        )
+        reads = frappe.get_all(
+            COMMENT_READ_DOCTYPE,
+            filters={"parent": ["in", names], "user": user},
+            fields=["parent", "last_read"],
+        )
+
+    comments_by_parent = {}
+    for comment in comments or []:
+        comments_by_parent.setdefault(comment.get("parent"), []).append(comment)
+
+    last_read_by_parent = {
+        read.get("parent"): read.get("last_read")
+        for read in reads or []
+    }
+
+    for row in (rows or []):
+        doc_comments = comments_by_parent.get(row.get("name")) or []
+        last_read = last_read_by_parent.get(row.get("name"))
+        row["comment_count"] = len(doc_comments)
+        row["has_unread_comment"] = any(
+            (comment.get("entry_by") or "") != own
+            and str(comment.get("entry_date") or "")
+            and not (last_read and str(comment.get("entry_date")) <= str(last_read))
+            for comment in doc_comments
+        )
 
     return rows
 

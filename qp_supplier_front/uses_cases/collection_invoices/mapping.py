@@ -24,7 +24,6 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     validate_registrable,
 )
 
-CASH_PAYMENT_TYPE = "1"
 CREDIT_PAYMENT_TYPE = "2"
 
 
@@ -49,7 +48,7 @@ def build_document_dict(purchase_invoice):
         "nvfac_stot": purchase_invoice.get("subtotal") or 0,
         "nvfac_viva": purchase_invoice.get("tax") or 0,
         "nvfac_totp": purchase_invoice.get("total") or 0,
-        "nvfac_conv": purchase_invoice.get("nvfac_conv") or CASH_PAYMENT_TYPE,
+        "nvfac_conv": purchase_invoice.get("nvfac_conv") or CREDIT_PAYMENT_TYPE,
         "nvfac_esta": purchase_invoice.get("qp_status") or "E",
         "nvmon_codi": purchase_invoice.get("currency") or "COP",
         "collection_account": purchase_invoice.get("collection_account"),
@@ -74,12 +73,11 @@ def build_single_line(first_po_item, amount_payable, order_no=""):
 
 
 def evaluate_document(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None):
-    """Valida una factura de cuenta de cobro (tratada como CONTADO).
+    """Valida una factura de cuenta de cobro (tratada como CREDITO).
 
-    Reusa validate_registrable del nucleo documenteme: las facturas de contado
-    no exigen OC/recibos salvo que la regla de rechazo activa
-    (resolve_rule_fn, Supplier.auto_reject con fallback MasterSetup) lo exija;
-    en ese caso la factura debe cumplirla para quedar en "V". Retorna (ok, error).
+    Reusa validate_registrable del nucleo documenteme: las facturas de credito
+    exigen OC existente y una combinacion exacta de recepciones no consumidas
+    que cubra el total. Retorna (ok, error).
     """
     return validate_registrable(
         doc,

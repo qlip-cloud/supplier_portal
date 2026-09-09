@@ -15,12 +15,15 @@ flujo, p. ej. qp_invoice de recibos, no se pisan).
 from qp_supplier_front.simulation.seeds import (
     SIM_NIT,
     _insert_if_missing,
+    seed_assignment_config,
     seed_master_setup,
+    seed_oc_type,
     seed_purchase_receipt,
     seed_purchase_receipt_item,
     seed_reject_rule,
     seed_sede,
     seed_supplier,
+    seed_user,
 )
 
 PURCHASE_ORDER = "qp_SP_PurchaseOrder"
@@ -29,15 +32,19 @@ COLLECTION_ACCOUNT = "qp_SP_CollectionAccounts"
 PURCHASE_INVOICE = "qp_SP_PurchaseInvoice"
 NOTIFICATIONS = "qp_SP_PurchaseInvoiceNotification"
 
+ASSIGNEE_EMAIL = "asignado.collection@sim.local"
+
 
 def seed_collection_po(store, name, supplier, grand_total,
-                       currency="COP", headquarter="HQ01"):
+                       currency="COP", headquarter="HQ01", oc_type="COMPRA"):
     _insert_if_missing(store, PURCHASE_ORDER, {
         "name": name,
         "supplier": supplier,
         "grand_total": grand_total,
         "currency": currency,
         "qp_headquarter": headquarter,
+        "qp_oc_type": oc_type,
+        "qp_order_confirmation_no": name,
     })
 
 
@@ -89,7 +96,7 @@ def seed_collection_purchase_invoice(store, name, collection_account,
         "nvfac_fech": creation_date,
         "nvfac_nume": name,
         "nvfac_cufe": "",
-        "nvfac_conv": "1",
+        "nvfac_conv": "2",
         "currency": "COP",
         "subtotal": total,
         "tax": 0,
@@ -116,19 +123,26 @@ def seed_notification(store, parent, message, notification_type="Alerta",
 def seed_collection_scenario(store):
     """Escenario completo del modo simulador de cuentas de cobro.
 
-    Las facturas se tratan como CONTADO (nvfac_conv=1): NO exigen OC/recibos
-    salvo por la regla de rechazo activa. El MasterSetup apunta a la regla
+    Las facturas se tratan como CREDITO (nvfac_conv=2): exigen una combinacion
+    exacta de recepciones (banco) que cubra el monto; si no la cubren, quedan
+    en "E" y se asignan automaticamente. El MasterSetup apunta a la regla
     "no_receipt":
 
-    - PO-CA-0001 con recibos -> CA-SIM-0001 -> factura V (aprobable).
-    - PO-CA-0002 con un recibo -> CA-SIM-0002 -> factura V.
-    - PO-CA-0003 SIN recibos -> CA-SIM-0003 -> factura E (viola la regla
-      no_receipt) con notificacion ErrorUrgente.
+    - PO-CA-0001 con recibos -> CA-SIM-0001 -> factura V (banco cubre 600k).
+    - PO-CA-0002 con un recibo -> CA-SIM-0002 -> factura E asignada (el banco
+      100k no cubre 500k).
+    - PO-CA-0003 SIN recibos -> CA-SIM-0003 -> factura E asignada (sin banco).
     """
     seed_supplier(store, SIM_NIT)
     seed_sede(store, "HQ01")
     seed_reject_rule(store, "RULE-NO-RECEIPT", "no_receipt",
                      motive="Rechazo: sin recibo de compra")
+    seed_oc_type(store, "COMPRA")
+    seed_user(store, ASSIGNEE_EMAIL, full_name="Asignado Collection")
+    seed_assignment_config(
+        store, "CFG-COMPRA", oc_type="COMPRA", headquarter="",
+        user_emails=[ASSIGNEE_EMAIL],
+    )
     seed_master_setup(
         store,
         collection_invoices_simulation=1,
@@ -178,20 +192,14 @@ def seed_collection_scenario(store):
     )
     seed_collection_purchase_invoice(
         store, "PI-SIM-0002", "CA-SIM-0002", "PO-CA-0002", SIM_NIT, 500000,
-        "V", "2026-09-02",
+        "E", "2026-09-02",
     )
     seed_collection_purchase_invoice(
         store, "PI-SIM-0003", "CA-SIM-0003", "PO-CA-0003", SIM_NIT, 100000,
         "E", "2026-09-03",
-        error_message=(
-            "La factura de contado no cumple la regla de rechazo configurada "
-            "(no_receipt), por lo que no se aprueba automáticamente y debe "
-            "asignarse"
-        ),
     )
-    seed_notification(
-        store, "PI-SIM-0003",
-        "La factura de contado no cumple la regla de rechazo configurada "
-        "(no_receipt), por lo que no se aprueba automáticamente y debe asignarse",
-        notification_type="ErrorUrgente",
-    )
+
+    # Asignacion automatica: PI-SIM-0002 (banco 100k no cubre 500k) y
+    # PI-SIM-0003 (sin banco) quedan asignadas a los usuarios configurados.
+    from qp_supplier_front.simulation import collection_invoices_memory
+    collection_invoices_memory.memory_run_collection_auto_assign(store)

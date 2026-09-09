@@ -49,7 +49,7 @@ class TestBuildDocumentDict(unittest.TestCase):
     def test_defaults_cuando_faltan_campos(self):
         doc = build_document_dict({"name": "PI-1"})
         self.assertEqual(doc["nvfac_nume"], "PI-1")
-        self.assertEqual(doc["nvfac_conv"], "1")
+        self.assertEqual(doc["nvfac_conv"], "2")
         self.assertEqual(doc["nvfac_esta"], "E")
         self.assertEqual(doc["nvmon_codi"], "COP")
 

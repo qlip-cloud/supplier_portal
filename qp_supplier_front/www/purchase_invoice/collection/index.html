@@ -65,10 +65,10 @@
                         <th class="text-center" style="width:40px"></th>
                         <th class="text-center">NIT</th>
                         <th class="text-center">Proveedor</th>
-                        <th class="text-center">Factura</th>
+                        <th class="text-center">Factura Interna</th>
                         <th class="text-center">Fecha</th>
                         <th class="text-center">Orden de compra</th>
-                        <th class="text-center">Cuenta de cobro</th>
+                        <th class="text-center">Recepción</th>
                         <th class="text-center">Subtotal</th>
                         <th class="text-center">IVA</th>
                         <th class="text-center">Total</th>
@@ -76,7 +76,7 @@
                         <th class="text-center"></th>
                     </tr>
                 </thead>
-                <tbody id="accordion" data-key="{{ key }}" data-doctype="{{ doctype }}" data-doctype_detail=""
+                <tbody id="accordion" data-key="{{ key }}" data-doctype="{{ doctype }}" data-doctype_detail="{{ doctype }}"
                     data-order_by="{{ order_by }}" data-date_key="{{ date_key }}">
                     {% include "qp_supplier_front/templates/list/purchase_invoice_collection/list.html" %}
                 </tbody>
@@ -96,5 +96,7 @@
 </div>
 
 {% include "qp_supplier_front/templates/modal/motive.html" %}
+{% include "qp_supplier_front/templates/modal/assign.html" %}
+{% include "qp_supplier_front/templates/modal/timeline.html" %}
 {% include "qp_supplier_front/templates/modal/purchase_invoice_notifications.html" %}
 {% endblock %}

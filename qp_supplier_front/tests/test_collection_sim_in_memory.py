@@ -3,10 +3,11 @@
 tests/test_collection_sim_in_memory.py
 ======================================
 Escenario del modo simulador de cuentas de cobro 100% en memoria: crear
-cuenta -> factura V/E; aprobar -> BCC + cuenta "Facturado" sin crear
-qp_SP_PurchaseInvoiceBC ni eventos; rechazar -> R; confirmar -> A.
+    cuenta -> factura V (banco cubre) o E asignada (banco no cubre); aprobar
+    -> BCC + cuenta "Facturado" sin crear qp_SP_PurchaseInvoiceBC ni eventos;
+    rechazar -> R; confirmar -> A.
 
-No toca la base de datos real ni Frappe.
+    No toca la base de datos real ni Frappe.
 """
 import unittest
 from unittest.mock import MagicMock, patch
@@ -19,6 +20,7 @@ from qp_supplier_front.simulation import (
     references_memory as ref,
 )
 from qp_supplier_front.simulation import session
+from qp_supplier_front.simulation.seeds import seed_purchase_receipt
 from qp_supplier_front.simulation.store import MemoryStore
 from qp_supplier_front.uses_cases.collection_invoices.approve import (
     approve_collection_invoices,
@@ -58,26 +60,36 @@ class TestCollectionSimInMemory(unittest.TestCase):
         seeds.seed_collection_scenario(self.store)
         self.addCleanup(session.reset)
 
+    def _assigned_users(self, pi_name):
+        return self.store.query(
+            "qp_SP_PurchaseInvoiceAssignedUser",
+            filters={"parent": pi_name, "parenttype": "qp_SP_PurchaseInvoice"},
+            fields=["user"],
+        )
+
     def test_seeds_del_escenario(self):
+        # Cubierta por el banco (200k+400k = 600k) -> V.
         self.assertEqual(
             self.store.get_value("qp_SP_PurchaseInvoice", "PI-SIM-0001", "qp_status"),
             "V",
         )
+        # Banco 100k no cubre 500k -> E asignada.
         self.assertEqual(
             self.store.get_value("qp_SP_PurchaseInvoice", "PI-SIM-0002", "qp_status"),
-            "V",
+            "E",
         )
-        # Contado que viola la regla no_receipt (PO sin recibos) -> E.
+        self.assertTrue(self._assigned_users("PI-SIM-0002"))
+        # Sin banco -> E asignada (sin notificacion ErrorUrgente).
         self.assertEqual(
             self.store.get_value("qp_SP_PurchaseInvoice", "PI-SIM-0003", "qp_status"),
             "E",
         )
+        self.assertTrue(self._assigned_users("PI-SIM-0003"))
         notifs = self.store.query(
             "qp_SP_PurchaseInvoiceNotification",
             filters={"parent": "PI-SIM-0003"},
         )
-        self.assertTrue(notifs)
-        self.assertEqual(notifs[0]["notification_type"], "ErrorUrgente")
+        self.assertEqual(notifs, [])
 
     def test_crear_cuenta_evalua_factura(self):
         result = mem.memory_create_collection_account(
@@ -140,8 +152,8 @@ class TestCollectionSimInMemory(unittest.TestCase):
         ]
         self.assertEqual(len(open_notifs), 0)
 
-    def test_factura_contado_viola_regla_no_receipt(self):
-        # Contado + regla no_receipt activa: sin recibos -> E con notificacion.
+    def test_credit_no_cubierta_queda_e_sin_error_urgente(self):
+        # Credito sin banco que cubra: E asignada, sin notificacion urgente.
         pi_status = self.store.get_value(
             "qp_SP_PurchaseInvoice", "PI-SIM-0003", "qp_status"
         )
@@ -150,12 +162,11 @@ class TestCollectionSimInMemory(unittest.TestCase):
             "qp_SP_PurchaseInvoiceNotification",
             filters={"parent": "PI-SIM-0003"},
         )
-        self.assertTrue(notifs)
-        self.assertEqual(notifs[0]["notification_type"], "ErrorUrgente")
-        self.assertEqual(notifs[0]["status"], "Abierta")
+        self.assertEqual(notifs, [])
+        self.assertTrue(self._assigned_users("PI-SIM-0003"))
 
-    def test_aprobar_respeta_regla_no_receipt(self):
-        # Aunque sea contado, la regla no_receipt bloquea la aprobacion.
+    def test_aprobar_respeta_banco_insuficiente(self):
+        # Credito sin recepciones que cubran: no se aprueba automaticamente.
         result = _run_approve(self.store, ["PI-SIM-0003"])
         self.assertEqual(result["approved"], [])
         self.assertEqual(len(result["errors"]), 1)
@@ -163,6 +174,116 @@ class TestCollectionSimInMemory(unittest.TestCase):
             self.store.get_value("qp_SP_PurchaseInvoice", "PI-SIM-0003", "qp_status"),
             "E",
         )
+
+    def test_crear_cuenta_no_cubierta_se_asigna(self):
+        # Nueva OC con banco insuficiente (100k vs 500k) -> E asignada.
+        seeds.seed_collection_po(
+            self.store, "PO-CA-0004", "999999999", 1000000)
+        seeds.seed_collection_po_item(
+            self.store, "PO-CA-0004", "ITEM-0009", 1, 1000000)
+        seed_purchase_receipt(
+            self.store, "REC-CA4-1", "PO-CA-0004", 100000,
+            posting_date="2026-08-28")
+
+        result = mem.memory_create_collection_account(
+            self.store, "PO-CA-0004", 500000
+        )
+        self.assertIsNone(result.get("error"))
+        pi = result["purchase_invoice"]
+        self.assertEqual(
+            self.store.get_value("qp_SP_PurchaseInvoice", pi, "qp_status"),
+            "E",
+        )
+        self.assertTrue(self._assigned_users(pi))
+
+    def test_asignacion_automatica_del_escenario(self):
+        assigned_2 = self._assigned_users("PI-SIM-0002")
+        assigned_3 = self._assigned_users("PI-SIM-0003")
+        self.assertEqual(
+            [u["user"] for u in assigned_2], [seeds.ASSIGNEE_EMAIL]
+        )
+        self.assertEqual(
+            [u["user"] for u in assigned_3], [seeds.ASSIGNEE_EMAIL]
+        )
+
+    def test_crear_cuenta_con_docs_crea_docs_attach(self):
+        # El archivo adjunto (docs) de la cuenta se guarda en la tabla de
+        # documentos de la FACTURA (child docs_attach), igual que documenteme.
+        seeds.seed_collection_po(
+            self.store, "PO-CA-0005", "999999999", 1000000)
+        seeds.seed_collection_po_item(
+            self.store, "PO-CA-0005", "ITEM-0010", 1, 1000000)
+
+        result = mem.memory_create_collection_account(
+            self.store, "PO-CA-0005", 500000,
+            docs="/files/parafiscales.pdf",
+        )
+        self.assertIsNone(result.get("error"))
+        pi = result["purchase_invoice"]
+
+        docs = self.store.query(
+            "qp_SP_PurchaseInvoiceDoc",
+            filters={"parent": pi, "parenttype": "qp_SP_PurchaseInvoice"},
+        )
+        self.assertEqual(len(docs), 1)
+        self.assertEqual(docs[0]["file_url"], "/files/parafiscales.pdf")
+        self.assertEqual(docs[0]["file_name"], "parafiscales.pdf")
+        self.assertEqual(docs[0]["file_id"], "")
+
+        # La cuenta conserva el archivo en su campo docs (Attach).
+        self.assertEqual(
+            self.store.get_value(
+                "qp_SP_CollectionAccounts", result["name"], "docs"),
+            "/files/parafiscales.pdf",
+        )
+
+    def test_crear_cuenta_sin_docs_no_crea_docs_attach(self):
+        seeds.seed_collection_po(
+            self.store, "PO-CA-0006", "999999999", 1000000)
+        seeds.seed_collection_po_item(
+            self.store, "PO-CA-0006", "ITEM-0011", 1, 1000000)
+
+        result = mem.memory_create_collection_account(
+            self.store, "PO-CA-0006", 500000
+        )
+        self.assertIsNone(result.get("error"))
+        docs = self.store.query(
+            "qp_SP_PurchaseInvoiceDoc",
+            filters={"parent": result["purchase_invoice"]},
+        )
+        self.assertEqual(docs, [])
+
+    def test_comentarios_y_lectura_en_memoria(self):
+        # Los endpoints de comentarios escriben con data.insert_child (ruta
+        # memoria) y leen con data.get_all; se verifica la persistencia.
+        from qp_supplier_front.infrastructure.adapters.data_facade import DataFacade
+        facade = DataFacade(store=self.store)
+
+        facade.insert_child("qp_SP_PurchaseInvoiceComment", "PI-SIM-0002", {
+            "message": "Hola proveedor",
+            "entry_by": "Administrator",
+            "entry_date": "2026-09-08 10:00:00",
+        })
+
+        comments = facade.get_all(
+            "qp_SP_PurchaseInvoiceComment",
+            filters={"parent": "PI-SIM-0002"},
+            fields=["message", "entry_by", "entry_date"],
+        )
+        self.assertEqual(len(comments), 1)
+        self.assertEqual(comments[0]["message"], "Hola proveedor")
+
+        facade.insert_child("qp_SP_PurchaseInvoiceCommentRead", "PI-SIM-0002", {
+            "user": "Administrator",
+            "last_read": "2026-09-08 10:30:00",
+        })
+        reads = facade.get_all(
+            "qp_SP_PurchaseInvoiceCommentRead",
+            filters={"parent": "PI-SIM-0002"},
+            fields=["user", "last_read"],
+        )
+        self.assertEqual(len(reads), 1)
+        self.assertEqual(reads[0]["user"], "Administrator")
 
     def test_rechazo_inserta_notificacion(self):
         mem.memory_reject(self.store, ["PI-SIM-0002"], "No aplica", True)

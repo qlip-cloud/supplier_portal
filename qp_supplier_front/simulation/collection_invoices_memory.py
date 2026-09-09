@@ -20,12 +20,19 @@ from qp_supplier_front.simulation.references_memory import (
     memory_resolve_rule,
 )
 from qp_supplier_front.uses_cases.collection_invoices import mapping
+from qp_supplier_front.uses_cases.documenteme.auto_assign import (
+    auto_assign as auto_assign_core,
+    is_inventariable_oc_type,
+    resolve_assignee_emails,
+)
 
 PURCHASE_INVOICE = "qp_SP_PurchaseInvoice"
 COLLECTION_ACCOUNT = "qp_SP_CollectionAccounts"
 PURCHASE_ORDER = "qp_SP_PurchaseOrder"
 PURCHASE_ORDER_ITEM = "qp_SP_PurchaseOrderItem"
 NOTIFICATIONS = "qp_SP_PurchaseInvoiceNotification"
+ASSIGNED_USERS_CHILD = "qp_SP_PurchaseInvoiceAssignedUser"
+PURCHASE_INVOICE_DOC = "qp_SP_PurchaseInvoiceDoc"
 
 GET_DOCS_FIELDS = [
     "name",
@@ -58,6 +65,25 @@ def _set_fields(store, doctype, name, fields):
     """Aplica varios campos como un solo set_value (dict)."""
     for key, value in (fields or {}).items():
         store.set_value(doctype, name, key, value)
+
+
+def _insert_invoice_doc(store, pi_name, docs):
+    """Registra el archivo adjunto de la cuenta (docs) en el child
+    docs_attach de la factura (en memoria). file_id queda vacio (no hay File
+    en memoria)."""
+    docs = (docs or "").strip()
+    if not docs or not pi_name:
+        return
+    file_name = docs.split("?", 1)[0].rsplit("/", 1)[-1] or "documento"
+    store.insert(PURCHASE_INVOICE_DOC, {
+        "parent": pi_name,
+        "parenttype": PURCHASE_INVOICE,
+        "parentfield": "docs_attach",
+        "file_name": file_name,
+        "file_type": "",
+        "file_url": docs,
+        "file_id": "",
+    })
 
 
 def memory_insert_notification(store, parent_name, message, now=None,
@@ -169,7 +195,7 @@ def memory_create_purchase_invoice(store, collection_account_name):
         "nvfac_fech": ca.get("creation_date"),
         "nvfac_nume": "",
         "nvfac_cufe": "",
-        "nvfac_conv": "1",
+        "nvfac_conv": "2",
         "currency": po.get("currency") or "COP",
         "subtotal": amount_payable,
         "tax": 0,
@@ -185,12 +211,15 @@ def memory_create_purchase_invoice(store, collection_account_name):
         COLLECTION_ACCOUNT, collection_account_name, "purchase_invoice", pi_name
     )
 
+    _insert_invoice_doc(store, pi_name, ca.get("docs"))
+
     memory_evaluate_purchase_invoice(store, pi_name)
     return pi_name
 
 
 def memory_evaluate_purchase_invoice(store, pi_name):
-    """Valida la factura (regla OC - recepcion adaptada) y fija V/E."""
+    """Valida la factura (regla de CREDITO: banco de recepciones) y fija V,
+    o la deja en E y la asigna automaticamente (sin ErrorUrgente)."""
     row = store.get(PURCHASE_INVOICE, pi_name) or {}
     if not row:
         return {"ok": False, "warnings": []}
@@ -205,13 +234,179 @@ def memory_evaluate_purchase_invoice(store, pi_name):
         first = (warnings[0].get("violations") or [""])[0]
         store.set_value(PURCHASE_INVOICE, pi_name, "qp_status", "E")
         store.set_value(PURCHASE_INVOICE, pi_name, "qp_error_message", first)
-        memory_insert_notification(store, pi_name, first,
-                                   notification_type="ErrorUrgente")
+
+        # No cubre el banco de recepciones: asignacion automatica.
+        memory_run_collection_auto_assign(store, doc_names=[pi_name])
         return {"ok": False, "warnings": warnings}
     store.set_value(PURCHASE_INVOICE, pi_name, "qp_status", "V")
     store.set_value(PURCHASE_INVOICE, pi_name, "qp_error_message", "")
     memory_resolve_open_notifications(store, pi_name)
     return {"ok": True, "warnings": []}
+
+
+# =========================================================================
+# Asignacion automatica en memoria (credito) sobre qp_SP_PurchaseInvoice
+# =========================================================================
+def _pi_has_assigned_users(store, pi_name):
+    return store.count(
+        ASSIGNED_USERS_CHILD,
+        filters={"parent": pi_name, "parenttype": PURCHASE_INVOICE},
+    ) > 0
+
+
+def _pi_candidates(store, doc_names=None):
+    filters = {"qp_sync_flow": "COLLECTION", "qp_status": ["in", ["E"]]}
+    if doc_names:
+        filters["name"] = ["in", list(doc_names)]
+    rows = store.query(
+        PURCHASE_INVOICE,
+        filters=filters,
+        fields=[
+            "name",
+            "nvfac_nume",
+            "purchase_order_id",
+            "subtotal",
+            "total",
+            "collection_account",
+        ],
+    )
+    candidates = []
+    for row in (rows or []):
+        if _pi_has_assigned_users(store, row.get("name")):
+            continue
+        candidates.append({
+            "name": row.get("name"),
+            "nvfac_nume": row.get("nvfac_nume") or row.get("name"),
+            "nvfac_orde": row.get("purchase_order_id"),
+            "nvfac_totp": row.get("total") or 0,
+            "nvfac_stot": row.get("subtotal") or 0,
+            "nvfac_conv": "2",
+            "assigned_to": None,
+            "has_assigned_users": False,
+            "in_queue": True,
+        })
+    return candidates
+
+
+def _pi_oc_context(store, purchase_order_number):
+    if not purchase_order_number:
+        return None
+    row = store.get(PURCHASE_ORDER, purchase_order_number)
+    if not row:
+        return None
+    if row.get("qp_order_confirmation_no") != purchase_order_number:
+        return None
+    return {
+        "oc_type": row.get("qp_oc_type"),
+        "headquarter": row.get("qp_headquarter"),
+    }
+
+
+def _pi_normalize_headquarter(value):
+    if not value:
+        return ""
+    return str(value).split("\n", 1)[0].strip()
+
+
+def _pi_normalize_oc_type(value, oc_type_rows):
+    value = (value or "").strip()
+    if not value:
+        return ""
+    for row in (oc_type_rows or []):
+        if value == row.get("name") or value == row.get("oc_type"):
+            return row.get("name")
+    return value
+
+
+def _pi_load_assignment_rows(store, oc_type_records=None):
+    if oc_type_records is None:
+        oc_type_records = store.query(
+            "qp_SP_OCType", fields=["name", "oc_type"])
+    configs = store.query(
+        "qp_SP_AssignmentConfig",
+        fields=["name", "headquarter", "oc_type"],
+    )
+    rows = []
+    for config in (configs or []):
+        child_rows = store.query(
+            "qp_SP_AssignmentConfigUser",
+            filters={"parent": config["name"],
+                     "parenttype": "qp_SP_AssignmentConfig"},
+            fields=["user_email"],
+        )
+        rows.append({
+            "headquarter": _pi_normalize_headquarter(config.get("headquarter")),
+            "oc_type": _pi_normalize_oc_type(config.get("oc_type"), oc_type_records),
+            "user_emails": [row.get("user_email") for row in child_rows],
+        })
+    return rows
+
+
+def _pi_assignee_emails(store, oc_type, headquarter):
+    oc_type_records = store.query(
+        "qp_SP_OCType", fields=["name", "oc_type", "is_inventariable"])
+    oc_type_rows = [
+        {"oc_type": row.get("name"),
+         "is_inventariable": row.get("is_inventariable")}
+        for row in (oc_type_records or [])
+        if row.get("name")
+    ]
+
+    if (is_inventariable_oc_type(oc_type, oc_type_rows)
+            and headquarter
+            and not store.exists("qp_md_headquarter", headquarter)):
+        return None
+
+    assignment_rows = _pi_load_assignment_rows(store, oc_type_records)
+    return resolve_assignee_emails(
+        oc_type, headquarter, oc_type_rows, assignment_rows)
+
+
+def _pi_assignee_users(store, emails):
+    users = []
+    for email in (emails or []):
+        if not email:
+            continue
+        if store.exists("User", email) and store.get_value(
+                "User", email, "enabled"):
+            if email not in users:
+                users.append(email)
+    return users
+
+
+def _pi_add_assignees(store, pi_name, users):
+    existing = set(store.query(
+        ASSIGNED_USERS_CHILD,
+        filters={"parent": pi_name, "parenttype": PURCHASE_INVOICE},
+        pluck="user",
+    ))
+    for user in (users or []):
+        if not user or user in existing:
+            continue
+        store.insert(ASSIGNED_USERS_CHILD, {
+            "parent": pi_name,
+            "parenttype": PURCHASE_INVOICE,
+            "user": user,
+        })
+
+
+def memory_run_collection_auto_assign(store, doc_names=None):
+    """Asignacion automatica del escenario sobre el store de la sesion.
+
+    Las facturas de collection son de CREDITO: se asignan cuando su OC no esta
+    cubierta por una combinacion exacta de recepciones no consumidas.
+    """
+    return auto_assign_core(
+        candidates_fn=lambda names=None: _pi_candidates(store, names),
+        get_oc_context_fn=lambda po: _pi_oc_context(store, po),
+        get_receipt_bank_fn=lambda po: memory_get_receipt_bank(store, po),
+        resolve_emails_fn=lambda oc_type, hq: _pi_assignee_emails(
+            store, oc_type, hq),
+        resolve_users_fn=lambda emails: _pi_assignee_users(store, emails),
+        add_assignees_fn=lambda pi, users: _pi_add_assignees(
+            store, pi, users),
+        doc_names=doc_names,
+    )
 
 
 def memory_get_docs(store, doc_names):

@@ -38,6 +38,10 @@ def get_context(context):
     documents = get_paginated_filtered(0, doctype, order_by, filters, data=data)
 
     base.attach_notification_info(documents, data=data)
+    base.attach_reception_info(documents, data=data)
+    base.attach_assignment_info(documents, data=data)
+    base.attach_document_info(documents, data=data)
+    base.attach_comment_info(documents, data=data)
 
     context.purchase_invoice_collection = documents
     context.key = key

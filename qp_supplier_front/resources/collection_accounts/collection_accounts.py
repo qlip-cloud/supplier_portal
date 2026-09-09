@@ -113,6 +113,49 @@ def on_collection_account_insert(doc, method):
         raise
 
 
+def _guess_file_type(file_name):
+    """Tipo de archivo derivado de la extension (p. ej. 'png', 'PDF')."""
+    parts = (file_name or "").rsplit(".", 1)
+    if len(parts) == 2 and parts[1].strip():
+        return parts[1].strip().upper()
+    return ""
+
+
+def _attach_docs(purchase_invoice, docs):
+    """Registra el archivo adjunto de la cuenta de cobro (docs) en el child
+    docs_attach de la factura, igual que documenteme con su tabla de adjuntos.
+
+    Se invoca ANTES del insert (el child se persiste con la factura): evita el
+    segundo save que generaria un mismatch de timestamp. El archivo fue subido
+    por el front (upload_file) y existe como File de Frappe; se resuelve para
+    completar file_name/file_id. El tipo se deriva de la extension (el doctype
+    File de Frappe no expone content_type en esta version).
+    """
+    docs = (docs or "").strip()
+    if not docs:
+        return
+
+    from posixpath import basename
+
+    file_name = basename(docs.split("?", 1)[0]) or "documento"
+    file_id = frappe.db.get_value("File", {"file_url": docs}, "name") or ""
+
+    if file_id:
+        try:
+            file_doc = frappe.get_doc("File", file_id)
+            if (file_doc.file_name or "").strip():
+                file_name = file_doc.file_name.strip()
+        except Exception:
+            pass
+
+    purchase_invoice.append("docs_attach", {
+        "file_name": file_name,
+        "file_type": _guess_file_type(file_name),
+        "file_url": docs,
+        "file_id": file_id,
+    })
+
+
 def create_purchase_invoice_for_collection_account(collection_account_doc):
     """Crea el qp_SP_PurchaseInvoice a partir de la cuenta de cobro (real)."""
     existing = frappe.db.get_value(
@@ -140,13 +183,14 @@ def create_purchase_invoice_for_collection_account(collection_account_doc):
     purchase_invoice.purchase_order_id = po_name
     purchase_invoice.nvpro_ndoc = tax_id or supplier
     purchase_invoice.nvfac_fech = collection_account_doc.get("creation_date") or now
-    purchase_invoice.nvfac_conv = "1"
+    purchase_invoice.nvfac_conv = "2"
     purchase_invoice.currency = po.get("currency") or "COP"
     purchase_invoice.subtotal = amount
     purchase_invoice.tax = 0
     purchase_invoice.total = amount
     purchase_invoice.collection_account = collection_account_doc.name
     purchase_invoice.registration_date = now
+    _attach_docs(purchase_invoice, collection_account_doc.get("docs"))
     purchase_invoice.insert(ignore_permissions=True)
 
     frappe.db.set_value(
@@ -162,7 +206,15 @@ def create_purchase_invoice_for_collection_account(collection_account_doc):
 
 
 def evaluate_purchase_invoice(purchase_invoice_name):
-    """Valida la factura creada (regla OC - recepcion adaptada) y fija V/E."""
+    """Valida la factura creada (regla de credito: banco de recepciones) y
+    fija V, o la deja en E y la asigna automaticamente.
+
+    Las facturas de cuentas de cobro son de CREDITO (nvfac_conv="2"): exigen
+    una combinacion exacta de recepciones no consumidas que cubra el monto.
+    Si la cubren -> V. Si no la cubren -> E (sin notificacion ErrorUrgente, no
+    es un error) y se dispara la asignacion automatica a los usuarios
+    configurados.
+    """
     from qp_supplier_front.uses_cases.collection_invoices import mapping
 
     components = runtime.resolve()
@@ -189,14 +241,10 @@ def evaluate_purchase_invoice(purchase_invoice_name):
             purchase_invoice_name,
             {"qp_status": "E", "qp_error_message": first},
         )
-        from qp_supplier_front.resources.collection_accounts._notifications import (
-            insert_notification,
-        )
-        insert_notification(
-            purchase_invoice_name,
-            first,
-            notification_type="ErrorUrgente",
-        )
+
+        # No cubre el banco de recepciones: asignacion automatica.
+        from qp_supplier_front.resources.collection_accounts import auto_assign
+        auto_assign.run_collection_auto_assign([purchase_invoice_name])
         return False
 
     frappe.db.set_value(
