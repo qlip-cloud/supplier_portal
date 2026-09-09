@@ -24,13 +24,14 @@ def _get_purchase_orders():
     )
     available_by_order = defaultdict(float)
     for invoice in invoiced:
-        if invoice.purchase_order_id:
-            available_by_order[invoice.purchase_order_id] += float(invoice.total or 0)
+        order_id = invoice.get("purchase_order_id")
+        if order_id:
+            available_by_order[order_id] += float(invoice.get("total") or 0)
 
     for order in orders:
-        total_value = float(order.grand_total or 0)
-        used_value = available_by_order.get(order.name, 0)
-        order.available_value = max(total_value - used_value, 0)
+        total_value = float(order.get("grand_total") or 0)
+        used_value = available_by_order.get(order.get("name"), 0)
+        order["available_value"] = max(total_value - used_value, 0)
 
     return orders
 

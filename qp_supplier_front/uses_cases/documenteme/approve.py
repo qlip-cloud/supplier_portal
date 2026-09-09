@@ -49,6 +49,13 @@ FINAL_STATES = ("A", "R")
 
 ANALYSIS_STATES = ("E", "V", "T")
 
+# Punto de facturacion BC segun el flujo de origen. Documenteme usa el
+# estandar; el flujo de cuentas de cobro (collection) genera "DS SOPORTE".
+PUNTO_FACTURACION_BY_ORIGIN = {
+    "documenteme": "estandar",
+    "collection": "DS SOPORTE",
+}
+
 # Marcador que BC devuelve cuando la factura del proveedor ya existe en BC.
 # El numero que menciona el mensaje es el NoFacturaProveedor (no el codigo
 # BC); al llegar este error el codigo BC no es recuperable y no se debe
@@ -323,13 +330,13 @@ def homologate_lines(detail_lines, homologation_map, order_no="", receiving_no="
     return lines, missing_codes
 
 
-def _build_invoice(doc, lines, headquarter):
+def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar"):
     invoice_date = _to_date(doc.get("nvfac_fech"))
     return {
         "invoiceDate": invoice_date,
         "postingDate": invoice_date,
         "vendorNumber": doc.get("nvpro_ndoc"),
-        "puntofacturacion": "",
+        "puntofacturacion": puntofacturacion,
         "NoFacturaProveedor": doc.get("nvfac_nume"),
         "Cufe": doc.get("nvfac_cufe") or "",
         "Almacen": headquarter or "",
@@ -345,7 +352,25 @@ def _build_invoice(doc, lines, headquarter):
     }
 
 
-def build_payload(docs, get_lines_fn, get_headquarter_fn):
+def make_invoice_builder(origin):
+    """Adaptador del builder de facturas BC segun el flujo de origen.
+
+    Documenteme y el flujo de cuentas de cobro (collection) comparten el core
+    de aprobacion pero envian un punto de facturacion BC distinto: "estandar"
+    contra "DS SOPORTE". Devuelve un builder con la misma firma de
+    `_build_invoice` que fija el punto segun el origen.
+    """
+    puntofacturacion = PUNTO_FACTURACION_BY_ORIGIN.get(origin, "estandar")
+
+    def build(doc, lines, headquarter):
+        return _build_invoice(
+            doc, lines, headquarter, puntofacturacion=puntofacturacion
+        )
+
+    return build
+
+
+def build_payload(docs, get_lines_fn, get_headquarter_fn, build_invoice_fn=None):
     """Construye el payload de BC como array de facturas (una por doc).
 
     Cada linea se origina de las recepciones (Purchase Receipt / Item) o de
@@ -354,15 +379,18 @@ def build_payload(docs, get_lines_fn, get_headquarter_fn):
     resuelve por OC via el callback inyectado.
 
     get_lines_fn recibe el doc y retorna (lines, error); si error no es vacio
-    la factura se omite del payload.
+    la factura se omite del payload. build_invoice_fn permite adaptar el punto
+    de facturacion BC segun el flujo de origen (default "_build_invoice").
     """
+    if build_invoice_fn is None:
+        build_invoice_fn = _build_invoice
     payload = []
     for doc in (docs or []):
         lines, line_error = get_lines_fn(doc)
         if line_error:
             continue
         headquarter = get_headquarter_fn(doc.get("nvfac_orde"))
-        payload.append(_build_invoice(doc, lines, headquarter))
+        payload.append(build_invoice_fn(doc, lines, headquarter))
     return payload
 
 
@@ -672,6 +700,7 @@ def approve_documents(
     consume_receipts_fn=None,
     epsilon=DEFAULT_EPSILON,
     selected_receipts=None,
+    build_invoice_fn=None,
 ):
     """Aprueba en lote las facturas: un solo envio a BC con array.
 
@@ -725,6 +754,9 @@ def approve_documents(
     if not valid:
         return {"approved": [], "errors": errors, "unregistrable": unregistrable}
 
+    if build_invoice_fn is None:
+        build_invoice_fn = _build_invoice
+
     payload_docs = []
     payload = []
     for doc in valid:
@@ -734,7 +766,7 @@ def approve_documents(
             continue
         headquarter = get_headquarter_fn(doc.get("nvfac_orde"))
         payload_docs.append(doc)
-        payload.append(_build_invoice(doc, lines, headquarter))
+        payload.append(build_invoice_fn(doc, lines, headquarter))
 
     if not payload:
         return {"approved": [], "errors": errors, "unregistrable": unregistrable}

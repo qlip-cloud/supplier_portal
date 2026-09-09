@@ -110,6 +110,9 @@ doc_events = {
     "qp_SP_PurchaseInvoiceBC": {
         "on_update": "qp_supplier_front.resources.documenteme.confirmation.on_purchase_invoice_bc_update"
     },
+    "qp_SP_CollectionAccounts": {
+        "after_insert": "qp_supplier_front.resources.collection_accounts.collection_accounts.on_collection_account_insert"
+    },
     "qp_SP_DocumentDetail": {
         "before_save": "qp_supplier_front.resources.documenteme.timeline.on_document_before_save"
     }

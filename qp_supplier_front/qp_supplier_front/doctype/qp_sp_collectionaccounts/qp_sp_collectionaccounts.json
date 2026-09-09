@@ -9,17 +9,18 @@
   "purchase_order",
   "available_amount",
   "status",
+  "purchase_invoice",
   "observations",
   "cb_1",
   "supplier",
   "total_due",
   "amount_payable",
-  "creation_date",
-  "docs"
- ],
- "fields": [
-  {
-   "fieldname": "supplier_id",
+"creation_date",
+   "docs"
+  ],
+  "fields": [
+   {
+    "fieldname": "supplier_id",
    "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
@@ -70,25 +71,32 @@
    "fieldtype": "Currency",
    "label": "Monto Original"
   },
-  {
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Estado",
-   "options": "Borrador\nFacturado"
-  },
-  {
-   "fieldname": "creation_date",
-   "fieldtype": "Date",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Fecha de Creaci\u00f3n"
-  }
- ],
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-07-28 13:02:55.465604",
+{
+    "fieldname": "status",
+    "fieldtype": "Select",
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "label": "Estado",
+    "options": "Borrador\nFacturado"
+   },
+   {
+    "fieldname": "purchase_invoice",
+    "fieldtype": "Link",
+    "label": "Factura de compra generada",
+    "options": "qp_SP_PurchaseInvoice",
+    "read_only": 1
+   },
+{
+    "fieldname": "creation_date",
+    "fieldtype": "Date",
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "label": "Fecha de Creaci\u00f3n"
+   }
+  ],
+"index_web_pages_for_search": 1,
+  "links": [],
+  "modified": "2026-09-08 11:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_CollectionAccounts",

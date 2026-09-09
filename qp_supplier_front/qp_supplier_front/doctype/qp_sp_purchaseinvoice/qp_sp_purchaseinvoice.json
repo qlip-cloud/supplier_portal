@@ -4,22 +4,36 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
-   "field_order": [
-    "invoice_id",
-    "status",
-    "create_date",
-    "registration_date",
-    "currency",
-    "subtotal",
-    "tax",
-    "total",
-    "detail",
-    "purchase_order_id",
-    "supplier",
-    "qp_sync_flow",
-    "qp_is_error",
-    "confirmation_id"
-   ],
+"field_order": [
+     "invoice_id",
+     "status",
+     "qp_status",
+     "create_date",
+     "registration_date",
+     "currency",
+     "subtotal",
+     "tax",
+     "total",
+     "detail",
+     "purchase_order_id",
+     "supplier",
+     "qp_sync_flow",
+     "qp_is_error",
+     "qp_error_message",
+     "nvfac_fech",
+     "nvpro_ndoc",
+     "nvfac_nume",
+     "nvfac_cufe",
+     "nvfac_conv",
+     "qp_motive",
+     "qp_reject_is_invoice_error",
+     "collection_account",
+     "confirmation_id",
+     "assigned_users",
+     "docs_attach",
+     "comments",
+     "comment_read"
+    ],
  "fields": [
   {
    "fieldname": "invoice_id",
@@ -27,12 +41,21 @@
    "in_list_view": 1,
    "label": "invoice Id"
   },
-  {
-   "fieldname": "status",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "status"
-  },
+{
+    "fieldname": "status",
+    "fieldtype": "Data",
+    "in_list_view": 1,
+    "label": "status"
+   },
+   {
+    "fieldname": "qp_status",
+    "fieldtype": "Select",
+    "in_list_view": 1,
+    "in_standard_filter": 1,
+    "label": "Document Flow Status",
+    "options": "E\nV\nBCC\nPA\nA\nR",
+    "search_index": 1
+   },
   {
    "fieldname": "create_date",
    "fieldtype": "Date",
@@ -92,21 +115,98 @@
     "label": "Sync Flow",
     "no_copy": 1
    },
-   {
+{
     "default": "0",
     "fieldname": "qp_is_error",
     "fieldtype": "Check",
     "label": "qp_is_error"
    },
    {
+    "fieldname": "qp_error_message",
+    "fieldtype": "Data",
+    "label": "Error / Validation message"
+   },
+   {
+    "fieldname": "nvfac_fech",
+    "fieldtype": "Date",
+    "label": "Invoice date"
+   },
+   {
+    "fieldname": "nvpro_ndoc",
+    "fieldtype": "Data",
+    "label": "Supplier tax id",
+    "search_index": 1
+   },
+   {
+    "fieldname": "nvfac_nume",
+    "fieldtype": "Data",
+    "label": "Supplier invoice number",
+    "search_index": 1
+   },
+   {
+    "fieldname": "nvfac_cufe",
+    "fieldtype": "Data",
+    "label": "CUFE"
+   },
+   {
+    "fieldname": "nvfac_conv",
+    "fieldtype": "Data",
+    "label": "Payment type (conversion)"
+   },
+   {
+    "fieldname": "qp_motive",
+    "fieldtype": "Small Text",
+    "label": "Reject motive"
+   },
+   {
+    "default": "0",
+    "fieldname": "qp_reject_is_invoice_error",
+    "fieldtype": "Check",
+    "label": "Reject is invoice error"
+   },
+   {
+    "fieldname": "collection_account",
+    "fieldtype": "Link",
+    "label": "Collection Account",
+    "options": "qp_SP_CollectionAccounts"
+   },
+   {
     "fieldname": "confirmation_id",
     "fieldtype": "Data",
     "label": "Confirmation ID"
+   },
+   {
+    "fieldname": "assigned_users",
+    "fieldtype": "Table",
+    "label": "Usuarios asignados",
+    "options": "qp_SP_PurchaseInvoiceAssignedUser",
+    "read_only": 1
+   },
+   {
+    "fieldname": "docs_attach",
+    "fieldtype": "Table",
+    "label": "Documentos",
+    "options": "qp_SP_PurchaseInvoiceDoc",
+    "read_only": 1
+   },
+   {
+    "fieldname": "comments",
+    "fieldtype": "Table",
+    "label": "Comentarios",
+    "options": "qp_SP_PurchaseInvoiceComment",
+    "read_only": 1
+   },
+   {
+    "fieldname": "comment_read",
+    "fieldtype": "Table",
+    "label": "Lectura de comentarios",
+    "options": "qp_SP_PurchaseInvoiceCommentRead",
+    "read_only": 1
    }
   ],
- "index_web_pages_for_search": 1,
- "links": [],
-  "modified": "2026-08-24 12:00:00.000000",
+  "index_web_pages_for_search": 1,
+  "links": [],
+   "modified": "2026-09-08 23:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_PurchaseInvoice",
