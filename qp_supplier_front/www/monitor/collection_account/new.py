@@ -59,6 +59,14 @@ def get_context(context):
     context.purchase_orders = _get_purchase_orders(supplier_id)
     context.show_result = True
 
+    web_include_css = list(context.get("web_include_css") or [])
+    web_include_css.append("https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.1/css/bootstrap-select.css")
+    context.web_include_css = web_include_css
+
+    web_include_js = list(context.get("web_include_js") or [])
+    web_include_js.append("/assets/qp_supplier_front/js/bootstrap-select.min.js")
+    context.web_include_js = web_include_js
+
     context.has_recent_news = has_recent_news()
     
     

@@ -5,7 +5,7 @@
     <div class="col-lg-12" id="area">
         <div class="row row-line mb-3">
             <div class="col-12">
-                <a href="/documenteme/collection_accounts?supplier={{ supplier_id }}" class="btn btn-link ps-0">&larr; Volver a Cuentas de Cobro</a>
+                <a href="/monitor/collection_account?supplier={{ supplier_id }}" class="btn btn-link ps-0">&larr; Volver a Cuentas de Cobro</a>
                 <h4 class="mb-1">Nueva Cuenta de Cobro</h4>
                 <div class="text-muted small">Selecciona una orden y completa los valores antes de guardar.</div>
             </div>
@@ -18,7 +18,8 @@
                         <div class="row">
                             <div class="col-lg-6 mb-3">
                                 <label for="purchase_order_select" class="form-label">Orden</label>
-                                <select class="form-control" id="purchase_order_select">
+                                <select class="form-control selectpicker" id="purchase_order_select"
+                                    data-live-search="true">
                                     {% if purchase_orders %}
                                         {% for order in purchase_orders %}
                                             <option value="{{ order.name }}"

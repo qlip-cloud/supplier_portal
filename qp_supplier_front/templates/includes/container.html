@@ -11,15 +11,15 @@
         
         {% if is_monitor_view %}
             
-            <a href="/documenteme/sales_invoices{% if supplier_id %}?supplier={{ supplier_id }}{% endif %}" class="sidebar-menu sidebar-no-sync" id="go-documenteme">Documenteme</a>
-            <a href="/purchase_invoice/collection{% if supplier_id %}?supplier={{ supplier_id }}{% endif %}" class="sidebar-menu sidebar-no-sync" id="go-collections">Colecciones</a>
+            <a href="/monitor/documenteme{% if supplier_id %}?supplier={{ supplier_id }}{% endif %}" class="sidebar-menu sidebar-no-sync" id="go-documenteme">Documenteme</a>
+            <a href="/monitor/collection{% if supplier_id %}?supplier={{ supplier_id }}{% endif %}" class="sidebar-menu sidebar-no-sync" id="go-collections">Colecciones</a>
             
         {% else %}
             <a href="/welcome" class="sidebar-menu">Inicio</a>
             {% if supplier_id %}
                 <a href="/information?supplier={{supplier_id}}" class="sidebar-menu active">Información</a>
                 <a href="/purchase_invoices?supplier={{supplier_id}}" class="sidebar-menu">Facturas de Compra</a>
-                <a href="/documenteme/collection_accounts?supplier={{supplier_id}}" class="sidebar-menu">Cuentas de Cobro</a>
+                <a href="/monitor/collection_account?supplier={{supplier_id}}" class="sidebar-menu">Cuentas de Cobro</a>
                 <a href="/purchase_order?supplier={{supplier_id}}" class="sidebar-menu">Ordenes de Compra</a>
                 <a href="/receipt?supplier={{supplier_id}}" class="sidebar-menu">Recibos</a>
                 <a href="/tax_report?supplier={{supplier_id}}" class="sidebar-menu">Reportes impuesto</a>

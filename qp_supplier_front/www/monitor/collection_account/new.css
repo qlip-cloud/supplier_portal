@@ -59,3 +59,15 @@
 .upload-btn input {
     display: none;
 }
+
+.bootstrap-select > .dropdown-toggle {
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+}
+
+.bootstrap-select > .dropdown-toggle:focus {
+    outline: 0;
+    border-color: #5e7c9a;
+    box-shadow: 0 0 0 0.2rem rgba(94, 124, 154, 0.25);
+}

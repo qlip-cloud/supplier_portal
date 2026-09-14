@@ -54,6 +54,8 @@ $(document).ready(function () {
 
 	$orderSelect.on("change", updateOrderValues);
 
+	$orderSelect.selectpicker();
+
 	function showServerError(r) {
 		let message = "Error al crear la cuenta de cobro.";
 		try {
@@ -135,7 +137,7 @@ $(document).ready(function () {
 					});
 
 					frappe.msg_dialog.$wrapper.on("hidden.bs.modal", function () {
-						window.location.href = "/documenteme/collection_accounts";
+						window.location.href = "/monitor/collection_account";
 					});
 				},
 			});

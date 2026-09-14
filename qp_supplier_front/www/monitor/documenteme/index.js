@@ -91,13 +91,15 @@ $(document).ready(function () {
                     var approvedNames = (response.data && response.data.approved || []).map(function (item) {
                         return item.name;
                     });
+                    var backendUsed = (response.data && response.data.backend) || "BC";
+                    var badgeText = backendUsed === "GP" ? "Creada en GP" : "Creada en BC";
                     $('tbody input[name="seleccion"]:checked').each(function () {
                         var $row = $(this).closest("tr");
                         if (approvedNames.indexOf($(this).val()) !== -1) {
                             $row.find(".status-badge")
                                 .removeClass("status-open status-ready status-cancelled status-default")
                                 .addClass("status-paid")
-                                .text("Creada en BC");
+                                .text(badgeText);
                         }
                         $(this).prop("checked", false);
                     });

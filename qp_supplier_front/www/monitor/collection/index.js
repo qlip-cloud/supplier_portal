@@ -110,7 +110,9 @@ $(document).ready(function () {
 
         var doApprove = function (force) {
             showOverlay(true);
-            var args = { doc_names: JSON.stringify(doc_names) };
+            var args = {
+                doc_names: JSON.stringify(doc_names)
+            };
             if (force) {
                 args.force = JSON.stringify(force);
             }

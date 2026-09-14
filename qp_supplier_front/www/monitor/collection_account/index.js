@@ -59,7 +59,7 @@ $(document).ready(function () {
 			},
 			callback: function (r) {
 				if (!r.exc) {
-					window.location.href = "/collection_accounts";
+					window.location.href = "/monitor/collection_account";
 				}
 			},
 		});
