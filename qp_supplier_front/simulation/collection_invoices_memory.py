@@ -116,7 +116,10 @@ def memory_po_available(store, purchase_order):
     rows = store.query(
         PURCHASE_INVOICE, filters={"purchase_order_id": purchase_order}
     )
-    already_invoiced = sum(float(row.get("total") or 0) for row in rows)
+    already_invoiced = sum(
+        float(row.get("total") or 0) for row in rows
+        if row.get("qp_status") != "R"
+    )
     return total_due, max(total_due - already_invoiced, 0)
 
 
