@@ -24,6 +24,7 @@ def _get_purchase_orders(supplier_id):
         select purchase_order_id, coalesce(sum(total), 0) as used
         from `tabqp_SP_PurchaseInvoice`
         where purchase_order_id in %s
+        and qp_status != 'R'
         group by purchase_order_id
         """,
         (order_names,),

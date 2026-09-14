@@ -136,6 +136,22 @@ class TestCollectionSimInMemory(unittest.TestCase):
         self.assertEqual(row["qp_motive"], "No aplica")
         self.assertEqual(row["qp_reject_is_invoice_error"], 1)
 
+    def test_rechazo_libera_el_disponible_de_la_oc(self):
+        # Con PI-SIM-0002 (500k) en curso, el disponible de PO-CA-0002 es 0.
+        _, available = mem.memory_po_available(self.store, "PO-CA-0002")
+        self.assertEqual(available, 0)
+
+        # Tras rechazar, la factura ya no consume el monto de la OC.
+        mem.memory_reject(self.store, ["PI-SIM-0002"], "No aplica")
+        _, available = mem.memory_po_available(self.store, "PO-CA-0002")
+        self.assertEqual(available, 500000)
+
+        # Se puede crear una nueva cuenta de cobro por el monto liberado.
+        result = mem.memory_create_collection_account(
+            self.store, "PO-CA-0002", 500000
+        )
+        self.assertNotIn("error", result)
+
     def test_aprobar_resuelve_notificaciones_abiertas(self):
         mem.memory_insert_notification(
             self.store, "PI-SIM-0001", "Error previo",
