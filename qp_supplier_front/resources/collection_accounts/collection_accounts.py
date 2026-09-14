@@ -20,6 +20,7 @@ def _get_current_available_amount(purchase_order_name):
         select coalesce(sum(total), 0)
         from `tabqp_SP_PurchaseInvoice`
         where purchase_order_id = %s
+        and qp_status != 'R'
         """,
         (purchase_order_name,),
     )[0][0] or 0
