@@ -230,9 +230,6 @@ def sync_invoices_window(
 
     result = fetch_fn(endpoint, param=param)
 
-    if strategy["request_key"] not in result:
-        raise ExceptionSyncResponseEmpty(strategy["request_key"])
-
     invoices_data = result.get(strategy["request_key"]) or []
 
     if not invoices_data:

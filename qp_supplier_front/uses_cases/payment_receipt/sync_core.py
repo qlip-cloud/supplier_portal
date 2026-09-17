@@ -173,9 +173,6 @@ def sync_payments_window(
 
     result = fetch_fn(endpoint, param=param)
 
-    if strategy["request_key"] not in result:
-        raise ExceptionSyncResponseEmpty(strategy["request_key"])
-
     payments_data = result.get(strategy["request_key"]) or []
 
     if not payments_data:

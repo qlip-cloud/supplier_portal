@@ -11,7 +11,6 @@ import unittest
 from datetime import datetime
 
 import qp_supplier_front.uses_cases.purchase_invoice.sync_core as core
-from qp_supplier_front.exception.sync import ExceptionSyncResponseEmpty
 
 
 def build_strategy(filter_fn=None, transform=None):
@@ -207,9 +206,11 @@ class TestSyncInvoicesWindowEmptyAndMalformed(unittest.TestCase):
         self.assertEqual(result["status"], "NoNewRecords")
         self.assertEqual(result["inserted"], 0)
 
-    def test_missing_request_key_raises(self):
-        with self.assertRaises(ExceptionSyncResponseEmpty):
-            run_window(self.captures, {"other": []})
+    def test_missing_request_key_is_no_new_records(self):
+        result = run_window(self.captures, {"other": []})
+        self.assertEqual(result["status"], "NoNewRecords")
+        self.assertEqual(result["found"], 0)
+        self.assertEqual(result["inserted"], 0)
 
 
 class TestSyncInvoicesWindowLoggingSafety(unittest.TestCase):
