@@ -8,13 +8,13 @@ son inyectadas como callbacks.
 Cada llamada procesa una ventana [window_start, window_end] para un
 proveedor usando el endpoint por proveedor con rango de fechas
 (ORDER_SUPPLIER_DATE_RANGE), evitando el endpoint global sin filtros.
+
+Una respuesta sin la clave del payload (p. ej. HTTP 404 del middleware)
+se trata como ventana sin registros: no se persiste nada, se registra
+NoNewRecords y el loop de ventanas continua hasta la fecha actual.
 """
 
 import time
-
-from qp_supplier_front.exception.sync import (
-    ExceptionSyncResponseEmpty,
-)
 
 
 def sync_orders_window(
@@ -46,10 +46,7 @@ def sync_orders_window(
 
     result = fetch_fn(endpoint, param=param)
 
-    if strategy["request_key"] not in result:
-        raise ExceptionSyncResponseEmpty(strategy["request_key"])
-
-    orders_data = result[strategy["request_key"]] or []
+    orders_data = result.get(strategy["request_key"]) or []
 
     if not orders_data:
         _log_window(

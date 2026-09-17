@@ -11,7 +11,6 @@ import unittest
 from datetime import datetime
 
 from qp_supplier_front.uses_cases.purchase_order.sync_core import sync_orders_window
-from qp_supplier_front.exception.sync import ExceptionSyncResponseEmpty
 
 
 def build_strategy(transform=None):
@@ -172,9 +171,13 @@ class TestSyncOrdersWindowEmptyAndMalformed(unittest.TestCase):
         self.assertTrue(self.captures["commits"])
         self.assertEqual(self.captures["logs"][-1]["status"], "NoNewRecords")
 
-    def test_missing_request_key_raises(self):
-        with self.assertRaises(ExceptionSyncResponseEmpty):
-            run_window(self.captures, {"other": []})
+    def test_missing_request_key_is_no_new_records(self):
+        result = run_window(self.captures, {"other": []})
+        self.assertEqual(result["status"], "NoNewRecords")
+        self.assertEqual(result["found"], 0)
+        self.assertEqual(result["inserted"], 0)
+        self.assertTrue(self.captures["commits"])
+        self.assertEqual(self.captures["logs"][-1]["status"], "NoNewRecords")
 
 
 class TestSyncOrdersWindowDocErrors(unittest.TestCase):
