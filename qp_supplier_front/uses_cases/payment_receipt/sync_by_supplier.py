@@ -3,17 +3,22 @@ sync_by_supplier.py (payment_receipt)
 ======================================
 Wrappers @frappe.whitelist() para la sincronizacion de recibos de pago.
 
-El flujo automatico/general (full manual + cron 5 min) esta restringido
-a BC y se hace por VENTANAS DE FECHAS GLOBALES (sin filtro de proveedores).
+El flujo automatico/general (full manual + cron 5 min) se hace por
+VENTANAS DE FECHAS GLOBALES (sin filtro de proveedores) usando el backend
+configurado en qp_SP_MasterSetup.documenteme_backend (GP o BC).
 
 NOTA PENDIENTE: la sincronizacion GP queda pendiente de revision; por ahora
 GP solo se sincroniza por proveedor al visitar el portal (sync_by_supplier).
 
 Puntos de entrada:
   - sync_by_supplier(supplier_id, flow) -> sync por proveedor (portal, GP+BC)
-  - sync_all(flow)                       -> full general BC (global windows)
-  - sync_full(flow)                      -> full general BC (background)
-  - sync_incremental(flow)               -> solo dia actual BC (global window)
+  - sync_all(flow)                       -> full general (global windows)
+  - sync_full(flow)                      -> full general (background)
+  - sync_incremental(flow)               -> solo dia actual (global window)
+
+El flujo automatico usa el backend configurado en
+qp_SP_MasterSetup.documenteme_backend (GP o BC). Si se pasa un flow
+explicito, se respeta ese valor.
 """
 
 import frappe
@@ -40,6 +45,7 @@ from qp_supplier_front.infrastructure.adapters.log_adapter import build_sync_log
 from qp_supplier_front.infrastructure.strategies.registry import (
     get_payment_strategy,
 )
+from qp_supplier_front.services.flow_config import resolve_flow
 from qp_supplier_front.services.sync_window import (
     compute_sync_start,
     generate_date_windows,
@@ -125,6 +131,8 @@ def _run_supplier(supplier_id, flow, mode):
 
 
 def _run_global(flow, mode):
+    if flow == "GP":
+        return _run_global_gp(mode)
     strategy = get_payment_strategy(flow)
     fetch_fn = FETCH_MAP.get(flow, fetch_bearer)
     today = datetime.now()
@@ -171,6 +179,30 @@ def _run_global(flow, mode):
     return {
         "inserted": total_inserted,
         "windows": windows_count,
+    }
+
+
+def _run_global_gp(mode):
+    """
+    Flujo automatico GP: la estrategia GP de recibos no tiene sincronizacion
+    global por ventanas (solo por proveedor). Se itera todos los proveedores
+    con el mismo flujo per-supplier del portal.
+    """
+    suppliers = frappe.db.get_list("Supplier", pluck="name")
+    total_inserted = 0
+    for supplier_id in suppliers:
+        try:
+            result = _run_supplier(supplier_id, "GP", mode)
+            total_inserted += result["inserted"]
+        except Exception as e:
+            rollback()
+            log_error(
+                message=str(e),
+                title="Error sync all payment receipts (GP): {}".format(supplier_id),
+            )
+    return {
+        "inserted": total_inserted,
+        "windows": 0,
     }
 
 
@@ -221,7 +253,8 @@ def sync_by_supplier(supplier_id, flow="GP"):
 
 
 @frappe.whitelist()
-def sync_all(flow="BC"):
+def sync_all(flow=None):
+    flow = resolve_flow(flow)
     if not acquire(SYNC_DOMAIN):
         return {"success": True, "skipped": True}
     try:
@@ -248,7 +281,8 @@ def sync_all(flow="BC"):
 
 
 @frappe.whitelist()
-def sync_full(flow="BC"):
+def sync_full(flow=None):
+    flow = resolve_flow(flow)
     frappe.enqueue(
         "qp_supplier_front.uses_cases.payment_receipt.sync_by_supplier.sync_full_job",
         flow=flow,
@@ -261,6 +295,7 @@ def sync_full(flow="BC"):
 
 
 def sync_full_job(flow="BC"):
+    flow = resolve_flow(flow)
     #if not acquire(SYNC_DOMAIN):
     #    if not wait_for(SYNC_DOMAIN, timeout=300):
     #        log_error(
@@ -275,7 +310,8 @@ def sync_full_job(flow="BC"):
 
 
 @frappe.whitelist()
-def sync_incremental(flow="BC"):
+def sync_incremental(flow=None):
+    flow = resolve_flow(flow)
     if not acquire(SYNC_DOMAIN):
         return {"success": True, "skipped": True}
     try:

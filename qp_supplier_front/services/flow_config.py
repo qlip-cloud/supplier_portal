@@ -20,6 +20,30 @@ ENDPOINT_CODES = {
 }
 
 
+def resolve_flow(flow):
+    """
+    Resuelve el flujo (GP/BC) para una sincronizacion automatica.
+    Si llega un flujo explicito valido, se usa tal cual. Si viene None/vacio,
+    se toma el backend configurado en qp_SP_MasterSetup.documenteme_backend.
+    """
+    if flow in ("GP", "BC"):
+        return flow
+    return get_sync_backend()
+
+
+def get_sync_backend(default="BC"):
+    import frappe
+    try:
+        backend = frappe.db.get_single_value(
+            "qp_SP_MasterSetup", "documenteme_backend"
+        )
+        if backend in ("GP", "BC"):
+            return backend
+    except Exception:
+        pass
+    return default
+
+
 def is_flow_configured(flow, domain="invoice"):
     endpoint_code = ENDPOINT_CODES.get((flow, domain))
     if not endpoint_code:

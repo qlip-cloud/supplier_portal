@@ -21,7 +21,11 @@ from qp_supplier_front.infrastructure.strategies.gp.order_persist_adapter import
 
 
 def build_order_param(supplier_id, window_start, window_end):
-    return "{}/{}/{}".format(supplier_id, str(window_start), str(window_end))
+    return "{}/{}/{}".format(
+        supplier_id,
+        window_start.strftime("%Y-%m-%d"),
+        window_end.strftime("%Y-%m-%d"),
+    )
 
 
 ORDER_STRATEGY = {
