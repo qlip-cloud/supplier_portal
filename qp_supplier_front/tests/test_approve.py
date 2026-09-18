@@ -320,6 +320,54 @@ class TestGetErrorMessage(unittest.TestCase):
     def test_respuesta_no_dict(self):
         self.assertEqual(get_error_message("timeout"), "timeout")
 
+    def test_extrae_title_de_rfc7807(self):
+        self.assertEqual(
+            get_error_message({
+                "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+                "title": "One or more validation errors occurred.",
+                "status": 400,
+            }),
+            "One or more validation errors occurred.",
+        )
+
+    def test_extrae_primer_error_de_validation_errors(self):
+        message = get_error_message({
+            "title": "One or more validation errors occurred.",
+            "errors": {
+                "$": [
+                    "The JSON value could not be converted to "
+                    "MT_SERVICES_PROVEEDORES_ALPLA.Models.DTO.DtoPurchasePOPM."
+                ]
+            },
+        })
+        self.assertEqual(
+            message,
+            "The JSON value could not be converted to "
+            "MT_SERVICES_PROVEEDORES_ALPLA.Models.DTO.DtoPurchasePOPM.",
+        )
+
+    def test_no_vuelca_el_dict_completo(self):
+        response = {
+            "type": "https://x.test",
+            "title": "boom",
+            "traceId": "00-abc",
+            "errors": {"$": ["detalle"]},
+        }
+        message = get_error_message(response)
+        self.assertNotIn("traceId", message)
+        self.assertNotIn("'", message)
+
+    def test_compacta_saltos_de_linea_y_caracteres_de_control(self):
+        message = get_error_message({
+            "Description": "line1\nline2\t\ttab\n\x00nul"
+        })
+        self.assertEqual(message, "line1 line2 tab nul")
+
+    def test_acota_longitud(self):
+        message = get_error_message({"Description": "x" * 5000})
+        self.assertEqual(len(message), 2000)
+        self.assertEqual(message, "x" * 2000)
+
 
 class TestApproveDocuments(unittest.TestCase):
 
@@ -415,6 +463,32 @@ class TestApproveDocuments(unittest.TestCase):
         self.assertEqual(calls["marked"], ["FAC001", "FAC002"])
         self.assertEqual(calls["marked_error"], [])
         self.assertEqual(calls["commits"], 1)
+
+    def test_aprueba_con_builder_gp_envia_payload_gp(self):
+        docs = [_doc(name="DOC1", nvfac_nume="PRB002")]
+        results = [{"doc_number": "GP1001", "error": ""}]
+        calls, kwargs = self._callbacks(
+            docs, {"Result": 0, "invoices": results}, 200,
+            invoice_results=results,
+        )
+        from qp_supplier_front.uses_cases.documenteme.approve import (
+            make_invoice_builder,
+        )
+        kwargs["build_invoice_fn"] = make_invoice_builder(
+            "documenteme", backend="GP"
+        )
+        result = approve_documents(["DOC1"], now=self.NOW, **kwargs)
+
+        self.assertEqual(len(result["approved"]), 1)
+        endpoint_code, payload = calls["sent"][0]
+        self.assertEqual(endpoint_code, "create_purchase_order")
+        self.assertEqual(payload[0]["noFacturaProveedor"], "PRB002")
+        self.assertEqual(payload[0]["invoiceDate"], "2026-07-09T00:00:00")
+        self.assertEqual(payload[0]["moneda"], "COP")
+        self.assertEqual(payload[0]["numeroPord"], "45238")
+        self.assertEqual(
+            payload[0]["vendorInvoiceLine"][0]["noProducto"], "M000455"
+        )
 
     def test_docs_invalidos_no_envian(self):
         docs = [_doc(name="DOC1", nvfac_nume="FAC001", nvfac_esta="A")]

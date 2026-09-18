@@ -18,6 +18,7 @@
      "purchase_order_id",
      "supplier",
      "qp_sync_flow",
+     "qp_creation_backend",
      "qp_is_error",
      "qp_error_message",
      "nvfac_fech",
@@ -107,17 +108,26 @@
     "label": "supplier",
     "options": "Supplier"
    },
+{
+     "default": "GP",
+     "fieldname": "qp_sync_flow",
+     "fieldtype": "Data",
+     "in_list_view": 1,
+     "label": "Sync Flow",
+     "no_copy": 1
+    },
    {
-    "default": "GP",
-    "fieldname": "qp_sync_flow",
-    "fieldtype": "Data",
-    "in_list_view": 1,
-    "label": "Sync Flow",
+    "default": "BC",
+    "fieldname": "qp_creation_backend",
+    "fieldtype": "Select",
+    "label": "Backend de creación de facturas",
+    "description": "Backend (BC o GP) usado para crear la factura al aprobar.",
+    "options": "BC\nGP",
     "no_copy": 1
    },
 {
-    "default": "0",
-    "fieldname": "qp_is_error",
+     "default": "0",
+     "fieldname": "qp_is_error",
     "fieldtype": "Check",
     "label": "qp_is_error"
    },
@@ -206,7 +216,7 @@
   ],
   "index_web_pages_for_search": 1,
   "links": [],
-   "modified": "2026-09-08 23:00:00.000000",
+   "modified": "2026-09-11 12:30:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_PurchaseInvoice",

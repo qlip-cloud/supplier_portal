@@ -40,11 +40,34 @@ def validate(doc_names):
 
 
 @frappe.whitelist()
-def approve(doc_names, force=False):
+def approve(doc_names, force=False, backend=None):
     try:
         force = parse_json(force) if force else False
-        run_approve(doc_names, force=force)
+        backend = resolve_backend(backend)
+        run_approve(doc_names, force=force, backend=backend)
 
     except Exception as error:
         frappe.db.rollback()
         response(500, "Error al aprobar: {}".format(str(error)))
+
+
+def resolve_backend(backend=None):
+    """Backend de creacion de facturas (BC/GP) o el default del MasterSetup.
+
+    Si el campo no puede leerse (columna ausente / error) se asume BC.
+    """
+    if backend:
+        return str(backend).upper()
+    try:
+        value = frappe.db.get_single_value(
+            "qp_SP_MasterSetup", "documenteme_backend"
+        )
+    except Exception:
+        return "BC"
+    return (value or "BC").upper()
+
+
+@frappe.whitelist()
+def default_backend():
+    """Backend predeterminado para el selector manual del front."""
+    return resolve_backend()

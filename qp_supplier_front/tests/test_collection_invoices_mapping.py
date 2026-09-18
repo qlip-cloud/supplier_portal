@@ -78,6 +78,20 @@ class TestBuildSingleLine(unittest.TestCase):
         self.assertEqual(line["item_code"], "")
         self.assertEqual(line["rate"], 1000)
 
+    def test_incluye_uom_e_idx_del_item_de_oc(self):
+        line = build_single_line(
+            {"item_code": "ITEM-0001", "uom": "BOX", "idx": 3},
+            600000,
+            order_no="PO-CA-0001",
+        )
+        self.assertEqual(line["uom"], "BOX")
+        self.assertEqual(line["idx"], 3)
+
+    def test_uom_vacio_por_defecto(self):
+        line = build_single_line({"item_code": "ITEM-0001"}, 100)
+        self.assertEqual(line["uom"], "")
+        self.assertEqual(line["idx"], 0)
+
 
 def _make_doc(total, po="PO-1", conv="2"):
     return {

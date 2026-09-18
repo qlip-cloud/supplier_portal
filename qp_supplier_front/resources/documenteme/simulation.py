@@ -39,12 +39,11 @@ lee el flag qp_SP_MasterSetup.documenteme_simulation.
 import os
 
 
-def _sim_doc_number(invoice, idx):
+def _sim_doc_number(invoice, idx, number_key="NoFacturaProveedor"):
     """Numero de documento BC simulado y deterministico por factura."""
-    for key in ("NoFacturaProveedor",):
-        value = (invoice or {}).get(key)
-        if value:
-            return "SIM{}".format(value)
+    value = (invoice or {}).get(number_key)
+    if value:
+        return "SIM{}".format(value)
     return "SIM{}".format(idx + 1)
 
 
@@ -57,6 +56,21 @@ def send_purchase_invoice_request(endpoint_code=None, payload=None):
     invoices = payload or []
     results = [
         {"doc_number": _sim_doc_number(invoice, idx), "error": ""}
+        for idx, invoice in enumerate(invoices)
+    ]
+    return {"Result": 0, "invoices": results}, 200
+
+
+def send_purchase_invoice_request_gp(endpoint_code=None, payload=None):
+    """Simula la creacion exitosa de facturas en GP.
+
+    Misma forma que el simulador BC pero leyendo el numero de factura del
+    payload GP (noFacturaProveedor, lowerCamelCase) para el doc_number.
+    """
+    invoices = payload or []
+    results = [
+        {"doc_number": _sim_doc_number(invoice, idx, "noFacturaProveedor"),
+         "error": ""}
         for idx, invoice in enumerate(invoices)
     ]
     return {"Result": 0, "invoices": results}, 200
@@ -216,7 +230,11 @@ def build_send_double(invoice_numbers=None, fail_numbers=None,
         results = []
         for idx in range(len(invoices)):
             invoice = invoices[idx] if isinstance(invoices[idx], dict) else {}
-            doc_number = invoice.get("NoFacturaProveedor") or "DOC{}".format(idx + 1)
+            doc_number = (
+                invoice.get("NoFacturaProveedor")
+                or invoice.get("noFacturaProveedor")
+                or "DOC{}".format(idx + 1)
+            )
             if doc_number in fail_set:
                 results.append({
                     "doc_number": "",

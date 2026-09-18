@@ -12,15 +12,23 @@ aprueba (o se rechaza).
 
 import frappe
 
+from qp_supplier_front.services.utils import sanitize_message
+
 
 def insert_alert(parent_name, message, now, alert_type="Alerta"):
     """Inserta una alerta Abierta en la child table de la factura.
 
     alert_type: "Alerta" (no urgente) o "ErrorUrgente" (requiere atencion
     inmediata; pinta el icono de la factura en rojo).
+
+    El mensaje se sanitiza (una respuesta inesperada puede traer JSON con
+    comillas y saltos de linea que rompen el INSERT) y la escritura se aísla:
+    una alerta auxiliar nunca debe tumbar el flujo de aprobacion.
     """
     if not parent_name:
         return
+
+    message = sanitize_message(message)
 
     last = frappe.db.sql(
         """
@@ -33,29 +41,37 @@ def insert_alert(parent_name, message, now, alert_type="Alerta"):
     idx = int(last[0][0] or 0) + 1
     alert_name = frappe.generate_hash(length=10)
 
-    frappe.db.sql(
-        """
-        INSERT INTO `tabqp_SP_Alert`
-        (name, parent, parentfield, parenttype, idx, alert_date, alert_message,
-         alert_type, status, creation, modified, modified_by, owner)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        (
-            alert_name,
-            parent_name,
-            "alertas",
-            "qp_SP_DocumentDetail",
-            idx,
-            now,
-            message,
-            alert_type,
-            "Abierta",
-            now,
-            now,
-            "Administrator",
-            "Administrator",
-        ),
-    )
+    try:
+        frappe.db.sql(
+            """
+            INSERT INTO `tabqp_SP_Alert`
+            (name, parent, parentfield, parenttype, idx, alert_date, alert_message,
+             alert_type, status, creation, modified, modified_by, owner)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                alert_name,
+                parent_name,
+                "alertas",
+                "qp_SP_DocumentDetail",
+                idx,
+                now,
+                message,
+                alert_type,
+                "Abierta",
+                now,
+                now,
+                "Administrator",
+                "Administrator",
+            ),
+        )
+    except Exception as exc:
+        frappe.log_error(
+            message="No se pudo insertar la alerta para {}: {}".format(
+                parent_name, exc
+            ),
+            title="Insertar alerta documenteme",
+        )
 
 
 def resolve_open_alerts(parent_name):

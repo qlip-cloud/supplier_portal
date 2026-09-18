@@ -14,6 +14,8 @@ confirma la creacion en BC).
 
 import frappe
 
+from qp_supplier_front.services.utils import sanitize_message
+
 
 def _make_now():
     from datetime import datetime
@@ -21,11 +23,17 @@ def _make_now():
 
 
 def insert_notification(parent_name, message, now=None, notification_type="Alerta"):
-    """Inserta una notificacion Abierta en la child table de la factura."""
+    """Inserta una notificacion Abierta en la child table de la factura.
+
+    El mensaje se sanitiza (una respuesta inesperada puede traer JSON con
+    comillas y saltos de linea que rompen el INSERT) y la escritura se aísla:
+    una notificacion auxiliar nunca debe tumbar el flujo de aprobacion.
+    """
     if not parent_name or not message:
         return
 
     now = now or _make_now()
+    message = sanitize_message(message)
     last = frappe.db.sql(
         """
         SELECT COALESCE(MAX(idx), 0)
@@ -37,30 +45,38 @@ def insert_notification(parent_name, message, now=None, notification_type="Alert
     idx = int(last[0][0] or 0) + 1
     notification_name = frappe.generate_hash(length=10)
 
-    frappe.db.sql(
-        """
-        INSERT INTO `tabqp_SP_PurchaseInvoiceNotification`
-        (name, parent, parentfield, parenttype, idx, notification_date,
-         notification_type, notification_message, status,
-         creation, modified, modified_by, owner)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        (
-            notification_name,
-            parent_name,
-            "notifications",
-            "qp_SP_PurchaseInvoice",
-            idx,
-            now,
-            notification_type,
-            message,
-            "Abierta",
-            now,
-            now,
-            "Administrator",
-            "Administrator",
-        ),
-    )
+    try:
+        frappe.db.sql(
+            """
+            INSERT INTO `tabqp_SP_PurchaseInvoiceNotification`
+            (name, parent, parentfield, parenttype, idx, notification_date,
+             notification_type, notification_message, status,
+             creation, modified, modified_by, owner)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                notification_name,
+                parent_name,
+                "notifications",
+                "qp_SP_PurchaseInvoice",
+                idx,
+                now,
+                notification_type,
+                message,
+                "Abierta",
+                now,
+                now,
+                "Administrator",
+                "Administrator",
+            ),
+        )
+    except Exception as exc:
+        frappe.log_error(
+            message="No se pudo insertar la notificacion para {}: {}".format(
+                parent_name, exc
+            ),
+            title="Insertar notificacion collection",
+        )
 
 
 def resolve_open_notifications(parent_name):

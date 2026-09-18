@@ -60,13 +60,17 @@ def build_single_line(first_po_item, amount_payable, order_no=""):
 
     Por requerimiento, la linea toma SOLO el primer item de la orden de
     compra y su valor total es el monto a facturar (qty=1, rate=monto).
+
+    Incluye uom e idx del item de la OC para el payload GP (unidadMedida y
+    noLineaRecepcion); los builders BC los ignoran.
     """
     first_po_item = first_po_item or {}
     return {
         "item_code": first_po_item.get("item_code") or "",
         "qty": 1,
         "rate": float(amount_payable or 0),
-        "idx": 0,
+        "idx": first_po_item.get("idx") or 0,
+        "uom": first_po_item.get("uom") or "",
         "receiving_no": "",
         "order_no": order_no or "",
     }

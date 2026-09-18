@@ -446,12 +446,13 @@ def memory_mark_collection_account_invoiced(store, doc):
         store.set_value(COLLECTION_ACCOUNT, account_name, "status", "Facturado")
 
 
-def memory_persist_invoice(store, doc, doc_number, now):
+def memory_persist_invoice(store, doc, doc_number, now, backend="BC"):
     if not doc_number:
         doc_number = doc.get("nvfac_nume") or doc.get("name")
     _set_fields(store, PURCHASE_INVOICE, doc.get("name"), {
         "invoice_id": doc_number,
         "qp_status": "BCC",
+        "qp_creation_backend": backend,
         "qp_is_error": 0,
         "qp_error_message": "",
     })

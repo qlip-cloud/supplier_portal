@@ -28,6 +28,7 @@ from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.uses_cases.documenteme.approve import (
     approve_documents,
     collect_registrable_violations,
+    make_invoice_builder,
 )
 
 ALLOWED_ROLES = {"Administrador Documenteme", "Administrador Sede Documenteme"}
@@ -121,7 +122,7 @@ def get_lines_from_receipts(purchase_order, receipt_names=None):
     items = frappe.get_all(
         "Purchase Receipt Item",
         filters={"parent": ["in", receipts], "parenttype": "Purchase Receipt"},
-        fields=["parent", "item_code", "qty", "rate", "idx"],
+        fields=["parent", "item_code", "qty", "rate", "idx", "uom"],
         order_by="parent, idx",
     )
     return [
@@ -130,6 +131,7 @@ def get_lines_from_receipts(purchase_order, receipt_names=None):
             "qty": item.get("qty"),
             "rate": item.get("rate"),
             "idx": item.get("idx") or 0,
+            "uom": item.get("uom") or "",
             "receiving_no": item.get("parent") or "",
             "order_no": purchase_order,
         }
@@ -231,6 +233,122 @@ def get_supplier_by_tax_id(tax_id):
     return suppliers[0] if suppliers else None
 
 
+def is_service_supplier(tax_id):
+    """True si el proveedor de la factura tiene qp_is_service_supplier=1.
+
+    El check manda el tipo GP 3 (CxP) con prioridad absoluta.
+    """
+    supplier = get_supplier_by_tax_id(tax_id)
+    if not supplier:
+        return False
+    return bool(frappe.db.get_value(
+        "Supplier", supplier, "qp_is_service_supplier"
+    ))
+
+
+def has_receipts(purchase_order):
+    """True si la OC tiene al menos una recepcion (tipo GP 1)."""
+    return bool(receipt_bank(purchase_order))
+
+
+def get_po_dates(purchase_order):
+    """Fechas de cabecera de la OC (transaction_date, schedule_date).
+
+    Alimenta fechaRequerida/fechaPrometida de las lineas GP (todas iguales).
+    Retorna (None, None) si la OC no existe o no tiene los campos.
+    """
+    if not purchase_order:
+        return None, None
+    row = frappe.db.get_value(
+        "Purchase Order", purchase_order,
+        ["transaction_date", "schedule_date"], as_dict=True,
+    ) or {}
+    return row.get("transaction_date"), row.get("schedule_date")
+
+
+def get_po_items_for_gp(purchase_order):
+    """Items de la OC con idx (noLineaRecepcion) para los productos GP."""
+    if not purchase_order:
+        return []
+    return frappe.get_all(
+        "Purchase Order Item",
+        filters={"parent": purchase_order, "parenttype": "Purchase Order"},
+        fields=["item_code", "idx", "uom"],
+        order_by="idx",
+    )
+
+
+def resolve_gp_tipo_for_doc(doc):
+    """Tipo GP del documento: 3 servicio, 1 con recepciones, 2 sin ellas."""
+    from qp_supplier_front.uses_cases.documenteme.approve import (
+        resolve_gp_tipo,
+    )
+
+    return resolve_gp_tipo(
+        is_service_supplier(doc.get("nvpro_ndoc")),
+        has_receipts(doc.get("nvfac_orde")),
+    )
+
+
+def _get_lines_gp_from_invoice(doc):
+    """Lineas GP homogenizadas y consolidadas contra la OC (tipo 2/3).
+
+    Reusa el nucleo puro consolidate_gp_lines: homogeniza nvpro_codi ->
+    bc_item_code, filtra los productos que coinciden con la OC (tipo 2; una
+    OC que puede estar parcialmente facturada) y consolida por producto
+    (cantidad y monto; idx de la OC). Para proveedor servicio (tipo 3) sin
+    OC los productos se homogenizan sin filtro de OC (idx 0).
+    """
+    from qp_supplier_front.infrastructure.adapters.item_homologation_adapter import (
+        get_homologation_map,
+        get_invoice_detail_lines,
+        resolve_supplier,
+    )
+    from qp_supplier_front.uses_cases.documenteme.approve import (
+        consolidate_gp_lines,
+    )
+
+    supplier = resolve_supplier(doc.get("nvpro_ndoc"))
+    homologation_map = get_homologation_map(supplier)
+    detail_lines = get_invoice_detail_lines(doc.get("name"))
+    purchase_order = doc.get("nvfac_orde")
+    po_items = get_po_items_for_gp(purchase_order) if purchase_order else None
+
+    lines, missing = consolidate_gp_lines(
+        detail_lines,
+        homologation_map,
+        oc_items=po_items,
+        order_no=purchase_order or "",
+    )
+    if missing:
+        return [], (
+            "Faltan homologaciones de producto: {}"
+        ).format(", ".join(sorted(set(missing))))
+    if not lines:
+        return [], "La factura no tiene lineas homologadas para enviar"
+    return lines, ""
+
+
+def get_lines_gp(doc):
+    """Lineas del payload GP segun el tipo de la factura.
+
+    - Proveedor servicio (tipo 3): siempre homogenizacion (regla homologacion);
+      si tiene OC se aplica la regla de OC (noRecepcion = OC, idx de la OC).
+    - Con recepciones (tipo 1): las lineas de las recepciones (comportamiento
+      actual de documenteme).
+    - Sin recepciones (tipo 2): homogenizar y consolidar contra la OC.
+    """
+    if is_service_supplier(doc.get("nvpro_ndoc")):
+        return _get_lines_gp_from_invoice(doc)
+
+    purchase_order = doc.get("nvfac_orde")
+    receipt_lines = get_lines_from_receipts(purchase_order)
+    if receipt_lines:
+        return receipt_lines, ""
+
+    return _get_lines_gp_from_invoice(doc)
+
+
 def parse_doc_numbers(response):
     """Resultados por factura: lista de {doc_number, error} en el mismo
     orden del payload enviado a BC."""
@@ -261,7 +379,7 @@ def resolve_doc_number_via_odata(doc):
     return values[0].get("Document_No")
 
 
-def persist_invoice(doc, doc_number, now):
+def persist_invoice(doc, doc_number, now, sync_flow="BC"):
     from qp_supplier_front.infrastructure.adapters.filter_adapter import (
         get_existing_ids,
     )
@@ -294,7 +412,7 @@ def persist_invoice(doc, doc_number, now):
         supplier,
         doc.get("nvfac_nume") or "",
         doc.get("nvfac_orde") or "",
-        "BC",
+        sync_flow,
         now,
         now,
         "Administrator",
@@ -304,6 +422,15 @@ def persist_invoice(doc, doc_number, now):
 
     _create_purchase_invoice_bc(doc_number, doc.get("name"))
     return doc_number
+
+
+def _persist_for_backend(sync_flow):
+    """Envoltorio de persist_invoice con el flujo de sincronizacion fijado
+    (BC o GP). Mantiene la firma (doc, doc_number, now) del core."""
+    def persist(doc, doc_number, now):
+        return persist_invoice(doc, doc_number, now, sync_flow=sync_flow)
+
+    return persist
 
 
 def _create_purchase_invoice_bc(doc_number, document_detail_name):
@@ -395,6 +522,293 @@ def send_purchase_invoice_request(endpoint_code, payload):
     return response, 200
 
 
+# Llaves donde GP puede devolver el numero de comprobante (se busca en orden).
+# voucherNumber es la respuesta estandar del endpoint alpla.
+_GP_DOC_NUMBER_KEYS = (
+    "voucherNumber",
+    "invoiceId",
+    "invoiceNumber",
+    "Document_No",
+    "documentNumber",
+    "docNumber",
+    "noFacturaProveedor",
+    "return_value",
+)
+
+# statusCode que GP/alpla devuelve cuando la creacion fue exitosa.
+_GP_SUCCESS_STATUS_CODES = ("1",)
+
+# statusCode que GP devuelve cuando el documento de la factura ya existe
+# (VNDDOCNM duplicado). Se contiene como "ya registrado" igual que BC con
+# "ya existe la factura de compra".
+_GP_DUPLICATE_STATUS_CODES = ("996",)
+
+_GP_NO_DOC_NUMBER_MSG = "GP no devolvio documento de la factura"
+_GP_INVOICE_REJECTED_MSG = "GP rechazo la creacion de la factura (statusCode {})"
+
+
+def _extract_gp_doc_number(node):
+    """Numero de factura GP desde un nodo (dict o lista) o vacio si no existe."""
+    if isinstance(node, dict):
+        for key in _GP_DOC_NUMBER_KEYS:
+            value = node.get(key)
+            if value:
+                return str(value).strip()
+        for value in node.values():
+            found = _extract_gp_doc_number(value)
+            if found:
+                return found
+    elif isinstance(node, list):
+        for item in node:
+            if isinstance(item, dict) and not item.get("error"):
+                found = _extract_gp_doc_number(item)
+                if found:
+                    return found
+            elif isinstance(item, str) and item.strip():
+                return item.strip()
+    return ""
+
+
+def _extract_gp_error(node):
+    """Mensaje de error legible desde la respuesta GP (o vacio si no hay).
+
+    GP/alpla describe los errores en "description" (lowerCamelCase) ademas de
+    las variantes ya soportadas (Description/Message/error...).
+    """
+    if isinstance(node, dict):
+        if node.get("error"):
+            return str(node.get("error"))
+        for key in ("Description", "Message", "message", "description",
+                    "errorInterno", "errorMessage", "error_message"):
+            if node.get(key):
+                return str(node.get(key))
+        for value in node.values():
+            found = _extract_gp_error(value)
+            if found:
+                return found
+    elif isinstance(node, list):
+        for item in node:
+            found = _extract_gp_error(item)
+            if found:
+                return found
+    return ""
+
+
+def _extract_gp_status_code(node):
+    """statusCode de la respuesta GP (string) o None si no es informativo.
+
+    GP/alpla devuelve "1" en exito y codigos de error (996, 2005, 2061...)
+    cuando la peticion falla, con HTTP 200 o 400 segun el caso. Los valores
+    vacios o "0" se ignoran (no aportan clasificacion).
+    """
+    if not isinstance(node, dict):
+        return None
+    for key in ("statusCode", "StatusCode"):
+        code = node.get(key)
+        if code in (None, "", 0, "0"):
+            continue
+        return str(code)
+    return None
+
+
+def _gp_duplicate_message(node):
+    """Mensaje de contencion cuando el documento ya existe en GP (VNDDOCNM).
+
+    Contiene el marcador que el core reconoce como "ya registrado"
+    (is_invoice_already_registered) para detener los reintentos y marcar la
+    factura BCC sin numero de comprobante recuperable.
+    """
+    message = (
+        "Ya existe la factura de compra en GP; el numero de documento del "
+        "proveedor (VNDDOCNM) debe ser unico y ya fue usado. GP no devolvio "
+        "el numero de comprobante."
+    )
+    detail = _extract_gp_error(node)
+    if detail:
+        message += " Error: {}".format(detail)
+    return message
+
+
+def _gp_invoices(doc_number, num_invoices, error=""):
+    """Contrato BC con un resultado replicado a num_invoices (orden del payload)."""
+    return {
+        "Result": 0,
+        "invoices": [
+            {"doc_number": doc_number, "error": error}
+            for _ in range(max(num_invoices, 1))
+        ],
+    }
+
+
+def _gp_global_error(response, fallback):
+    """Error global GP con mensaje legible (description si existe)."""
+    message = _extract_gp_error(response)
+    return {
+        "Result": 1,
+        "Description": message or fallback,
+        "invoices": [],
+    }
+
+
+def _normalize_gp_node(node):
+    """Un resultado GP individual -> {"doc_number", "error"} del contrato BC.
+
+    - statusCode "1" (exito) con voucherNumber: doc_number con error vacio.
+    - statusCode 996 (duplicado): doc_number vacio con error contencion.
+    - cualquier otro statusCode: error global con la descripcion legible.
+    - sin statusCode (shape legacy): se intenta extraer el numero de documento.
+    """
+    if not isinstance(node, dict):
+        return {"doc_number": "", "error": "Resultado GP invalido"}
+    status_code = _extract_gp_status_code(node)
+    if status_code in _GP_DUPLICATE_STATUS_CODES:
+        return {"doc_number": "", "error": _gp_duplicate_message(node)}
+    if status_code in _GP_SUCCESS_STATUS_CODES:
+        doc_number = _extract_gp_doc_number(node)
+        if not doc_number:
+            return {"doc_number": "", "error": _GP_NO_DOC_NUMBER_MSG}
+        return {"doc_number": doc_number, "error": ""}
+    if status_code is not None:
+        return {
+            "doc_number": "",
+            "error": _extract_gp_error(node)
+            or _GP_INVOICE_REJECTED_MSG.format(status_code),
+        }
+    doc_number = _extract_gp_doc_number(node)
+    if not doc_number:
+        return {
+            "doc_number": "",
+            "error": _extract_gp_error(node) or _GP_NO_DOC_NUMBER_MSG,
+        }
+    return {"doc_number": doc_number, "error": _extract_gp_error(node)}
+
+
+def normalize_gp_response(response, status, num_invoices=1):
+    """Convierte la respuesta GP al contrato BC para no tocar el core.
+
+    Retorna {"Result": 0, "invoices": [{doc_number, error}, ...]} con un
+    resultado por factura (en el mismo orden del payload) o
+    {"Result": 1, "Description": ..., "invoices": []} para errores globales.
+
+    La respuesta alpla puede tener varias formas:
+    - Contrato BC (Result/invoices): se reutiliza tal cual.
+    - Resultado individual (statusCode/description/voucherNumber): statusCode
+      "1" con voucherNumber es exito; "996" es un documento ya existente (se
+      contiene como duplicado igual que BC); cualquier otro statusCode es
+      error con la descripcion legible.
+    - Lista de resultados individuales (uno por factura del payload): cada
+      elemento se mapea a su factura.
+    [A DEFINIR] Ajustar en cuanto se tenga la spec exacta del endpoint.
+    """
+    if isinstance(response, dict) and response.get("Result") is not None \
+            and "invoices" in response:
+        return response
+    if isinstance(response, dict) and response.get("Result") == 1:
+        return response
+
+    if isinstance(response, list):
+        return _normalize_gp_results(response, num_invoices)
+
+    status_code = _extract_gp_status_code(response)
+    if status_code is not None:
+        if status_code in _GP_SUCCESS_STATUS_CODES:
+            doc_number = _extract_gp_doc_number(response)
+            if not doc_number:
+                return {
+                    "Result": 1,
+                    "Description": _GP_NO_DOC_NUMBER_MSG,
+                    "invoices": [],
+                }
+            return _gp_invoices(doc_number, num_invoices)
+        if status_code in _GP_DUPLICATE_STATUS_CODES:
+            return _gp_invoices(
+                "", num_invoices, error=_gp_duplicate_message(response)
+            )
+        return _gp_global_error(
+            response, _GP_INVOICE_REJECTED_MSG.format(status_code)
+        )
+
+    if status not in (200, 201):
+        return _gp_global_error(response, response or "Error en la peticion a GP")
+    if not isinstance(response, dict):
+        return _gp_global_error(response, response or "Respuesta invalida de GP")
+
+    doc_number = _extract_gp_doc_number(response)
+    if not doc_number:
+        return _gp_global_error(response, _GP_NO_DOC_NUMBER_MSG)
+    return _gp_invoices(doc_number, num_invoices, error=_extract_gp_error(response))
+
+
+def _normalize_gp_results(results, num_invoices):
+    """Mapea una lista de resultados GP a las facturas del payload (por indice).
+
+    Tolerancia de longitud: si GP devuelve mas elementos que facturas se
+    ignoran los sobrantes; si devuelve menos, las facturas sin resultado
+    quedan con error.
+    """
+    results = list(results or [])
+    if not results:
+        return _gp_global_error(
+            results, "GP devolvio una lista vacia de resultados"
+        )
+    invoices = []
+    for idx in range(max(num_invoices, 1)):
+        node = results[idx] if idx < len(results) else None
+        if node is None:
+            invoices.append({
+                "doc_number": "",
+                "error": "GP no devolvio resultado para la factura",
+            })
+            continue
+        invoices.append(_normalize_gp_node(node))
+    return {"Result": 0, "invoices": invoices}
+
+
+def send_purchase_invoice_request_gp(endpoint_code, payload):
+    """Envio de creacion de facturas a GP (bearer alpla).
+
+    A diferencia de BC (que recibe el arreglo completo en el middleware), el
+    endpoint GP espera UN objeto por peticion (DtoPurchasePOPM). Por eso el
+    payload (lista de facturas) se envia factura a factura y cada respuesta
+    se normaliza al contrato BC. El retorno combina los resultados en
+    {"Result": 0, "invoices": [un resultado por factura, mismo orden]}.
+
+    El HTTP status del retorno es 200 porque el core procesa cada resultado
+    individual (aprobacion, duplicado o error) sin abortar el lote por el
+    status de una peticion puntual.
+    """
+    from qp_authorization.use_case.bearer.authorize import send_request_status
+
+    invoices = payload if isinstance(payload, list) else [payload or {}]
+    combined = []
+    for invoice in invoices:
+        response, status = send_request_status(
+            endpoint_code, payload=invoice
+        )
+        try:
+            from qp_supplier_front.services.utils import add_log
+
+            add_log(
+                title="Aprobacion documenteme -> GP ({})".format(endpoint_code),
+                payload=invoice,
+                response=response,
+            )
+        except Exception:
+            pass
+        normalized = normalize_gp_response(
+            response, status, num_invoices=1
+        )
+        slot = (normalized.get("invoices") or [{}])[0]
+        if not slot:
+            slot = {
+                "doc_number": "",
+                "error": normalized.get("Description")
+                or "GP rechazo la factura",
+            }
+        combined.append(slot)
+    return {"Result": 0, "invoices": combined}, 200
+
+
 # =========================================================================
 # Orquestacion compartida
 # =========================================================================
@@ -420,16 +834,50 @@ def _get_lines_for_selected(base_get_lines, selected_receipts, data):
 
 
 def approve_documents_core(doc_names, send_request_fn=None, force=False,
-                           selected_receipts=None):
+                           selected_receipts=None, backend="BC"):
     components = runtime.resolve()
     if send_request_fn is None:
-        send_request_fn = components["approve_send_fn"]
+        if backend == "GP":
+            send_request_fn = components.get("approve_send_gp_fn") \
+                or send_purchase_invoice_request_gp
+        else:
+            send_request_fn = components.get("approve_send_fn") \
+                or send_purchase_invoice_request
     cb = components.get("approve_callbacks") or {}
-    get_lines_fn = cb.get("get_lines_fn", get_lines)
-    if selected_receipts is not None:
-        get_lines_fn = _get_lines_for_selected(
-            get_lines_fn, selected_receipts, components.get("data")
-        )
+    if backend == "GP":
+        get_lines_fn = cb.get("get_lines_gp_fn", get_lines_gp)
+        if selected_receipts is not None:
+            get_lines_fn = _get_lines_for_selected(
+                get_lines_fn, selected_receipts, components.get("data")
+            )
+        build_invoice_fn = cb.get("build_invoice_fn")
+        if build_invoice_fn is None:
+            build_invoice_fn = make_invoice_builder(
+                "documenteme",
+                backend="GP",
+                resolve_tipo_fn=cb.get(
+                    "resolve_gp_tipo_fn", resolve_gp_tipo_for_doc
+                ),
+                get_oc_dates_fn=cb.get("get_po_dates_fn", get_po_dates),
+            )
+    else:
+        get_lines_fn = cb.get("get_lines_fn", get_lines)
+        if selected_receipts is not None:
+            get_lines_fn = _get_lines_for_selected(
+                get_lines_fn, selected_receipts, components.get("data")
+            )
+        build_invoice_fn = cb.get("build_invoice_fn")
+    sync_flow = "GP" if backend == "GP" else "BC"
+    persist_invoice_fn = cb.get("persist_invoice_fn")
+    if persist_invoice_fn is None:
+        persist_invoice_fn = _persist_for_backend(sync_flow)
+    else:
+        _base_persist = persist_invoice_fn
+
+        def _persist_with_sync_flow(doc, doc_number, now):
+            return _base_persist(doc, doc_number, now, sync_flow=sync_flow)
+
+        persist_invoice_fn = _persist_with_sync_flow
     result = approve_documents(
         doc_names,
         get_docs_fn=cb.get("get_docs_fn", get_docs),
@@ -441,7 +889,7 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         consume_receipts_fn=cb.get("consume_receipts_fn", consume_receipts),
         send_request_fn=send_request_fn or send_purchase_invoice_request,
         parse_doc_numbers_fn=parse_doc_numbers,
-        persist_invoice_fn=cb.get("persist_invoice_fn", persist_invoice),
+        persist_invoice_fn=persist_invoice_fn,
         mark_registered_fn=cb.get("mark_registered_fn", mark_registered),
         mark_error_fn=cb.get("mark_error_fn", mark_error),
         mark_duplicate_registered_fn=cb.get(
@@ -451,6 +899,7 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         force=force,
         resolve_rule_fn=cb.get("resolve_rule_fn", _resolve_rule),
         selected_receipts=selected_receipts,
+        build_invoice_fn=build_invoice_fn,
     )
 
     on_batch_approved = components["on_batch_approved_fn"]
@@ -461,7 +910,7 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
 
 
 def run_approve_with_receipts(doc_names, selected_receipts,
-                              send_request_fn=None):
+                              send_request_fn=None, backend="BC"):
     """Aprueba facturas cuya seleccion manual de recibos ya fue aplicada.
 
     Los recibos ya estan vinculados (qp_invoice = nvfac_nume); esta funcion
@@ -473,6 +922,7 @@ def run_approve_with_receipts(doc_names, selected_receipts,
         send_request_fn=send_request_fn,
         force=False,
         selected_receipts=selected_receipts,
+        backend=backend,
     )
     frappe.db.commit()
     return result
@@ -492,12 +942,15 @@ def collect_document_violations(doc_names):
     )
 
 
-def run_approve(doc_names_raw, send_request_fn=None, force=False):
+def run_approve(doc_names_raw, send_request_fn=None, force=False, backend="BC"):
     """Flujo manual: valida permisos y aprueba el lote seleccionado.
 
     Con force=True (el usuario confirmo las violaciones en el front) se
     omiten las advertencias de OC - recepcion - montos; los estados
     definitivos/en proceso siguen bloqueando.
+
+    backend ("BC" o "GP") selecciona el origen de la creacion de factura
+    (builder, envio y persistencia).
     """
     doc_names = parse_json(doc_names_raw)
 
@@ -506,7 +959,7 @@ def run_approve(doc_names_raw, send_request_fn=None, force=False):
         return
 
     result = approve_documents_core(
-        doc_names, send_request_fn=send_request_fn, force=force
+        doc_names, send_request_fn=send_request_fn, force=force, backend=backend
     )
     frappe.db.commit()
 
@@ -519,6 +972,8 @@ def run_approve(doc_names_raw, send_request_fn=None, force=False):
             ),
             title="Aprobar documenteme - error",
         )
+
+    result["backend"] = backend
 
     if errors:
         detail = ", ".join(

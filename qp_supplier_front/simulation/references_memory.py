@@ -135,6 +135,164 @@ def memory_get_supplier_by_tax_id(store, tax_id):
     return names[0] if names else None
 
 
+def memory_is_service_supplier(store, tax_id):
+    """True si el proveedor tiene qp_is_service_supplier=1 (tipo GP 3)."""
+    supplier = memory_get_supplier_by_tax_id(store, tax_id)
+    if not supplier:
+        return False
+    return bool(store.get_value(
+        "qp_SP_Supplier", supplier, "qp_is_service_supplier"
+    ) or False)
+
+
+def memory_has_receipts(store, purchase_order):
+    """True si la OC tiene al menos una recepcion (tipo GP 1)."""
+    return bool(memory_get_receipt_bank(store, purchase_order))
+
+
+def memory_get_po_dates(store, purchase_order):
+    """Fechas de cabecera de la OC (transaction_date, schedule_date).
+
+    Retorna (None, None) si la OC no existe o no tiene los campos sembrados.
+    """
+    if not purchase_order:
+        return None, None
+    row = store.get("qp_SP_PurchaseOrder", purchase_order) or {}
+    return row.get("transaction_date"), row.get("schedule_date")
+
+
+def memory_get_po_items(store, purchase_order):
+    """Items de la OC con idx (noLineaRecepcion) para los productos GP."""
+    if not purchase_order:
+        return []
+    return store.query(
+        "qp_SP_PurchaseOrderItem",
+        filters={"parent": purchase_order,
+                 "parenttype": "Purchase Order"},
+        fields=["item_code", "idx", "uom"],
+        order_by="idx",
+    )
+
+
+def memory_get_homologation_map(store, supplier):
+    """Mapa {supplier_item_code: bc_item_code} activo del proveedor."""
+    if not supplier:
+        return {}
+    rows = store.query(
+        "qp_SP_ItemHomologation",
+        filters={"supplier": supplier, "active": 1},
+        fields=["supplier_item_code", "bc_item_code"],
+    )
+    return {
+        row.get("supplier_item_code"): row.get("bc_item_code")
+        for row in rows
+        if row.get("supplier_item_code")
+    }
+
+
+def memory_get_invoice_detail_lines(store, doc_name):
+    """Lineas de la factura del proveedor (misma forma que el adapter real)."""
+    return store.query(
+        "qp_SP_DetailLine",
+        filters={"parent": doc_name},
+        fields=["nvpro_codi", "nvdet_tcan", "nvdet_valo"],
+    )
+
+
+def memory_get_lines_gp(store, doc):
+    """Lineas del payload GP segun el tipo de la factura (en memoria).
+
+    Misma semantica que resources/documenteme/_approbe_base.get_lines_gp:
+    - Proveedor servicio (tipo 3): siempre homogenizacion.
+    - Con recepciones (tipo 1): lineas de las recepciones.
+    - Sin recepciones (tipo 2): homogenizar y consolidar contra la OC.
+    """
+    from qp_supplier_front.uses_cases.documenteme.approve import (
+        consolidate_gp_lines,
+    )
+
+    if memory_is_service_supplier(store, doc.get("nvpro_ndoc")):
+        return _memory_gp_lines_from_invoice(store, doc)
+
+    purchase_order = doc.get("nvfac_orde")
+    receipt_lines = _memory_gp_lines_from_receipts(store, purchase_order)
+    if receipt_lines:
+        return receipt_lines, ""
+
+    return _memory_gp_lines_from_invoice(store, doc)
+
+
+def _memory_gp_lines_from_receipts(store, purchase_order):
+    """Items de las recepciones de una OC (codigo ya BC), espejo real."""
+    if not purchase_order:
+        return []
+    receipts = store.query(
+        "qp_SP_PurchaseReceipt",
+        filters={"qp_supplier_oc": purchase_order},
+        pluck="name",
+    )
+    if not receipts:
+        return []
+    items = store.query(
+        "qp_SP_PurchaseReceiptItem",
+        filters={"parent": ["in", receipts],
+                 "parenttype": "Purchase Receipt"},
+        fields=["parent", "item_code", "qty", "rate", "idx", "uom"],
+        order_by="parent, idx",
+    )
+    return [
+        {
+            "item_code": item.get("item_code"),
+            "qty": item.get("qty"),
+            "rate": item.get("rate"),
+            "idx": item.get("idx") or 0,
+            "uom": item.get("uom") or "",
+            "receiving_no": item.get("parent") or "",
+            "order_no": purchase_order,
+        }
+        for item in items
+    ]
+
+
+def _memory_gp_lines_from_invoice(store, doc):
+    """Lineas homogenizadas y consolidadas contra la OC (tipo 2/3)."""
+    from qp_supplier_front.uses_cases.documenteme.approve import (
+        consolidate_gp_lines,
+    )
+
+    supplier = memory_get_supplier_by_tax_id(store, doc.get("nvpro_ndoc"))
+    homologation_map = memory_get_homologation_map(store, supplier)
+    detail_lines = memory_get_invoice_detail_lines(store, doc.get("name"))
+    purchase_order = doc.get("nvfac_orde") or ""
+    po_items = memory_get_po_items(store, purchase_order) or None
+
+    lines, missing = consolidate_gp_lines(
+        detail_lines,
+        homologation_map,
+        oc_items=po_items,
+        order_no=purchase_order,
+    )
+    if missing:
+        return [], (
+            "Faltan homologaciones de producto: {}"
+        ).format(", ".join(sorted(set(missing))))
+    if not lines:
+        return [], "La factura no tiene lineas homologadas para enviar"
+    return lines, ""
+
+
+def memory_resolve_gp_tipo_for_doc(store, doc):
+    """Tipo GP del documento en memoria: 3 servicio, 1 recepciones, 2 resto."""
+    from qp_supplier_front.uses_cases.documenteme.approve import (
+        resolve_gp_tipo,
+    )
+
+    return resolve_gp_tipo(
+        memory_is_service_supplier(store, doc.get("nvpro_ndoc")),
+        memory_has_receipts(store, doc.get("nvfac_orde")),
+    )
+
+
 def memory_get_supplier_auto_reject_rule(store, supplier):
     return store.get_value("qp_SP_Supplier", supplier, "auto_reject")
 

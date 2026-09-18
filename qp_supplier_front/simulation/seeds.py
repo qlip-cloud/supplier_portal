@@ -27,12 +27,15 @@ def _insert_if_missing(store, doctype, row, name=None):
 
 
 def seed_purchase_order(store, name, headquarter="HQ01", oc_type=None,
-                        order_confirmation_no=None):
+                        order_confirmation_no=None, transaction_date=None,
+                        schedule_date=None):
     _insert_if_missing(store, "qp_SP_PurchaseOrder", {
         "name": name,
         "qp_headquarter": headquarter,
         "qp_oc_type": oc_type,
         "qp_order_confirmation_no": order_confirmation_no or name,
+        "transaction_date": transaction_date or "",
+        "schedule_date": schedule_date or "",
     })
 
 
@@ -49,7 +52,8 @@ def seed_purchase_receipt(store, name, purchase_order, total,
     })
 
 
-def seed_purchase_order_item(store, parent, item_code, qty, unit_cost, uom="UND"):
+def seed_purchase_order_item(store, parent, item_code, qty, unit_cost,
+                             uom="UND", idx=None):
     _insert_if_missing(store, "qp_SP_PurchaseOrderItem", {
         "name": "{}:{}".format(parent, item_code),
         "parent": parent,
@@ -59,10 +63,12 @@ def seed_purchase_order_item(store, parent, item_code, qty, unit_cost, uom="UND"
         "qty": qty,
         "qp_unit_cost": unit_cost,
         "qp_extd_cost": (qty or 0) * (unit_cost or 0),
+        "idx": idx or 0,
     })
 
 
-def seed_purchase_receipt_item(store, parent, item_code, qty, rate, uom="UND"):
+def seed_purchase_receipt_item(store, parent, item_code, qty, rate, uom="UND",
+                               idx=None):
     _insert_if_missing(store, "qp_SP_PurchaseReceiptItem", {
         "name": "{}:{}".format(parent, item_code),
         "parent": parent,
@@ -72,14 +78,28 @@ def seed_purchase_receipt_item(store, parent, item_code, qty, rate, uom="UND"):
         "qty": qty,
         "rate": rate,
         "amount": (qty or 0) * (rate or 0),
+        "idx": idx or 0,
     })
 
 
-def seed_supplier(store, tax_id, auto_reject=None):
+def seed_supplier(store, tax_id, auto_reject=None,
+                  qp_is_service_supplier=False):
     _insert_if_missing(store, "qp_SP_Supplier", {
         "name": tax_id,
         "tax_id": tax_id,
         "auto_reject": auto_reject,
+        "qp_is_service_supplier": 1 if qp_is_service_supplier else 0,
+    })
+
+
+def seed_homologation(store, supplier, supplier_item_code, bc_item_code,
+                      active=1):
+    _insert_if_missing(store, "qp_SP_ItemHomologation", {
+        "name": "{}:{}".format(supplier, supplier_item_code),
+        "supplier": supplier,
+        "supplier_item_code": supplier_item_code,
+        "bc_item_code": bc_item_code,
+        "active": active,
     })
 
 
@@ -254,3 +274,55 @@ def seed_scenario(store):
                           posting_date="2026-08-21",
                           supplier_delivery_note="RECIBO POC2-1 · 700")
     seed_purchase_receipt_item(store, "REC-POC2-1", "ITEM-REC-POC2-1", 1, 700)
+
+
+GP_SIM_NIT = "900668439"
+GP_SIM_SERVICE_NIT = "900668440"
+
+
+def seed_gp_scenario(store):
+    """Escenario GP documenteme (modo simulador) para observar el flujo.
+
+    Siembra la referencia del backend GP:
+    - qp_SP_Supplier con qp_is_service_supplier para el proveedor servicio.
+    - OC con transaction_date/schedule_date e items con idx (noLineaRecepcion).
+    - Homologaciones qp_SP_ItemHomologation proveedor -> bc_item_code.
+
+    Proveedores:
+    - GP_SIM_NIT (900668439): proveedor normal (no servicio). Factura tipo 2
+      con OC sin recepciones -> homologa y consolida contra la OC.
+    - GP_SIM_SERVICE_NIT (900668440): proveedor de servicio (tipo 3) -> siempre
+      homologa; con OC aplica la regla de OC.
+    """
+    seed_supplier(store, GP_SIM_NIT)
+    seed_supplier(store, GP_SIM_SERVICE_NIT, qp_is_service_supplier=True)
+    seed_reject_rule(store, "RULE-NO-ACTION", "no_action",
+                     motive="Sin accion")
+    seed_master_setup(store, auto_approve=1, auto_reject="") 
+    seed_sede(store, "HQ01")
+
+    # OC del proveedor normal (tipo 2: con OC, sin recepciones).
+    seed_purchase_order(
+        store, "GP-PO-0001", headquarter="HQ01", oc_type="COMPRA",
+        transaction_date="2026-09-01", schedule_date="2026-10-15")
+    seed_purchase_order_item(store, "GP-PO-0001", "ITEM-GP-1", 100, 31.58,
+                             uom="UN", idx=1)
+    seed_purchase_order_item(store, "GP-PO-0001", "ITEM-GP-2", 50, 12.0,
+                             uom="UN", idx=2)
+    # Producto en la OC pero que la factura no trae (factura parcial).
+    seed_purchase_order_item(store, "GP-PO-0001", "ITEM-GP-3", 20, 5.0,
+                             uom="UN", idx=3)
+
+    # Homologaciones del proveedor normal: solo los que la factura declara.
+    seed_homologation(store, GP_SIM_NIT, "SUP-1", "ITEM-GP-1")
+    seed_homologation(store, GP_SIM_NIT, "SUP-2", "ITEM-GP-2")
+
+    # OC del proveedor servicio (tipo 3: homologa siempre; regla de OC).
+    seed_purchase_order(
+        store, "GP-PO-SRV", headquarter="HQ01", oc_type="COMPRA",
+        transaction_date="2026-09-02", schedule_date="2026-10-16")
+    seed_purchase_order_item(store, "GP-PO-SRV", "ITEM-SRV-1", 10, 100.0,
+                             uom="UN", idx=1)
+    seed_purchase_order_item(store, "GP-PO-SRV", "ITEM-SRV-2", 5, 50.0,
+                             uom="UN", idx=2)
+    seed_homologation(store, GP_SIM_SERVICE_NIT, "SRV-1", "ITEM-SRV-2")

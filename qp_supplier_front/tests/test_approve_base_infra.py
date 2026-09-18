@@ -96,6 +96,66 @@ class TestMarkDuplicateRegistered(unittest.TestCase):
         mocks["mark_registered"].assert_not_called()
 
 
+class TestSanitizeMessage(unittest.TestCase):
+
+    def _sanitize(self, message):
+        from qp_supplier_front.services.utils import sanitize_message
+        return sanitize_message(message)
+
+    def test_compacta_saltos_de_linea_y_tabulaciones(self):
+        self.assertEqual(
+            self._sanitize("line1\nline2\t\ttab"),
+            "line1 line2 tab",
+        )
+
+    def test_elimina_caracteres_de_control_y_nul(self):
+        self.assertEqual(self._sanitize("a\x00b\x01c"), "abc")
+
+    def test_convierte_no_string(self):
+        self.assertEqual(self._sanitize(None), "")
+        self.assertEqual(self._sanitize({"k": "v"}), "{'k': 'v'}")
+
+    def test_acota_longitud(self):
+        self.assertEqual(len(self._sanitize("x" * 5000)), 2000)
+
+
+class TestInsertAlert(unittest.TestCase):
+
+    def _run(self, frappe_mock, message, alert_type="ErrorUrgente"):
+        from qp_supplier_front.resources.documenteme import _alerts
+        with patch.object(_alerts, "frappe", frappe_mock):
+            _alerts.insert_alert(
+                "DOC1", message, "2026-09-16 10:00:00", alert_type=alert_type
+            )
+
+    def test_no_levanta_si_el_insert_falla(self):
+        frappe_mock = MagicMock()
+        frappe_mock.generate_hash.return_value = "HASH1234"
+
+        def fail_on_insert(sql, *args, **kwargs):
+            if sql.upper().lstrip().startswith("INSERT"):
+                raise Exception("SQL 1064 boom")
+            return [(0,)]
+
+        frappe_mock.db.sql.side_effect = fail_on_insert
+        self._run(frappe_mock, 'mensaje con "quotes" y salto\n')
+        frappe_mock.log_error.assert_called_once()
+
+    def test_sanitiza_el_mensaje_persistido(self):
+        frappe_mock = MagicMock()
+        frappe_mock.generate_hash.return_value = "HASH1234"
+        injected = {}
+
+        def capture(sql, *args, **kwargs):
+            if sql.upper().lstrip().startswith("INSERT"):
+                injected["params"] = args[0]
+            return [(0,)]
+
+        frappe_mock.db.sql.side_effect = capture
+        self._run(frappe_mock, "line1\nline2\t\tJSON")
+        self.assertEqual(injected["params"][6], "line1 line2 JSON")
+
+
 class TestConsumeReceipts(unittest.TestCase):
 
     def test_sql_guardado_filtra_solo_no_consumidas(self):

@@ -54,12 +54,13 @@ def validate(doc_names):
 
 
 @frappe.whitelist()
-def approve(doc_names, force=False):
+def approve(doc_names, force=False, backend=None):
     try:
         force = parse_json(force) if force else False
+        backend = resolve_backend(backend)
 
         result = base.approve_collection_invoices_core(
-            parse_json(doc_names), force=force
+            parse_json(doc_names), force=force, backend=backend
         )
         frappe.db.commit()
 
@@ -78,6 +79,19 @@ def approve(doc_names, force=False):
     except Exception as error:
         frappe.db.rollback()
         response(500, "Error al aprobar: {}".format(str(error)))
+
+
+def resolve_backend(backend=None):
+    """Backend de creacion (BC/GP) o el default del MasterSetup.
+
+    Reutiliza el helper del flujo documenteme: el campo
+    qp_SP_MasterSetup.documenteme_backend es el default global de creacion de
+    facturas. BC si el campo no puede leerse.
+    """
+    from qp_supplier_front.resources.documenteme.approve import (
+        resolve_backend as _documenteme_resolve_backend,
+    )
+    return _documenteme_resolve_backend(backend)
 
 
 @frappe.whitelist()

@@ -82,17 +82,22 @@ def get_docs(doc_names):
 
 
 def get_first_po_item(purchase_order):
-    """Primer item de la orden de compra (codigo BC) o None."""
+    """Primer item de la orden de compra (codigo BC + uom + idx) o None."""
     if not purchase_order:
         return None
     items = frappe.db.sql(
-        "SELECT item_code FROM `tabPurchase Order Item` "
+        "SELECT item_code, uom, idx FROM `tabPurchase Order Item` "
         "WHERE parent = %s ORDER BY idx ASC, name ASC LIMIT 1",
         purchase_order,
     )
     if not items:
         return None
-    return items[0][0]
+    item_code, uom, idx = items[0]
+    return {
+        "item_code": item_code,
+        "uom": uom,
+        "idx": idx,
+    }
 
 
 def get_lines(doc):
@@ -100,12 +105,12 @@ def get_lines(doc):
     purchase_order = doc.get("nvfac_orde")
     if not purchase_order:
         return [], "La factura no tiene orden de compra"
-    item_code = get_first_po_item(purchase_order)
-    if not item_code:
+    first_item = get_first_po_item(purchase_order)
+    if not first_item or not first_item.get("item_code"):
         return [], "La orden de compra no tiene items"
     amount_payable = doc.get("nvfac_totp") or doc.get("nvfac_stot") or 0
     line = mapping.build_single_line(
-        {"item_code": item_code},
+        first_item,
         amount_payable,
         order_no=purchase_order,
     )
@@ -156,9 +161,11 @@ def mark_collection_account_invoiced(doc):
         )
 
 
-def persist_invoice(doc, doc_number, now):
+def persist_invoice(doc, doc_number, now, backend="BC"):
     """Actualiza la fila existente del qp_SP_PurchaseInvoice y la cuenta
     de cobro. Nunca inserta (la factura ya existe desde la cuenta de cobro).
+
+    backend registra el origen de la creacion (BC o GP) en qp_creation_backend.
     """
     if not doc_number:
         doc_number = doc.get("nvfac_nume") or doc.get("name")
@@ -168,6 +175,7 @@ def persist_invoice(doc, doc_number, now):
         {
             "invoice_id": doc_number,
             "qp_status": "BCC",
+            "qp_creation_backend": backend,
             "qp_is_error": 0,
             "qp_error_message": "",
         },
@@ -175,6 +183,15 @@ def persist_invoice(doc, doc_number, now):
     resolve_open_notifications(doc.get("name"))
     mark_collection_account_invoiced(doc)
     return doc_number
+
+
+def _persist_for_backend(backend):
+    """Envoltorio de persist_invoice con el backend fijado (BC o GP).
+    Mantiene la firma (doc, doc_number, now) del core."""
+    def persist(doc, doc_number, now):
+        return persist_invoice(doc, doc_number, now, backend=backend)
+
+    return persist
 
 
 def mark_registered(doc, doc_number):
@@ -639,6 +656,17 @@ def send_purchase_invoice_request(endpoint_code, payload):
     return _documenteme_send(endpoint_code, payload)
 
 
+def send_purchase_invoice_request_gp(endpoint_code, payload):
+    """Envia el payload a GP (bearer alpla) y registra el request log.
+
+    Reutiliza el sender GP de documenteme (misma normalizacion al contrato BC).
+    """
+    from qp_supplier_front.resources.documenteme._approve_base import (
+        send_purchase_invoice_request_gp as _documenteme_send_gp,
+    )
+    return _documenteme_send_gp(endpoint_code, payload)
+
+
 # =========================================================================
 # Orquestacion compartida
 # =========================================================================
@@ -651,15 +679,39 @@ def collect_document_violations(doc_names):
 
 
 def approve_collection_invoices_core(doc_names, send_request_fn=None,
-                                     force=False):
+                                     force=False, backend="BC"):
     from qp_supplier_front.resources.collection_accounts import runtime
+    from qp_supplier_front.uses_cases.documenteme.approve import (
+        make_invoice_builder,
+    )
 
     components = runtime.resolve()
+
     if send_request_fn is None:
-        send_request_fn = components.get("send_request_fn") \
-            or send_purchase_invoice_request
+        if backend == "GP":
+            send_request_fn = components.get("send_request_gp_fn") \
+                or send_purchase_invoice_request_gp
+        else:
+            send_request_fn = components.get("send_request_fn") \
+                or send_purchase_invoice_request
 
     cb = components.get("approve_callbacks") or {}
+
+    used_backend = "GP" if backend == "GP" else "BC"
+    persist_invoice_fn = cb.get("persist_invoice_fn")
+    if persist_invoice_fn is None:
+        persist_invoice_fn = _persist_for_backend(used_backend)
+    else:
+        _base_persist = persist_invoice_fn
+
+        def _persist_with_backend(doc, doc_number, now):
+            return _base_persist(doc, doc_number, now, backend=used_backend)
+
+        persist_invoice_fn = _persist_with_backend
+
+    build_invoice_fn = cb.get("build_invoice_fn")
+    if build_invoice_fn is None and backend == "GP":
+        build_invoice_fn = make_invoice_builder("collection", backend="GP")
 
     result = approve_collection_invoices(
         doc_names,
@@ -670,7 +722,7 @@ def approve_collection_invoices_core(doc_names, send_request_fn=None,
         receipt_bank_fn=cb.get("receipt_bank_fn", receipt_bank),
         send_request_fn=send_request_fn,
         parse_doc_numbers_fn=cb.get("parse_doc_numbers_fn", parse_doc_numbers),
-        persist_invoice_fn=cb.get("persist_invoice_fn", persist_invoice),
+        persist_invoice_fn=persist_invoice_fn,
         mark_registered_fn=cb.get("mark_registered_fn", mark_registered),
         mark_error_fn=cb.get("mark_error_fn", mark_error),
         mark_duplicate_registered_fn=cb.get(
@@ -681,6 +733,7 @@ def approve_collection_invoices_core(doc_names, send_request_fn=None,
         now=_make_now(),
         force=force,
         resolve_rule_fn=cb.get("resolve_rule_fn", resolve_rule),
+        build_invoice_fn=build_invoice_fn,
     )
     return result
 

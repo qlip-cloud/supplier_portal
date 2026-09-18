@@ -59,6 +59,7 @@ def _real_bundle():
         "sync_send_fn": send_request_status,
         "sync_tax_id_fn": sync_all_whitelist.get_company_tax_id,
         "approve_send_fn": _approve_base.send_purchase_invoice_request,
+        "approve_send_gp_fn": _approve_base.send_purchase_invoice_request_gp,
         "event_http_fn": auto_reject.raw_http,
         "company_tax_id_fn": documenteme_http_adapter.get_company_tax_id,
         "event_endpoint_fn": documenteme_http_adapter.get_event_endpoint,
@@ -120,6 +121,7 @@ def _simulated_bundle():
         ),
         "sync_tax_id_fn": lambda _company_id: simulation.get_company_tax_id(),
         "approve_send_fn": simulation.send_purchase_invoice_request,
+        "approve_send_gp_fn": simulation.send_purchase_invoice_request_gp,
         "event_http_fn": simulation.http_event,
         "company_tax_id_fn": simulation.get_company_tax_id,
         "event_endpoint_fn": simulation.get_event_endpoint,
@@ -136,6 +138,10 @@ def _simulated_bundle():
         "approve_callbacks": {
             "get_docs_fn": _bind(documents_memory.memory_get_docs),
             "get_lines_fn": _bind(documents_memory.memory_get_lines),
+            "get_lines_gp_fn": _bind(references_memory.memory_get_lines_gp),
+            "resolve_gp_tipo_fn": _bind(
+                references_memory.memory_resolve_gp_tipo_for_doc),
+            "get_po_dates_fn": _bind(references_memory.memory_get_po_dates),
             "get_headquarter_fn": _bind(
                 references_memory.memory_get_headquarter),
             "po_exists_fn": _bind(references_memory.memory_po_exists),

@@ -51,6 +51,7 @@ def _real_bundle():
     return {
         "data": None,
         "send_request_fn": base.send_purchase_invoice_request,
+        "send_request_gp_fn": base.send_purchase_invoice_request_gp,
         "approve_callbacks": {
             "get_docs_fn": base.get_docs,
             "get_lines_fn": base.get_lines,
@@ -99,6 +100,7 @@ def _simulated_bundle():
     return {
         "data": data_facade.DataFacade(store=store),
         "send_request_fn": simulation.send_purchase_invoice_request,
+        "send_request_gp_fn": simulation.send_purchase_invoice_request_gp,
         "approve_callbacks": {
             "get_docs_fn": _bind(collection_invoices_memory.memory_get_docs),
             "get_lines_fn": _bind(

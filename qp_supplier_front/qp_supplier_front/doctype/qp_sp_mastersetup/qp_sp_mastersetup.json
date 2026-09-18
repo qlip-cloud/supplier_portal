@@ -12,6 +12,7 @@
     "reject_event_delay_seconds",
     "auto_approve",
     "documenteme_simulation",
+    "documenteme_backend",
     "collection_invoices_simulation",
     "sede_source_doctype",
     "init_fiscal_year",
@@ -75,6 +76,14 @@
     "label": "Modo simulador documenteme",
     "description": "Solo visible para Administrador. Al activarlo, los flujos de aprobaci\u00f3n y rechazo (manual y autom\u00e1tico) se ejecutan sin crear facturas en BC ni notificar el rechazo a documenteme; simula respuestas exitosas para pruebas.",
     "permlevel": 1
+   },
+   {
+    "default": "BC",
+    "fieldname": "documenteme_backend",
+    "fieldtype": "Select",
+    "label": "Backend de creación de facturas",
+    "description": "Backend de origen de las peticiones de creación de factura al aprobar (BC o GP). Es el valor predeterminado del selector manual de aprobación.",
+    "options": "BC\nGP"
    },
    {
     "default": "0",
@@ -159,7 +168,7 @@
 "index_web_pages_for_search": 1,
   "issingle": 1,
   "links": [],
-   "modified": "2026-09-03 15:30:00.000000",
+   "modified": "2026-09-11 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_MasterSetup",

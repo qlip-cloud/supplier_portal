@@ -313,7 +313,7 @@ def memory_get_lines(store, doc):
     ], ""
 
 
-def memory_persist_invoice(store, doc, doc_number, now):
+def memory_persist_invoice(store, doc, doc_number, now, sync_flow="BC"):
     if not doc_number:
         doc_number = doc.get("nvfac_nume") or doc.get("name")
     if store.exists("qp_SP_PurchaseInvoice", doc.get("name")):
@@ -324,7 +324,7 @@ def memory_persist_invoice(store, doc, doc_number, now):
         "invoice_id": doc_number,
         "status": "Abierto",
         "supplier": None,
-        "qp_sync_flow": "BC",
+        "qp_sync_flow": sync_flow,
         "nvmon_codi": doc.get("nvmon_codi") or "COP",
         "nvfac_stot": doc.get("nvfac_stot") or 0,
         "nvfac_viva": doc.get("nvfac_viva") or 0,
