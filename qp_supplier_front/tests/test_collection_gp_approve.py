@@ -144,6 +144,83 @@ class TestPersistForBackend(unittest.TestCase):
         self.assertEqual(args[2]["invoice_id"], "GP1001")
         self.assertEqual(args[2]["qp_status"], "BCC")
 
+    def test_persist_gp_crea_referencia_purchase_invoice_bc(self):
+        doc = _doc()
+        frappe_mock = MagicMock()
+        frappe_mock.db.exists = MagicMock(return_value=False)
+        with patch.object(base, "frappe", frappe_mock):
+            with patch.object(base, "resolve_open_notifications"):
+                with patch.object(base, "mark_collection_account_invoiced"):
+                    persist = base._persist_for_backend("GP")
+                    persist(doc, "GP1001", "2026-09-11 10:00:00")
+
+        inserted = frappe_mock.get_doc.call_args[0][0]
+        self.assertEqual(inserted["doctype"], "qp_SP_PurchaseInvoiceBC")
+        self.assertEqual(inserted["invoice_id"], "GP1001")
+        self.assertEqual(inserted["purchase_invoice"], "PI-1")
+
+    def test_persist_bc_no_crea_referencia(self):
+        doc = _doc()
+        frappe_mock = MagicMock()
+        with patch.object(base, "frappe", frappe_mock):
+            with patch.object(base, "resolve_open_notifications"):
+                with patch.object(base, "mark_collection_account_invoiced"):
+                    persist = base._persist_for_backend("BC")
+                    persist(doc, "BC1001", "2026-09-11 10:00:00")
+
+        frappe_mock.get_doc.assert_not_called()
+
+
+class TestMarkDuplicateBackend(unittest.TestCase):
+
+    def test_mark_duplicate_gp_nombra_gp(self):
+        doc = _doc()
+        frappe_mock = MagicMock()
+        with patch.object(base, "frappe", frappe_mock):
+            with patch.object(base, "insert_notification") as insert_notification:
+                with patch.object(base, "mark_collection_account_invoiced"):
+                    base.mark_duplicate_registered(
+                        doc, "VNDDOCNM duplicado", "2026-09-11 10:00:00",
+                        backend="GP",
+                    )
+
+        args = frappe_mock.db.set_value.call_args[0]
+        message = args[2]["qp_error_message"]
+        self.assertEqual(args[2]["qp_status"], "BCC")
+        self.assertEqual(args[2]["qp_creation_backend"], "GP")
+        self.assertIn("en GP", message)
+        self.assertIn("VNDDOCNM duplicado", message)
+
+        notification = insert_notification.call_args[0]
+        self.assertEqual(notification[1], message)
+
+    def test_mark_duplicate_bc_nombra_bc(self):
+        doc = _doc()
+        frappe_mock = MagicMock()
+        with patch.object(base, "frappe", frappe_mock):
+            with patch.object(base, "insert_notification"):
+                with patch.object(base, "mark_collection_account_invoiced"):
+                    base.mark_duplicate_registered(
+                        doc, "ya existe la factura", "2026-09-11 10:00:00",
+                        backend="BC",
+                    )
+
+        args = frappe_mock.db.set_value.call_args[0]
+        self.assertEqual(args[2]["qp_creation_backend"], "BC")
+        self.assertIn("en BC", args[2]["qp_error_message"])
+
+    def test_mark_duplicate_for_backend_envuelve(self):
+        doc = _doc()
+        frappe_mock = MagicMock()
+        with patch.object(base, "frappe", frappe_mock):
+            with patch.object(base, "insert_notification"):
+                with patch.object(base, "mark_collection_account_invoiced"):
+                    mark = base._mark_duplicate_for_backend("GP")
+                    mark(doc, "error x", "2026-09-11 10:00:00")
+
+        args = frappe_mock.db.set_value.call_args[0]
+        self.assertEqual(args[2]["qp_creation_backend"], "GP")
+
 
 if __name__ == "__main__":
     unittest.main()

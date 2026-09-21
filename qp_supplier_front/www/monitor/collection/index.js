@@ -120,6 +120,23 @@ $(document).ready(function () {
             petition_get_data(args, "qp_supplier_front.resources.collection_accounts.collection_invoices.approve", function (response) {
                 showOverlay(false);
                 frappe.msgprint(response.msg);
+                if (response.status === 200) {
+                    var approvedNames = ((response.data && response.data.approved) || []).map(function (item) {
+                        return item.name;
+                    });
+                    var backendUsed = (response.data && response.data.backend) || "BC";
+                    var badgeText = backendUsed === "GP" ? "Creada en GP" : "Creada en BC";
+                    $('tbody input[name="seleccion"]:checked').each(function () {
+                        var $row = $(this).closest("tr");
+                        if (approvedNames.indexOf($(this).val()) !== -1) {
+                            $row.find(".status-badge")
+                                .removeClass("status-open status-ready status-cancelled")
+                                .addClass("status-default")
+                                .text(badgeText);
+                        }
+                        $(this).prop("checked", false);
+                    });
+                }
                 if (response.status === 200 || (response.data && (response.data.errors || []).length > 0)) {
                     reload();
                 }

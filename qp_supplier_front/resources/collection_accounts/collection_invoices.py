@@ -63,6 +63,7 @@ def approve(doc_names, force=False, backend=None):
             parse_json(doc_names), force=force, backend=backend
         )
         frappe.db.commit()
+        result["backend"] = backend
 
         errors = result.get("errors") or []
 

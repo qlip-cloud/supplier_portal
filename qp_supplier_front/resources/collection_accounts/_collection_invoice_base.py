@@ -161,11 +161,37 @@ def mark_collection_account_invoiced(doc):
         )
 
 
+def _create_purchase_invoice_bc_reference(doc_number, document_detail_name):
+    """Inserta la referencia BC/GP -> PurchaseInvoice si no existe.
+
+    Para las facturas creadas en GP se mantiene la misma referencia que en
+    documenteme: una fila en qp_SP_PurchaseInvoiceBC con name = codigo que el
+    backend devuelve (invoice_id) y que referencia al qp_SP_PurchaseInvoice.
+    Asi el PUT estandar de Frappe sobre qp_SP_PurchaseInvoiceBC puede cargar
+    el confirmation_id y el flujo de confirmacion BCC -> A funciona igual que
+    con BC. El hook on_update solo reacciona si existe el DocumentDetail (no es
+    el caso de collection), por lo que no dispara eventos a documenteme.
+    """
+    if not doc_number or not document_detail_name:
+        return
+    if frappe.db.exists("qp_SP_PurchaseInvoiceBC", doc_number):
+        return
+    bc_doc = frappe.get_doc({
+        "doctype": "qp_SP_PurchaseInvoiceBC",
+        "invoice_id": doc_number,
+        "purchase_invoice": document_detail_name,
+    })
+    bc_doc.insert(ignore_permissions=True)
+
+
 def persist_invoice(doc, doc_number, now, backend="BC"):
     """Actualiza la fila existente del qp_SP_PurchaseInvoice y la cuenta
     de cobro. Nunca inserta (la factura ya existe desde la cuenta de cobro).
 
     backend registra el origen de la creacion (BC o GP) en qp_creation_backend.
+    Cuando la creacion es en GP se inserta ademas la referencia
+    qp_SP_PurchaseInvoiceBC (name = invoice_id) para que la confirmacion
+    externa BCC -> A funcione igual que con BC.
     """
     if not doc_number:
         doc_number = doc.get("nvfac_nume") or doc.get("name")
@@ -182,6 +208,8 @@ def persist_invoice(doc, doc_number, now, backend="BC"):
     )
     resolve_open_notifications(doc.get("name"))
     mark_collection_account_invoiced(doc)
+    if backend == "GP":
+        _create_purchase_invoice_bc_reference(doc_number, doc.get("name"))
     return doc_number
 
 
@@ -217,28 +245,41 @@ def mark_error(doc, error):
     )
 
 
-def mark_duplicate_registered(doc, error, now):
-    """La factura ya existe en BC: el codigo BC no es recuperable. Se marca
-    BCC sin invoice_id y la cuenta de cobro como facturada.
+def mark_duplicate_registered(doc, error, now, backend="BC"):
+    """La factura ya existe en el backend de creacion (BC o GP): el codigo
+    no es recuperable. Se marca BCC sin invoice_id y la cuenta de cobro como
+    facturada. El mensaje nombra el backend (BC o GP) que reporto el duplicado.
     """
+    used_backend = "GP" if backend == "GP" else "BC"
+    message = (
+        "La factura ya existe en {}; falta el codigo {}. Error: {}"
+    ).format(used_backend, used_backend, error)
     frappe.db.set_value(
         PURCHASE_INVOICE,
         doc.get("name"),
         {
             "qp_status": "BCC",
+            "qp_creation_backend": used_backend,
             "qp_is_error": 1,
-            "qp_error_message": (
-                "La factura ya existe en BC; falta el codigo BC. Error: {}"
-            ).format(error),
+            "qp_error_message": message,
         },
     )
     insert_notification(
         doc.get("name"),
-        "La factura ya existe en BC; falta el codigo BC. Error: {}".format(error),
+        message,
         now=now,
         notification_type="ErrorUrgente",
     )
     mark_collection_account_invoiced(doc)
+
+
+def _mark_duplicate_for_backend(backend):
+    """Envoltorio de mark_duplicate_registered con el backend fijado (BC o
+    GP). Mantiene la firma (doc, error, now) del core."""
+    def mark(doc, error, now):
+        return mark_duplicate_registered(doc, error, now, backend=backend)
+
+    return mark
 
 
 def parse_doc_numbers(response):
@@ -709,6 +750,17 @@ def approve_collection_invoices_core(doc_names, send_request_fn=None,
 
         persist_invoice_fn = _persist_with_backend
 
+    mark_duplicate_registered_fn = cb.get("mark_duplicate_registered_fn")
+    if mark_duplicate_registered_fn is None:
+        mark_duplicate_registered_fn = _mark_duplicate_for_backend(used_backend)
+    else:
+        _base_mark = mark_duplicate_registered_fn
+
+        def _mark_duplicate_with_backend(doc, error, now):
+            return _base_mark(doc, error, now, backend=used_backend)
+
+        mark_duplicate_registered_fn = _mark_duplicate_with_backend
+
     build_invoice_fn = cb.get("build_invoice_fn")
     if build_invoice_fn is None and backend == "GP":
         build_invoice_fn = make_invoice_builder("collection", backend="GP")
@@ -725,9 +777,7 @@ def approve_collection_invoices_core(doc_names, send_request_fn=None,
         persist_invoice_fn=persist_invoice_fn,
         mark_registered_fn=cb.get("mark_registered_fn", mark_registered),
         mark_error_fn=cb.get("mark_error_fn", mark_error),
-        mark_duplicate_registered_fn=cb.get(
-            "mark_duplicate_registered_fn", mark_duplicate_registered
-        ),
+        mark_duplicate_registered_fn=mark_duplicate_registered_fn,
         consume_receipts_fn=cb.get("consume_receipts_fn", consume_receipts),
         commit_fn=frappe.db.commit,
         now=_make_now(),

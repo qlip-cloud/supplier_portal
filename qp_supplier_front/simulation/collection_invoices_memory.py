@@ -458,6 +458,11 @@ def memory_persist_invoice(store, doc, doc_number, now, backend="BC"):
     })
     memory_resolve_open_notifications(store, doc.get("name"))
     memory_mark_collection_account_invoiced(store, doc)
+    if backend == "GP" and not store.exists("qp_SP_PurchaseInvoiceBC", doc_number):
+        store.insert("qp_SP_PurchaseInvoiceBC", {
+            "invoice_id": doc_number,
+            "purchase_invoice": doc.get("name"),
+        }, name=doc_number)
     return doc_number
 
 
@@ -475,17 +480,20 @@ def memory_mark_error(store, doc, error):
                                notification_type="ErrorUrgente")
 
 
-def memory_mark_duplicate_registered(store, doc, error, now):
+def memory_mark_duplicate_registered(store, doc, error, now, backend="BC"):
+    used_backend = "GP" if backend == "GP" else "BC"
+    message = (
+        "La factura ya existe en {}; falta el codigo {}. Error: {}"
+    ).format(used_backend, used_backend, error)
     _set_fields(store, PURCHASE_INVOICE, doc.get("name"), {
         "qp_status": "BCC",
+        "qp_creation_backend": used_backend,
         "qp_is_error": 1,
-        "qp_error_message": (
-            "La factura ya existe en BC; falta el codigo BC. Error: {}"
-        ).format(error),
+        "qp_error_message": message,
     })
     memory_insert_notification(
         store, doc.get("name"),
-        "La factura ya existe en BC; falta el codigo BC. Error: {}".format(error),
+        message,
         now=now,
         notification_type="ErrorUrgente",
     )

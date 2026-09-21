@@ -31,10 +31,10 @@ Aprobacion / rechazo (usa el nucleo puro de documenteme approve_documents):
     get_headquarter(store|None, purchase_order) -> str
     receipt_bank(store|None, purchase_order) -> [receipt_dict]
     consume_receipts(store|None, doc, receipt_names)
-    persist_invoice(store|None, doc, doc_number, now) -> doc_number
+    persist_invoice(store|None, doc, doc_number, now, backend="BC") -> doc_number
     mark_registered(store|None, doc, doc_number)
     mark_error(store|None, doc, error)
-    mark_duplicate_registered(store|None, doc, error, now)
+    mark_duplicate_registered(store|None, doc, error, now, backend="BC")
 
 Rechazo / confirmacion:
     reject_invoice(store|None, doc_names, motive, is_invoice_error)
