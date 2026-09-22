@@ -180,6 +180,49 @@ class TestResolveRule(unittest.TestCase):
         self.assertEqual(rule["rule_code"], RULE_NO_ACTION)
 
 
+class TestResolveRuleServiceSupplier(unittest.TestCase):
+    """Para proveedores de servicio (flujo GP) el default del MasterSetup NO
+    aplica: solo la regla de auto-rechazo del propio proveedor decide."""
+
+    def _setup_no_receipt(self):
+        return {"rule_name": "B", "rule_code": RULE_NO_RECEIPT,
+                "enabled": 1, "motive": ""}
+
+    def test_servicio_con_regla_proveedor_gana_al_setup(self):
+        supplier = {"rule_name": "A", "rule_code": RULE_NO_PO,
+                    "enabled": 1, "motive": ""}
+
+        with patch.object(infra, "_is_service_supplier_doc",
+                          return_value=True), \
+             patch.object(infra, "get_supplier_rule",
+                          return_value=supplier), \
+             patch.object(infra, "get_setup_default_rule",
+                          return_value=self._setup_no_receipt()):
+            rule = infra.resolve_rule(_doc())
+
+        self.assertEqual(rule["rule_code"], RULE_NO_PO)
+
+    def test_servicio_sin_regla_proveedor_ignora_setup(self):
+        with patch.object(infra, "_is_service_supplier_doc",
+                          return_value=True), \
+             patch.object(infra, "get_supplier_rule", return_value=None), \
+             patch.object(infra, "get_setup_default_rule",
+                          return_value=self._setup_no_receipt()):
+            rule = infra.resolve_rule(_doc())
+
+        self.assertIsNone(rule)
+
+    def test_no_servicio_usa_fallback_al_setup(self):
+        with patch.object(infra, "_is_service_supplier_doc",
+                          return_value=False), \
+             patch.object(infra, "get_supplier_rule", return_value=None), \
+             patch.object(infra, "get_setup_default_rule",
+                          return_value=self._setup_no_receipt()):
+            rule = infra.resolve_rule(_doc())
+
+        self.assertEqual(rule["rule_code"], RULE_NO_RECEIPT)
+
+
 class TestPoReceiptCallbacks(unittest.TestCase):
 
     def test_po_exists_delega_en_db(self):

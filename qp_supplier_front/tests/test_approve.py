@@ -11,6 +11,7 @@ import unittest
 
 from qp_supplier_front.uses_cases.documenteme.approve import (
     FINAL_STATES,
+    _allocate_registrables,
     approve_documents,
     build_payload,
     collect_registrable_violations,
@@ -1112,6 +1113,149 @@ class TestValidateCash(unittest.TestCase):
         )
         self.assertTrue(ok)
         self.assertEqual(error, "")
+
+
+class TestValidateServiceSupplier(unittest.TestCase):
+    """Proveedores de servicio (flujo GP, qp_is_service_supplier=1).
+
+    No son obligatorias la OC ni las recepciones sin importar el default de
+    rechazo del MasterSetup: la factura se aprueba aunque no tenga OC ni
+    recibo, salvo que la regla de auto-rechazo DEL PROVEEDOR lo bloquee
+    (equal gate que el contado, pero sin fallback al setup global).
+    """
+
+    def _service(self, service=True):
+        return lambda doc: service
+
+    def _po_exists(self, exists=True):
+        return lambda purchase_order: exists
+
+    def _receipts_total(self, total=None):
+        return _bank(total)
+
+    def _supplier_rule(self, rule_code=None):
+        if rule_code is None:
+            return lambda doc: None
+        return lambda doc: {"rule_code": rule_code}
+
+    # El default del MasterSetup (resolve_rule_fn) no debe aplicarse.
+    def _setup_rule_no_po(self):
+        return lambda doc: {"rule_code": "no_po"}
+
+    def test_servicio_sin_oc_ni_recibos_aprueba(self):
+        doc = _doc(nvfac_conv="2", nvfac_orde=None)
+        ok, error = validate_registrable(
+            doc, self._po_exists(False), self._receipts_total(None),
+            is_service_supplier_fn=self._service(),
+            resolve_supplier_rule_fn=self._supplier_rule(None),
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_servicio_ignora_regla_rechazo_del_master_setup(self):
+        # El setup global exige no_po, pero el proveedor no tiene regla:
+        # para proveedores de servicio el setup NO aplica -> aprueba.
+        doc = _doc(nvfac_conv="2", nvfac_orde=None)
+        ok, error = validate_registrable(
+            doc, self._po_exists(False), self._receipts_total(None),
+            resolve_rule_fn=self._setup_rule_no_po(),
+            is_service_supplier_fn=self._service(),
+            resolve_supplier_rule_fn=self._supplier_rule(None),
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_servicio_sin_oc_con_regla_proveedor_no_po_bloquea(self):
+        doc = _doc(nvfac_conv="2", nvfac_orde=None)
+        ok, error = validate_registrable(
+            doc, self._po_exists(False), self._receipts_total(None),
+            is_service_supplier_fn=self._service(),
+            resolve_supplier_rule_fn=self._supplier_rule("no_po"),
+        )
+        self.assertFalse(ok)
+        self.assertIn("proveedor de servicio", error)
+
+    def test_servicio_con_oc_con_regla_proveedor_no_po_aprueba(self):
+        doc = _doc(nvfac_conv="2", nvfac_orde="OC1")
+        ok, error = validate_registrable(
+            doc, self._po_exists(True), self._receipts_total(None),
+            is_service_supplier_fn=self._service(),
+            resolve_supplier_rule_fn=self._supplier_rule("no_po"),
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_servicio_sin_recibo_con_regla_proveedor_no_receipt_bloquea(self):
+        doc = _doc(nvfac_conv="2", nvfac_orde="OC1")
+        ok, error = validate_registrable(
+            doc, self._po_exists(True), self._receipts_total(None),
+            is_service_supplier_fn=self._service(),
+            resolve_supplier_rule_fn=self._supplier_rule("no_receipt"),
+        )
+        self.assertFalse(ok)
+        self.assertIn("proveedor de servicio", error)
+
+    def test_servicio_con_recibo_con_regla_proveedor_no_receipt_aprueba(self):
+        doc = _doc(nvfac_conv="2", nvfac_orde="OC1")
+        ok, error = validate_registrable(
+            doc, self._po_exists(True), self._receipts_total(50000),
+            is_service_supplier_fn=self._service(),
+            resolve_supplier_rule_fn=self._supplier_rule("no_receipt"),
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_servicio_con_regla_proveedor_no_action_aprueba(self):
+        doc = _doc(nvfac_conv="2", nvfac_orde=None)
+        ok, error = validate_registrable(
+            doc, self._po_exists(False), self._receipts_total(None),
+            is_service_supplier_fn=self._service(),
+            resolve_supplier_rule_fn=self._supplier_rule("no_action"),
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_credito_igual_sigue_exigiendo_oc(self):
+        # Un proveedor NO servicio con credito mantiene la regla original.
+        doc = _doc(nvfac_conv="2", nvfac_orde=None)
+        ok, error = validate_registrable(
+            doc, self._po_exists(False), self._receipts_total(None),
+            is_service_supplier_fn=self._service(False),
+            resolve_supplier_rule_fn=self._supplier_rule(None),
+        )
+        self.assertFalse(ok)
+        self.assertIn("orden de compra", error)
+
+    def test_allocate_registrables_relaja_servicio(self):
+        # La fase de analisis/asignacion (auto-approve) tambien relaja: el
+        # proveedor de servicio sin OC/recibos y sin regla pasa a valido
+        # aunque el setup global exigiria no_po.
+        doc = _doc(nvfac_conv="2", nvfac_orde=None)
+        valid, errors, _allocation = _allocate_registrables(
+            [doc],
+            self._po_exists(False),
+            self._receipts_total(None),
+            0.01,
+            resolve_rule_fn=self._setup_rule_no_po(),
+            is_service_supplier_fn=self._service(),
+            resolve_supplier_rule_fn=self._supplier_rule(None),
+        )
+        self.assertEqual([d["name"] for d in valid], ["DOC1"])
+        self.assertEqual(errors, [])
+
+    def test_allocate_registrables_servicio_regla_proveedor_bloquea(self):
+        doc = _doc(nvfac_conv="2", nvfac_orde=None)
+        valid, errors, _allocation = _allocate_registrables(
+            [doc],
+            self._po_exists(False),
+            self._receipts_total(None),
+            0.01,
+            is_service_supplier_fn=self._service(),
+            resolve_supplier_rule_fn=self._supplier_rule("no_po"),
+        )
+        self.assertEqual(valid, [])
+        self.assertEqual(len(errors), 1)
+        self.assertIn("proveedor de servicio", errors[0]["error"])
 
 
 class TestHomologateLines(unittest.TestCase):

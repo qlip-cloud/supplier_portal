@@ -253,7 +253,7 @@ class TestApproveBatchJob(_WithData, unittest.TestCase):
         frappe_mock = MagicMock()
         self._ctx(frappe_mock, extra=[
             patch.object(infra, "approve_documents_core", side_effect=(
-                lambda doc_names: {
+                lambda doc_names, **kwargs: {
                     "approved": [{"nvfac_nume": "FAC001"}],
                     "errors": [{"nvfac_nume": "FAC002", "error": "sin recepcion"}],
                 }

@@ -138,6 +138,13 @@ def should_assign_contado(invoice, resolve_rule_fn, po_exists_fn, receipt_for_po
     return should_auto_reject(po_match, receipt_match, rule_code)
 
 
+def _service_supplier(invoice, is_service_supplier_fn):
+    return (
+        is_service_supplier_fn is not None
+        and bool(is_service_supplier_fn(invoice))
+    )
+
+
 def auto_assign(
     candidates_fn,
     get_oc_context_fn,
@@ -148,11 +155,18 @@ def auto_assign(
     doc_names=None,
     resolve_rule_fn=None,
     po_exists_fn=None,
+    is_service_supplier_fn=None,
     epsilon=DEFAULT_EPSILON,
 ):
     assigned = []
     candidates = candidates_fn() if doc_names is None else candidates_fn(doc_names)
     for invoice in candidates:
+        # Proveedor de servicio (flujo GP): la OC y las recepciones NO son
+        # obligatorias. La factura se auto-aprueba (si su regla de rechazo lo
+        # permite) o se auto-rechaza; nunca se asigna por falta de recibos.
+        if _service_supplier(invoice, is_service_supplier_fn):
+            continue
+
         bank = get_receipt_bank_fn(invoice.get("nvfac_orde"))
 
         cash = is_cash_invoice(invoice.get("nvfac_conv"))

@@ -298,7 +298,8 @@ def seed_gp_scenario(store):
     seed_supplier(store, GP_SIM_SERVICE_NIT, qp_is_service_supplier=True)
     seed_reject_rule(store, "RULE-NO-ACTION", "no_action",
                      motive="Sin accion")
-    seed_master_setup(store, auto_approve=1, auto_reject="") 
+    seed_master_setup(store, auto_approve=1, auto_reject="",
+                      documenteme_backend="GP")
     seed_sede(store, "HQ01")
 
     # OC del proveedor normal (tipo 2: con OC, sin recepciones).

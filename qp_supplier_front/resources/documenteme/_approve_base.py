@@ -21,6 +21,7 @@ from qp_supplier_front.resources.documenteme._alerts import (
 )
 from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.resources.documenteme.auto_reject import (
+    get_supplier_rule as _get_supplier_rule,
     resolve_rule as _resolve_rule,
 )
 from qp_supplier_front.resources.response import handler as response
@@ -230,7 +231,12 @@ def get_supplier_by_tax_id(tax_id):
         pluck="name",
         limit=1,
     )
-    return suppliers[0] if suppliers else None
+    if not suppliers:
+        return None
+    name = suppliers[0]
+    if not isinstance(name, str) or not name:
+        return None
+    return name
 
 
 def is_service_supplier(tax_id):
@@ -244,6 +250,25 @@ def is_service_supplier(tax_id):
     return bool(frappe.db.get_value(
         "Supplier", supplier, "qp_is_service_supplier"
     ))
+
+
+def is_service_supplier_doc(doc):
+    """Version del check para el nucleo puro: recibe el documento completo.
+
+    El core de aprobacion (is_service_supplier_fn) recibe el dict de la
+    factura, no el NIT.
+    """
+    return is_service_supplier((doc or {}).get("nvpro_ndoc"))
+
+
+def resolve_supplier_rule(doc):
+    """Regla de auto-rechazo SOLO del proveedor (sin fallback al MasterSetup).
+
+    Para los proveedores de servicio (flujo GP) el default global de rechazo
+    del MasterSetup NO aplica: solo la regla configurada en el Supplier puede
+    bloquear la aprobacion automatica.
+    """
+    return _get_supplier_rule(doc.get("nvpro_ndoc"))
 
 
 def has_receipts(purchase_order):
@@ -844,6 +869,8 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
             send_request_fn = components.get("approve_send_fn") \
                 or send_purchase_invoice_request
     cb = components.get("approve_callbacks") or {}
+    is_service_supplier_fn = None
+    resolve_supplier_rule_fn = None
     if backend == "GP":
         get_lines_fn = cb.get("get_lines_gp_fn", get_lines_gp)
         if selected_receipts is not None:
@@ -860,6 +887,9 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
                 ),
                 get_oc_dates_fn=cb.get("get_po_dates_fn", get_po_dates),
             )
+        is_service_supplier_fn = cb.get("is_service_supplier_fn", is_service_supplier_doc)
+        resolve_supplier_rule_fn = cb.get(
+            "resolve_supplier_rule_fn", resolve_supplier_rule)
     else:
         get_lines_fn = cb.get("get_lines_fn", get_lines)
         if selected_receipts is not None:
@@ -900,6 +930,8 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         resolve_rule_fn=cb.get("resolve_rule_fn", _resolve_rule),
         selected_receipts=selected_receipts,
         build_invoice_fn=build_invoice_fn,
+        is_service_supplier_fn=is_service_supplier_fn,
+        resolve_supplier_rule_fn=resolve_supplier_rule_fn,
     )
 
     on_batch_approved = components["on_batch_approved_fn"]
@@ -928,17 +960,27 @@ def run_approve_with_receipts(doc_names, selected_receipts,
     return result
 
 
-def collect_document_violations(doc_names):
+def collect_document_violations(doc_names, backend="BC"):
     """Advertencias de aprobacion automatica por factura (pre-validacion).
 
     Sin efectos secundarios: solo lee los documentos y retorna
     [{"nvfac_nume", "violations": [...]}] para las facturas que no cumplen
     la regla OC - recepcion - montos pero aun pueden aprobarse de forma
-    forzada por el usuario.
+    forzada por el usuario. Con backend GP los proveedores de servicio
+    relajan OC/recepciones (solo su propia regla de rechazo aplica).
     """
     docs = get_docs(doc_names)
     return collect_registrable_violations(
-        docs, po_exists, receipt_bank, resolve_rule_fn=_resolve_rule
+        docs,
+        po_exists,
+        receipt_bank,
+        resolve_rule_fn=_resolve_rule,
+        is_service_supplier_fn=(
+            is_service_supplier_doc if backend == "GP" else None
+        ),
+        resolve_supplier_rule_fn=(
+            resolve_supplier_rule if backend == "GP" else None
+        ),
     )
 
 

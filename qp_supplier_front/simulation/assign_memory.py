@@ -45,8 +45,8 @@ def _candidates(store, doc_names=None):
     docs = store.query(
         "qp_SP_DocumentDetail",
         filters=filters,
-        fields=["name", "nvfac_nume", "nvfac_orde", "nvfac_totp", "nvfac_stot",
-                "nvfac_esta", "nvfac_conv", "document_sync_line"],
+        fields=["name", "nvfac_nume", "nvpro_ndoc", "nvfac_orde", "nvfac_totp",
+                "nvfac_stot", "nvfac_esta", "nvfac_conv", "document_sync_line"],
     )
 
     # Seleccion manual en curso (recibos reclamados): se excluye del flujo
@@ -65,6 +65,7 @@ def _candidates(store, doc_names=None):
         candidates.append({
             "name": doc.get("name"),
             "nvfac_nume": sync_line,
+            "nvpro_ndoc": doc.get("nvpro_ndoc"),
             "nvfac_orde": doc.get("nvfac_orde"),
             "nvfac_totp": doc.get("nvfac_totp"),
             "nvfac_stot": doc.get("nvfac_stot"),
@@ -199,6 +200,10 @@ def run_auto_assign(store, doc_names=None):
         resolve_rule_fn=lambda doc: references_memory.memory_resolve_rule(
             store, doc),
         po_exists_fn=lambda po: _po_exists(store, po),
+        is_service_supplier_fn=lambda doc: (
+            references_memory.memory_is_service_supplier(
+                store, doc.get("nvpro_ndoc"))
+        ),
     )
 
 

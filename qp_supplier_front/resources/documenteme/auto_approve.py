@@ -25,8 +25,10 @@ import frappe
 from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.resources.documenteme._approve_base import (
     approve_documents_core,
+    is_service_supplier_doc,
     po_exists,
     receipt_bank,
+    resolve_supplier_rule,
 )
 from qp_supplier_front.resources.documenteme.auto_reject import (
     resolve_rule as _resolve_rule,
@@ -45,6 +47,25 @@ AUTO_APPROVE_JOB_METHOD = (
 def _data():
     """Facade de datos en simulacion (memoria) o None en modo real."""
     return runtime.resolve().get("data")
+
+
+def _resolve_backend(default="BC"):
+    """Backend de creacion de facturas (GP/BC) o el default del MasterSetup.
+
+    Igual que resources/documenteme/approve.resolve_backend, para que la
+    aprobacion automatica use el mismo backend que la manual (necesario en
+    GP para que los proveedores de servicio se aprueben sin OC/recepcion).
+    Lee via el adaptador de config (memoria en simulacion, frappe en real);
+    si el campo no puede leerse se asume BC.
+    """
+    source = _master_setup_source()
+    try:
+        value = source.documenteme_backend()
+    except Exception:
+        return default
+    if value in ("GP", "BC"):
+        return str(value).upper()
+    return default
 
 
 def _claimed_invoice_numbers():
@@ -96,6 +117,7 @@ def get_analysis_candidates(doc_names=None):
             fields=[
                 "name",
                 "nvfac_nume",
+                "nvpro_ndoc",
                 "nvfac_orde",
                 "nvfac_rece",
                 "nvfac_totp",
@@ -112,6 +134,7 @@ def get_analysis_candidates(doc_names=None):
             fields=[
                 "name",
                 "nvfac_nume",
+                "nvpro_ndoc",
                 "nvfac_orde",
                 "nvfac_rece",
                 "nvfac_totp",
@@ -124,7 +147,7 @@ def get_analysis_candidates(doc_names=None):
     return [doc for doc in docs if doc.get("nvfac_nume") not in claimed]
 
 
-def promote_eligible_to_v(doc_names=None):
+def promote_eligible_to_v(doc_names=None, backend=None):
     """Fase analisis: promueve a "V" solo facturas con combinacion real.
 
     Reparte el banco cooperativamente por orden de compra (_allocate_registrables,
@@ -134,12 +157,26 @@ def promote_eligible_to_v(doc_names=None):
     posterior llegan recibos que la completan, vuelve a ser candidata y se
     promueve (independientemente de si ya esta asignada: la asignacion no
     bloquea la auto-aprobacion cuando la factura se completa).
+
+    En backend GP, los proveedores de servicio (qp_is_service_supplier) se
+    promueven aunque no tengan OC ni recepciones (salvo que su propia regla de
+    auto-rechazo lo bloquee).
     """
+    if backend is None:
+        backend = _resolve_backend()
     data = _data()
     cb = _callbacks()
     po_ok = cb.get("po_exists_fn", po_exists)
     bank_fn = cb.get("receipt_bank_fn", receipt_bank)
     resolve_rule = cb.get("resolve_rule_fn", _resolve_rule)
+
+    is_service_supplier_fn = None
+    resolve_supplier_rule_fn = None
+    if backend == "GP":
+        is_service_supplier_fn = cb.get(
+            "is_service_supplier_fn", is_service_supplier_doc)
+        resolve_supplier_rule_fn = cb.get(
+            "resolve_supplier_rule_fn", resolve_supplier_rule)
 
     candidates = [
         doc
@@ -152,6 +189,8 @@ def promote_eligible_to_v(doc_names=None):
         bank_fn,
         DEFAULT_EPSILON,
         resolve_rule_fn=resolve_rule,
+        is_service_supplier_fn=is_service_supplier_fn,
+        resolve_supplier_rule_fn=resolve_supplier_rule_fn,
     )
 
     promoted = []
@@ -243,7 +282,9 @@ def run_auto_approve(enqueue=True, doc_names=None):
 
 
 def approve_batch_job(doc_names):
-    result = approve_documents_core(doc_names)
+    result = approve_documents_core(
+        doc_names, backend=_resolve_backend()
+    )
     data = _data()
     _demote_unregistrable(result, data)
     if data is None:

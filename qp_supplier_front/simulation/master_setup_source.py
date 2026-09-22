@@ -35,6 +35,9 @@ class MemoryMasterSetupSource(object):
     def auto_reject_rule(self):
         return self._value("auto_reject")
 
+    def documenteme_backend(self):
+        return self._value("documenteme_backend")
+
     def reject_config(self):
         return {
             "max_attempts": int(self._value("reject_retry_max_attempts")

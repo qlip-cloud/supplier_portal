@@ -161,6 +161,10 @@ def _simulated_bundle():
             "get_supplier_by_tax_id_fn": _bind(
                 references_memory.memory_get_supplier_by_tax_id),
             "resolve_rule_fn": _bind(references_memory.memory_resolve_rule),
+            "is_service_supplier_fn": _bind(
+                references_memory.memory_is_service_supplier_doc),
+            "resolve_supplier_rule_fn": _bind(
+                references_memory.memory_resolve_supplier_rule),
         },
         "sync_persist": {
             "create_log": _bind(documents_memory.memory_create_sync_log),

@@ -48,6 +48,11 @@ class RealMasterSetupSource(object):
         frappe = self._frappe_module()
         return frappe.db.get_single_value(MASTER_SETUP_DOCTYPE, "auto_reject")
 
+    def documenteme_backend(self):
+        frappe = self._frappe_module()
+        return frappe.db.get_single_value(
+            MASTER_SETUP_DOCTYPE, "documenteme_backend")
+
     def reject_config(self):
         frappe = self._frappe_module()
         return {

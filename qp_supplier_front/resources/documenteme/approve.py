@@ -31,7 +31,9 @@ def validate(doc_names):
             response(403, "No tiene permisos para aprobar facturas")
             return
 
-        violation_docs = collect_document_violations(parse_json(doc_names))
+        violation_docs = collect_document_violations(
+            parse_json(doc_names), backend=resolve_backend()
+        )
         response(200, "ok", {"violations": violation_docs})
 
     except Exception as error:

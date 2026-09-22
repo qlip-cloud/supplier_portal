@@ -8,6 +8,9 @@ from qp_supplier_front.resources.documenteme.auto_reject import (
     po_exists as _po_exists,
     resolve_rule as _resolve_rule,
 )
+from qp_supplier_front.resources.documenteme._approve_base import (
+    is_service_supplier_doc as _is_service_supplier_doc,
+)
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.qp_supplier_front.doctype.qp_sp_assignmentconfig.qp_sp_assignmentconfig import (
     _normalize_headquarter,
@@ -32,6 +35,7 @@ def run_auto_assign(doc_names=None):
         doc_names=doc_names,
         resolve_rule_fn=_resolve_rule,
         po_exists_fn=_po_exists,
+        is_service_supplier_fn=_is_service_supplier_doc,
     )
 
 
@@ -62,7 +66,7 @@ def get_candidates(doc_names=None):
     docs = frappe.get_all(
         "qp_SP_DocumentDetail",
         filters=filters,
-        fields=["name", "nvfac_nume", "nvfac_orde", "nvfac_totp", "nvfac_stot", "nvfac_esta", "nvfac_conv", "document_sync_line"],
+        fields=["name", "nvfac_nume", "nvpro_ndoc", "nvfac_orde", "nvfac_totp", "nvfac_stot", "nvfac_esta", "nvfac_conv", "document_sync_line"],
     )
 
     # Seleccion manual en curso (recibos reclamados): se excluye del flujo
@@ -86,6 +90,7 @@ def get_candidates(doc_names=None):
         candidates.append({
             "name": doc.get("name"),
             "nvfac_nume": sync_line,
+            "nvpro_ndoc": doc.get("nvpro_ndoc"),
             "nvfac_orde": doc.get("nvfac_orde"),
             "nvfac_totp": doc.get("nvfac_totp"),
             "nvfac_stot": doc.get("nvfac_stot"),

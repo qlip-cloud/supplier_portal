@@ -215,9 +215,24 @@ def get_candidates(doc_names=None):
 
 
 def resolve_rule(doc, master_setup=None):
+    if _is_service_supplier_doc(doc):
+        # Para proveedores de servicio (flujo GP) no aplica el default global
+        # de rechazo del MasterSetup: solo la regla del proveedor decide.
+        return get_supplier_rule(doc.get("nvpro_ndoc"))
     supplier_rule = get_supplier_rule(doc.get("nvpro_ndoc"))
     setup_rule = get_setup_default_rule(master_setup=master_setup)
     return resolve_auto_reject_config(supplier_rule, setup_rule)
+
+
+def _is_service_supplier_doc(doc):
+    """True si el proveedor de la factura tiene qp_is_service_supplier=1.
+
+    Import lazy para evitar el ciclo _approbe_base <-> auto_reject.
+    """
+    from qp_supplier_front.resources.documenteme._approve_base import (
+        is_service_supplier,
+    )
+    return is_service_supplier(doc.get("nvpro_ndoc"))
 
 
 def get_supplier_rule(tax_id):

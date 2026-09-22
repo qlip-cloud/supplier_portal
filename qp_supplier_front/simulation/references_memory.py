@@ -145,6 +145,11 @@ def memory_is_service_supplier(store, tax_id):
     ) or False)
 
 
+def memory_is_service_supplier_doc(store, doc):
+    """Version doc del check (el core de aprobacion recibe la factura)."""
+    return memory_is_service_supplier(store, (doc or {}).get("nvpro_ndoc"))
+
+
 def memory_has_receipts(store, purchase_order):
     """True si la OC tiene al menos una recepcion (tipo GP 1)."""
     return bool(memory_get_receipt_bank(store, purchase_order))
@@ -324,12 +329,35 @@ def memory_get_rule(store, rule_name):
     }
 
 
+def _memory_supplier_rule(store, doc):
+    """Regla de auto-rechazo configurada directamente en el proveedor."""
+    supplier = memory_get_supplier_by_tax_id(store, doc.get("nvpro_ndoc"))
+    if not supplier:
+        return None
+    return memory_get_rule(
+        store, memory_get_supplier_auto_reject_rule(store, supplier))
+
+
+def memory_resolve_supplier_rule(store, doc):
+    """Regla de auto-rechazo SOLO del proveedor (flujo GP servicio).
+
+    Espejo de _approbe_base.resolve_supplier_rule: para proveedores de
+    servicio el default global del MasterSetup NO aplica.
+    """
+    return _memory_supplier_rule(store, doc)
+
+
 def memory_resolve_rule(store, doc):
     """Regla activa (proveedor con fallback al default del MasterSetup).
 
     Espejo de resources/documenteme/auto_reject.resolve_rule sobre el store.
+    Para proveedores de servicio (flujo GP) solo aplica la regla del
+    proveedor: se ignora el default global del MasterSetup.
     Devuelve None si no hay regla activa (equivale a "no action").
     """
+    if memory_is_service_supplier(store, doc.get("nvpro_ndoc")):
+        return memory_resolve_supplier_rule(store, doc)
+
     from qp_supplier_front.simulation.master_setup_source import (
         MemoryMasterSetupSource,
     )
@@ -337,11 +365,7 @@ def memory_resolve_rule(store, doc):
         resolve_auto_reject_config,
     )
 
-    supplier = memory_get_supplier_by_tax_id(store, doc.get("nvpro_ndoc"))
-    supplier_rule = None
-    if supplier:
-        supplier_rule = memory_get_rule(
-            store, memory_get_supplier_auto_reject_rule(store, supplier))
+    supplier_rule = _memory_supplier_rule(store, doc)
 
     setup_rule = memory_get_rule(
         store, MemoryMasterSetupSource(store).auto_reject_rule())

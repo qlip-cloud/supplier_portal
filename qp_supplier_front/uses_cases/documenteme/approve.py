@@ -166,7 +166,43 @@ def _get_cash_registrable_warnings(doc, po_exists_fn, receipts_total_fn, resolve
     return []
 
 
-def get_registrable_warnings(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None, epsilon=DEFAULT_EPSILON):
+def _get_service_supplier_registrable_warnings(doc, po_exists_fn, receipts_total_fn, resolve_supplier_rule_fn):
+    """Advertencias de la regla de auto-rechazo del PROVEEDOR para una
+    factura de proveedor de servicio (Supplier.qp_is_service_supplier=1).
+
+    Para los proveedores de servicio NO son obligatorias la orden de compra
+    ni las recepciones: la factura puede aprobarse automaticamente sin OC ni
+    recibo, sin importar el default de rechazo del MasterSetup. Solo la regla
+    de auto-rechazo configurada DIRECTAMENTE en el proveedor puede bloquear
+    la aprobacion automatica. Con "no_action" o sin regla en el proveedor se
+    aprueba sin validar OC ni recibo.
+    """
+    if resolve_supplier_rule_fn is None:
+        return []
+
+    rule = resolve_supplier_rule_fn(doc)
+    if not rule:
+        return []
+
+    rule_code = rule.get("rule_code")
+    if not rule_code or rule_code == RULE_NO_ACTION:
+        return []
+
+    po_match = has_po_match(doc, po_exists_fn)
+    receipt_match = has_receipt_match(doc, receipts_total_fn)
+    if should_auto_reject(po_match, receipt_match, rule_code):
+        return [
+            "La factura del proveedor de servicio no cumple la regla de "
+            "rechazo del proveedor ({}), por lo que no se aprueba "
+            "automaticamente".format(rule_code)
+        ]
+
+    return []
+
+
+def get_registrable_warnings(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None,
+                             is_service_supplier_fn=None, resolve_supplier_rule_fn=None,
+                             epsilon=DEFAULT_EPSILON):
     """Retorna todas las violaciones que impedirian la aprobacion automatica.
 
     Devuelve una lista de mensajes (una por regla incumplida) para la regla
@@ -177,7 +213,21 @@ def get_registrable_warnings(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn
     Las facturas de CONTADO relajan OC y recibos/montos salvo que la regla de
     rechazo configurada exija OC/recibo: en ese caso la violacion bloquea la
     aprobacion automatica y la factura debe asignarse.
+
+    Las facturas de PROVEEDOR DE SERVICIO (is_service_supplier_fn verdadero,
+    flujo GP) relajan OC y recibos de forma absoluta: se aprueban aunque no
+    tengan OC ni recibo, sin importar el default del MasterSetup. Solo la
+    regla de auto-rechazo del propio proveedor
+    (resolve_supplier_rule_fn) puede bloquearlas.
     """
+    if is_service_supplier_fn is not None and is_service_supplier_fn(doc):
+        return _get_service_supplier_registrable_warnings(
+            doc,
+            po_exists_fn,
+            _receipt_for_po_from_bank(receipt_bank_fn),
+            resolve_supplier_rule_fn or resolve_rule_fn,
+        )
+
     if is_cash_invoice(doc.get("nvfac_conv")):
         return _get_cash_registrable_warnings(
             doc,
@@ -204,7 +254,9 @@ def get_registrable_warnings(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn
     return []
 
 
-def validate_registrable(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None, epsilon=DEFAULT_EPSILON):
+def validate_registrable(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None,
+                         is_service_supplier_fn=None, resolve_supplier_rule_fn=None,
+                         epsilon=DEFAULT_EPSILON):
     """Valida la regla factura - orden - recepcion + montos.
 
     Retorna (ok, error).
@@ -217,13 +269,19 @@ def validate_registrable(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=Non
     - Facturas de CONTADO: se relaja la validacion de OC y recibos/montos,
       salvo que la regla de rechazo activa (resolve_rule_fn) exija OC/recibo:
       en ese caso la factura debe cumplirla para aprobarse.
+    - Facturas de PROVEEDOR DE SERVICIO (flujo GP): no se exigen OC ni
+      recepciones sin importar el default del MasterSetup; solo la regla de
+      auto-rechazo del proveedor puede bloquear la aprobacion.
     """
     blocker = get_registrable_blockers(doc)
     if blocker:
         return False, blocker
 
     warnings = get_registrable_warnings(
-        doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=resolve_rule_fn, epsilon=epsilon
+        doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=resolve_rule_fn,
+        is_service_supplier_fn=is_service_supplier_fn,
+        resolve_supplier_rule_fn=resolve_supplier_rule_fn,
+        epsilon=epsilon,
     )
     first_warning = warnings[0] if warnings else ""
     if first_warning:
@@ -232,7 +290,9 @@ def validate_registrable(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=Non
     return True, ""
 
 
-def collect_registrable_violations(docs, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None, epsilon=DEFAULT_EPSILON):
+def collect_registrable_violations(docs, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None,
+                                   is_service_supplier_fn=None, resolve_supplier_rule_fn=None,
+                                   epsilon=DEFAULT_EPSILON):
     """Acumula todas las violaciones de aprobacion automatica por factura.
 
     Retorna una lista de dicts {"nvfac_nume", "violations": [mensaje, ...]}
@@ -247,7 +307,10 @@ def collect_registrable_violations(docs, po_exists_fn, receipt_bank_fn, resolve_
         if blocker:
             continue
         warnings = get_registrable_warnings(
-            doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=resolve_rule_fn, epsilon=epsilon
+            doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=resolve_rule_fn,
+            is_service_supplier_fn=is_service_supplier_fn,
+            resolve_supplier_rule_fn=resolve_supplier_rule_fn,
+            epsilon=epsilon,
         )
         if warnings:
             violations.append({
@@ -257,12 +320,17 @@ def collect_registrable_violations(docs, po_exists_fn, receipt_bank_fn, resolve_
     return violations
 
 
-def validate_registrables(docs, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None, epsilon=DEFAULT_EPSILON):
+def validate_registrables(docs, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None,
+                          is_service_supplier_fn=None, resolve_supplier_rule_fn=None,
+                          epsilon=DEFAULT_EPSILON):
     valid = []
     errors = []
     for doc in (docs or []):
         ok, error = validate_registrable(
-            doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=resolve_rule_fn, epsilon=epsilon
+            doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=resolve_rule_fn,
+            is_service_supplier_fn=is_service_supplier_fn,
+            resolve_supplier_rule_fn=resolve_supplier_rule_fn,
+            epsilon=epsilon,
         )
         if ok:
             valid.append(doc)
@@ -786,16 +854,21 @@ def _scalar_bank_fn(receipts_total_fn):
     return bank_fn
 
 
-def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve_rule_fn=None):
+def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve_rule_fn=None,
+                           is_service_supplier_fn=None, resolve_supplier_rule_fn=None):
     """Valida y asigna el banco de recepciones por orden de compra.
 
-    Separa las facturas de contado (sin banco) y agrupa las de credito por
+    Separa las facturas de CONTADO (sin banco) y agrupa las de credito por
     orden de compra; para cada grupo asigna combinaciones exactas de
     recepciones no consumidas maximizando facturas completadas (pack_oc_group).
 
     Las facturas de CONTADO se admiten salvo que la regla de rechazo activa
     (resolve_rule_fn) exija OC/recibo y la factura no lo cumpla: en ese caso
     caen a error para pasar a asignacion.
+
+    Las facturas de PROVEEDOR DE SERVICIO (flujo GP) NO exigen OC ni
+    recepciones: se admiten salvo que la regla de auto-rechazo del proveedor
+    (resolve_supplier_rule_fn) indique lo contrario.
 
     Retorna (valid, errors, allocation) donde allocation mapea doc name ->
     lista de recepciones asignadas. Una factura sin combinacion exacta no
@@ -815,6 +888,22 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": blocker,
             })
+            continue
+        if is_service_supplier_fn is not None and is_service_supplier_fn(doc):
+            warnings = _get_service_supplier_registrable_warnings(
+                doc,
+                po_exists_fn,
+                _receipt_for_po_from_bank(receipt_bank_fn),
+                resolve_supplier_rule_fn or resolve_rule_fn,
+            )
+            if warnings:
+                errors.append({
+                    "name": doc.get("name"),
+                    "nvfac_nume": doc.get("nvfac_nume"),
+                    "error": warnings[0],
+                })
+            else:
+                valid.append(doc)
             continue
         if is_cash_invoice(doc.get("nvfac_conv")):
             warnings = _get_cash_registrable_warnings(
@@ -981,14 +1070,17 @@ def approve_documents(
     epsilon=DEFAULT_EPSILON,
     selected_receipts=None,
     build_invoice_fn=None,
+    is_service_supplier_fn=None,
+    resolve_supplier_rule_fn=None,
 ):
     """Aprueba en lote las facturas: un solo envio a BC con array.
 
     Flujo:
     1. Valida cada factura (regla factura - OC - recepcion, relajada para
-       contado). Con receipt_bank_fn inyectado la validacion es batch-aware
-       por orden de compra y usa el banco de recepciones no consumidas
-       (pack_oc_group); las facturas sin combinacion exacta caen a error.
+       contado y para proveedores de servicio de GP). Con receipt_bank_fn
+       inyectado la validacion es batch-aware por orden de compra y usa el
+       banco de recepciones no consumidas (pack_oc_group); las facturas sin
+       combinacion exacta caen a error.
        Con selected_receipts (seleccion manual del banco) se usa
        _allocate_selected: re-valida el set elegido por el usuario sin
        re-runnear pack_oc_group (la combinacion ya la decidio el usuario).
@@ -1021,11 +1113,15 @@ def approve_documents(
         valid, errors, allocation = _allocate_registrables(
             docs, po_exists_fn, receipt_bank_fn, epsilon,
             resolve_rule_fn=resolve_rule_fn,
+            is_service_supplier_fn=is_service_supplier_fn,
+            resolve_supplier_rule_fn=resolve_supplier_rule_fn,
         )
     else:
         valid, errors = validate_registrables(
             docs, po_exists_fn, _scalar_bank_fn(receipts_total_fn),
             resolve_rule_fn=resolve_rule_fn, epsilon=epsilon,
+            is_service_supplier_fn=is_service_supplier_fn,
+            resolve_supplier_rule_fn=resolve_supplier_rule_fn,
         )
         allocation = {}
 
