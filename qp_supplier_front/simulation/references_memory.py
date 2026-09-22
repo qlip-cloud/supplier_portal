@@ -208,7 +208,8 @@ def memory_get_lines_gp(store, doc):
     """Lineas del payload GP segun el tipo de la factura (en memoria).
 
     Misma semantica que resources/documenteme/_approbe_base.get_lines_gp:
-    - Proveedor servicio (tipo 3): siempre homogenizacion.
+    - Proveedor servicio (tipo 3): NO se envian productos (vendorInvoiceLine
+      vacio); No se valida homologacion ni lineas de la factura.
     - Con recepciones (tipo 1): lineas de las recepciones.
     - Sin recepciones (tipo 2): homogenizar y consolidar contra la OC.
     """
@@ -217,7 +218,7 @@ def memory_get_lines_gp(store, doc):
     )
 
     if memory_is_service_supplier(store, doc.get("nvpro_ndoc")):
-        return _memory_gp_lines_from_invoice(store, doc)
+        return [], ""
 
     purchase_order = doc.get("nvfac_orde")
     receipt_lines = _memory_gp_lines_from_receipts(store, purchase_order)

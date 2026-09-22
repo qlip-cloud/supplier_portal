@@ -200,13 +200,39 @@ class TestSimGpDocumentemeInMemory(unittest.TestCase):
         self.assertEqual(len(result["approved"]), 1)
         invoice = calls["payload"][0]
         self.assertEqual(invoice["tipoFacturaDoc"], 3)
-        # Homologa siempre y aplica la regla de OC (idx de la OC).
-        lines = invoice["vendorInvoiceLine"]
-        self.assertEqual(len(lines), 1)
-        self.assertEqual(lines[0]["noProducto"], "ITEM-SRV-2")
-        self.assertEqual(lines[0]["noLineaRecepcion"], 2)
-        self.assertEqual(lines[0]["noRecepcion"], "GP-PO-SRV")
-        self.assertEqual(lines[0]["noPedido"], "")
+        # Proveedor de servicio: la peticion va SOLO con la cabecera, sin
+        # productos (vendorInvoiceLine vacio) y sin validar homologaciones.
+        self.assertEqual(invoice["vendorInvoiceLine"], [])
+        self.assertEqual(
+            result["errors"], []
+        )
+
+    def test_proveedor_servicio_sin_homologacion_envia_vacio(self):
+        # Un producto sin homologacion en un proveedor de servicio NO se
+        # valida: la factura tipo 3 sigue enviandose sin lineas.
+        name = _seed_doc(
+            self.store,
+            nit=seeds.GP_SIM_SERVICE_NIT,
+            nume="FAC-GP-SRV-MISSING",
+            nvfac_orde="GP-PO-SRV",
+        )
+        _seed_detail_line(self.store, name, "SRV-99", 1, 5.0)
+
+        calls = {"payload": None}
+
+        def send_request_fn(endpoint_code, payload):
+            calls["payload"] = payload
+            return {"Result": 0, "invoices": [
+                {"doc_number": "SIMGP3", "error": ""}
+            ]}, 200
+
+        result = self._run([name], send_request_fn=send_request_fn)
+
+        self.assertEqual(len(result["approved"]), 1)
+        self.assertEqual(result["errors"], [])
+        invoice = calls["payload"][0]
+        self.assertEqual(invoice["tipoFacturaDoc"], 3)
+        self.assertEqual(invoice["vendorInvoiceLine"], [])
 
     def test_codigo_sin_homologacion_no_envia(self):
         name = _seed_doc(self.store, nume="FAC-GP-MISSING")

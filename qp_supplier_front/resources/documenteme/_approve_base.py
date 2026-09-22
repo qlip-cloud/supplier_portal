@@ -316,13 +316,12 @@ def resolve_gp_tipo_for_doc(doc):
 
 
 def _get_lines_gp_from_invoice(doc):
-    """Lineas GP homogenizadas y consolidadas contra la OC (tipo 2/3).
+    """Lineas GP homogenizadas y consolidadas contra la OC (tipo 2).
 
     Reusa el nucleo puro consolidate_gp_lines: homogeniza nvpro_codi ->
-    bc_item_code, filtra los productos que coinciden con la OC (tipo 2; una
-    OC que puede estar parcialmente facturada) y consolida por producto
-    (cantidad y monto; idx de la OC). Para proveedor servicio (tipo 3) sin
-    OC los productos se homogenizan sin filtro de OC (idx 0).
+    bc_item_code, filtra los productos que coinciden con la OC (una OC que
+    puede estar parcialmente facturada) y consolida por producto (cantidad y
+    monto; idx de la OC).
     """
     from qp_supplier_front.infrastructure.adapters.item_homologation_adapter import (
         get_homologation_map,
@@ -357,14 +356,15 @@ def _get_lines_gp_from_invoice(doc):
 def get_lines_gp(doc):
     """Lineas del payload GP segun el tipo de la factura.
 
-    - Proveedor servicio (tipo 3): siempre homogenizacion (regla homologacion);
-      si tiene OC se aplica la regla de OC (noRecepcion = OC, idx de la OC).
+    - Proveedor servicio (tipo 3 CxP): NO se envian productos. La peticion
+      va solo con la cabecera (vendorInvoiceLine vacio) y No se valida
+      homologacion ni lineas de la factura.
     - Con recepciones (tipo 1): las lineas de las recepciones (comportamiento
       actual de documenteme).
     - Sin recepciones (tipo 2): homogenizar y consolidar contra la OC.
     """
     if is_service_supplier(doc.get("nvpro_ndoc")):
-        return _get_lines_gp_from_invoice(doc)
+        return [], ""
 
     purchase_order = doc.get("nvfac_orde")
     receipt_lines = get_lines_from_receipts(purchase_order)
