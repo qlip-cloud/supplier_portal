@@ -15,6 +15,7 @@ from unittest.mock import MagicMock
 sys.modules["frappe"] = MagicMock()
 
 from qp_supplier_front.uses_cases.documenteme.approve import (
+    GP_TIPO_ENVIO,
     GP_TIPO_NC,
     build_gp_invoice,
     build_gp_vendor_invoice_line,
@@ -97,6 +98,24 @@ class TestBuildGpVendorInvoiceLine(unittest.TestCase):
         )
         self.assertEqual(line["fechaRequerida"], "2026-09-01T00:00:00")
         self.assertEqual(line["fechaPrometida"], "2026-10-15T00:00:00")
+
+    def test_tipo1_lleva_recepcion_y_pedido_en_linea(self):
+        line = build_gp_vendor_invoice_line(
+            _line(receiving_no="rec001", order_no="oc001"),
+            "2026-09-03T00:00:00",
+            tipo_factura_doc=GP_TIPO_ENVIO,
+        )
+        self.assertEqual(line["noRecepcion"], "rec001")
+        self.assertEqual(line["noPedido"], "oc001")
+        self.assertEqual(line["noLineaRecepcion"], 1)
+
+    def test_tipo2_mantiene_recepcion_con_numero_pord(self):
+        line = build_gp_vendor_invoice_line(
+            _line(receiving_no="rec001", order_no="oc001"),
+            "2026-09-03T00:00:00",
+        )
+        self.assertEqual(line["noRecepcion"], "oc001")
+        self.assertEqual(line["noPedido"], "")
 
 
 class TestBuildGpInvoice(unittest.TestCase):

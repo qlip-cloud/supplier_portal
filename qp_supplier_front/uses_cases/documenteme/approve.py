@@ -487,17 +487,28 @@ def consolidate_gp_lines(detail_lines, homologation_map, oc_items=None,
 
 
 def build_gp_vendor_invoice_line(line, date_value, fecha_requerida="",
-                                 fecha_prometida=""):
+                                 fecha_prometida="",
+                                 tipo_factura_doc=GP_TIPO_ENVIO_FACTURA):
     """Linea del payload GP (noProducto, cantidad, precio, fechas, uom...).
 
-    - noLineaRecepcion es el idx de la linea en la OC que trae la linea.
-    - noRecepcion es el numero de orden de compra (numeroPord) de la linea.
-    - noPedido se envia vacio.
+    - noLineaRecepcion es el idx de la linea que trae la linea (de la OC
+      para tipo 2; de la ola de recepcion para tipo 1).
+    - Tipo 1 (Envio, con recepciones):
+      noRecepcion = numero de la recepcion (receiving_no);
+      noPedido = numero de orden de compra (order_no).
+    - Tipo 2/3 (Envio Factura / CxP, sin recepciones):
+      noRecepcion = numero de orden de compra (numeroPord) de la linea;
+      noPedido se envia vacio.
     - fechaRequerida/fechaPrometida salen de la cabecera de la OC
       (transaction_date / schedule_date); si no vienen se usa la fecha del
       documento.
     - unidadMedida del uom de la linea, default "UN".
     """
+    no_recepcion = line.get("order_no") or ""
+    no_pedido = ""
+    if tipo_factura_doc == GP_TIPO_ENVIO:
+        no_recepcion = line.get("receiving_no") or ""
+        no_pedido = line.get("order_no") or ""
     return {
         "noProducto": line.get("item_code") or "",
         "cantidad": line.get("qty") or 0,
@@ -506,8 +517,8 @@ def build_gp_vendor_invoice_line(line, date_value, fecha_requerida="",
         "fechaPrometida": fecha_prometida or date_value,
         "unidadMedida": line.get("uom") or "UN",
         "noLineaRecepcion": int(line.get("idx") or 0),
-        "noRecepcion": line.get("order_no") or "",
-        "noPedido": "",
+        "noRecepcion": no_recepcion,
+        "noPedido": no_pedido,
     }
 
 
@@ -527,6 +538,9 @@ def build_gp_invoice(doc, lines, headquarter, tipo_factura_doc=GP_TIPO_ENVIO_FAC
       campos GP; unidadMedida del uom de la linea (default "UN").
     - fechaRequerida/prometida de la cabecera de la OC (transaction_date /
       schedule_date), iguales en todas las lineas (default fecha documento).
+    - Las lineas del tipo 1 (Envio) llevan noRecepcion = numero de la
+      recepcion y noPedido = numero de la OC; el resto lleva noRecepcion =
+      numeroPord y noPedido vacio (ver build_gp_vendor_invoice_line).
     """
     invoice_date = _gp_datetime(doc.get("nvfac_fech"))
     return {
@@ -552,6 +566,7 @@ def build_gp_invoice(doc, lines, headquarter, tipo_factura_doc=GP_TIPO_ENVIO_FAC
                 line, invoice_date,
                 fecha_requerida=fecha_requerida,
                 fecha_prometida=fecha_prometida,
+                tipo_factura_doc=tipo_factura_doc,
             )
             for line in (lines or [])
         ],
