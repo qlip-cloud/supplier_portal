@@ -38,6 +38,8 @@ FINAL_STATES = ("A", "R")
 
 import qp_supplier_front.uses_cases.documenteme.reject_retry
 
+from qp_supplier_front.uses_cases.documenteme.conversion import is_credit_note
+
 REJECT_PENDING_STATES = qp_supplier_front.uses_cases.documenteme.reject_retry.REJECT_PENDING_STATES
 
 DEFAULT_MOTIVES = {
@@ -137,7 +139,11 @@ def auto_reject(
 ):
     candidates = []
     raw = candidates_fn() if doc_names is None else candidates_fn(doc_names)
-    candidates = [doc for doc in raw if is_eligible_doc(doc)]
+    candidates = [
+        doc for doc in raw
+        if is_eligible_doc(doc)
+        and not is_credit_note(doc.get("nvtip_docu"))
+    ]
     rejectable = collect_rejectable(
         candidates, resolve_rule_fn, po_exists_fn, receipt_for_po_fn
     )

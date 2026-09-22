@@ -31,6 +31,7 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     collect_registrable_violations,
     make_invoice_builder,
 )
+from qp_supplier_front.uses_cases.documenteme.conversion import is_credit_note
 
 ALLOWED_ROLES = {"Administrador Documenteme", "Administrador Sede Documenteme"}
 
@@ -356,6 +357,7 @@ def _get_lines_gp_from_invoice(doc):
 def get_lines_gp(doc):
     """Lineas del payload GP segun el tipo de la factura.
 
+    - Nota Credito (nvtip_docu == "C"): NO se envian productos (tipo 4 NC).
     - Proveedor servicio (tipo 3 CxP): NO se envian productos. La peticion
       va solo con la cabecera (vendorInvoiceLine vacio) y No se valida
       homologacion ni lineas de la factura.
@@ -363,6 +365,9 @@ def get_lines_gp(doc):
       actual de documenteme).
     - Sin recepciones (tipo 2): homogenizar y consolidar contra la OC.
     """
+    if is_credit_note(doc.get("nvtip_docu")):
+        return [], ""
+
     if is_service_supplier(doc.get("nvpro_ndoc")):
         return [], ""
 

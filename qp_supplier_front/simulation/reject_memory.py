@@ -20,7 +20,10 @@ reject_batch_job cuando el facade de datos es in-memory.
 
 import json
 
-from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
+from qp_supplier_front.uses_cases.documenteme.conversion import (
+    is_cash_invoice,
+    is_credit_note,
+)
 
 
 def _memory_timeline(store):
@@ -145,6 +148,8 @@ def run_reject(store, doc_names=None):
         if str(doc.get("nvfac_esta")) not in ("E", "PR"):
             continue
         if is_cash_invoice(str(doc.get("nvfac_conv"))):
+            continue
+        if is_credit_note(doc.get("nvtip_docu")):
             continue
 
         rule = references_memory.memory_resolve_rule(store, doc)

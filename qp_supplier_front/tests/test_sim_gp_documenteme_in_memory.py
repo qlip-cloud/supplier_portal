@@ -38,7 +38,7 @@ from qp_supplier_front.simulation.store import MemoryStore  # noqa: E402
 
 def _seed_doc(store, nit=seeds.GP_SIM_NIT, nume="FAC-GP-0001",
               name=None, nvfac_conv="1", nvfac_orde="GP-PO-0001",
-              total=3000.0):
+              total=3000.0, nvtip_docu="FAC"):
     name = name or "{}:{}".format(nit, nume)
     store.insert("qp_SP_DocumentDetail", {
         "name": name,
@@ -46,7 +46,7 @@ def _seed_doc(store, nit=seeds.GP_SIM_NIT, nume="FAC-GP-0001",
         "nvpro_ndoc": nit,
         "nvfac_fech": "2026-09-15 10:00:00",
         "nvfac_cufe": "CUFE-GP",
-        "nvtip_docu": "FAC",
+        "nvtip_docu": nvtip_docu,
         "nvfac_fpag": "",
         "nvfac_orde": nvfac_orde,
         "nvfac_rece": "",
@@ -250,6 +250,34 @@ class TestSimGpDocumentemeInMemory(unittest.TestCase):
         self.assertEqual(len(result["errors"]), 1)
         self.assertIn("Faltan homologaciones", result["errors"][0]["error"])
         self.assertEqual(calls["sent"], 0)
+
+    def test_nota_credito_envia_tipo4_sin_productos(self):
+        # NC (nvtip_docu == "C"): sin OC, sin recepciones, sin lineas, se
+        # aprueba SIEMPRE (sin restriccion ni validacion).
+        name = _seed_doc(
+            self.store,
+            nume="NC-GP-0001",
+            nvfac_conv="2",
+            nvfac_orde="",
+            nvtip_docu="C",
+        )
+
+        calls = {"payload": None}
+
+        def send_request_fn(endpoint_code, payload):
+            calls["payload"] = payload
+            return {"Result": 0, "invoices": [
+                {"doc_number": "SIMGP4", "error": ""}
+            ]}, 200
+
+        result = self._run([name], send_request_fn=send_request_fn)
+
+        self.assertEqual(len(result["approved"]), 1)
+        self.assertEqual(result["errors"], [])
+        invoice = calls["payload"][0]
+        self.assertEqual(invoice["tipoFacturaDoc"], 4)
+        # NC siempre se envia SIN productos.
+        self.assertEqual(invoice["vendorInvoiceLine"], [])
 
 
 if __name__ == "__main__":

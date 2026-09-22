@@ -31,7 +31,10 @@ from qp_supplier_front.uses_cases.documenteme.auto_reject import (
     has_receipt_match,
     should_auto_reject,
 )
-from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
+from qp_supplier_front.uses_cases.documenteme.conversion import (
+    is_cash_invoice,
+    is_credit_note,
+)
 
 NO_APLICA = "No aplica"
 
@@ -193,6 +196,11 @@ def auto_assign(
     assigned = []
     candidates = candidates_fn() if doc_names is None else candidates_fn(doc_names)
     for invoice in candidates:
+        # Nota Credito (nvtip_docu == "C"): NO tiene restriccion ni
+        # validacion, siempre se aprueba. Nunca se asigna.
+        if is_credit_note(invoice.get("nvtip_docu")):
+            continue
+
         # Proveedor de servicio (flujo GP): la OC y las recepciones NO son
         # obligatorias. La factura se auto-aprueba (si su regla de rechazo lo
         # permite) o se auto-rechaza; nunca se asigna por falta de recibos.

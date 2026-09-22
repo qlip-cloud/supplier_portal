@@ -46,7 +46,8 @@ def _candidates(store, doc_names=None):
         "qp_SP_DocumentDetail",
         filters=filters,
         fields=["name", "nvfac_nume", "nvpro_ndoc", "nvfac_orde", "nvfac_totp",
-                "nvfac_stot", "nvfac_esta", "nvfac_conv", "document_sync_line"],
+                "nvfac_stot", "nvfac_esta", "nvfac_conv", "nvtip_docu",
+                "document_sync_line"],
     )
 
     # Seleccion manual en curso (recibos reclamados): se excluye del flujo
@@ -70,6 +71,7 @@ def _candidates(store, doc_names=None):
             "nvfac_totp": doc.get("nvfac_totp"),
             "nvfac_stot": doc.get("nvfac_stot"),
             "nvfac_conv": doc.get("nvfac_conv"),
+            "nvtip_docu": doc.get("nvtip_docu"),
             "assigned_to": assigned_to,
             "has_assigned_users": _has_assigned_users(store, sync_line),
             "in_queue": True,

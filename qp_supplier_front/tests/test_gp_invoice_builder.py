@@ -15,15 +15,18 @@ from unittest.mock import MagicMock
 sys.modules["frappe"] = MagicMock()
 
 from qp_supplier_front.uses_cases.documenteme.approve import (
+    GP_TIPO_NC,
     build_gp_invoice,
     build_gp_vendor_invoice_line,
     build_payload,
     consolidate_gp_lines,
+    make_gp_invoice_builder,
     make_invoice_builder,
     resolve_gp_tipo,
 )
 
 from qp_supplier_front.resources.documenteme._approve_base import (
+    get_lines_gp,
     normalize_gp_response,
     send_purchase_invoice_request_gp,
 )
@@ -242,6 +245,54 @@ class TestConsolidateGpLines(unittest.TestCase):
         )
         self.assertEqual(missing, ["SUP-9"])
         self.assertEqual(lines, [])
+
+
+class TestCreditNoteGp(unittest.TestCase):
+    """Notas credito (nvtip_docu == "C"): tipoFacturaDoc=4 y SIN productos."""
+
+    def test_builder_gp_nc_fuerza_tipo_4_y_sin_productos(self):
+        builder = make_gp_invoice_builder()
+        invoice = builder(_doc(nvtip_docu="C"), [_line()], "HQ01")
+        self.assertEqual(invoice["tipoFacturaDoc"], GP_TIPO_NC)
+        self.assertEqual(invoice["vendorInvoiceLine"], [])
+
+    def test_make_invoice_builder_gp_con_callbacks_nc_precede_al_tipo(self):
+        builder = make_invoice_builder(
+            "documenteme",
+            backend="GP",
+            resolve_tipo_fn=lambda doc: 2,
+        )
+        invoice = builder(_doc(nvtip_docu="C"), [_line()], "HQ01")
+        self.assertEqual(invoice["tipoFacturaDoc"], GP_TIPO_NC)
+        self.assertEqual(invoice["vendorInvoiceLine"], [])
+
+    def test_fac_con_callbacks_resuelve_tipo_normal(self):
+        builder = make_invoice_builder(
+            "documenteme",
+            backend="GP",
+            resolve_tipo_fn=lambda doc: 2,
+        )
+        invoice = builder(_doc(nvtip_docu="F"), [_line()], "HQ01")
+        self.assertEqual(invoice["tipoFacturaDoc"], 2)
+        self.assertEqual(len(invoice["vendorInvoiceLine"]), 1)
+
+    def test_build_payload_gp_nc_envia_sin_productos(self):
+        payload = build_payload(
+            [_doc(nvtip_docu="C")], lambda doc: ([_line()], ""),
+            lambda po: "HQ01",
+            build_invoice_fn=make_invoice_builder(
+                "documenteme", backend="GP",
+                resolve_tipo_fn=lambda doc: 2,
+            ),
+        )
+        self.assertEqual(len(payload), 1)
+        self.assertEqual(payload[0]["tipoFacturaDoc"], GP_TIPO_NC)
+        self.assertEqual(payload[0]["vendorInvoiceLine"], [])
+
+    def test_get_lines_gp_nc_no_envia_productos(self):
+        lines, error = get_lines_gp(_doc(nvtip_docu="C"))
+        self.assertEqual(lines, [])
+        self.assertEqual(error, "")
 
 
 class TestMakeInvoiceBuilder(unittest.TestCase):

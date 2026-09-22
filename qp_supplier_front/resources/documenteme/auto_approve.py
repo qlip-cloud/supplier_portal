@@ -125,6 +125,7 @@ def get_analysis_candidates(doc_names=None):
                 "nvfac_esta",
                 "nvfac_ueve",
                 "nvfac_conv",
+                "nvtip_docu",
             ],
         )
     else:
@@ -142,6 +143,7 @@ def get_analysis_candidates(doc_names=None):
                 "nvfac_esta",
                 "nvfac_ueve",
                 "nvfac_conv",
+                "nvtip_docu",
             ],
         )
     return [doc for doc in docs if doc.get("nvfac_nume") not in claimed]

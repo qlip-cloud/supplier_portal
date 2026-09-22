@@ -203,6 +203,7 @@ def get_candidates(doc_names=None):
             "nvfac_ueve",
             "nvfac_cont",
             "nvfac_conv",
+            "nvtip_docu",
         ],
     )
 

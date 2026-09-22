@@ -36,13 +36,14 @@ def _rule(rule_code, enabled=1, motive=None, rule_name=None):
 
 
 def _invoice(nvfac_orde="OC111", nvfac_esta="E", nvfac_ueve=None,
-             name="DOC1", nvfac_nume="DOC1"):
+             name="DOC1", nvfac_nume="DOC1", nvtip_docu=None):
     return {
         "name": name,
         "nvfac_nume": nvfac_nume,
         "nvfac_orde": nvfac_orde,
         "nvfac_esta": nvfac_esta,
         "nvfac_ueve": nvfac_ueve,
+        "nvtip_docu": nvtip_docu,
     }
 
 
@@ -388,6 +389,22 @@ class TestAutoReject(unittest.TestCase):
     def test_sin_candidatos_retorna_vacio(self):
         result = self._run([], _rule(RULE_NO_PO), lambda o: False, lambda o: None)
         self.assertEqual(result, [])
+
+    def test_nota_credito_nunca_se_rechaza(self):
+        # NC (nvtip_docu == "C"): sin restriccion ni validacion, siempre se
+        # aprueba. Aunque la regla activa exija OC/recibo, no entra al scan.
+        candidates = [
+            _invoice(name="NC1", nvfac_esta="E", nvtip_docu="C"),
+            _invoice(name="FAC1", nvfac_esta="E", nvtip_docu="F"),
+        ]
+        result = self._run(
+            candidates,
+            _rule(RULE_NO_PO),
+            lambda o: False,
+            lambda o: None,
+        )
+        self.assertNotIn("NC1", [r["doc"] for r in result])
+        self.assertEqual([r["doc"] for r in result], ["FAC1"])
 
 
 if __name__ == "__main__":

@@ -208,6 +208,7 @@ def memory_get_lines_gp(store, doc):
     """Lineas del payload GP segun el tipo de la factura (en memoria).
 
     Misma semantica que resources/documenteme/_approbe_base.get_lines_gp:
+    - Nota Credito (nvtip_docu == "C"): NO se envian productos (tipo 4 NC).
     - Proveedor servicio (tipo 3): NO se envian productos (vendorInvoiceLine
       vacio); No se valida homologacion ni lineas de la factura.
     - Con recepciones (tipo 1): lineas de las recepciones.
@@ -216,6 +217,10 @@ def memory_get_lines_gp(store, doc):
     from qp_supplier_front.uses_cases.documenteme.approve import (
         consolidate_gp_lines,
     )
+    from qp_supplier_front.uses_cases.documenteme.conversion import is_credit_note
+
+    if is_credit_note(doc.get("nvtip_docu")):
+        return [], ""
 
     if memory_is_service_supplier(store, doc.get("nvpro_ndoc")):
         return [], ""

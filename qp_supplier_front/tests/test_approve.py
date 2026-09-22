@@ -1258,6 +1258,95 @@ class TestValidateServiceSupplier(unittest.TestCase):
         self.assertIn("proveedor de servicio", errors[0]["error"])
 
 
+class TestValidateCreditNote(unittest.TestCase):
+    """Facturas de NOTA CREDITO (nvtip_docu == "C", etiqueta "NC").
+
+    No tienen restriccion ni validacion: siempre se aprueban (sin OC, sin
+    recibos, sin montos y sin importar la regla de rechazo activa).
+    """
+
+    def _po_exists(self, exists=False):
+        return lambda purchase_order: exists
+
+    def _receipts_total(self, total=None):
+        return _bank(total)
+
+    def _resolve_rule(self, rule_code=None):
+        if rule_code is None:
+            return lambda doc: None
+        return lambda doc: {"rule_code": rule_code}
+
+    def test_nc_se_aprueba_sin_oc_ni_recibos_ni_regla(self):
+        doc = _doc(nvtip_docu="C", nvfac_conv="2", nvfac_orde=None)
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(None)
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_nc_se_aprueba_aunque_la_regla_lo_bloquearia(self):
+        doc = _doc(nvtip_docu="C", nvfac_conv="2", nvfac_orde=None)
+        for rule_code in ("no_po", "no_receipt", "no_po_no_receipt"):
+            ok, error = validate_registrable(
+                doc, self._po_exists(), self._receipts_total(None),
+                resolve_rule_fn=self._resolve_rule(rule_code),
+            )
+            self.assertTrue(ok)
+            self.assertEqual(error, "")
+
+    def test_nc_estado_definitivo_no_aprueba(self):
+        # Los bloqueos duros (estados definitivos/en proceso) siguen
+        # impidiendo la aprobacion (guard de estado, no regla de negocio).
+        doc = _doc(nvtip_docu="C", nvfac_esta="A")
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(None)
+        )
+        self.assertFalse(ok)
+        self.assertIn("definitivo", error)
+
+    def test_nc_fac_no_es_nota_credito(self):
+        doc = _doc(nvtip_docu="F", nvfac_conv="2", nvfac_orde=None)
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(None)
+        )
+        self.assertFalse(ok)
+        self.assertIn("orden de compra", error)
+
+    def test_nc_no_genera_warnings_ni_violations(self):
+        doc = _doc(nvtip_docu="C", nvfac_conv="2", nvfac_orde=None)
+        warnings = get_registrable_warnings(
+            doc, self._po_exists(), self._receipts_total(None),
+            resolve_rule_fn=self._resolve_rule("no_po"),
+        )
+        self.assertEqual(warnings, [])
+        violations = collect_registrable_violations(
+            [doc], self._po_exists(), self._receipts_total(None),
+            resolve_rule_fn=self._resolve_rule("no_po"),
+        )
+        self.assertEqual(violations, [])
+
+    def test_validate_registrables_nc_pasa(self):
+        doc = _doc(nvtip_docu="C", nvfac_conv="2", nvfac_orde=None)
+        valid, errors = validate_registrables(
+            [doc], self._po_exists(), self._receipts_total(None),
+            resolve_rule_fn=self._resolve_rule("no_po"),
+        )
+        self.assertEqual([d["name"] for d in valid], ["DOC1"])
+        self.assertEqual(errors, [])
+
+    def test_allocate_registrables_nc_siempre_valida(self):
+        doc = _doc(nvtip_docu="C", nvfac_conv="2", nvfac_orde=None)
+        valid, errors, _allocation = _allocate_registrables(
+            [doc],
+            self._po_exists(),
+            self._receipts_total(None),
+            0.01,
+            resolve_rule_fn=self._resolve_rule("no_po"),
+        )
+        self.assertEqual([d["name"] for d in valid], ["DOC1"])
+        self.assertEqual(errors, [])
+
+
 class TestHomologateLines(unittest.TestCase):
 
     def test_mapea_codigos_al_codigo_bc(self):

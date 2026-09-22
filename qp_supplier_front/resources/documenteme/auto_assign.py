@@ -66,7 +66,7 @@ def get_candidates(doc_names=None):
     docs = frappe.get_all(
         "qp_SP_DocumentDetail",
         filters=filters,
-        fields=["name", "nvfac_nume", "nvpro_ndoc", "nvfac_orde", "nvfac_totp", "nvfac_stot", "nvfac_esta", "nvfac_conv", "document_sync_line"],
+        fields=["name", "nvfac_nume", "nvpro_ndoc", "nvfac_orde", "nvfac_totp", "nvfac_stot", "nvfac_esta", "nvfac_conv", "nvtip_docu", "document_sync_line"],
     )
 
     # Seleccion manual en curso (recibos reclamados): se excluye del flujo
@@ -95,6 +95,7 @@ def get_candidates(doc_names=None):
             "nvfac_totp": doc.get("nvfac_totp"),
             "nvfac_stot": doc.get("nvfac_stot"),
             "nvfac_conv": doc.get("nvfac_conv"),
+            "nvtip_docu": doc.get("nvtip_docu"),
             "assigned_to": assigned_to,
             "has_assigned_users": has_assigned_users,
             "in_queue": True,

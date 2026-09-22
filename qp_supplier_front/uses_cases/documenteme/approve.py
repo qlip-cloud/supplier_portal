@@ -32,7 +32,10 @@ from qp_supplier_front.uses_cases.documenteme.auto_reject import (
     has_receipt_match,
     should_auto_reject,
 )
-from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
+from qp_supplier_front.uses_cases.documenteme.conversion import (
+    is_cash_invoice,
+    is_credit_note,
+)
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
     DEFAULT_EPSILON,
     MAX_INVOICES_PER_OC_GROUP,
@@ -219,7 +222,13 @@ def get_registrable_warnings(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn
     tengan OC ni recibo, sin importar el default del MasterSetup. Solo la
     regla de auto-rechazo del propio proveedor
     (resolve_supplier_rule_fn) puede bloquearlas.
+
+    Las facturas de NOTA CREDITO (nvtip_docu == "C") NO tienen restriccion
+    ni validacion: siempre se aprueban (sin OC, recibos ni montos).
     """
+    if is_credit_note(doc.get("nvtip_docu")):
+        return []
+
     if is_service_supplier_fn is not None and is_service_supplier_fn(doc):
         return _get_service_supplier_registrable_warnings(
             doc,
@@ -615,6 +624,8 @@ def make_gp_invoice_builder(resolve_tipo_fn=None, get_oc_dates_fn=None,
 
     El builder recibe la misma firma (doc, lines, headquarter) que el core de
     aprobacion. Resuelve por documento (via callbacks inyectados):
+    - Nota Credito (nvtip_docu == "C"): SIEMPRE tipoFacturaDoc=4 y SIN
+      productos (vendorInvoiceLine vacio), sin importar callbacks ni lineas.
     - tipoFacturaDoc: resolve_tipo_fn(doc) -> 1/2/3 (default: derivado de
       is_service_supplier_fn y has_receipts_fn, o tipo 2). Al paso del backend
       solo se conoce el tipo si el callback lo resuelve; el default cubre la
@@ -623,6 +634,12 @@ def make_gp_invoice_builder(resolve_tipo_fn=None, get_oc_dates_fn=None,
       (transaction_date, schedule_date) o (None, None).
     """
     def build(doc, lines, headquarter):
+        if is_credit_note(doc.get("nvtip_docu")):
+            # Nota Credito: tipoFacturaDoc=4 y SIEMPRE sin productos
+            # (vendorInvoiceLine vacio), sin importar las lineas resueltas.
+            return build_gp_invoice(
+                doc, [], headquarter, tipo_factura_doc=GP_TIPO_NC
+            )
         tipo = GP_TIPO_ENVIO_FACTURA
         if resolve_tipo_fn is not None:
             resolved = resolve_tipo_fn(doc)
@@ -873,6 +890,10 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
     Retorna (valid, errors, allocation) donde allocation mapea doc name ->
     lista de recepciones asignadas. Una factura sin combinacion exacta no
     consume nada y cae a error (variacion 3: advertencia -> asignacion).
+
+    Las facturas de NOTA CREDITO (nvtip_docu == "C") NO tienen restriccion
+    ni validacion: siempre se aprueban (sin OC, recibos ni montos) y no
+    consumen recepciones.
     """
     valid = []
     errors = []
@@ -888,6 +909,9 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": blocker,
             })
+            continue
+        if is_credit_note(doc.get("nvtip_docu")):
+            valid.append(doc)
             continue
         if is_service_supplier_fn is not None and is_service_supplier_fn(doc):
             warnings = _get_service_supplier_registrable_warnings(
@@ -994,8 +1018,9 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon):
     A diferencia de _allocate_registrables, NO re-runnea pack_oc_group: la
     combinacion la eligio el usuario (recibos ya vinculados via "aplicar") y
     aqui solo se re-valida que el set siga cubriendo el total y que la factura
-    sea registrable. Retorna (valid, errors, allocation) como la variante
-    automatica.
+    sea registrable. Las facturas de NOTA CREDITO (nvtip_docu == "C") siempre
+    se aprueban (sin restriccion ni validacion). Retorna
+    (valid, errors, allocation) como la variante automatica.
     """
     valid = []
     errors = []
@@ -1008,6 +1033,9 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon):
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": blocker,
             })
+            continue
+        if is_credit_note(doc.get("nvtip_docu")):
+            valid.append(doc)
             continue
         receipt_names = ((selected_receipts or {}).get(doc.get("name")) or [])
         if not receipt_names:
