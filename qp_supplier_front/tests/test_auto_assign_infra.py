@@ -174,8 +174,9 @@ class TestGetOCContext(unittest.TestCase):
 
 class TestLoadAssignmentRows(unittest.TestCase):
 
-    def _mock_get_all(self, configs):
+    def _mock_get_all(self, configs, role_rows_map=None):
         frappe_mock = MagicMock()
+        role_rows_map = role_rows_map or {}
 
         def _get_all(doctype, **kwargs):
             if doctype == "qp_SP_OCType":
@@ -191,6 +192,9 @@ class TestLoadAssignmentRows(unittest.TestCase):
                     {"user_email": "a@x.com"},
                     {"user_email": "b@x.com"},
                 ] if parent == "CONF1" else []
+            if doctype == "qp_SP_AssignmentConfigRole":
+                parent = kwargs["filters"]["parent"]
+                return role_rows_map.get(parent, [])
             return []
 
         frappe_mock.get_all.side_effect = _get_all
@@ -208,6 +212,7 @@ class TestLoadAssignmentRows(unittest.TestCase):
             "headquarter": "BOG",
             "oc_type": "01",
             "user_emails": ["a@x.com", "b@x.com"],
+            "user_roles": [],
         }])
 
     def test_headquarter_solo_codigo_se_mantiene(self):
@@ -222,6 +227,38 @@ class TestLoadAssignmentRows(unittest.TestCase):
             "headquarter": "CAL",
             "oc_type": "03",
             "user_emails": [],
+            "user_roles": [],
+        }])
+
+    def test_carga_roles_del_child(self):
+        frappe_mock = self._mock_get_all(
+            [{"name": "CONF1", "headquarter": "BOG", "oc_type": "01"}],
+            role_rows_map={"CONF1": [{"role": "Alpla Compras"}, {"role": "Alpla Finanzas"}]},
+        )
+
+        with patch.object(infra, "frappe", frappe_mock):
+            rows = infra._load_assignment_rows()
+
+        self.assertEqual(rows, [{
+            "headquarter": "BOG",
+            "oc_type": "01",
+            "user_emails": ["a@x.com", "b@x.com"],
+            "user_roles": ["Alpla Compras", "Alpla Finanzas"],
+        }])
+
+    def test_no_aplica_se_mantiene_sin_normalizar(self):
+        frappe_mock = self._mock_get_all([
+            {"name": "CONF3", "headquarter": "CAL", "oc_type": "No aplica"},
+        ])
+
+        with patch.object(infra, "frappe", frappe_mock):
+            rows = infra._load_assignment_rows()
+
+        self.assertEqual(rows, [{
+            "headquarter": "CAL",
+            "oc_type": "No aplica",
+            "user_emails": [],
+            "user_roles": [],
         }])
 
 
@@ -282,6 +319,7 @@ class TestGetAssigneeEmails(unittest.TestCase):
             self.OC_TYPE_ROWS,
             [{"name": "CONF1", "headquarter": "BOG\nBogota (BOG)", "oc_type": "01 INFRAESTRUCTURA"}],
             [{"user_email": "a@x.com"}, {"user_email": "b@x.com"}],
+            [],
         ]
 
         with patch.object(infra, "frappe", frappe_mock), \
@@ -289,6 +327,87 @@ class TestGetAssigneeEmails(unittest.TestCase):
             emails = infra.get_assignee_emails("01", "BOG")
 
         self.assertEqual(emails, ["a@x.com", "b@x.com"])
+
+    def test_roles_de_la_fila_se_resuelven_y_se_mezclan(self):
+        rows = [
+            {"headquarter": "BOG", "oc_type": "03", "user_emails": ["c@x.com"],
+             "user_roles": ["Alpla Finanzas"]},
+        ]
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.side_effect = [
+            self.OC_TYPE_ROWS,
+            ["rol@x.com"],
+            ["rol@x.com"],
+        ]
+
+        with patch.object(infra, "frappe", frappe_mock), \
+                patch.object(infra, "_load_assignment_rows", return_value=rows):
+            emails = infra.get_assignee_emails("03", "BOG")
+
+        self.assertEqual(emails, ["c@x.com", "rol@x.com"])
+
+    def test_no_aplica_resuelve_sin_validar_sede(self):
+        rows = [
+            {"headquarter": "CAL", "oc_type": "No aplica", "user_emails": ["wild@x.com"],
+             "user_roles": []},
+        ]
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.side_effect = [self.OC_TYPE_ROWS]
+
+        with patch.object(infra, "frappe", frappe_mock), \
+                patch.object(infra, "_load_assignment_rows", return_value=rows), \
+                patch.object(infra, "sede_exists", return_value=False) as sede_exists_mock:
+            emails = infra.get_assignee_emails("03", "CAL")
+
+        self.assertEqual(emails, ["wild@x.com"])
+        sede_exists_mock.assert_not_called()
+
+
+class TestResolveRoleUsers(unittest.TestCase):
+
+    def _run(self, frappe_mock, roles):
+        with patch.object(infra, "frappe", frappe_mock):
+            return infra.resolve_role_users(roles)
+
+    def test_resuelve_usuarios_habilitados_por_rol(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.side_effect = [
+            ["c@x.com", "d@x.com", "off@x.com"],
+            ["c@x.com", "d@x.com"],
+        ]
+
+        emails = self._run(frappe_mock, ["Alpla Compras"])
+
+        self.assertEqual(emails, ["c@x.com", "d@x.com"])
+        frappe_mock.get_all.assert_any_call(
+            "Has Role",
+            filters={"role": "Alpla Compras", "parenttype": "User"},
+            pluck="parent",
+        )
+
+    def test_dedupe_usuarios_entre_roles(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.side_effect = [
+            ["c@x.com"],
+            ["c@x.com"],
+            ["d@x.com"],
+            ["d@x.com"],
+        ]
+
+        emails = self._run(frappe_mock, ["Alpla Compras", "Alpla Finanzas"])
+
+        self.assertEqual(emails, ["c@x.com", "d@x.com"])
+
+    def test_sin_roles_no_consulta(self):
+        frappe_mock = MagicMock()
+        emails = self._run(frappe_mock, [])
+        self.assertEqual(emails, [])
+        frappe_mock.get_all.assert_not_called()
+
+    def test_rol_sin_usuarios_habilita_skips(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.side_effect = [["off@x.com"], []]
+        self.assertEqual(self._run(frappe_mock, ["Rol Vacio"]), [])
 
 
 if __name__ == "__main__":

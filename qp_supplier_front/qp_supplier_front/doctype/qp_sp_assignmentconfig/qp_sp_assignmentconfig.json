@@ -8,7 +8,9 @@
   "headquarter",
   "oc_type",
   "section_break_users",
-  "users"
+  "users",
+  "section_break_roles",
+  "roles"
  ],
  "fields": [
    {
@@ -38,11 +40,23 @@
    "fieldtype": "Table",
    "label": "Usuarios",
    "options": "qp_SP_AssignmentConfigUser"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_roles",
+   "fieldtype": "Section Break",
+   "label": "Roles asignables"
+  },
+  {
+   "fieldname": "roles",
+   "fieldtype": "Table",
+   "label": "Roles",
+   "options": "qp_SP_AssignmentConfigRole"
   }
  ],
 "index_web_pages_for_search": 1,
   "links": [],
-  "modified": "2026-08-28 18:00:00.000000",
+  "modified": "2026-09-22 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_AssignmentConfig",

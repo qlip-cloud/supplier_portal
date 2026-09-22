@@ -83,5 +83,52 @@ class TestSimAssignInMemory(unittest.TestCase):
                 filters={"parent": "{}:{}".format(SIM_NIT, nume)}), 0)
 
 
+class TestSimAssignRolesInMemory(unittest.TestCase):
+
+    def test_role_users_resuelve_por_rol_en_store(self):
+        store = MemoryStore()
+        store.insert("Has Role", {
+            "name": "HR-1",
+            "parent": "rol@sim.local",
+            "parenttype": "User",
+            "role": "ROL1",
+        })
+        store.insert("Has Role", {
+            "name": "HR-2",
+            "parent": "rol@sim.local",
+            "parenttype": "User",
+            "role": "ROL2",
+        })
+        self.assertEqual(assign_memory._role_users(store, ["ROL1"]), ["rol@sim.local"])
+        self.assertEqual(assign_memory._role_users(store, ["ROL3"]), [])
+        self.assertEqual(assign_memory._role_users(store, []), [])
+
+    def test_assignee_emails_wildcard_incluye_usuarios_por_rol(self):
+        store = MemoryStore()
+        store.insert("qp_SP_AssignmentConfig", {
+            "name": "C-NA", "oc_type": "No aplica", "headquarter": "",
+        })
+        store.insert("qp_SP_AssignmentConfigRole", {
+            "name": "R1",
+            "parent": "C-NA",
+            "parenttype": "qp_SP_AssignmentConfig",
+            "role": "ROL1",
+        })
+        store.insert("qp_SP_AssignmentConfigRole", {
+            "name": "R2",
+            "parent": "C-NA",
+            "parenttype": "qp_SP_AssignmentConfig",
+            "role": "ROL2",
+        })
+        store.insert("Has Role", {
+            "name": "HR-1",
+            "parent": "rol@sim.local",
+            "parenttype": "User",
+            "role": "ROL1",
+        })
+        emails = assign_memory._assignee_emails(store, None, None)
+        self.assertEqual(emails, ["rol@sim.local"])
+
+
 if __name__ == "__main__":
     unittest.main()

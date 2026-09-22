@@ -140,8 +140,8 @@ def seed_oc_type(store, name, is_inventariable=False):
     })
 
 
-def seed_assignment_config(store, name, oc_type, headquarter="", user_emails=None):
-    """Fila de qp_SP_AssignmentConfig + usuarios destino (child)."""
+def seed_assignment_config(store, name, oc_type, headquarter="", user_emails=None, role_names=None):
+    """Fila de qp_SP_AssignmentConfig + usuarios/roles destino (child)."""
     _insert_if_missing(store, "qp_SP_AssignmentConfig", {
         "name": name,
         "oc_type": oc_type,
@@ -152,6 +152,12 @@ def seed_assignment_config(store, name, oc_type, headquarter="", user_emails=Non
             "parent": name,
             "parenttype": "qp_SP_AssignmentConfig",
             "user_email": email,
+        })
+    for role in (role_names or []):
+        _insert_if_missing(store, "qp_SP_AssignmentConfigRole", {
+            "parent": name,
+            "parenttype": "qp_SP_AssignmentConfig",
+            "role": role,
         })
 
 

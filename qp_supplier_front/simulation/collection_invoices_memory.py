@@ -321,6 +321,22 @@ def _pi_normalize_oc_type(value, oc_type_rows):
     return value
 
 
+def _pi_role_users(store, roles):
+    emails = []
+    for role in (roles or []):
+        if not role:
+            continue
+        parents = store.query(
+            "Has Role",
+            filters={"role": role, "parenttype": "User"},
+            pluck="parent",
+        )
+        for email in (parents or []):
+            if email and email not in emails:
+                emails.append(email)
+    return emails
+
+
 def _pi_load_assignment_rows(store, oc_type_records=None):
     if oc_type_records is None:
         oc_type_records = store.query(
@@ -337,10 +353,17 @@ def _pi_load_assignment_rows(store, oc_type_records=None):
                      "parenttype": "qp_SP_AssignmentConfig"},
             fields=["user_email"],
         )
+        role_rows = store.query(
+            "qp_SP_AssignmentConfigRole",
+            filters={"parent": config["name"],
+                     "parenttype": "qp_SP_AssignmentConfig"},
+            fields=["role"],
+        )
         rows.append({
             "headquarter": _pi_normalize_headquarter(config.get("headquarter")),
             "oc_type": _pi_normalize_oc_type(config.get("oc_type"), oc_type_records),
             "user_emails": [row.get("user_email") for row in child_rows],
+            "user_roles": [row.get("role") for row in role_rows],
         })
     return rows
 
@@ -362,7 +385,8 @@ def _pi_assignee_emails(store, oc_type, headquarter):
 
     assignment_rows = _pi_load_assignment_rows(store, oc_type_records)
     return resolve_assignee_emails(
-        oc_type, headquarter, oc_type_rows, assignment_rows)
+        oc_type, headquarter, oc_type_rows, assignment_rows,
+        roles_to_users_fn=lambda roles: _pi_role_users(store, roles))
 
 
 def _pi_assignee_users(store, emails):

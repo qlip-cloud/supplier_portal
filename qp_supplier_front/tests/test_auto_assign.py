@@ -105,6 +105,94 @@ class TestResolveAssigneeEmails(unittest.TestCase):
         )
         self.assertEqual(emails, [])
 
+    def test_wildcard_no_aplica_asigna_sin_importar_oc_ni_sede(self):
+        rows = [
+            {"headquarter": "", "oc_type": "No aplica", "user_emails": ["w@x.com"]},
+            {"headquarter": "BOG", "oc_type": "01", "user_emails": ["a@x.com"]},
+        ]
+        # No inventariable sin config exacta -> solo wildcard.
+        self.assertEqual(
+            resolve_assignee_emails("03", "CAL", self.OC_TYPE_ROWS, rows),
+            ["w@x.com"],
+        )
+        # Inventariable sin par exacto (sede inexistente).
+        self.assertEqual(
+            resolve_assignee_emails("01", "CAL", self.OC_TYPE_ROWS, rows),
+            ["w@x.com"],
+        )
+        # OC type no registrado.
+        self.assertEqual(
+            resolve_assignee_emails("99", "BOG", self.OC_TYPE_ROWS, rows),
+            ["w@x.com"],
+        )
+        # Contado sin OC.
+        self.assertEqual(
+            resolve_assignee_emails(None, None, self.OC_TYPE_ROWS, rows),
+            ["w@x.com"],
+        )
+
+    def test_wildcard_se_suma_al_match_exacto(self):
+        rows = [
+            {"headquarter": "", "oc_type": "No aplica", "user_emails": ["w@x.com"]},
+            {"headquarter": "BOG", "oc_type": "01", "user_emails": ["a@x.com"]},
+        ]
+        self.assertEqual(
+            resolve_assignee_emails("01", "BOG", self.OC_TYPE_ROWS, rows),
+            ["a@x.com", "w@x.com"],
+        )
+
+    def test_roles_se_expanden_via_callback_solo_de_la_fila_match(self):
+        rows = [
+            {"headquarter": "BOG", "oc_type": "01", "user_emails": ["a@x.com"],
+             "user_roles": ["Alpla Compras"]},
+            {"headquarter": "BOG", "oc_type": "03", "user_emails": ["c@x.com"],
+             "user_roles": ["Alpla Finanzas"]},
+        ]
+        requested = []
+
+        def roles_to_users_fn(roles):
+            requested.append(list(roles))
+            return ["a@x.com", "rol@x.com"]
+
+        emails = resolve_assignee_emails(
+            "01", "BOG", self.OC_TYPE_ROWS, rows, roles_to_users_fn
+        )
+
+        self.assertEqual(emails, ["a@x.com", "rol@x.com"])
+        self.assertEqual(requested, [["Alpla Compras"]])
+
+    def test_usuario_en_email_y_rol_se_asigna_una_vez(self):
+        rows = [
+            {"headquarter": "BOG", "oc_type": "01", "user_emails": ["rol@x.com"],
+             "user_roles": ["Alpla Compras"]},
+        ]
+        emails = resolve_assignee_emails(
+            "01",
+            "BOG",
+            self.OC_TYPE_ROWS,
+            rows,
+            lambda roles: ["rol@x.com", "otro@x.com"],
+        )
+        self.assertEqual(emails, ["rol@x.com", "otro@x.com"])
+
+    def test_wildcard_roles_aplican_al_contado_sin_oc(self):
+        rows = [
+            {"headquarter": "CAL", "oc_type": "No aplica", "user_emails": [],
+             "user_roles": ["Alpla Soporte"]},
+        ]
+        emails = resolve_assignee_emails(
+            None, None, self.OC_TYPE_ROWS, rows, lambda roles: ["s@x.com"]
+        )
+        self.assertEqual(emails, ["s@x.com"])
+
+    def test_sin_callback_sin_roles_mantiene_comportamiento(self):
+        rows = [
+            {"headquarter": "", "oc_type": "", "user_emails": ["a@x.com"],
+             "user_roles": ["Alpla Finanzas"]},
+        ]
+        emails = resolve_assignee_emails(None, None, self.OC_TYPE_ROWS, rows)
+        self.assertEqual(emails, ["a@x.com"])
+
 
 class TestShouldAutoAssign(unittest.TestCase):
 
@@ -429,6 +517,36 @@ class TestAutoAssignOrchestration(unittest.TestCase):
 
         self.assertEqual(assigned, [])
         self.assertEqual(calls, [])
+
+    def test_nota_credito_nunca_se_asigna(self):
+        # NC (nvtip_docu == "C"): sin restriccion ni validacion, siempre se
+        # aprueba. Aunque las condiciones de asignacion se cumplan, se salta.
+        for nvtip in ("C", "F"):
+            candidates = [{
+                "nvfac_nume": "NC001",
+                "nvtip_docu": nvtip,
+                "nvfac_orde": "OC001",
+                "nvfac_totp": 1000,
+                "nvfac_stot": 1000,
+                "assigned_to": None,
+                "has_assigned_users": False,
+                "in_queue": True,
+            }]
+            calls, callbacks = self._callbacks(
+                oc_context={"oc_type": "01", "headquarter": "BOG"},
+                receipt_bank=[],
+                emails=["a@x.com"],
+                users=["a@x.com"],
+                candidates=candidates,
+                resolve_rule_fn=lambda doc: {"rule_code": "no_po"},
+                po_exists_fn=lambda oc: True,
+            )
+            assigned = auto_assign(**callbacks)
+            if nvtip == "C":
+                self.assertEqual(assigned, [])
+                self.assertEqual(calls, [])
+            else:
+                self.assertEqual(assigned, ["NC001"])
 
 
 if __name__ == "__main__":

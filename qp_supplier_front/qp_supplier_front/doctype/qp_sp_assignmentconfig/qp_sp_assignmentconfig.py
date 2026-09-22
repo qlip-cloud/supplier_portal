@@ -7,6 +7,8 @@ from frappe.model.document import Document
 
 from qp_supplier_front.services.sede_source import list_sedes as _list_sedes
 
+NO_APLICA = "No aplica"
+
 
 @frappe.whitelist()
 def get_assignment_config_options():
@@ -27,6 +29,8 @@ def get_assignment_config_options():
                 if sede.get("code")
             ],
             "oc_types": [
+                {"value": NO_APLICA, "label": NO_APLICA}
+            ] + [
                 {"value": row.get("name"), "label": row.get("oc_type")}
                 for row in (oc_types or [])
                 if row.get("name") and row.get("oc_type")
@@ -75,6 +79,11 @@ class qp_SP_AssignmentConfig(Document):
     def validate(self):
         self.oc_type = (self.oc_type or "").strip()
         self.headquarter = _normalize_headquarter(self.headquarter)
+
+        # "No aplica": fila wildcard que se asigna sin importar OC type ni
+        # headquarter (tambien cubre el contado sin OC).
+        if self.oc_type == NO_APLICA:
+            return
 
         # Fila catch-all: oc_type y headquarter vacios permiten configurar los
         # destinatarios por defecto de las facturas de contado sin OC.

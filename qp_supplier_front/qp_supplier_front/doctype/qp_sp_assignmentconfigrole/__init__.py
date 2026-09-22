@@ -1,0 +1,2 @@
+# Copyright (c) 2026, Rafael Licett and contributors
+# For license information, please see license.txt

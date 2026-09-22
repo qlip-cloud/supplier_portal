@@ -152,7 +152,37 @@ def get_assignee_emails(oc_type, headquarter):
         return None
 
     assignment_rows = _load_assignment_rows(oc_type_records)
-    return resolve_assignee_emails(oc_type, headquarter, oc_type_rows, assignment_rows)
+    return resolve_assignee_emails(
+        oc_type,
+        headquarter,
+        oc_type_rows,
+        assignment_rows,
+        roles_to_users_fn=resolve_role_users,
+    )
+
+
+def resolve_role_users(roles):
+    """Emails de usuarios habilitados que tengan alguno de los roles."""
+    emails = []
+    for role in (roles or []):
+        if not role:
+            continue
+        parents = frappe.get_all(
+            "Has Role",
+            filters={"role": role, "parenttype": "User"},
+            pluck="parent",
+        )
+        if not parents:
+            continue
+        enabled = frappe.get_all(
+            "User",
+            filters={"name": ["in", list(parents)], "enabled": 1},
+            pluck="name",
+        )
+        for email in (enabled or []):
+            if email and email not in emails:
+                emails.append(email)
+    return emails
 
 
 def _load_assignment_rows(oc_type_records=None):
@@ -173,10 +203,16 @@ def _load_assignment_rows(oc_type_records=None):
             filters={"parent": config["name"], "parenttype": "qp_SP_AssignmentConfig"},
             fields=["user_email"],
         )
+        role_rows = frappe.get_all(
+            "qp_SP_AssignmentConfigRole",
+            filters={"parent": config["name"], "parenttype": "qp_SP_AssignmentConfig"},
+            fields=["role"],
+        )
         rows.append({
             "headquarter": _normalize_headquarter(config.get("headquarter")),
             "oc_type": _normalize_oc_type(config.get("oc_type"), oc_type_records),
             "user_emails": [row.get("user_email") for row in child_rows],
+            "user_roles": [row.get("role") for row in role_rows],
         })
 
     return rows

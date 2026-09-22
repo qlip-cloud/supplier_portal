@@ -33,6 +33,8 @@ from qp_supplier_front.uses_cases.documenteme.auto_reject import (
 )
 from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
 
+NO_APLICA = "No aplica"
+
 
 def is_inventariable_oc_type(oc_type, oc_type_rows):
     for row in (oc_type_rows or []):
@@ -55,36 +57,66 @@ _MATCHERS = {
 }
 
 
-def resolve_assignee_emails(oc_type, headquarter, oc_type_rows, assignment_rows):
+def _is_wildcard(row):
+    """Fila "No aplica": se asigna sin importar OC type ni headquarter."""
+    return row.get("oc_type") == NO_APLICA
+
+
+def _is_catch_all(row):
+    """Fila catch-all: oc_type vacio (o "No aplica") y sin headquarter."""
+    return (not row.get("oc_type") or row.get("oc_type") == NO_APLICA) \
+        and not row.get("headquarter")
+
+
+def resolve_assignee_emails(
+        oc_type, headquarter, oc_type_rows, assignment_rows,
+        roles_to_users_fn=None):
+    """Resuelve los emails destino para una factura.
+
+    Las filas "No aplica" (oc_type = NO_APLICA) son wildcard: se asigna sin
+    importar el OC type ni la sede, tanto para contado sin OC como para
+    cualquier factura con OC. Se suman a las filas con match exacto.
+
+    roles_to_users_fn: callback opcional que recibe la lista de roles de las
+    filas que hicieron match y devuelve los emails de los usuarios con esos
+    roles (complemento de user_emails; _dedupe evita duplicados).
+    """
+    rows = assignment_rows or []
+    wildcards = [row for row in rows if _is_wildcard(row)]
+
     if oc_type is None:
-        # Factura de contado sin OC: fila catch-all (headquarter y oc_type
-        # vacios) configurada como destinatarios por defecto.
+        # Factura de contado sin OC: fila catch-all (oc_type y headquarter
+        # vacios) o fila wildcard "No aplica".
         matching = [
-            row for row in (assignment_rows or [])
-            if not row.get("oc_type") and not row.get("headquarter")
-        ]
-        return _dedupe([
-            email
-            for row in matching
-            for email in (row.get("user_emails") or [])
-        ])
+            row for row in rows if _is_catch_all(row)
+        ] + wildcards
+    else:
+        inventariable = is_inventariable_oc_type(oc_type, oc_type_rows)
 
-    inventariable = is_inventariable_oc_type(oc_type, oc_type_rows)
-
-    if inventariable is None:
-        return None
-
-    matcher = _MATCHERS[inventariable]
-    matching = [
-        row for row in (assignment_rows or [])
-        if matcher(row, oc_type, headquarter)
-    ]
+        if inventariable is None:
+            if not wildcards:
+                return None
+            matching = wildcards
+        else:
+            matcher = _MATCHERS[inventariable]
+            matching = [
+                row for row in rows
+                if matcher(row, oc_type, headquarter)
+            ] + wildcards
 
     emails = [
         email
         for row in matching
         for email in (row.get("user_emails") or [])
     ]
+
+    roles = _dedupe([
+        role
+        for row in matching
+        for role in (row.get("user_roles") or [])
+    ])
+    if roles and roles_to_users_fn is not None:
+        emails += (roles_to_users_fn(roles) or [])
 
     return _dedupe(emails)
 
