@@ -61,7 +61,11 @@
     <td>{{ frappe.utils.fmt_money(row.nvfac_viva, currency="COP") }}</td>
     <td>{{ frappe.utils.fmt_money(row.nvfac_totp, currency="COP") }}</td>
     <td>
-        <span class="status-badge {{ status_class.get(row.nvfac_esta, 'status-default') }}">{{ estado_labels.get(row.nvfac_esta, "") }}</span>
+        {% if row.nvfac_esta == "BCC" %}
+            <span class="status-badge status-default">{{ "Creada en GP" if documenteme_backend == "GP" else "Creada en BC" }}</span>
+        {% else %}
+            <span class="status-badge {{ status_class.get(row.nvfac_esta, 'status-default') }}">{{ estado_labels.get(row.nvfac_esta, "") }}</span>
+        {% endif %}
     </td>
     <td class="text-center" style="white-space:nowrap">
         <button type="button" class="btn-control-timeline" style="color:{{ '#004D90' if row.has_unread_conversation else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="Observaciones" data-name="{{ row.name }}">

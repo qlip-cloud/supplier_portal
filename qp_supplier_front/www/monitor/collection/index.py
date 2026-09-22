@@ -6,6 +6,7 @@ from qp_supplier_front.resources.collection_accounts import runtime
 from qp_supplier_front.services.get_data import get_has_dispatch_permission, has_recent_news
 from qp_supplier_front.services.pagination import get_paginated_filtered
 from qp_supplier_front.services.role_resolver import get_active_role
+from qp_supplier_front.services.flow_config import get_sync_backend
 
 
 def get_context(context):
@@ -24,6 +25,7 @@ def get_context(context):
     user_roles = frappe.get_roles()
     context.active_role = get_active_role(user_roles)
     context.is_documenteme_admin = context.active_role is not None
+    context.documenteme_backend = get_sync_backend()
 
     data = runtime.resolve().get("data")
 

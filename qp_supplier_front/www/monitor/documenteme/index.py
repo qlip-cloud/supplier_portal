@@ -12,6 +12,7 @@ from qp_supplier_front.uses_cases.documents.sync_all_whitelist import (
     refresh_documents,
 )
 from qp_supplier_front.resources.documenteme import runtime
+from qp_supplier_front.services.flow_config import get_sync_backend
 
 
 def get_context(context):
@@ -31,6 +32,7 @@ def get_context(context):
     context.active_role = get_active_role(user_roles)
     context.is_documenteme_admin = context.active_role is not None
     context.is_sede_documenteme = is_sede_documenteme(user_roles)
+    context.documenteme_backend = get_sync_backend()
 
     data = runtime.resolve().get("data")
 

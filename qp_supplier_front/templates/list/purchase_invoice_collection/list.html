@@ -48,7 +48,7 @@
     <td>{{ frappe.utils.fmt_money(row.total or 0, currency=row.currency or "COP") }}</td>
     <td>
         {% if row.qp_status == "BCC" %}
-            <span class="status-badge {{ status_class.get('BCC', 'status-default') }}">{{ "Creada en GP" if row.qp_creation_backend == "GP" else "Creada en BC" }}</span>
+            <span class="status-badge status-default">{{ "Creada en GP" if documenteme_backend == "GP" else "Creada en BC" }}</span>
         {% else %}
             <span class="status-badge {{ status_class.get(row.qp_status, 'status-default') }}">{{ estado_labels.get(row.qp_status, "") }}</span>
         {% endif %}

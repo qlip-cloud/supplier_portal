@@ -29,6 +29,7 @@ from qp_supplier_front.resources.collection_accounts import (
 )
 from qp_supplier_front.resources.collection_accounts import runtime
 from qp_supplier_front.resources.response import handler as response
+from qp_supplier_front.services.flow_config import get_sync_backend
 from qp_supplier_front.services.pagination import get_paginated_filtered
 
 NOTIFICATIONS = "qp_SP_PurchaseInvoiceNotification"
@@ -162,6 +163,7 @@ def render_more(page, doctype, order_by, filters=None):
                 "key": "purchase_invoice_collection",
                 "doctype": doctype,
                 "is_documenteme_admin": _has_permission(),
+                "documenteme_backend": get_sync_backend(),
             },
         )
 

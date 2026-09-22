@@ -8,6 +8,7 @@ from qp_supplier_front.services.documenteme_access import (
     get_assigned_sync_line_names,
     is_sede_documenteme,
 )
+from qp_supplier_front.services.flow_config import get_sync_backend
 
 @frappe.whitelist()
 def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by, filters = {}):
@@ -86,7 +87,8 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
 
         template = frappe.render_template(f"qp_supplier_front/templates/list/{key}/list.html", {
                     key: pagination, "doctype_detail":doctype_detail, "key": key, "doctype": doctype,
-                    "is_sede_documenteme": is_sede_documenteme(frappe.get_roles())
+                    "is_sede_documenteme": is_sede_documenteme(frappe.get_roles()),
+                    "documenteme_backend": get_sync_backend()
                 })
         
         response(200,  msg, template)

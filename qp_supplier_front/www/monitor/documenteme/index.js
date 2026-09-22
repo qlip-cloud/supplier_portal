@@ -97,8 +97,8 @@ $(document).ready(function () {
                         var $row = $(this).closest("tr");
                         if (approvedNames.indexOf($(this).val()) !== -1) {
                             $row.find(".status-badge")
-                                .removeClass("status-open status-ready status-cancelled status-default")
-                                .addClass("status-paid")
+                                .removeClass("status-open status-ready status-cancelled status-paid")
+                                .addClass("status-default")
                                 .text(badgeText);
                         }
                         $(this).prop("checked", false);
