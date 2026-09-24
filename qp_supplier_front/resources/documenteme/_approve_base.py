@@ -858,7 +858,7 @@ def _get_lines_for_selected(base_get_lines, selected_receipts, data):
             return base_get_lines(doc)
         return get_lines_from_receipts(
             doc.get("nvfac_orde"), receipt_names=receipt_names
-        )
+        ), ""
 
     return get_selected_lines
 
