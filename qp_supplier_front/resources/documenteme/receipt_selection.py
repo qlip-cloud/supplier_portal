@@ -20,6 +20,7 @@ from qp_supplier_front.resources.documenteme._approve_base import (
     _has_permission,
     run_approve_with_receipts,
 )
+from qp_supplier_front.resources.documenteme.approve import resolve_backend
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILON
 from qp_supplier_front.uses_cases.documenteme.receipt_selection import (
@@ -179,7 +180,8 @@ def apply(doc_name, receipt_names=None):
             return
 
         result = run_approve_with_receipts(
-            [doc.get("name")], {doc.get("name"): receipt_names}
+            [doc.get("name")], {doc.get("name"): receipt_names},
+            backend=resolve_backend(),
         )
         errors = result.get("errors") or []
         if errors:
