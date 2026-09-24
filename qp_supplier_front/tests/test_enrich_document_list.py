@@ -100,7 +100,7 @@ class TestEnrichDocumentList(unittest.TestCase):
 
     def _mock_frappe(self, detail_lines=None, allowance_charges=None, attached_files=None,
                      assignee_id=None, assigned_users=None, user_names=None,
-                     confirmation_id=None):
+                     confirmation_id=None, invoice_id=None):
         frappe_mock = MagicMock()
         detail_lines = detail_lines if detail_lines is not None else [
             {"nvpro_codi": "SH00086", "nvuni_desc": "UN", "nvdet_tcan": 1,
@@ -117,8 +117,8 @@ class TestEnrichDocumentList(unittest.TestCase):
             {"user": "user@example.com"}
         ]
         purchase_invoice_bc = (
-            [{"confirmation_id": confirmation_id}]
-            if confirmation_id is not None
+            [{"confirmation_id": confirmation_id, "invoice_id": invoice_id}]
+            if confirmation_id is not None or invoice_id is not None
             else []
         )
 
@@ -174,6 +174,17 @@ class TestEnrichDocumentList(unittest.TestCase):
         doc = self._run(document, frappe_mock)
 
         self.assertEqual(doc["factura_interna"], "")
+        self.assertEqual(doc["factura_interna_code"], "")
+
+    def test_factura_interna_code_se_toma_del_invoice_id(self):
+        frappe_mock = self._mock_frappe(
+            confirmation_id=None, invoice_id="GP1001"
+        )
+        document = self._make_document()
+        doc = self._run(document, frappe_mock)
+
+        self.assertEqual(doc["factura_interna"], "")
+        self.assertEqual(doc["factura_interna_code"], "GP1001")
 
     def test_detail_lines_con_campos_esperados(self):
         frappe_mock = self._mock_frappe()

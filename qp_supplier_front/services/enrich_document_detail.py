@@ -82,10 +82,15 @@ def _enrich_factura_interna(document, data=None):
     confirmation = _api(data, "get_all")(
         "qp_SP_PurchaseInvoiceBC",
         filters={"purchase_invoice": document.get("name")},
-        fields=["confirmation_id"],
+        fields=["confirmation_id", "invoice_id"],
     )
     document["factura_interna"] = (
         confirmation[0].get("confirmation_id") or ""
+        if confirmation
+        else ""
+    )
+    document["factura_interna_code"] = (
+        confirmation[0].get("invoice_id") or ""
         if confirmation
         else ""
     )
