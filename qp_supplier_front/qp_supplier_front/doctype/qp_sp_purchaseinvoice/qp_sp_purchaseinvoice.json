@@ -19,6 +19,7 @@
      "supplier",
      "qp_sync_flow",
      "qp_creation_backend",
+     "gp_tipo_factura_doc",
      "qp_is_error",
      "qp_error_message",
      "nvfac_fech",
@@ -122,10 +123,17 @@
     "fieldtype": "Select",
     "label": "Backend de creación de facturas",
     "description": "Backend (BC o GP) usado para crear la factura al aprobar.",
-    "options": "BC\nGP",
+"options": "BC\nGP",
     "no_copy": 1
    },
-{
+   {
+    "fieldname": "gp_tipo_factura_doc",
+    "fieldtype": "Data",
+    "label": "Tipo factura GP (tipoFacturaDoc)",
+    "description": "tipoFacturaDoc con el que se envio la factura a GP: 1 Envio, 2 Envio Factura, 3 CxP, 4 NC.",
+    "no_copy": 1
+   },
+   {
      "default": "0",
      "fieldname": "qp_is_error",
     "fieldtype": "Check",
@@ -216,7 +224,7 @@
   ],
   "index_web_pages_for_search": 1,
   "links": [],
-   "modified": "2026-09-11 12:30:00.000000",
+   "modified": "2026-09-24 12:30:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_PurchaseInvoice",

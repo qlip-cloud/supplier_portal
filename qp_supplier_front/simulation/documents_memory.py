@@ -165,6 +165,14 @@ def _build_attached_files(store, parent, attached_list):
         row["file_name"] = item.get("Nvdoc_nomb")
         row["file_type"] = item.get("Nvdoc_tipo")
         row["file_url"] = item.get("Nvdoc_nomb") or ""
+        file_content_b64 = item.get("Nvdoc_file")
+        if file_content_b64:
+            try:
+                row["file_content"] = base64.b64decode(
+                    file_content_b64
+                ).decode("utf-8", "replace")
+            except (TypeError, ValueError):
+                pass
         store.insert("qp_SP_DocumentAttach", row)
 
 
@@ -325,6 +333,9 @@ def memory_persist_invoice(store, doc, doc_number, now, sync_flow="BC"):
         "status": "Abierto",
         "supplier": None,
         "qp_sync_flow": sync_flow,
+        "gp_tipo_factura_doc": doc.get("_gp_tipo_factura_doc"),
+        "nvfac_nume": doc.get("nvfac_nume"),
+        "detail": doc.get("nvfac_nume"),
         "nvmon_codi": doc.get("nvmon_codi") or "COP",
         "nvfac_stot": doc.get("nvfac_stot") or 0,
         "nvfac_viva": doc.get("nvfac_viva") or 0,
@@ -336,7 +347,28 @@ def memory_persist_invoice(store, doc, doc_number, now, sync_flow="BC"):
         "invoice_id": doc_number,
         "purchase_invoice": doc.get("name"),
     }, name=doc_number)
+    _memory_persist_nc_devolution(store, doc)
     return doc_number
+
+
+def _memory_persist_nc_devolution(store, doc):
+    """Registra en memoria el consumo del banco de una NC tipo 5."""
+    devolution = (doc or {}).get("_gp_nc_devolution")
+    if not devolution or not isinstance(devolution, tuple) or len(devolution) != 3:
+        return
+    reference, pi, assigned = devolution
+    pi_name = (pi or {}).get("name") if isinstance(pi, dict) else pi
+    if not pi_name or not assigned:
+        return
+    for line in (assigned or []):
+        store.insert("qp_SP_Devolution", {
+            "reference_invoice": pi_name,
+            "document_detail": doc.get("name"),
+            "item_code": line.get("item_code"),
+            "qty": line.get("qty") or 0,
+            "receiving_no": line.get("receiving_no") or "",
+            "order_no": line.get("order_no") or "",
+        })
 
 
 def memory_mark_registered(store, doc, doc_number=None):

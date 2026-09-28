@@ -38,7 +38,7 @@ def get_context(context):
 
     key = "documenteme_sales_invoices"
     doctype = "qp_SP_DocumentDetail"
-    order_by = "nvfac_fech"
+    order_by = "creation"
     date_key = "nvfac_fech"
 
     filters = {}

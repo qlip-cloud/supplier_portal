@@ -1,0 +1,85 @@
+{
+ "actions": [],
+ "creation": "2026-09-25 10:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "reference_invoice",
+  "document_detail",
+  "item_code",
+  "qty",
+  "receiving_no",
+  "order_no"
+ ],
+ "fields": [
+  {
+   "fieldname": "reference_invoice",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Factura de compra referenciada",
+   "options": "qp_SP_PurchaseInvoice",
+   "reqd": 1
+  },
+  {
+   "fieldname": "document_detail",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Nota credito (DocumentDetail)",
+   "options": "qp_SP_DocumentDetail",
+   "reqd": 1
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Producto (codigo BC)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Cantidad devuelta",
+   "reqd": 1
+  },
+  {
+   "fieldname": "receiving_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Linea de recepcion (tipo 1)"
+  },
+  {
+   "fieldname": "order_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Orden de compra (tipo 2)"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-25 10:00:00",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_Devolution",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

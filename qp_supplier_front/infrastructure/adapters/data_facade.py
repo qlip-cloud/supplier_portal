@@ -28,6 +28,7 @@ MODULE_DOCTYPES = (
     "qp_SP_DetailSyncAttempt",
     "qp_SP_SyncLineAssignedUser",
     "qp_SP_TimelineEntry",
+    "qp_SP_Devolution",
 )
 
 
@@ -108,6 +109,12 @@ class _Real(object):
             RealTimelineAdapter,
         )
         return RealTimelineAdapter(frappe_module=self._frappe)
+
+    def devolution_excess(self, doc):
+        from qp_supplier_front.resources.documenteme._approve_base import (
+            get_nc_devolution_excess,
+        )
+        return get_nc_devolution_excess(doc)
 
 
 class _MemRow(object):
@@ -268,6 +275,11 @@ class _Memory(object):
         )
         return MemoryTimelineAdapter(self._store)
 
+    def devolution_excess(self, doc):
+        from qp_supplier_front.simulation import references_memory
+        return references_memory.memory_get_nc_devolution_excess(
+            self._store, doc)
+
 
 class DataFacade(object):
 
@@ -330,6 +342,9 @@ class DataFacade(object):
     @property
     def timeline(self):
         return self._impl.timeline
+
+    def devolution_excess(self, doc):
+        return self._impl.devolution_excess(doc)
 
     @property
     def db(self):

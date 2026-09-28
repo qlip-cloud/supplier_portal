@@ -195,16 +195,20 @@ def persist_invoice(doc, doc_number, now, backend="BC"):
     """
     if not doc_number:
         doc_number = doc.get("nvfac_nume") or doc.get("name")
+    fields = {
+        "invoice_id": doc_number,
+        "qp_status": "BCC",
+        "qp_creation_backend": backend,
+        "qp_is_error": 0,
+        "qp_error_message": "",
+    }
+    tipo = (doc or {}).get("_gp_tipo_factura_doc")
+    if tipo is not None:
+        fields["gp_tipo_factura_doc"] = tipo
     frappe.db.set_value(
         PURCHASE_INVOICE,
         doc.get("name"),
-        {
-            "invoice_id": doc_number,
-            "qp_status": "BCC",
-            "qp_creation_backend": backend,
-            "qp_is_error": 0,
-            "qp_error_message": "",
-        },
+        fields,
     )
     resolve_open_notifications(doc.get("name"))
     mark_collection_account_invoiced(doc)
@@ -764,6 +768,11 @@ def approve_collection_invoices_core(doc_names, send_request_fn=None,
     build_invoice_fn = cb.get("build_invoice_fn")
     if build_invoice_fn is None and backend == "GP":
         build_invoice_fn = make_invoice_builder("collection", backend="GP")
+    if backend == "GP" and build_invoice_fn is not None:
+        from qp_supplier_front.resources.documenteme._approve_base import (
+            _capture_gp_tipo,
+        )
+        build_invoice_fn = _capture_gp_tipo(build_invoice_fn)
 
     result = approve_collection_invoices(
         doc_names,

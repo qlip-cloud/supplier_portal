@@ -473,13 +473,17 @@ def memory_mark_collection_account_invoiced(store, doc):
 def memory_persist_invoice(store, doc, doc_number, now, backend="BC"):
     if not doc_number:
         doc_number = doc.get("nvfac_nume") or doc.get("name")
-    _set_fields(store, PURCHASE_INVOICE, doc.get("name"), {
+    fields = {
         "invoice_id": doc_number,
         "qp_status": "BCC",
         "qp_creation_backend": backend,
         "qp_is_error": 0,
         "qp_error_message": "",
-    })
+    }
+    tipo = (doc or {}).get("_gp_tipo_factura_doc")
+    if tipo is not None:
+        fields["gp_tipo_factura_doc"] = tipo
+    _set_fields(store, PURCHASE_INVOICE, doc.get("name"), fields)
     memory_resolve_open_notifications(store, doc.get("name"))
     memory_mark_collection_account_invoiced(store, doc)
     if backend == "GP" and not store.exists("qp_SP_PurchaseInvoiceBC", doc_number):

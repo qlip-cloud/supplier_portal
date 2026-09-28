@@ -389,6 +389,7 @@ GP_TIPO_ENVIO = 1
 GP_TIPO_ENVIO_FACTURA = 2
 GP_TIPO_CXP = 3
 GP_TIPO_NC = 4
+GP_TIPO_NC_5 = 5
 
 
 def resolve_gp_tipo(is_service_supplier, has_receipts):
@@ -407,6 +408,60 @@ def resolve_gp_tipo(is_service_supplier, has_receipts):
     if has_receipts:
         return GP_TIPO_ENVIO
     return GP_TIPO_ENVIO_FACTURA
+
+
+def map_nc_gp_tipo(referenced_gp_tipo):
+    """TipoFacturaDoc de una nota de credito segun el tipo de la factura de
+    compra que referencia (gp_tipo_factura_doc de qp_SP_PurchaseInvoice).
+
+    - Tipo 3 (CxP) -> 4 (NC).
+    - Tipo 1/2 (Envio / Envio Factura) -> 5 (NC tipo 5).
+    - Cualquier otro -> None (no mapeable).
+    """
+    try:
+        referenced = int(referenced_gp_tipo)
+    except (TypeError, ValueError):
+        return None
+    if referenced == GP_TIPO_CXP:
+        return GP_TIPO_NC
+    if referenced in (GP_TIPO_ENVIO, GP_TIPO_ENVIO_FACTURA):
+        return GP_TIPO_NC_5
+    return None
+
+
+def resolve_nc_tipo_for_doc(doc, get_reference_fn=None, get_referenced_tipo_fn=None):
+    """Resuelve el tipoFacturaDoc (4 o 5) de una nota de credito.
+
+    La NC (`nvtip_docu == "C"`) identifica al documento que ajusta a traves
+    de la referencia `<cac:InvoiceDocumentReference><cbc:ID>` de su XML. Con
+    esa referencia se ubica la qp_SP_PurchaseInvoice y se lee su campo
+    gp_tipo_factura_doc, que decide el tipo de la NC.
+
+    Retorna (tipo, error):
+    - tipo: 4 o 5; None si no se pudo resolver.
+    - error: mensaje descriptivo cuando falta la referencia, no existe la
+      factura de compra, o su tipo no es mapeable.
+    """
+    reference = get_reference_fn(doc) if get_reference_fn else None
+    if not reference:
+        return None, (
+            "No se pudo obtener la referencia de factura de la nota credito"
+        )
+    referenced_tipo = (
+        get_referenced_tipo_fn(reference) if get_referenced_tipo_fn else None
+    )
+    if referenced_tipo is None:
+        return None, (
+            "No se encontro la factura de compra {} referenciada por la "
+            "nota credito".format(reference)
+        )
+    tipo = map_nc_gp_tipo(referenced_tipo)
+    if tipo is None:
+        return None, (
+            "El tipo de factura de compra {} no es mapeable a una nota "
+            "credito".format(referenced_tipo)
+        )
+    return tipo, ""
 
 
 def _consolidate_gp_buckets(agg, order_no):
@@ -503,10 +558,18 @@ def build_gp_vendor_invoice_line(line, date_value, fecha_requerida="",
       (transaction_date / schedule_date); si no vienen se usa la fecha del
       documento.
     - unidadMedida del uom de la linea, default "UN".
+    - NC tipo 5 (tipo_factura_doc == GP_TIPO_NC_5): hereda el flujo de la
+      factura de referencia. Si la linea trae receiving_no (referencia tipo
+      1) envia la orden en noPedido y el recibo en noRecepcion; si no trae
+      recibo (referencia tipo 2) envia la orden en noRecepcion y noPedido
+      vacio (igual que el tipo 2).
     """
     no_recepcion = line.get("order_no") or ""
     no_pedido = ""
     if tipo_factura_doc == GP_TIPO_ENVIO:
+        no_recepcion = line.get("receiving_no") or ""
+        no_pedido = line.get("order_no") or ""
+    elif tipo_factura_doc == GP_TIPO_NC_5 and line.get("receiving_no"):
         no_recepcion = line.get("receiving_no") or ""
         no_pedido = line.get("order_no") or ""
     return {
@@ -634,13 +697,17 @@ def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar"):
 
 def make_gp_invoice_builder(resolve_tipo_fn=None, get_oc_dates_fn=None,
                             has_receipts_fn=None,
-                            is_service_supplier_fn=None):
+                            is_service_supplier_fn=None,
+                            resolve_nc_tipo_fn=None):
     """Builder GP con resolucion de tipo y fechas de la OC por documento.
 
     El builder recibe la misma firma (doc, lines, headquarter) que el core de
     aprobacion. Resuelve por documento (via callbacks inyectados):
-    - Nota Credito (nvtip_docu == "C"): SIEMPRE tipoFacturaDoc=4 y SIN
-      productos (vendorInvoiceLine vacio), sin importar callbacks ni lineas.
+    - Nota Credito (nvtip_docu == "C"): el tipo lo resuelve
+      resolve_nc_tipo_fn(doc) -> (4, "") / (5, "") / (None, error). Si no hay
+      callback o falla la resolucion se mantiene el tipo actual (4) SIN
+      productos (vendorInvoiceLine vacio). Con tipo 5 el payload se carga
+      igual que el tipo 1 (con las lineas resueltas).
     - tipoFacturaDoc: resolve_tipo_fn(doc) -> 1/2/3 (default: derivado de
       is_service_supplier_fn y has_receipts_fn, o tipo 2). Al paso del backend
       solo se conoce el tipo si el callback lo resuelve; el default cubre la
@@ -649,9 +716,29 @@ def make_gp_invoice_builder(resolve_tipo_fn=None, get_oc_dates_fn=None,
       (transaction_date, schedule_date) o (None, None).
     """
     def build(doc, lines, headquarter):
+        fecha_requerida = ""
+        fecha_prometida = ""
+        if get_oc_dates_fn is not None:
+            requerida, prometida = get_oc_dates_fn(doc.get("nvfac_orde"))
+            fecha_requerida = _gp_datetime(requerida)
+            fecha_prometida = _gp_datetime(prometida)
+
         if is_credit_note(doc.get("nvtip_docu")):
-            # Nota Credito: tipoFacturaDoc=4 y SIEMPRE sin productos
-            # (vendorInvoiceLine vacio), sin importar las lineas resueltas.
+            nc_tipo = GP_TIPO_NC
+            if resolve_nc_tipo_fn is not None:
+                resolved, nc_error = resolve_nc_tipo_fn(doc)
+                if resolved is not None and not nc_error:
+                    nc_tipo = resolved
+            if nc_tipo == GP_TIPO_NC_5:
+                # NC tipo 5: el payload se carga igual que el tipo 1, con
+                # las lineas resueltas (productos de las recepciones/OC).
+                return build_gp_invoice(
+                    doc, lines, headquarter, tipo_factura_doc=GP_TIPO_NC_5,
+                    fecha_requerida=fecha_requerida,
+                    fecha_prometida=fecha_prometida,
+                )
+            # Nota Credito tipo 4: SIEMPRE sin productos (vendorInvoiceLine
+            # vacio), sin importar las lineas resueltas.
             return build_gp_invoice(
                 doc, [], headquarter, tipo_factura_doc=GP_TIPO_NC
             )
@@ -671,13 +758,6 @@ def make_gp_invoice_builder(resolve_tipo_fn=None, get_oc_dates_fn=None,
             if has_receipts_fn is not None:
                 receipts = bool(has_receipts_fn(doc.get("nvfac_orde")))
             tipo = resolve_gp_tipo(service, receipts)
-
-        fecha_requerida = ""
-        fecha_prometida = ""
-        if get_oc_dates_fn is not None:
-            requerida, prometida = get_oc_dates_fn(doc.get("nvfac_orde"))
-            fecha_requerida = _gp_datetime(requerida)
-            fecha_prometida = _gp_datetime(prometida)
 
         return build_gp_invoice(
             doc, lines, headquarter,
@@ -704,7 +784,7 @@ def make_invoice_builder(origin, backend="BC", **kwargs):
     if backend == "GP":
         if any(kwargs.get(key) is not None for key in (
                 "resolve_tipo_fn", "get_oc_dates_fn", "has_receipts_fn",
-                "is_service_supplier_fn")):
+                "is_service_supplier_fn", "resolve_nc_tipo_fn")):
             return make_gp_invoice_builder(**kwargs)
         return build_gp_invoice
 

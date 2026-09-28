@@ -77,6 +77,7 @@ class TestSimGpApproveInMemory(unittest.TestCase):
         self.assertEqual(inv[0]["qp_sync_flow"], "GP")
         # doc_number simulado GP: SIM{noFacturaProveedor}
         self.assertEqual(inv[0]["invoice_id"], "SIMSIM-FAC-0002")
+        self.assertEqual(inv[0]["gp_tipo_factura_doc"], 2)
         # Confirmacion sim reutiliza el enlace BC in-memory (igual que real).
         self.assertEqual(len(self.store.query("qp_SP_PurchaseInvoiceBC")), 1)
 

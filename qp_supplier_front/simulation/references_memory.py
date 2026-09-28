@@ -204,23 +204,34 @@ def memory_get_invoice_detail_lines(store, doc_name):
     )
 
 
-def memory_get_lines_gp(store, doc):
+def memory_get_lines_gp(store, doc, force=False):
     """Lineas del payload GP segun el tipo de la factura (en memoria).
 
     Misma semantica que resources/documenteme/_approbe_base.get_lines_gp:
-    - Nota Credito (nvtip_docu == "C"): NO se envian productos (tipo 4 NC).
+    - Nota Credito (nvtip_docu == "C"): el tipo (4 o 5) lo resuelve
+      memory_resolve_nc_tipo_doc (store). NC tipo 4 no envia productos; NC
+      tipo 5 usa el banco de devoluciones de la factura de referencia
+      (lineas NC asignadas a recepciones/OC de la referencia). Si la
+      devolucion excede el banco queda en error (no se envia), salvo
+      force=True.
     - Proveedor servicio (tipo 3): NO se envian productos (vendorInvoiceLine
       vacio); No se valida homologacion ni lineas de la factura.
     - Con recepciones (tipo 1): lineas de las recepciones.
     - Sin recepciones (tipo 2): homogenizar y consolidar contra la OC.
     """
     from qp_supplier_front.uses_cases.documenteme.approve import (
-        consolidate_gp_lines,
+        GP_TIPO_NC_5,
     )
     from qp_supplier_front.uses_cases.documenteme.conversion import is_credit_note
 
     if is_credit_note(doc.get("nvtip_docu")):
-        return [], ""
+        nc_tipo, nc_error = memory_resolve_nc_tipo_doc(store, doc)
+        if nc_error:
+            return [], nc_error
+        if nc_tipo != GP_TIPO_NC_5:
+            return [], ""
+
+        return memory_get_nc_devolution_lines(store, doc, force=force)
 
     if memory_is_service_supplier(store, doc.get("nvpro_ndoc")):
         return [], ""
@@ -231,6 +242,264 @@ def memory_get_lines_gp(store, doc):
         return receipt_lines, ""
 
     return _memory_gp_lines_from_invoice(store, doc)
+
+
+def memory_get_doc_reference(store, doc_name):
+    """Referencia (cbc:ID de InvoiceDocumentReference) del XML adjunto."""
+    from qp_supplier_front.services.xml_invoice_reference import (
+        extract_invoice_document_reference,
+    )
+
+    rows = store.query(
+        "qp_SP_DocumentAttach",
+        filters={"parent": doc_name, "parenttype": "qp_SP_DocumentDetail"},
+        fields=["file_type", "file_content"],
+    )
+    for row in rows or []:
+        if (row.get("file_type") or "").upper() != "XML":
+            continue
+        content = row.get("file_content") or ""
+        if not content:
+            continue
+        try:
+            reference = extract_invoice_document_reference(content)
+        except Exception:
+            continue
+        if reference:
+            return reference
+    return None
+
+
+def memory_get_referenced_pi_gp_tipo(store, reference):
+    """gp_tipo_factura_doc de la qp_SP_PurchaseInvoice referenciada.
+
+    Espejo de resources/documenteme/_approbe_base.get_referenced_pi_gp_tipo:
+    la referencia del XML es el numero de factura del proveedor (nvfac_nume),
+    no el name de la PI. Se busca por name, nvfac_nume o detail.
+    """
+    if not reference:
+        return None
+    for field in ("name", "nvfac_nume", "detail"):
+        rows = store.query(
+            "qp_SP_PurchaseInvoice",
+            filters={field: reference},
+            fields=["gp_tipo_factura_doc"],
+            limit=1,
+        )
+        if rows:
+            return rows[0].get("gp_tipo_factura_doc")
+    return None
+
+
+def memory_resolve_nc_tipo_doc(store, doc):
+    """Resuelve el tipoFacturaDoc (4 o 5) de una NC (en memoria)."""
+    from qp_supplier_front.uses_cases.documenteme.approve import (
+        resolve_nc_tipo_for_doc,
+    )
+
+    return resolve_nc_tipo_for_doc(
+        doc,
+        get_reference_fn=lambda d: memory_get_doc_reference(
+            store, d.get("name")),
+        get_referenced_tipo_fn=lambda ref: memory_get_referenced_pi_gp_tipo(
+            store, ref),
+    )
+
+
+def memory_get_referenced_pi(store, reference):
+    """qp_SP_PurchaseInvoice referenciada (name, purchase_order_id, tipo)."""
+    if not reference:
+        return None
+    for field in ("name", "nvfac_nume", "detail"):
+        rows = store.query(
+            "qp_SP_PurchaseInvoice",
+            filters={field: reference},
+            fields=["name", "purchase_order_id", "gp_tipo_factura_doc"],
+            limit=1,
+        )
+        if rows:
+            return rows[0]
+    return None
+
+
+def memory_get_devolution_bank(store, reference, pi):
+    """Banco de lineas de la referencia en memoria (recepcion u OC)."""
+    from qp_supplier_front.uses_cases.documenteme.devolution_bank import (
+        build_po_bank,
+        build_receipt_bank,
+    )
+    from qp_supplier_front.uses_cases.documenteme.approve import (
+        GP_TIPO_ENVIO,
+    )
+
+    gp_tipo = int((pi or {}).get("gp_tipo_factura_doc") or 0)
+    purchase_order = (pi or {}).get("purchase_order_id") or ""
+
+    if gp_tipo == GP_TIPO_ENVIO:
+        receipts = store.query(
+            "qp_SP_PurchaseReceipt",
+            filters={"qp_invoice": reference},
+            fields=["name", "qp_supplier_oc"],
+        )
+        oc_by_receipt = {
+            row.get("name"): row.get("qp_supplier_oc") or ""
+            for row in receipts
+        }
+        if receipts:
+            items = store.query(
+                "qp_SP_PurchaseReceiptItem",
+                filters={"parent": ["in", list(oc_by_receipt)],
+                         "parenttype": "Purchase Receipt"},
+                fields=["parent", "item_code", "qty", "idx", "uom"],
+                order_by="parent, idx",
+            )
+            bank = build_receipt_bank([
+                dict(
+                    item,
+                    receiving_no=item.get("parent") or "",
+                    order_no=oc_by_receipt.get(item.get("parent")) or "",
+                )
+                for item in items
+            ])
+        else:
+            bank = []
+    else:
+        items = store.query(
+            "qp_SP_PurchaseOrderItem",
+            filters={"parent": purchase_order,
+                     "parenttype": "Purchase Order"},
+            fields=["item_code", "qty", "idx", "uom"],
+            order_by="idx",
+        )
+        bank = build_po_bank(items, order_no=purchase_order)
+
+    return bank, memory_get_consumed_devolutions(store, pi)
+
+
+def memory_get_consumed_devolutions(store, pi):
+    """Filas qp_SP_Devolution de la referencia en memoria."""
+    if not pi:
+        return []
+    return store.query(
+        "qp_SP_Devolution",
+        filters={"reference_invoice": pi.get("name")},
+        fields=["item_code", "qty", "receiving_no", "order_no"],
+    )
+
+
+def memory_get_reference_confirmation_id(store, pi):
+    """confirmation_id de la qp_SP_PurchaseInvoiceBC de la referencia."""
+    if not pi:
+        return ""
+    name = (pi or {}).get("name") if isinstance(pi, dict) else pi
+    if not name:
+        return ""
+    rows = store.query(
+        "qp_SP_PurchaseInvoiceBC",
+        filters={"purchase_invoice": name},
+        fields=["confirmation_id"],
+        limit=1,
+    )
+    return (rows[0].get("confirmation_id") or "") if rows else ""
+
+
+def memory_get_nc_devolution_lines(store, doc, force=False):
+    """Lineas del payload GP de una NC tipo 5 (memoria) con banco devolution.
+
+    Asigna las lineas de la NC a las lineas de la referencia (recepcion u OC)
+    y anota doc["_gp_nc_devolution"] = (reference, pi, assigned) para que la
+    persistencia en memoria registre el consumo. Si la devolucion excede el
+    banco queda en error (no se envia) salvo force=True.
+
+    Referencia tipo 2: se envia como tipo 1 usando el confirmation_id de la
+    qp_SP_PurchaseInvoiceBC de la referencia como numero de recepcion.
+    """
+    from qp_supplier_front.uses_cases.documenteme.devolution_bank import (
+        allocate_devolution,
+        apply_consumed,
+        excess_message,
+    )
+    from qp_supplier_front.uses_cases.documenteme.approve import (
+        GP_TIPO_ENVIO,
+    )
+
+    reference = memory_get_doc_reference(store, doc.get("name"))
+    pi = memory_get_referenced_pi(store, reference)
+    if not reference or not pi:
+        return [], (
+            "No se pudo obtener la factura de compra referenciada por la "
+            "nota credito"
+        )
+
+    ref_is_tipo1 = (
+        int((pi or {}).get("gp_tipo_factura_doc") or 0) == GP_TIPO_ENVIO
+    )
+    ref_confirmation = (
+        "" if ref_is_tipo1
+        else memory_get_reference_confirmation_id(store, pi)
+    )
+    if not ref_is_tipo1 and not ref_confirmation:
+        return [], (
+            "La factura de compra referenciada por la nota credito no ha sido "
+            "confirmada"
+        )
+
+    product_lines, line_error = _memory_gp_lines_from_invoice(store, doc)
+    if line_error:
+        return [], line_error
+
+    bank, consumed = memory_get_devolution_bank(store, reference, pi)
+    available = apply_consumed(bank, consumed)
+    assigned, excess = allocate_devolution(product_lines, available)
+
+    if excess and not force:
+        return [], excess_message(excess)
+
+    by_item = {}
+    for line in (product_lines or []):
+        by_item.setdefault(line.get("item_code"), line)
+
+    payload_lines = []
+    for line in (assigned or []):
+        source = by_item.get(line.get("item_code")) or {}
+        receiving_no = line.get("receiving_no") or ""
+        if not ref_is_tipo1 and not receiving_no and ref_confirmation:
+            receiving_no = ref_confirmation
+        payload_lines.append({
+            "item_code": line.get("item_code"),
+            "qty": line.get("qty") or 0,
+            "rate": source.get("rate") or 0,
+            # noLineaRecepcion: idx de la linea de la OC/recepcion de la
+            # referencia asignada.
+            "idx": line.get("idx") or source.get("idx") or 0,
+            "uom": source.get("uom") or "UN",
+            "receiving_no": receiving_no,
+            "order_no": line.get("order_no") or "",
+        })
+
+    doc["_gp_nc_devolution"] = (reference, pi, assigned)
+    return payload_lines, ""
+
+
+def memory_get_nc_devolution_excess(store, doc):
+    """Pre-validacion del banco de la NC tipo 5 (exceso, no confirmacion)."""
+    from qp_supplier_front.uses_cases.documenteme.devolution_bank import (
+        allocate_devolution,
+        apply_consumed,
+        excess_message,
+    )
+
+    reference = memory_get_doc_reference(store, doc.get("name"))
+    pi = memory_get_referenced_pi(store, reference)
+    if not reference or not pi:
+        return ""
+    product_lines, line_error = _memory_gp_lines_from_invoice(store, doc)
+    if line_error:
+        return ""
+    bank, consumed = memory_get_devolution_bank(store, reference, pi)
+    available = apply_consumed(bank, consumed)
+    _, excess = allocate_devolution(product_lines, available)
+    return excess_message(excess)
 
 
 def _memory_gp_lines_from_receipts(store, purchase_order):

@@ -139,6 +139,8 @@ def _simulated_bundle():
             "get_docs_fn": _bind(documents_memory.memory_get_docs),
             "get_lines_fn": _bind(documents_memory.memory_get_lines),
             "get_lines_gp_fn": _bind(references_memory.memory_get_lines_gp),
+            "resolve_nc_tipo_fn": _bind(
+                references_memory.memory_resolve_nc_tipo_doc),
             "resolve_gp_tipo_fn": _bind(
                 references_memory.memory_resolve_gp_tipo_for_doc),
             "get_po_dates_fn": _bind(references_memory.memory_get_po_dates),

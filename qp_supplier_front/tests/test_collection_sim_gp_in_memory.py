@@ -57,6 +57,8 @@ class TestCollectionSimGpInMemory(unittest.TestCase):
         self.assertEqual(row["qp_status"], "BCC")
         self.assertEqual(row["qp_creation_backend"], "GP")
         self.assertEqual(row["invoice_id"], "SIMPI-SIM-0001")
+        # Collection GP construye una sola linea con tipoFacturaDoc 2 por default.
+        self.assertEqual(row["gp_tipo_factura_doc"], 2)
 
         ca = self.store.get("qp_SP_CollectionAccounts", "CA-SIM-0001")
         self.assertEqual(ca["status"], "Facturado")

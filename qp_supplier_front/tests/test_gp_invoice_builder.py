@@ -17,13 +17,16 @@ sys.modules["frappe"] = MagicMock()
 from qp_supplier_front.uses_cases.documenteme.approve import (
     GP_TIPO_ENVIO,
     GP_TIPO_NC,
+    GP_TIPO_NC_5,
     build_gp_invoice,
     build_gp_vendor_invoice_line,
     build_payload,
     consolidate_gp_lines,
     make_gp_invoice_builder,
     make_invoice_builder,
+    map_nc_gp_tipo,
     resolve_gp_tipo,
+    resolve_nc_tipo_for_doc,
 )
 
 from qp_supplier_front.resources.documenteme._approve_base import (
@@ -312,6 +315,138 @@ class TestCreditNoteGp(unittest.TestCase):
         lines, error = get_lines_gp(_doc(nvtip_docu="C"))
         self.assertEqual(lines, [])
         self.assertEqual(error, "")
+
+    def test_builder_gp_nc_tipo5_carga_productos_como_tipo1(self):
+        builder = make_gp_invoice_builder(
+            resolve_nc_tipo_fn=lambda doc: (GP_TIPO_NC_5, ""),
+        )
+        invoice = builder(_doc(nvtip_docu="C"), [_line()], "HQ01")
+        self.assertEqual(invoice["tipoFacturaDoc"], GP_TIPO_NC_5)
+        # Lineas presentes (payload como tipo 1).
+        self.assertEqual(len(invoice["vendorInvoiceLine"]), 1)
+        line = invoice["vendorInvoiceLine"][0]
+        self.assertEqual(line["noRecepcion"], "PO2075")
+        self.assertEqual(line["noPedido"], "PO2075")
+
+    def test_builder_gp_nc_tipo5_referencia_tipo2_ordena_en_noRecepcion(self):
+        builder = make_gp_invoice_builder(
+            resolve_nc_tipo_fn=lambda doc: (GP_TIPO_NC_5, ""),
+        )
+        # Linea sin recibo (referencia tipo 2): orden en noRecepcion,
+        # noPedido vacio (igual que el flujo tipo 2).
+        invoice = builder(
+            _doc(nvtip_docu="C"),
+            [_line(receiving_no="")],
+            "HQ01",
+        )
+        self.assertEqual(invoice["tipoFacturaDoc"], GP_TIPO_NC_5)
+        line = invoice["vendorInvoiceLine"][0]
+        self.assertEqual(line["noRecepcion"], "PO2075")
+        self.assertEqual(line["noPedido"], "")
+
+    def test_linea_nc_tipo5_sin_recibo_usa_orden(self):
+        from qp_supplier_front.uses_cases.documenteme.approve import (
+            build_gp_vendor_invoice_line,
+        )
+
+        date_value = "2026-09-25T00:00:00"
+        line = build_gp_vendor_invoice_line(
+            _line(receiving_no=""), date_value, tipo_factura_doc=GP_TIPO_NC_5
+        )
+        self.assertEqual(line["noRecepcion"], "PO2075")
+        self.assertEqual(line["noPedido"], "")
+        line_rec = build_gp_vendor_invoice_line(
+            _line(), date_value, tipo_factura_doc=GP_TIPO_NC_5
+        )
+        self.assertEqual(line_rec["noRecepcion"], "PO2075")
+        self.assertEqual(line_rec["noPedido"], "PO2075")
+
+    def test_builder_gp_nc_tipo5_con_fechas_de_oc(self):
+        builder = make_gp_invoice_builder(
+            resolve_nc_tipo_fn=lambda doc: (GP_TIPO_NC_5, ""),
+            get_oc_dates_fn=lambda po: ("2026-09-01", "2026-10-15"),
+        )
+        invoice = builder(_doc(nvtip_docu="C"), [_line()], "HQ01")
+        self.assertEqual(invoice["tipoFacturaDoc"], GP_TIPO_NC_5)
+        self.assertEqual(
+            invoice["vendorInvoiceLine"][0]["fechaRequerida"],
+            "2026-09-01T00:00:00",
+        )
+        self.assertEqual(
+            invoice["vendorInvoiceLine"][0]["fechaPrometida"],
+            "2026-10-15T00:00:00",
+        )
+
+
+class TestResolveNcGpTipo(unittest.TestCase):
+    """Resolucion del tipo de NC (4 o 5) segun la factura referenciada."""
+
+    def test_mapeo_cxp_a_nc(self):
+        self.assertEqual(map_nc_gp_tipo(3), GP_TIPO_NC)
+
+    def test_mapeo_envio_a_nc5(self):
+        self.assertEqual(map_nc_gp_tipo(1), GP_TIPO_NC_5)
+        self.assertEqual(map_nc_gp_tipo(2), GP_TIPO_NC_5)
+
+    def test_mapeo_acepta_strings(self):
+        self.assertEqual(map_nc_gp_tipo("3"), GP_TIPO_NC)
+        self.assertEqual(map_nc_gp_tipo("2"), GP_TIPO_NC_5)
+
+    def test_mapeo_no_soportado(self):
+        self.assertIsNone(map_nc_gp_tipo(4))
+        self.assertIsNone(map_nc_gp_tipo(0))
+        self.assertIsNone(map_nc_gp_tipo(""))
+        self.assertIsNone(map_nc_gp_tipo(None))
+
+    def test_resuelve_tipo4_por_referencia_cxp(self):
+        doc = _doc(nvtip_docu="C")
+        tipo, error = resolve_nc_tipo_for_doc(
+            doc,
+            get_reference_fn=lambda d: "SETT0501293",
+            get_referenced_tipo_fn=lambda ref: 3,
+        )
+        self.assertEqual(tipo, GP_TIPO_NC)
+        self.assertEqual(error, "")
+
+    def test_resuelve_tipo5_por_referencia_envio(self):
+        doc = _doc(nvtip_docu="C")
+        tipo, error = resolve_nc_tipo_for_doc(
+            doc,
+            get_reference_fn=lambda d: "SETT0501293",
+            get_referenced_tipo_fn=lambda ref: 2,
+        )
+        self.assertEqual(tipo, GP_TIPO_NC_5)
+        self.assertEqual(error, "")
+
+    def test_falla_sin_referencia(self):
+        doc = _doc(nvtip_docu="C")
+        tipo, error = resolve_nc_tipo_for_doc(
+            doc,
+            get_reference_fn=lambda d: None,
+            get_referenced_tipo_fn=lambda ref: 2,
+        )
+        self.assertIsNone(tipo)
+        self.assertIn("referencia", error.lower())
+
+    def test_falla_sin_factura_referenciada(self):
+        doc = _doc(nvtip_docu="C")
+        tipo, error = resolve_nc_tipo_for_doc(
+            doc,
+            get_reference_fn=lambda d: "SETT0501293",
+            get_referenced_tipo_fn=lambda ref: None,
+        )
+        self.assertIsNone(tipo)
+        self.assertIn("SETT0501293", error)
+
+    def test_falla_tipo_no_mapeable(self):
+        doc = _doc(nvtip_docu="C")
+        tipo, error = resolve_nc_tipo_for_doc(
+            doc,
+            get_reference_fn=lambda d: "SETT0501293",
+            get_referenced_tipo_fn=lambda ref: 4,
+        )
+        self.assertIsNone(tipo)
+        self.assertIn("mapeable", error.lower())
 
 
 class TestMakeInvoiceBuilder(unittest.TestCase):

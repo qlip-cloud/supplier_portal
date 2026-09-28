@@ -27,9 +27,12 @@ from qp_supplier_front.resources.documenteme.auto_reject import (
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.uses_cases.documenteme.approve import (
+    GP_TIPO_ENVIO,
+    GP_TIPO_NC_5,
     approve_documents,
     collect_registrable_violations,
     make_invoice_builder,
+    resolve_nc_tipo_for_doc,
 )
 from qp_supplier_front.uses_cases.documenteme.conversion import is_credit_note
 
@@ -354,10 +357,16 @@ def _get_lines_gp_from_invoice(doc):
     return lines, ""
 
 
-def get_lines_gp(doc):
+def get_lines_gp(doc, resolve_nc_tipo_fn=None, force=False):
     """Lineas del payload GP segun el tipo de la factura.
 
-    - Nota Credito (nvtip_docu == "C"): NO se envian productos (tipo 4 NC).
+    - Nota Credito (nvtip_docu == "C"): el tipo (4 o 5) lo resuelve
+      resolve_nc_tipo_fn(doc) -> (4, "") / (5, "") / (None, error). NC tipo 4
+      no envia productos (vendorInvoiceLine vacio). NC tipo 5 se carga como el
+      tipo 1 con un banco de devoluciones de la factura de referencia: las
+      lineas de la NC se asignan a las lineas de recepcion/OC de la referencia
+      (order/recibo de esa linea). Si la devolucion excede el banco queda en
+      error (no se envia) salvo force=True (aprobacion manual confirmada).
     - Proveedor servicio (tipo 3 CxP): NO se envian productos. La peticion
       va solo con la cabecera (vendorInvoiceLine vacio) y No se valida
       homologacion ni lineas de la factura.
@@ -366,7 +375,14 @@ def get_lines_gp(doc):
     - Sin recepciones (tipo 2): homogenizar y consolidar contra la OC.
     """
     if is_credit_note(doc.get("nvtip_docu")):
-        return [], ""
+        if resolve_nc_tipo_fn is None:
+            return [], ""
+        nc_tipo, nc_error = resolve_nc_tipo_fn(doc)
+        if nc_error:
+            return [], nc_error
+        if nc_tipo != GP_TIPO_NC_5:
+            return [], ""
+        return get_nc_devolution_lines(doc, force=force)
 
     if is_service_supplier(doc.get("nvpro_ndoc")):
         return [], ""
@@ -377,6 +393,302 @@ def get_lines_gp(doc):
         return receipt_lines, ""
 
     return _get_lines_gp_from_invoice(doc)
+
+
+def get_nc_reference_ctx(doc):
+    """Contexto de la referencia de una NC tipo 5: (reference, pi_row).
+
+    Retorna (reference, pi) o (None, None) si no se pudo resolver.
+    """
+    reference = get_doc_reference(doc.get("name"))
+    if not reference:
+        return None, None
+    pi = get_referenced_pi(reference)
+    if not pi:
+        return None, None
+    return reference, pi
+
+
+def get_devolution_bank(reference, pi):
+    """Banco de lineas de la referencia: recepciones (tipo 1) u OC (tipo 2).
+
+    Retorna (bank_lines, consumed_rows): bank_lines con qty original y
+    consumed_rows lo ya devuelto para descontar. bank_lines es la lista de
+    {item_code, qty, receiving_no, order_no} por linea de la referencia.
+    """
+    from qp_supplier_front.uses_cases.documenteme.devolution_bank import (
+        build_po_bank,
+        build_receipt_bank,
+    )
+
+    gp_tipo = int((pi or {}).get("gp_tipo_factura_doc") or 0)
+    purchase_order = (pi or {}).get("purchase_order_id") or ""
+
+    if gp_tipo == GP_TIPO_ENVIO:
+        receipts = frappe.get_all(
+            "Purchase Receipt",
+            filters={"qp_invoice": reference},
+            fields=["name", "qp_supplier_oc"],
+        )
+        if not receipts:
+            return [], get_consumed_devolutions(reference, pi)
+        oc_by_receipt = {
+            row.get("name"): row.get("qp_supplier_oc") or ""
+            for row in receipts
+        }
+        items = frappe.get_all(
+            "Purchase Receipt Item",
+            filters={"parent": ["in", list(oc_by_receipt)],
+                     "parenttype": "Purchase Receipt"},
+            fields=["parent", "item_code", "qty", "idx", "uom"],
+            order_by="parent, idx",
+        )
+        bank = build_receipt_bank([
+            dict(
+                item,
+                receiving_no=item.get("parent") or "",
+                order_no=oc_by_receipt.get(item.get("parent")) or "",
+            )
+            for item in items
+        ])
+    else:
+        items = frappe.get_all(
+            "Purchase Order Item",
+            filters={"parent": purchase_order,
+                     "parenttype": "Purchase Order"},
+            fields=["item_code", "qty", "idx", "uom"],
+            order_by="idx",
+        )
+        bank = build_po_bank(items, order_no=purchase_order)
+
+    consumed = get_consumed_devolutions(reference, pi)
+    return bank, consumed
+
+
+def get_consumed_devolutions(reference, pi):
+    """Filas qp_SP_Devolution de la referencia (nombre de la PI)."""
+    if not pi:
+        return []
+    return frappe.get_all(
+        "qp_SP_Devolution",
+        filters={"reference_invoice": pi.get("name")},
+        fields=["item_code", "qty", "receiving_no", "order_no"],
+    )
+
+
+def persist_devolution_consumed(doc, reference, pi, assigned):
+    """Registra el consumo del banco por linea (qp_SP_Devolution).
+
+    Un fallo al registrar (p.ej. doctype sin migrar) NO debe tumbar la
+    aprobacion de la factura: la creacion en GP/BC ya se persistio. Se
+    loguea el error y se continua.
+    """
+    pi_name = (pi or {}).get("name") if isinstance(pi, dict) else pi
+    if not pi_name or not assigned:
+        return
+    for line in (assigned or []):
+        try:
+            devolution = frappe.get_doc({
+                "doctype": "qp_SP_Devolution",
+                "reference_invoice": pi_name,
+                "document_detail": doc.get("name"),
+                "item_code": line.get("item_code"),
+                "qty": line.get("qty") or 0,
+                "receiving_no": line.get("receiving_no") or "",
+                "order_no": line.get("order_no") or "",
+            })
+            devolution.insert(ignore_permissions=True)
+        except Exception as error:
+            frappe.log_error(
+                message="{}: {}".format(
+                    frappe.get_traceback(), str(error)
+                ),
+                title="Registrar devolucion qp_SP_Devolution",
+            )
+
+
+def get_reference_confirmation_id(pi):
+    """confirmation_id de la qp_SP_PurchaseInvoiceBC de la referencia.
+
+    En el flujo GP al crear la factura de referencia se inserta una
+    qp_SP_PurchaseInvoiceBC con purchase_invoice = name de la PI. El proceso
+    externo carga su confirmation_id (codigo que se usa como numero de
+    recepcion para la NC tipo 5 con referencia tipo 2).
+    """
+    if not pi:
+        return ""
+    name = (pi or {}).get("name") if isinstance(pi, dict) else pi
+    if not name:
+        return ""
+    return frappe.db.get_value(
+        "qp_SP_PurchaseInvoiceBC",
+        {"purchase_invoice": name},
+        "confirmation_id",
+    ) or ""
+
+
+def get_nc_devolution_lines(doc, force=False):
+    """Lineas del payload GP de una NC tipo 5 con el banco de la referencia.
+
+    - Lineas de la NC: detail_lines homologadas (productos devueltos).
+    - Banco: lineas de recepcion (tipo 1) u OC (tipo 2) de la factura de
+      compra referenciada, menos lo ya devuelto (qp_SP_Devolution).
+    - Asigna cada linea de la NC a una linea del banco y propaga su
+      receiving_no/order_no. Si la devolucion excede el banco, la factura
+      queda en error (no se envia) salvo force=True (aprobacion manual).
+    - Referencia tipo 2: requiere que la factura de compra referenciada este
+      confirmada (confirmation_id de su qp_SP_PurchaseInvoiceBC); si no lo
+      esta, la NC no se envia (bloquea incluso con force) y muestra la alerta.
+    - Anota en doc["_gp_nc_devolution"] = (reference, pi, assigned) para que
+      la persistencia registre el consumo.
+    """
+    from qp_supplier_front.uses_cases.documenteme.devolution_bank import (
+        allocate_devolution,
+        apply_consumed,
+        excess_message,
+    )
+
+    reference, pi = get_nc_reference_ctx(doc)
+    if not reference or not pi:
+        return [], (
+            "No se pudo obtener la factura de compra referenciada por la "
+            "nota credito"
+        )
+
+    ref_is_tipo1 = (
+        int((pi or {}).get("gp_tipo_factura_doc") or 0) == GP_TIPO_ENVIO
+    )
+    ref_confirmation = "" if ref_is_tipo1 else get_reference_confirmation_id(pi)
+    if not ref_is_tipo1 and not ref_confirmation:
+        return [], (
+            "La factura de compra referenciada por la nota credito no ha sido "
+            "confirmada"
+        )
+
+    product_lines, line_error = _get_lines_gp_from_invoice(doc)
+    if line_error:
+        return [], line_error
+
+    bank, consumed = get_devolution_bank(reference, pi)
+    available = apply_consumed(bank, consumed)
+    assigned, excess = allocate_devolution(product_lines, available)
+
+    if excess and not force:
+        return [], excess_message(excess)
+
+    by_item = {}
+    for line in (product_lines or []):
+        by_item.setdefault(line.get("item_code"), line)
+
+    payload_lines = []
+    for line in (assigned or []):
+        source = by_item.get(line.get("item_code")) or {}
+        receiving_no = line.get("receiving_no") or ""
+        if not ref_is_tipo1 and not receiving_no and ref_confirmation:
+            receiving_no = ref_confirmation
+        payload_lines.append({
+            "item_code": line.get("item_code"),
+            "qty": line.get("qty") or 0,
+            "rate": source.get("rate") or 0,
+            # noLineaRecepcion: idx de la linea de la OC/recepcion de la
+            # referencia asignada (noLineaRecepcion del banco).
+            "idx": line.get("idx") or source.get("idx") or 0,
+            "uom": source.get("uom") or "UN",
+            "receiving_no": receiving_no,
+            "order_no": line.get("order_no") or "",
+        })
+
+    doc["_gp_nc_devolution"] = (reference, pi, assigned)
+    return payload_lines, ""
+
+
+def get_doc_reference(doc_name):
+    """Referencia (cbc:ID de InvoiceDocumentReference) del XML adjunto.
+
+    Lee los File XML adjuntos al qp_SP_DocumentDetail y extrae la referencia
+    de factura (p.ej. "SETT0501293") que la NC ajusta. Retorna el nombre de la
+    qp_SP_PurchaseInvoice referenciada o None si no se pudo obtener.
+    """
+    from qp_supplier_front.services.xml_invoice_reference import (
+        extract_invoice_document_reference,
+    )
+
+    attach_rows = frappe.get_all(
+        "qp_SP_DocumentAttach",
+        filters={"parent": doc_name, "parenttype": "qp_SP_DocumentDetail"},
+        fields=["file_id", "file_type", "file_name"],
+    )
+    for row in attach_rows or []:
+        if (row.get("file_type") or "").upper() != "XML":
+            continue
+        file_id = row.get("file_id")
+        if not file_id:
+            continue
+        try:
+            file_doc = frappe.get_doc("File", file_id)
+            content = file_doc.get_content()
+        except Exception:
+            continue
+        if not content:
+            continue
+        try:
+            reference = extract_invoice_document_reference(content)
+        except Exception:
+            continue
+        if reference:
+            return reference
+    return None
+
+
+def get_referenced_pi(reference):
+    """qp_SP_PurchaseInvoice referenciada por una NC.
+
+    La referencia del XML es el numero de factura del proveedor (nvfac_nume),
+    no el name de la PI (que es "nit:nvfac_nume"). Se busca por nvfac_nume,
+    detail (donde el flujo documenteme persiste nvfac_nume) o name.
+    Retorna el dict {name, purchase_order_id, gp_tipo_factura_doc} o None.
+    """
+    if not reference:
+        return None
+    for filters in (
+        {"name": reference},
+        {"nvfac_nume": reference},
+        {"detail": reference},
+    ):
+        row = frappe.db.get_value(
+            "qp_SP_PurchaseInvoice",
+            filters,
+            ["name", "purchase_order_id", "gp_tipo_factura_doc"],
+            as_dict=True,
+        )
+        if row:
+            return row
+    return None
+
+
+def get_referenced_pi_gp_tipo(reference):
+    """gp_tipo_factura_doc de la qp_SP_PurchaseInvoice referenciada.
+
+    La referencia del XML es el numero de factura del proveedor (nvfac_nume),
+    no el name de la PI (que es "nit:nvfac_nume"). Se busca por nvfac_nume,
+    detail (donde el flujo documenteme persiste nvfac_nume) o name.
+    """
+    row = get_referenced_pi(reference)
+    return row.get("gp_tipo_factura_doc") if row else None
+
+
+def resolve_nc_gp_tipo_doc(doc):
+    """Resuelve el tipoFacturaDoc (4 o 5) de una NC contra la DB real.
+
+    Retorna (tipo, error). Con el tipo resuelto se decide si la NC se envia
+    con tipofacturadoc = 4 (referencia a una CxP tipo 3) o tipofacturadoc = 5
+    (referencia a una factura tipo 1/2).
+    """
+    return resolve_nc_tipo_for_doc(
+        doc,
+        get_reference_fn=lambda d: get_doc_reference(d.get("name")),
+        get_referenced_tipo_fn=get_referenced_pi_gp_tipo,
+    )
 
 
 def parse_doc_numbers(response):
@@ -409,6 +721,52 @@ def resolve_doc_number_via_odata(doc):
     return values[0].get("Document_No")
 
 
+def _capture_gp_tipo(build_invoice_fn):
+    """Envuelve el builder GP para anotar en el doc el tipoFacturaDoc enviado.
+
+    El core de aprobacion pasa el mismo dict `doc` de construccion a
+    persistencia: la clave transitoria "_gp_tipo_factura_doc" queda disponible
+    para que persist_invoice lo guarde en la factura creada.
+    Retorna la funcion build original si no puede anotar el tipo.
+    """
+    def build(doc, lines, headquarter):
+        invoice = build_invoice_fn(doc, lines, headquarter)
+        tipo = None
+        if isinstance(invoice, dict):
+            tipo = invoice.get("tipoFacturaDoc")
+        doc["_gp_tipo_factura_doc"] = tipo
+        return invoice
+    return build
+
+
+def _persist_gp_tipo(doc):
+    """Guarda el tipoFacturaDoc anotado en el doc sobre la factura creada.
+
+    No hace nada si el builder no anoto tipo (flujo BC o tipo no resuelto).
+    """
+    tipo = (doc or {}).get("_gp_tipo_factura_doc")
+    name = (doc or {}).get("name")
+    if tipo is None or not name:
+        return
+    frappe.db.set_value(
+        "qp_SP_PurchaseInvoice", name, "gp_tipo_factura_doc", tipo
+    )
+
+
+def _persist_nc_devolution(doc):
+    """Registra el consumo del banco de la NC tipo 5 (si fue asignado).
+
+    Lee del doc la clave transitoria "_gp_nc_devolution" = (reference, pi,
+    assigned) seteada por get_nc_devolution_lines durante el armado del
+    payload y persiste cada linea en qp_SP_Devolution.
+    """
+    devolution = (doc or {}).get("_gp_nc_devolution")
+    if not devolution or not isinstance(devolution, tuple) or len(devolution) != 3:
+        return
+    reference, pi, assigned = devolution
+    persist_devolution_consumed(doc, reference, pi, assigned)
+
+
 def persist_invoice(doc, doc_number, now, sync_flow="BC"):
     from qp_supplier_front.infrastructure.adapters.filter_adapter import (
         get_existing_ids,
@@ -424,6 +782,15 @@ def persist_invoice(doc, doc_number, now, sync_flow="BC"):
 
     existing = get_existing_ids("qp_SP_PurchaseInvoice", "invoice_id", {doc_number})
     if doc_number in existing:
+        return doc_number
+
+    # Idempotencia por name: un reintento puede re-aprobar la misma factura
+    # (o un intento previo pudo quedar a medias) con un doc_number distinto.
+    # El name de la PI es fijo (name del documento); si ya existe, no insertar.
+    existing_names = get_existing_ids(
+        "qp_SP_PurchaseInvoice", "name", {doc.get("name")}
+    )
+    if doc.get("name") in existing_names:
         return doc_number
 
     supplier = get_supplier_by_tax_id(doc.get("nvpro_ndoc"))
@@ -450,6 +817,8 @@ def persist_invoice(doc, doc_number, now, sync_flow="BC"):
     )
     insert_invoices({doc.get("name"): invoice_tuple}, now)
 
+    _persist_gp_tipo(doc)
+    _persist_nc_devolution(doc)
     _create_purchase_invoice_bc(doc_number, doc.get("name"))
     return doc_number
 
@@ -877,7 +1246,15 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
     is_service_supplier_fn = None
     resolve_supplier_rule_fn = None
     if backend == "GP":
-        get_lines_fn = cb.get("get_lines_gp_fn", get_lines_gp)
+        get_lines_fn = cb.get("get_lines_gp_fn")
+        if get_lines_fn is None:
+            resolve_nc_tipo_fn = cb.get(
+                "resolve_nc_tipo_fn", resolve_nc_gp_tipo_doc)
+            get_lines_fn = lambda doc: get_lines_gp(
+                doc, resolve_nc_tipo_fn=resolve_nc_tipo_fn, force=force)
+        elif force:
+            base_get_lines_fn = get_lines_fn
+            get_lines_fn = lambda doc: base_get_lines_fn(doc, force=force)
         if selected_receipts is not None:
             get_lines_fn = _get_lines_for_selected(
                 get_lines_fn, selected_receipts, components.get("data")
@@ -891,7 +1268,11 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
                     "resolve_gp_tipo_fn", resolve_gp_tipo_for_doc
                 ),
                 get_oc_dates_fn=cb.get("get_po_dates_fn", get_po_dates),
+                resolve_nc_tipo_fn=cb.get(
+                    "resolve_nc_tipo_fn", resolve_nc_gp_tipo_doc
+                ),
             )
+        build_invoice_fn = _capture_gp_tipo(build_invoice_fn)
         is_service_supplier_fn = cb.get("is_service_supplier_fn", is_service_supplier_doc)
         resolve_supplier_rule_fn = cb.get(
             "resolve_supplier_rule_fn", resolve_supplier_rule)
@@ -965,6 +1346,39 @@ def run_approve_with_receipts(doc_names, selected_receipts,
     return result
 
 
+def get_nc_devolution_excess(doc, data=None):
+    """Pre-validacion del banco de una NC tipo 5 (mensaje) sin efectos.
+
+    Calcula si la devolucion excede el banco de la factura de referencia (sin
+    persistir ni anotar el doc). Usado por la pre-validacion del front, que
+    SÍ puede confirmarse manualmente (force=True): el exceso es una advertencia.
+
+    La falta de confirmation_id en la referencia NO se reporta aqui: es un
+    bloqueo duro (no forceable), solo se valida al aprobar en
+    get_nc_devolution_lines y deja alerta en la factura.
+
+    Con data (facade en simulacion) delega en el espejo de memoria.
+    """
+    if data is not None and hasattr(data, "devolution_excess"):
+        return data.devolution_excess(doc)
+    from qp_supplier_front.uses_cases.documenteme.devolution_bank import (
+        allocate_devolution,
+        apply_consumed,
+        excess_message,
+    )
+
+    reference, pi = get_nc_reference_ctx(doc)
+    if not reference or not pi:
+        return ""
+    product_lines, line_error = _get_lines_gp_from_invoice(doc)
+    if line_error:
+        return ""
+    bank, consumed = get_devolution_bank(reference, pi)
+    available = apply_consumed(bank, consumed)
+    _, excess = allocate_devolution(product_lines, available)
+    return excess_message(excess)
+
+
 def collect_document_violations(doc_names, backend="BC"):
     """Advertencias de aprobacion automatica por factura (pre-validacion).
 
@@ -973,9 +1387,18 @@ def collect_document_violations(doc_names, backend="BC"):
     la regla OC - recepcion - montos pero aun pueden aprobarse de forma
     forzada por el usuario. Con backend GP los proveedores de servicio
     relajan OC/recepciones (solo su propia regla de rechazo aplica).
+
+    Con backend GP ademas se reporta el exceso del banco de devoluciones de
+    las NC tipo 5 (Nvtip_docu == "C" que referencia facturas tipo 1/2) para
+    que el front muestre la confirmacion antes de aprobar manualmente.
+    En simulacion usa el bundle de memoria (get_docs/exceso).
     """
-    docs = get_docs(doc_names)
-    return collect_registrable_violations(
+    components = runtime.resolve()
+    cb = components.get("approve_callbacks") or {}
+    data = components.get("data")
+    get_docs_fn = cb.get("get_docs_fn", get_docs)
+    docs = get_docs_fn(doc_names)
+    violations = collect_registrable_violations(
         docs,
         po_exists,
         receipt_bank,
@@ -987,6 +1410,23 @@ def collect_document_violations(doc_names, backend="BC"):
             resolve_supplier_rule if backend == "GP" else None
         ),
     )
+    if backend != "GP":
+        return violations
+
+    by_nume = {v.get("nvfac_nume"): v for v in violations}
+    for doc in (docs or []):
+        if not is_credit_note(doc.get("nvtip_docu")):
+            continue
+        excess = get_nc_devolution_excess(doc, data=data)
+        if not excess:
+            continue
+        entry = by_nume.setdefault(
+            doc.get("nvfac_nume"),
+            {"nvfac_nume": doc.get("nvfac_nume"), "violations": []},
+        )
+        if excess not in entry["violations"]:
+            entry["violations"].append(excess)
+    return list(by_nume.values())
 
 
 def run_approve(doc_names_raw, send_request_fn=None, force=False, backend="BC"):
