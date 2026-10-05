@@ -1,0 +1,116 @@
+<div class="modal fade" id="reference_nc_modal" tabindex="-1" aria-labelledby="reference_nc_modal_label" aria-hidden="true">
+    <style>
+        #reference_nc_modal .modal-header {
+            display: block;
+            text-align: center;
+            position: relative;
+        }
+        #reference_nc_modal .modal-header .close {
+            position: absolute;
+            right: 1rem;
+            top: 1rem;
+        }
+        #reference_nc_modal .modal-title {
+            color: #004D90;
+        }
+        #reference_nc_modal .range-label {
+            color: #8a9099;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        #reference_nc_modal .ref-table {
+            margin-bottom: 0;
+        }
+        #reference_nc_modal .ref-row {
+            cursor: pointer;
+        }
+        #reference_nc_modal .ref-row.selected {
+            background-color: #e3f2fd;
+        }
+        #reference_nc_modal .ref-row:hover {
+            box-shadow: 0 1px 6px rgba(0, 77, 144, 0.35);
+            background-color: #f5f9ff;
+        }
+        #reference_nc_modal .ref-hint {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #8a9099;
+            font-size: 12px;
+            margin: 0 0 8px 0;
+        }
+        #reference_nc_modal .ref-hint .material-symbols-outlined {
+            font-size: 15px;
+        }
+        #reference_nc_modal .ref-confirm {
+            border-top: 1px solid #dee2e6;
+            padding: 12px 0 4px 0;
+        }
+        #reference_nc_modal .ref-confirm .buttons-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        #reference_nc_modal .ref-confirm .buttons-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reference_nc_modal_label">Factura de referencia</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="range-label" id="reference-nc-range">Rango de fechas: -</div>
+                <div class="form-group">
+                    <input type="text" class="form-control" id="reference-nc-search"
+                        placeholder="Buscar por numero de factura...">
+                </div>
+                <div class="ref-hint">
+                    <span class="material-symbols-outlined">touch_app</span>
+                    <span>Haga clic en la fila de la factura para seleccionarla</span>
+                </div>
+                <div style="max-height:280px;overflow-y:auto">
+                    <table class="table table-striped ref-table">
+                        <thead>
+                            <tr>
+                                <th>Factura Proveedor</th>
+                                <th>Factura Interna</th>
+                                <th>Fecha</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reference-nc-body">
+                            <tr>
+                                <td colspan="5" class="text-center" style="color:#8a9099">Cargando candidatas...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="ref-confirm" id="reference-nc-confirm" style="display:none">
+                    <p style="font-size:13px;color:#333;margin-bottom:8px">
+                        &iquest;Est&aacute; seguro que desea asignar la factura
+                        <strong id="reference-nc-selected-label">-</strong> como referencia de la nota de cr&eacute;dito?
+                    </p>
+                    <div class="buttons-row">
+                        <div>
+                            <button type="button" class="btn btn-danger btn-sm" id="reference-nc-no" >No asignar</button>
+                        </div>
+                        <div class="buttons-right">
+                            <button type="button" class="btn btn-primary btn-sm" id="reference-nc-assign" >Solo asignar</button>
+                            <button type="button" class="btn btn-success btn-sm" id="reference-nc-approve">Asignar y Aprobar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

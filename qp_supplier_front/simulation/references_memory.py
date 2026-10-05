@@ -244,38 +244,13 @@ def memory_get_lines_gp(store, doc, force=False):
     return _memory_gp_lines_from_invoice(store, doc)
 
 
-def memory_get_doc_reference(store, doc_name):
-    """Referencia (cbc:ID de InvoiceDocumentReference) del XML adjunto."""
-    from qp_supplier_front.services.xml_invoice_reference import (
-        extract_invoice_document_reference,
-    )
-
-    rows = store.query(
-        "qp_SP_DocumentAttach",
-        filters={"parent": doc_name, "parenttype": "qp_SP_DocumentDetail"},
-        fields=["file_type", "file_content"],
-    )
-    for row in rows or []:
-        if (row.get("file_type") or "").upper() != "XML":
-            continue
-        content = row.get("file_content") or ""
-        if not content:
-            continue
-        try:
-            reference = extract_invoice_document_reference(content)
-        except Exception:
-            continue
-        if reference:
-            return reference
-    return None
-
-
 def memory_get_referenced_pi_gp_tipo(store, reference):
     """gp_tipo_factura_doc de la qp_SP_PurchaseInvoice referenciada.
 
     Espejo de resources/documenteme/_approbe_base.get_referenced_pi_gp_tipo:
-    la referencia del XML es el numero de factura del proveedor (nvfac_nume),
-    no el name de la PI. Se busca por name, nvfac_nume o detail.
+    la referencia asignada por el usuario es el numero de factura del
+    proveedor (nvfac_nume), no el name de la PI. Se busca por name,
+    nvfac_nume o detail.
     """
     if not reference:
         return None
@@ -292,15 +267,28 @@ def memory_get_referenced_pi_gp_tipo(store, reference):
 
 
 def memory_resolve_nc_tipo_doc(store, doc):
-    """Resuelve el tipoFacturaDoc (4 o 5) de una NC (en memoria)."""
+    """Resuelve el tipoFacturaDoc (4 o 5) de una NC (en memoria).
+
+    Proveedor de servicio: siempre tipo 4 (CxP), sin necesidad de referencia.
+    NC tipo 5: usa la referencia asignada por el usuario (qp_ref_invoice); si
+    no hay referencia asignada devuelve error (estado SR, no aprobable).
+    """
     from qp_supplier_front.uses_cases.documenteme.approve import (
+        GP_TIPO_NC,
         resolve_nc_tipo_for_doc,
     )
 
+    if memory_is_service_supplier(store, doc.get("nvpro_ndoc")):
+        return GP_TIPO_NC, ""
+    reference = (doc or {}).get("qp_ref_invoice") or ""
+    if not reference:
+        return None, (
+            "La nota de credito no tiene una factura de compra de "
+            "referencia asignada"
+        )
     return resolve_nc_tipo_for_doc(
         doc,
-        get_reference_fn=lambda d: memory_get_doc_reference(
-            store, d.get("name")),
+        get_reference_fn=lambda d: (d or {}).get("qp_ref_invoice") or "",
         get_referenced_tipo_fn=lambda ref: memory_get_referenced_pi_gp_tipo(
             store, ref),
     )
@@ -423,7 +411,7 @@ def memory_get_nc_devolution_lines(store, doc, force=False):
         GP_TIPO_ENVIO,
     )
 
-    reference = memory_get_doc_reference(store, doc.get("name"))
+    reference = (doc or {}).get("qp_ref_invoice") or ""
     pi = memory_get_referenced_pi(store, reference)
     if not reference or not pi:
         return [], (
@@ -489,7 +477,7 @@ def memory_get_nc_devolution_excess(store, doc):
         excess_message,
     )
 
-    reference = memory_get_doc_reference(store, doc.get("name"))
+    reference = (doc or {}).get("qp_ref_invoice") or ""
     pi = memory_get_referenced_pi(store, reference)
     if not reference or not pi:
         return ""

@@ -27,7 +27,7 @@ DETAIL_FIELDS = [
     "nvfac_vinc", "nvfac_vicb", "nvfac_vicl", "nvfac_vinp", "nvfac_vibu",
     "nvfac_vicu", "nvfac_vadv", "nvfac_conv", "nvfac_fpag", "nvpro_cciu",
     "nvpro_ciud", "nvpro_cpai", "nvpro_pais", "nvpro_dire", "nvfac_tota",
-    "nvfac_votr",
+    "nvfac_votr", "qp_ref_invoice", "qp_ref_date_start", "qp_ref_date_end",
 ]
 
 DETALLE_FIELDS = [
@@ -146,6 +146,68 @@ def _set_detail_fields(sync_line_name, document_data):
     return row
 
 
+def _memory_apply_nc_sync_fields(store, doc, attached_list):
+    """Espejo de services/document_sync._apply_nc_sync_fields (en memoria).
+
+    NC tipo 5 (proveedor NO servicio) sin qp_ref_invoice -> estado "SR" (Sin
+    referencia); el rango de fechas (StartDate/EndDate) se extrae del XML
+    adjunto si no viene en el doc. En re-sync se preserva la referencia
+    asignada por el usuario (leida del registro previo), igual que en el flujo
+    real (el sync no toca qp_ref_invoice).
+    """
+    from qp_supplier_front.simulation import references_memory
+
+    if (doc.get("nvtip_docu") or "") != "C":
+        return doc
+
+    previous = store.get("qp_SP_DocumentDetail", doc.get("name")) or {}
+    document_reference = (
+        doc.get("qp_ref_invoice") or previous.get("qp_ref_invoice") or ""
+    )
+
+    start = doc.get("qp_ref_date_start") or previous.get("qp_ref_date_start")
+    end = doc.get("qp_ref_date_end") or previous.get("qp_ref_date_end")
+    if not start and not end:
+        from qp_supplier_front.services.xml_period import (
+            extract_period_dates,
+        )
+        for item in (attached_list or []):
+            if (item.get("Nvdoc_tipo") or "").upper() != "XML":
+                continue
+            content = item.get("Nvdoc_file")
+            if not content:
+                continue
+            xml_content = None
+            try:
+                xml_content = base64.b64decode(content).decode(
+                    "utf-8", "replace"
+                )
+            except (TypeError, ValueError):
+                xml_content = content
+            if not xml_content:
+                continue
+            _start, _end = extract_period_dates(xml_content)
+            if _start or _end:
+                start = _start
+                end = _end
+            break
+    if start or end:
+        doc["qp_ref_date_start"] = start
+        doc["qp_ref_date_end"] = end
+
+    current = doc.get("nvfac_esta") or "T"
+    if current in ("SR", "BCC", "PA", "A", "R"):
+        return doc
+    if document_reference:
+        doc["qp_ref_invoice"] = document_reference
+        return doc
+    if references_memory.memory_is_service_supplier(
+            store, doc.get("nvpro_ndoc")):
+        return doc
+    doc["nvfac_esta"] = "SR"
+    return doc
+
+
 def _build_detail_lines(store, parent, detalle):
     for item in (detalle or []):
         line = {"parent": parent, "parenttype": "qp_SP_DocumentDetail"}
@@ -212,6 +274,8 @@ def memory_create_document_detail(store, sync_line_name, document_data,
     name = _sync_line_name(nvpro_ndoc, nvfac_nume)
 
     doc = _set_detail_fields(sync_line_name, document_data)
+    doc["name"] = name
+    _memory_apply_nc_sync_fields(store, doc, attached_list)
     if store.exists("qp_SP_DocumentDetail", name):
         previous = store.get("qp_SP_DocumentDetail", name) or {}
         old_state = previous.get("nvfac_esta")
@@ -293,7 +357,8 @@ APPOINT_DOC_FIELDS = [
     "name", "nvfac_nume", "nvpro_ndoc", "nvfac_fech", "nvfac_cufe",
     "nvtip_docu", "nvfac_fpag", "nvfac_orde", "nvfac_rece", "nvfac_totp",
     "nvfac_esta", "nvfac_ueve", "nvfac_conv", "nvmon_codi", "nvfac_stot",
-    "nvfac_viva", "nvpro_nomb",
+    "nvfac_viva", "nvpro_nomb", "qp_ref_invoice", "qp_ref_date_start",
+    "qp_ref_date_end",
 ]
 
 

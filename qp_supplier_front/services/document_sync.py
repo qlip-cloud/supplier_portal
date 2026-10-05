@@ -215,7 +215,7 @@ def create_detail_line(detalle_item):
     return line
 
 
-ADVANCED_STATES = ("BCC", "PA", "A", "R")
+ADVANCED_STATES = ("SR", "BCC", "PA", "A", "R")
 
 
 def _resolve_sync_state(current_state, origin_state, origin_ueve):
@@ -281,6 +281,75 @@ def _set_document_detail_fields(doc, document_data):
     return doc
 
 
+def _is_service_supplier(tax_id):
+    """True si el NIT corresponde a un proveedor de servicio (CxP)."""
+    import frappe
+    from qp_supplier_front.infrastructure.adapters.item_homologation_adapter import (
+        resolve_supplier,
+    )
+
+    if not tax_id:
+        return False
+    supplier = resolve_supplier(tax_id)
+    if not supplier:
+        return False
+    return bool(frappe.db.get_value(
+        "Supplier", supplier, "qp_is_service_supplier"
+    ))
+
+
+def _resolve_nc_detail_state(detail):
+    """Estado local de una nota de credito sin factura de compra referenciada.
+
+    Una NC tipo 5 (proveedor NO servicio) sin qp_ref_invoice no puede armar su
+    payload (el proveedor no agrega la referencia en el XML porque la factura
+    referenciada ya fue aceptada); se marca "SR" (Sin referencia) hasta que el
+    usuario asigne la factura de compra. NC tipo 4 (proveedor de servicio) y
+    las ya avanzadas (BCC/PA/A/R) conservan su estado.
+    """
+    if (detail.get("nvtip_docu") or "") != "C":
+        return detail.get("nvfac_esta")
+    current = detail.get("nvfac_esta") or "T"
+    if current in ADVANCED_STATES:
+        return current
+    if detail.get("qp_ref_invoice"):
+        return current
+    if _is_service_supplier(detail.get("nvpro_ndoc")):
+        return current
+    return "SR"
+
+
+def _set_nc_period_from_xml(detail, attached_list):
+    """Rango de fechas (StartDate/EndDate) del XML de una NC a los campos."""
+    import base64
+    from qp_supplier_front.services.xml_period import extract_period_dates
+
+    for attached_item in (attached_list or []):
+        if (attached_item.get("Nvdoc_tipo") or "").upper() != "XML":
+            continue
+        file_content_b64 = attached_item.get("Nvdoc_file")
+        if not file_content_b64:
+            continue
+        try:
+            xml_content = base64.b64decode(file_content_b64)
+        except Exception:
+            continue
+        start, end = extract_period_dates(xml_content)
+        if start or end:
+            detail.qp_ref_date_start = start
+            detail.qp_ref_date_end = end
+        break
+
+
+def _apply_nc_sync_fields(detail, attached_list):
+    """Notas de credito: estado SR (sin referencia) y rango de fechas del XML."""
+    if (detail.get("nvtip_docu") or "") != "C":
+        return detail
+    _set_nc_period_from_xml(detail, attached_list)
+    detail.nvfac_esta = _resolve_nc_detail_state(detail)
+    return detail
+
+
 def _create_allowance_charges_from_xml(detail, attached_list):
     import base64
     from qp_supplier_front.services.xml_allowance_charge import extract_document_allowance_charges
@@ -329,6 +398,7 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
         detail = frappe.get_doc("qp_SP_DocumentDetail", detail_name)
         detail = _set_document_detail_fields(detail, document_data)
         detail.document_sync_line = document_sync_line_name
+        _apply_nc_sync_fields(detail, attached_list)
 
         # Clean up old File docs before clearing child table
         old_file_ids = frappe.db.sql_list(
@@ -373,6 +443,7 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
     detail = frappe.new_doc("qp_SP_DocumentDetail")
     detail.document_sync_line = document_sync_line_name
     detail = _set_document_detail_fields(detail, document_data)
+    _apply_nc_sync_fields(detail, attached_list)
 
     for detalle_item in (document_data.get("Detalle") or []):
         detail_line = create_detail_line(detalle_item)

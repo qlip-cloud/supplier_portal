@@ -263,5 +263,50 @@ class TestCreditConfirmation(unittest.TestCase):
         self.assertEqual(doc["nvfac_esta"], "A")
 
 
+class TestNcSinReferencia(unittest.TestCase):
+
+    def setUp(self):
+        self.store = MemoryStore()
+
+    def _create_nc(self, name="NC1", nvtip="C", estado="E"):
+        return mem.memory_create_document_detail(
+            self.store, "{}:{}".format(SIM_NIT, name),
+            {
+                "Nvfac_nume": name,
+                "Nvpro_ndoc": SIM_NIT,
+                "Nvtip_docu": nvtip,
+                "Nvfac_esta": estado,
+            },
+            [],
+        )
+
+    def test_nc_sin_referencia_queda_sr(self):
+        self._create_nc()
+        row = self.store.get("qp_SP_DocumentDetail", "{}:NC1".format(SIM_NIT))
+        self.assertEqual(row["nvfac_esta"], "SR")
+
+    def test_factura_no_es_sr(self):
+        self._create_nc(nvtip="F")
+        row = self.store.get("qp_SP_DocumentDetail", "{}:NC1".format(SIM_NIT))
+        self.assertEqual(row["nvfac_esta"], "E")
+
+    def test_nc_servicio_no_es_sr(self):
+        self.store.insert("qp_SP_Supplier", {
+            "name": "SUP-SRV", "tax_id": SIM_NIT, "qp_is_service_supplier": 1,
+        })
+        self._create_nc()
+        row = self.store.get("qp_SP_DocumentDetail", "{}:NC1".format(SIM_NIT))
+        self.assertEqual(row["nvfac_esta"], "E")
+
+    def test_resync_no_pierde_referencia_asignada(self):
+        self._create_nc()
+        name = "{}:NC1".format(SIM_NIT)
+        self.store.set_value("qp_SP_DocumentDetail", name, "qp_ref_invoice", "F-REF")
+        self._create_nc(estado="V")
+        row = self.store.get("qp_SP_DocumentDetail", name)
+        self.assertEqual(row["qp_ref_invoice"], "F-REF")
+        self.assertNotEqual(row["nvfac_esta"], "SR")
+
+
 if __name__ == "__main__":
     unittest.main()

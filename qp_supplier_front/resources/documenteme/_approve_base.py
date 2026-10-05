@@ -28,6 +28,7 @@ from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.uses_cases.documenteme.approve import (
     GP_TIPO_ENVIO,
+    GP_TIPO_NC,
     GP_TIPO_NC_5,
     approve_documents,
     collect_registrable_violations,
@@ -74,6 +75,9 @@ def get_docs(doc_names):
             "nvfac_stot",
             "nvfac_viva",
             "nvpro_nomb",
+            "qp_ref_invoice",
+            "qp_ref_date_start",
+            "qp_ref_date_end",
         ],
     )
 
@@ -395,12 +399,23 @@ def get_lines_gp(doc, resolve_nc_tipo_fn=None, force=False):
     return _get_lines_gp_from_invoice(doc)
 
 
+def get_nc_reference(doc):
+    """Factura de compra referenciada por una NC (asignada por el usuario).
+
+    Reemplaza la antigua busqueda de la referencia en el XML
+    (cac:InvoiceDocumentReference): el proveedor no incluye la referencia
+    cuando la factura referenciada ya fue aceptada, por lo que la NC se asigna
+    manualmente en la vista (campo qp_ref_invoice = nvfac_nume de la PI).
+    """
+    return (doc or {}).get("qp_ref_invoice") or ""
+
+
 def get_nc_reference_ctx(doc):
     """Contexto de la referencia de una NC tipo 5: (reference, pi_row).
 
     Retorna (reference, pi) o (None, None) si no se pudo resolver.
     """
-    reference = get_doc_reference(doc.get("name"))
+    reference = get_nc_reference(doc)
     if not reference:
         return None, None
     pi = get_referenced_pi(reference)
@@ -602,51 +617,14 @@ def get_nc_devolution_lines(doc, force=False):
     return payload_lines, ""
 
 
-def get_doc_reference(doc_name):
-    """Referencia (cbc:ID de InvoiceDocumentReference) del XML adjunto.
-
-    Lee los File XML adjuntos al qp_SP_DocumentDetail y extrae la referencia
-    de factura (p.ej. "SETT0501293") que la NC ajusta. Retorna el nombre de la
-    qp_SP_PurchaseInvoice referenciada o None si no se pudo obtener.
-    """
-    from qp_supplier_front.services.xml_invoice_reference import (
-        extract_invoice_document_reference,
-    )
-
-    attach_rows = frappe.get_all(
-        "qp_SP_DocumentAttach",
-        filters={"parent": doc_name, "parenttype": "qp_SP_DocumentDetail"},
-        fields=["file_id", "file_type", "file_name"],
-    )
-    for row in attach_rows or []:
-        if (row.get("file_type") or "").upper() != "XML":
-            continue
-        file_id = row.get("file_id")
-        if not file_id:
-            continue
-        try:
-            file_doc = frappe.get_doc("File", file_id)
-            content = file_doc.get_content()
-        except Exception:
-            continue
-        if not content:
-            continue
-        try:
-            reference = extract_invoice_document_reference(content)
-        except Exception:
-            continue
-        if reference:
-            return reference
-    return None
-
-
 def get_referenced_pi(reference):
     """qp_SP_PurchaseInvoice referenciada por una NC.
 
-    La referencia del XML es el numero de factura del proveedor (nvfac_nume),
-    no el name de la PI (que es "nit:nvfac_nume"). Se busca por nvfac_nume,
-    detail (donde el flujo documenteme persiste nvfac_nume) o name.
-    Retorna el dict {name, purchase_order_id, gp_tipo_factura_doc} o None.
+    La referencia asignada por el usuario es el numero de factura del
+    proveedor (nvfac_nume), no el name de la PI (que es "nit:nvfac_nume"). Se
+    busca por nvfac_nume, detail (donde el flujo documenteme persiste
+    nvfac_nume) o name. Retorna el dict {name, purchase_order_id,
+    gp_tipo_factura_doc} o None.
     """
     if not reference:
         return None
@@ -683,10 +661,22 @@ def resolve_nc_gp_tipo_doc(doc):
     Retorna (tipo, error). Con el tipo resuelto se decide si la NC se envia
     con tipofacturadoc = 4 (referencia a una CxP tipo 3) o tipofacturadoc = 5
     (referencia a una factura tipo 1/2).
+
+    - Proveedor de servicio: siempre tipo 4, sin necesidad de referencia.
+    - NC tipo 5: la referencia es la asignada por el usuario (qp_ref_invoice);
+      si no tiene referencia asignada devuelve error (estado SR, no aprobable).
     """
+    if is_service_supplier_doc(doc):
+        return GP_TIPO_NC, ""
+    reference = get_nc_reference(doc)
+    if not reference:
+        return None, (
+            "La nota de credito no tiene una factura de compra de "
+            "referencia asignada"
+        )
     return resolve_nc_tipo_for_doc(
         doc,
-        get_reference_fn=lambda d: get_doc_reference(d.get("name")),
+        get_reference_fn=lambda d: get_nc_reference(d),
         get_referenced_tipo_fn=get_referenced_pi_gp_tipo,
     )
 

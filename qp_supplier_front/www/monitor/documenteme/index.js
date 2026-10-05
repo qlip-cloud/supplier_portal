@@ -261,6 +261,7 @@ $(document).ready(function () {
         "BCC": "Creada en BC",
         "PA": "En proceso de aprobaci\u00f3n",
         "PR": "En proceso de rechazo",
+        "SR": "Sin referencia",
         "T": ""
     };
 
@@ -841,6 +842,150 @@ $(document).ready(function () {
         }, function () {
             // Cancelar: la seleccion queda intacta.
         });
+    });
+
+    // =====================================================================
+    // Factura de referencia de NC (devoluciones GP)
+    // =====================================================================
+    var refNcDocName = null;
+    var refNcSelected = null;
+    window.__refNcInvoices = [];
+
+    function renderRefCandidates(invoices, search) {
+        search = String(search || "").trim().toLowerCase();
+        var $body = $("#reference-nc-body");
+        $body.empty();
+        var rows = (invoices || []).filter(function (inv) {
+            if (!search) {
+                return true;
+            }
+            return String(inv.nvfac_nume || inv.detail || inv.invoice_id || inv.name || "")
+                .toLowerCase().indexOf(search) !== -1;
+        });
+        if (rows.length === 0) {
+            $body.html('<tr><td colspan="5" class="text-center" style="color:#8a9099">Sin candidatas</td></tr>');
+            return;
+        }
+        var REF_INVOICE_STATE_LABELS = {
+            "A": "Aprobada",
+            "E": "Registrada",
+            "V": "Lista para Registro",
+            "R": "Rechazada",
+            "BCC": "Creada en GP",
+            "PA": "En proceso de aprobaci\u00f3n",
+            "PR": "En proceso de rechazo",
+            "SR": "Sin referencia",
+            "T": ""
+        };
+        function refInvoiceStateLabel(code) {
+            return REF_INVOICE_STATE_LABELS[code] || timelineStateLabel(code);
+        }
+        rows.forEach(function (inv) {
+            var label = inv.referencia || inv.nvfac_nume || inv.detail || inv.invoice_id || inv.name || "";
+            var $tr = $("<tr class=\"ref-row\" data-invoice=\"" + escapeHtml(label) + "\">" +
+                "<td>" + escapeHtml(inv.nvfac_nume || inv.detail || "-") + "</td>" +
+                "<td>" + escapeHtml(inv.invoice_id || "") + "</td>" +
+                "<td>" + escapeHtml(inv.registration_date || "") + "</td>" +
+                "<td>" + fmtMoney(inv.subtotal) + "</td>" +
+                "<td>" + escapeHtml(refInvoiceStateLabel(inv.nvfac_esta)) + "</td>" +
+                "</tr>");
+            $tr.on("click", function () {
+                $(".ref-row").removeClass("selected");
+                $tr.addClass("selected");
+                refNcSelected = label;
+                $("#reference-nc-selected-label").text(label);
+                $("#reference-nc-confirm").show();
+            });
+            $body.append($tr);
+        });
+    }
+
+    function submitRefAssign(approveFlag) {
+        if (!refNcDocName || !refNcSelected) {
+            frappe.msgprint("Seleccione una factura de referencia");
+            return;
+        }
+        var overlayEl = document.getElementById("overlay");
+        var savedOnClick = overlayEl ? overlayEl.onclick : null;
+        if (overlayEl) {
+            overlayEl.onclick = null;
+            overlayEl.style.display = "block";
+        }
+        petition_get_data({
+            doc_name: refNcDocName,
+            invoice_number: refNcSelected,
+            approve: JSON.stringify(approveFlag)
+        }, "qp_supplier_front.resources.documenteme.nc_reference.assign_reference",
+            function (response) {
+                if (overlayEl) {
+                    overlayEl.onclick = savedOnClick;
+                    overlayEl.style.display = "none";
+                }
+                frappe.msgprint(response.msg);
+                if (response.status === 200) {
+                    $("#reference_nc_modal").modal("hide");
+                    window.filter_init();
+                }
+            }
+        );
+    }
+
+    $(document).on("click", ".btn-control-reference", function (event) {
+        event.stopPropagation();
+        refNcDocName = $(this).data("name");
+        refNcSelected = null;
+
+        $("#reference-nc-range").text("Rango de fechas: -");
+        $("#reference-nc-search").val("");
+        $("#reference-nc-body").html(
+            '<tr><td colspan="5" class="text-center" style="color:#8a9099">Cargando candidatas...</td></tr>'
+        );
+        $("#reference-nc-confirm").hide();
+
+        petition_get_data({ doc_name: refNcDocName },
+            "qp_supplier_front.resources.documenteme.nc_reference.get_reference_candidates",
+            function (response) {
+                if (response.status !== 200) {
+                    $("#reference-nc-body").html(
+                        '<tr><td colspan="5" class="text-center" style="color:#dc3545">' +
+                        escapeHtml(response.msg || "Error") + '</td></tr>'
+                    );
+                    $("#reference_nc_modal").modal("show");
+                    frappe.msgprint(response.msg || "Error al obtener candidatas");
+                    return;
+                }
+                var data = response.data || {};
+                window.__refNcInvoices = data.invoices || [];
+                var start = data.start || "";
+                var end = data.end || "";
+                $("#reference-nc-range").text(
+                    "Rango de fechas: " + (start ? start + " a " + (end || "-") : "sin rango")
+                );
+                renderRefCandidates(window.__refNcInvoices, "");
+                $("#reference_nc_modal").modal("show");
+            }
+        );
+    });
+
+    $("#reference-nc-search").on("input", function () {
+        renderRefCandidates(window.__refNcInvoices || [], $(this).val());
+    });
+
+    // Confirmacion con 3 opciones:
+    //  - "No asignar"        -> cancela (sin efectos)
+    //  - "Solo asignar"      -> asigna la referencia y deja la NC en "V"
+    //  - "Asignar y Aprobar" -> asigna e inicia la aprobacion de inmediato
+    $("#reference-nc-no").on("click", function () {
+        refNcSelected = null;
+        $("#reference_nc_modal").modal("hide");
+    });
+
+    $("#reference-nc-assign").on("click", function () {
+        submitRefAssign(false);
+    });
+
+    $("#reference-nc-approve").on("click", function () {
+        submitRefAssign(true);
     });
 
     // Render inicial + re-render tras scroll infinito / filtros.

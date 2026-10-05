@@ -98,6 +98,7 @@ def _seed_nc_doc(store, reference, pi_gp_tipo, nume="NC-GP-0001",
         "nvfac_stot": 0,
         "nvfac_viva": 0,
         "nvpro_nomb": "PROVEEDOR GP",
+        "qp_ref_invoice": reference,
     })
     store.insert("qp_SP_DocumentAttach", {
         "parent": name,
@@ -350,6 +351,48 @@ class TestSimGpDocumentemeInMemory(unittest.TestCase):
         self.assertEqual(len(result["errors"]), 1)
         self.assertIn("Faltan homologaciones", result["errors"][0]["error"])
         self.assertEqual(calls["sent"], 0)
+
+    def test_nota_credito_servicio_sin_referencia_envia_tipo4(self):
+        # NC de un proveedor de servicio: NO requiere referencia. Sin
+        # qp_ref_invoice se clasifica como tipo 4 (CxP) y se envia sin
+        # productos.
+        nit = seeds.GP_SIM_SERVICE_NIT
+        name = "{}:NC-GP-SRV-0001".format(nit)
+        self.store.insert("qp_SP_DocumentDetail", {
+            "name": name,
+            "nvfac_nume": "NC-GP-SRV-0001",
+            "nvpro_ndoc": nit,
+            "nvfac_fech": "2026-09-15 10:00:00",
+            "nvfac_cufe": "",
+            "nvtip_docu": "C",
+            "nvfac_fpag": "",
+            "nvfac_orde": "",
+            "nvfac_rece": "",
+            "nvfac_totp": 0,
+            "nvfac_esta": "V",
+            "nvfac_ueve": "",
+            "nvfac_conv": "2",
+            "nvmon_codi": "COP",
+            "nvfac_stot": 0,
+            "nvfac_viva": 0,
+            "nvpro_nomb": "PROVEEDOR SERVICIO GP",
+        })
+
+        calls = {"payload": None}
+
+        def send_request_fn(endpoint_code, payload):
+            calls["payload"] = payload
+            return {"Result": 0, "invoices": [
+                {"doc_number": "SIMGP4B", "error": ""}
+            ]}, 200
+
+        result = self._run([name], send_request_fn=send_request_fn)
+
+        self.assertEqual(len(result["approved"]), 1)
+        self.assertEqual(result["errors"], [])
+        invoice = calls["payload"][0]
+        self.assertEqual(invoice["tipoFacturaDoc"], 4)
+        self.assertEqual(invoice["vendorInvoiceLine"], [])
 
     def test_nota_credito_referencia_cxp_envia_tipo4_sin_productos(self):
         # NC (nvtip_docu == "C") que referencia una factura de compra tipo 3

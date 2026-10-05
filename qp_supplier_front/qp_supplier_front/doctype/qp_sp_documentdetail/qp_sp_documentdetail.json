@@ -23,11 +23,14 @@
     "qp_reject_orig_state",
     "qp_reject_is_invoice_error",
     "qp_reject_retry_enabled",
-   "nvfac_rfec",
-   "nvfac_orde",
-   "nvfac_rece",
-   "nvfac_refe",
-   "nvsuc_codi",
+"nvfac_rfec",
+    "nvfac_orde",
+    "nvfac_rece",
+    "nvfac_refe",
+    "qp_ref_invoice",
+    "qp_ref_date_start",
+    "qp_ref_date_end",
+    "nvsuc_codi",
    "nvfac_venc",
    "nvfac_viva",
    "nvpro_ufac",
@@ -176,6 +179,21 @@
    "fieldname": "nvfac_refe",
    "fieldtype": "Long Text",
    "label": "Nvfac Refe"
+  },
+  {
+   "fieldname": "qp_ref_invoice",
+   "fieldtype": "Data",
+   "label": "Factura de referencia"
+  },
+  {
+   "fieldname": "qp_ref_date_start",
+   "fieldtype": "Date",
+   "label": "Inicio rango de referencia"
+  },
+  {
+   "fieldname": "qp_ref_date_end",
+   "fieldtype": "Date",
+   "label": "Fin rango de referencia"
   },
   {
    "fieldname": "nvsuc_codi",
@@ -332,7 +350,7 @@
   ],
   "index_web_pages_for_search": 1,
   "links": [],
-   "modified": "2026-09-03 18:05:12.000000",
+   "modified": "2026-10-01 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DocumentDetail",

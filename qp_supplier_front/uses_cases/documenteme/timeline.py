@@ -34,6 +34,7 @@ STATE_LABELS = {
     "BCC": "Creada en BC",
     "PA": "En proceso de aprobación",
     "PR": "En proceso de rechazo",
+    "SR": "Sin referencia",
     "T": "",
 }
 
