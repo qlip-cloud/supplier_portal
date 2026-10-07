@@ -74,3 +74,11 @@ class MemoryReferenceSource(object):
             fields=["parent", "item_code", "uom", "qty", "rate", "amount"],
             order_by="parent, idx",
         )
+
+    def supplier_by_tax_id(self, tax_id):
+        return references_memory.memory_get_supplier_by_tax_id(
+            self._store, tax_id)
+
+    def homologation_map(self, supplier):
+        return references_memory.memory_get_homologation_map(
+            self._store, supplier)

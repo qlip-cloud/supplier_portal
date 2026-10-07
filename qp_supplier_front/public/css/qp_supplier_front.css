@@ -228,6 +228,15 @@ label {
     color: #666A65;
     border-bottom: .5px solid #c8cdc7;
 }
+
+/* Discrepancia de precio factura vs orden de compra: resalta las filas
+   afectadas al pasar el cursor por el icono. El tamano/posicion del icono y
+   la alineacion del monto van inline en el template para no depender del
+   cache de este archivo. */
+tr.price-mismatch-highlight > td {
+    color: #dc3545 !important;
+    font-weight: bold;
+}
 input[type="date"]::before {
     content: attr(data-placeholder);
     color: #999;

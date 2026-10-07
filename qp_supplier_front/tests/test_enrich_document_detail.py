@@ -17,6 +17,7 @@ from qp_supplier_front.services.enrich_document_detail import (
     build_po_products,
     build_receipt_products,
     enrich_document_detail,
+    mark_price_mismatches,
 )
 
 
@@ -384,6 +385,183 @@ class TestRecepcionesDetalle(unittest.TestCase):
         self.assertFalse(detalle[0]["selectable"])
         self.assertEqual(
             [p["codigo"] for p in detalle[0]["productos"]], ["SH00086", "SH00087"])
+
+
+class TestMarkPriceMismatches(unittest.TestCase):
+
+    def _po_products(self):
+        return [
+            {"codigo": "ITEM-A", "valor_unitario": 1000},
+            {"codigo": "ITEM-B", "valor_unitario": 500},
+        ]
+
+    def test_marca_cuando_el_precio_difiere(self):
+        detail_lines = [{"nvpro_codi": "SUP-1", "nvdet_valo": 1200}]
+        po_products = self._po_products()
+        mismatched = mark_price_mismatches(
+            detail_lines, po_products, {"SUP-1": "ITEM-A"})
+
+        self.assertEqual(mismatched, {"ITEM-A"})
+        self.assertTrue(detail_lines[0]["precio_difiere"])
+        self.assertTrue(po_products[0]["precio_difiere"])
+        self.assertFalse(po_products[1]["precio_difiere"])
+
+    def test_no_marca_cuando_el_precio_es_igual(self):
+        detail_lines = [{"nvpro_codi": "SUP-1", "nvdet_valo": 1000}]
+        po_products = self._po_products()
+        mismatched = mark_price_mismatches(
+            detail_lines, po_products, {"SUP-1": "ITEM-A"})
+
+        self.assertEqual(mismatched, set())
+        self.assertFalse(detail_lines[0]["precio_difiere"])
+        self.assertFalse(po_products[0]["precio_difiere"])
+
+    def test_tolerancia_de_un_centavo(self):
+        detail_lines = [{"nvpro_codi": "SUP-1", "nvdet_valo": 1000.009}]
+        po_products = self._po_products()
+        mark_price_mismatches(detail_lines, po_products, {"SUP-1": "ITEM-A"})
+        self.assertFalse(detail_lines[0]["precio_difiere"])
+
+    def test_sin_homologacion_no_compara(self):
+        detail_lines = [{"nvpro_codi": "SUP-X", "nvdet_valo": 9999}]
+        po_products = self._po_products()
+        mark_price_mismatches(detail_lines, po_products, {"SUP-1": "ITEM-A"})
+        self.assertFalse(detail_lines[0]["precio_difiere"])
+        self.assertFalse(any(p["precio_difiere"] for p in po_products))
+
+    def test_producto_homologado_ausente_en_oc_no_compara(self):
+        detail_lines = [{"nvpro_codi": "SUP-1", "nvdet_valo": 9999}]
+        po_products = self._po_products()
+        mismatched = mark_price_mismatches(
+            detail_lines, po_products, {"SUP-1": "ITEM-Z"})
+        self.assertEqual(mismatched, set())
+        self.assertFalse(detail_lines[0]["precio_difiere"])
+
+    def test_articulo_repetido_marca_solo_el_que_difiere(self):
+        detail_lines = [
+            {"nvpro_codi": "SUP-1", "nvdet_valo": 1000},
+            {"nvpro_codi": "SUP-1", "nvdet_valo": 1200},
+        ]
+        po_products = [
+            {"codigo": "ITEM-A", "valor_unitario": 1000},
+            {"codigo": "ITEM-A", "valor_unitario": 1000},
+        ]
+        mismatched = mark_price_mismatches(
+            detail_lines, po_products, {"SUP-1": "ITEM-A"})
+
+        self.assertEqual(mismatched, {"ITEM-A"})
+        self.assertFalse(detail_lines[0]["precio_difiere"])
+        self.assertTrue(detail_lines[1]["precio_difiere"])
+        self.assertFalse(po_products[0]["precio_difiere"])
+        self.assertTrue(po_products[1]["precio_difiere"])
+        self.assertEqual(
+            detail_lines[1]["precio_grupo"], po_products[1]["precio_grupo"])
+        self.assertIsNotNone(detail_lines[1]["precio_grupo"])
+
+    def test_articulo_repetido_todos_iguales_no_marca(self):
+        detail_lines = [
+            {"nvpro_codi": "SUP-1", "nvdet_valo": 1000},
+            {"nvpro_codi": "SUP-1", "nvdet_valo": 1000},
+        ]
+        po_products = [
+            {"codigo": "ITEM-A", "valor_unitario": 1000},
+            {"codigo": "ITEM-A", "valor_unitario": 1000},
+        ]
+        mismatched = mark_price_mismatches(
+            detail_lines, po_products, {"SUP-1": "ITEM-A"})
+
+        self.assertEqual(mismatched, set())
+        self.assertFalse(any(l["precio_difiere"] for l in detail_lines))
+        self.assertFalse(any(p["precio_difiere"] for p in po_products))
+
+    def test_articulo_repetido_ocurrencias_sin_par_no_comparan(self):
+        detail_lines = [
+            {"nvpro_codi": "SUP-1", "nvdet_valo": 1000},
+            {"nvpro_codi": "SUP-1", "nvdet_valo": 1000},
+            {"nvpro_codi": "SUP-1", "nvdet_valo": 9999},
+        ]
+        po_products = [
+            {"codigo": "ITEM-A", "valor_unitario": 1000},
+            {"codigo": "ITEM-A", "valor_unitario": 1000},
+        ]
+        mismatched = mark_price_mismatches(
+            detail_lines, po_products, {"SUP-1": "ITEM-A"})
+
+        self.assertEqual(mismatched, set())
+        self.assertFalse(detail_lines[2]["precio_difiere"])
+
+
+class _PriceFakeRefs(_DetailFakeRefs):
+
+    def __init__(self):
+        _DetailFakeRefs.__init__(self)
+        self.supplier = "SUPPLIER-A"
+        self.map = {"SUP-1": "ITEM-A"}
+
+    def po_items(self, purchase_order):
+        return [
+            {"item_code": "ITEM-A", "uom": "UN", "qty": 1,
+             "qp_unit_cost": 1000, "qp_extd_cost": 1000},
+        ]
+
+    def supplier_by_tax_id(self, tax_id):
+        return self.supplier
+
+    def homologation_map(self, supplier):
+        return self.map
+
+
+class TestEnrichPriceMismatch(unittest.TestCase):
+
+    def _run(self, document, refs):
+        frappe_mock = MagicMock()
+        frappe_mock.db.exists.return_value = True
+        frappe_mock.get_all.return_value = []
+        with patch.dict(sys.modules, {"frappe": frappe_mock}):
+            enrich_document_detail(document, references=refs)
+        return document
+
+    def test_marca_codigos_cuando_precio_difiere(self):
+        refs = _PriceFakeRefs()
+        document = {
+            "name": "DOC1",
+            "nvpro_ndoc": "9001",
+            "nvfac_orde": "OC111",
+            "nvfac_esta": "A",
+            "detail_lines": [{"nvpro_codi": "SUP-1", "nvdet_valo": 1200}],
+        }
+        self._run(document, refs)
+
+        self.assertTrue(document["detail_lines"][0]["precio_difiere"])
+        self.assertTrue(
+            document["productos_orden_compra"][0]["precio_difiere"])
+
+    def test_no_marca_cuando_precio_igual(self):
+        refs = _PriceFakeRefs()
+        document = {
+            "name": "DOC1",
+            "nvpro_ndoc": "9001",
+            "nvfac_orde": "OC111",
+            "nvfac_esta": "E",
+            "detail_lines": [{"nvpro_codi": "SUP-1", "nvdet_valo": 1000}],
+        }
+        self._run(document, refs)
+
+        self.assertFalse(document["detail_lines"][0]["precio_difiere"])
+        self.assertFalse(
+            document["productos_orden_compra"][0]["precio_difiere"])
+
+    def test_refs_sin_soporte_de_homologacion_no_falla(self):
+        refs = _DetailFakeRefs()
+        document = {
+            "name": "DOC1",
+            "nvpro_ndoc": "9001",
+            "nvfac_orde": "OC111",
+            "nvfac_esta": "E",
+            "detail_lines": [{"nvpro_codi": "SUP-1", "nvdet_valo": 1200}],
+        }
+        self._run(document, refs)
+        self.assertFalse(document["detail_lines"][0].get("precio_difiere"))
 
 
 if __name__ == "__main__":

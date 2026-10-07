@@ -96,3 +96,19 @@ class RealReferenceSource(object):
             fields=["parent", "item_code", "uom", "qty", "rate", "amount"],
             order_by="parent, idx",
         )
+
+    def supplier_by_tax_id(self, tax_id):
+        """Resuelve el proveedor (Supplier) por su tax_id (NIT de la factura)."""
+        from qp_supplier_front.infrastructure.adapters.item_homologation_adapter import (
+            resolve_supplier,
+        )
+
+        return resolve_supplier(tax_id)
+
+    def homologation_map(self, supplier):
+        """Mapa {supplier_item_code: bc_item_code} activo del proveedor."""
+        from qp_supplier_front.infrastructure.adapters.item_homologation_adapter import (
+            get_homologation_map,
+        )
+
+        return get_homologation_map(supplier)

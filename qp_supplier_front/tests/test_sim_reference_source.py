@@ -58,6 +58,20 @@ class TestMemoryReferenceSource(unittest.TestCase):
             self.refs.receipts_for("PO-A-0001", qp_invoice="SIM-POA-0002"), [])
         self.assertEqual(len(self.refs.receipts_for("PO-A-0001")), 4)
 
+    def test_supplier_y_homologation_map(self):
+        store = MemoryStore()
+        seeds.seed_gp_scenario(store)
+        refs = MemoryReferenceSource(store)
+
+        supplier = refs.supplier_by_tax_id(seeds.GP_SIM_NIT)
+        self.assertEqual(supplier, seeds.GP_SIM_NIT)
+        self.assertEqual(refs.homologation_map(supplier), {
+            "SUP-1": "ITEM-GP-1",
+            "SUP-2": "ITEM-GP-2",
+        })
+        self.assertIsNone(refs.supplier_by_tax_id("NO-EXISTE"))
+        self.assertEqual(refs.homologation_map(None), {})
+
     def test_facade_expone_references_de_memoria(self):
         from qp_supplier_front.infrastructure.adapters.data_facade import DataFacade
         facade = DataFacade(store=self.store)

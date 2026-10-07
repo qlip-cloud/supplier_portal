@@ -43,6 +43,7 @@ def enrich_document_detail(document, data=None, references=None):
         _enrich_purchase_receipts(document, purchase_order_number, references, data)
         _enrich_receipt_bank(document, purchase_order_number, references, data)
         _enrich_receipts_detail(document, purchase_order_number, references, data)
+        _enrich_price_mismatch(document, references, data)
         _update_status_if_fully_paid(document, data, references=references)
 
 
@@ -216,6 +217,100 @@ def build_po_products(items):
             "valor_total": item.get("qp_extd_cost"),
         })
     return products
+
+
+PRICE_EPSILON = 0.01
+
+
+def mark_price_mismatches(detail_lines, po_products, homologation_map,
+                          epsilon=PRICE_EPSILON):
+    """Marca las lineas cuyo precio de factura difiere del de la OC.
+
+    Empareja cada linea de factura con su producto homologado (nvpro_codi ->
+    bc_item_code -> item_code de la OC) y compara el valor unitario de la
+    factura (nvdet_valo) contra qp_unit_cost de la orden. Como la factura o la
+    OC pueden repetir el mismo articulo, las ocurrencias de cada codigo se
+    emparejan en orden de aparicion; cada par con precio distinto se marca en
+    la linea de factura y en el producto de la OC con el mismo numero de grupo
+    (precio_grupo), que el front usa para resaltarlos juntos al pasar el
+    cursor. Sin homologacion o sin producto en la OC no se compara.
+
+    Funcion pura: opera sobre las listas recibidas y las muta. Retorna el
+    conjunto de codigos con al menos un par en discrepancia.
+    """
+    for line in detail_lines or []:
+        line["precio_difiere"] = False
+        line["precio_grupo"] = None
+    for product in po_products or []:
+        product["precio_difiere"] = False
+        product["precio_grupo"] = None
+
+    lines_by_code = _group_indexes_by_code(detail_lines, homologation_map)
+    products_by_code = _group_indexes_by_code(po_products, None)
+
+    mismatched = set()
+    group = 0
+    for code, line_indexes in lines_by_code.items():
+        product_indexes = products_by_code.get(code) or []
+        for position in range(min(len(line_indexes), len(product_indexes))):
+            line = detail_lines[line_indexes[position]]
+            product = po_products[product_indexes[position]]
+            order_price = product.get("valor_unitario")
+            invoice_price = line.get("nvdet_valo")
+            if order_price is None or invoice_price is None:
+                continue
+            if abs(float(invoice_price) - float(order_price)) <= epsilon:
+                continue
+            group += 1
+            line["precio_difiere"] = True
+            line["precio_grupo"] = group
+            product["precio_difiere"] = True
+            product["precio_grupo"] = group
+            mismatched.add(code)
+
+    return mismatched
+
+
+def _group_indexes_by_code(items, homologation_map):
+    """Agrupa los indices de las ocurrencias por codigo BC (en orden).
+
+    En las lineas de factura el codigo se resuelve via homologacion
+    (nvpro_codi -> bc_item_code); en los productos de la OC el codigo ya es el
+    item_code. Los items sin codigo resoluble (sin homologacion) se omiten.
+    """
+    grouped = {}
+    for index, item in enumerate(items or []):
+        if homologation_map is None:
+            code = item.get("codigo")
+        else:
+            code = homologation_map.get(item.get("nvpro_codi"))
+        if code:
+            grouped.setdefault(code, []).append(index)
+    return grouped
+
+
+def _enrich_price_mismatch(document, references=None, data=None):
+    """Marca las lineas con precio distinto entre factura y OC.
+
+    Requiere las lineas de la factura (detail_lines) y los productos de la OC
+    (productos_orden_compra); si falta alguno no hay comparacion posible. La
+    homologacion se resuelve con el adaptador de referencias (real/memoria).
+    """
+    detail_lines = document.get("detail_lines") or []
+    po_products = document.get("productos_orden_compra") or []
+    if not detail_lines or not po_products:
+        return
+
+    refs = _resolve_references(data, references)
+    supplier_by_tax_id = getattr(refs, "supplier_by_tax_id", None)
+    homologation_map = getattr(refs, "homologation_map", None)
+    if supplier_by_tax_id is None or homologation_map is None:
+        return
+
+    supplier = supplier_by_tax_id(document.get("nvpro_ndoc"))
+    mark_price_mismatches(
+        detail_lines, po_products, homologation_map(supplier)
+    )
 
 
 def _enrich_purchase_receipts(document, purchase_order_number, references=None,

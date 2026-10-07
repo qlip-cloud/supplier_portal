@@ -124,14 +124,19 @@
                     </thead>
                     <tbody>
                         {% for p in row.detail_lines %}
-                        <tr>
+                        <tr{% if p.precio_difiere %} data-precio-grupo="{{ p.precio_grupo }}"{% endif %}>
                             <td>{{ p.nvpro_codi }}</td>
                             <td>{{ p.nvuni_desc }}</td>
                             <td>{{ p.nvdet_tcan }}</td>
-                            <td style="text-align:right !important">
-                                {{ frappe.utils.fmt_money(p.nvdet_valo, currency="COP") }}
+                            <td>
+                                <div style="display:flex;align-items:center;width:100%">
+                                    {% if p.precio_difiere %}
+                                    <span class="material-symbols-outlined price-mismatch-icon" style="font-size:12px;color:#dc3545;line-height:1;margin:0;cursor:help" data-precio-grupo="{{ p.precio_grupo }}" title="El precio unitario difiere de la orden de compra">info</span>
+                                    {% endif %}
+                                    <span style="margin-left:auto;text-align:right;white-space:nowrap">{{ frappe.utils.fmt_money(p.nvdet_valo, currency="COP") }}</span>
+                                </div>
                                 {% if p.nvdet_vdes | int > 0 %}
-                                <br><span style="color:#dc3545;font-size:11px; text-align: right;">-{{ frappe.utils.fmt_money(p.nvdet_vdes, currency="COP") }}</span>
+                                <div style="color:#dc3545;font-size:11px;text-align:right">-{{ frappe.utils.fmt_money(p.nvdet_vdes, currency="COP") }}</div>
                                 {% endif %}
                             </td>
                             <td style="text-align:right !important">{{ frappe.utils.fmt_money(p.nvdet_stot, currency="COP") }}</td>
@@ -172,11 +177,18 @@
                     </thead>
                     <tbody>
                         {% for p in row.productos_orden_compra %}
-                        <tr>
+                        <tr{% if p.precio_difiere %} data-precio-grupo="{{ p.precio_grupo }}"{% endif %}>
                             <td>{{ p.codigo }}</td>
                             <td>{{ p.udm }}</td>
                             <td>{{ p.cantidad }}</td>
-                            <td>{{ frappe.utils.fmt_money(p.valor_unitario, currency="COP") }}</td>
+                            <td>
+                                <div style="display:flex;align-items:center;width:100%">
+                                    {% if p.precio_difiere %}
+                                    <span class="material-symbols-outlined price-mismatch-icon" style="font-size:12px;color:#dc3545;line-height:1;margin:0;cursor:help" data-precio-grupo="{{ p.precio_grupo }}" title="El precio unitario difiere de la factura">info</span>
+                                    {% endif %}
+                                    <span style="margin-left:auto;text-align:right;white-space:nowrap">{{ frappe.utils.fmt_money(p.valor_unitario, currency="COP") }}</span>
+                                </div>
+                            </td>
                             <td>{{ frappe.utils.fmt_money(p.valor_total, currency="COP") }}</td>
                         </tr>
                         {% endfor %}
