@@ -21,6 +21,15 @@ No importa Frappe: todas las entradas/salidas son dicts/listas planas.
 
 DEFAULT_EPSILON = 0.01
 
+# Banda de "obsequio/descuento": el sistema del proveedor no permite crear OC ni
+# recibo con valor 0, por lo que los emite con un valor unitario simbolico en
+# [GIFT_UNIT_MIN, GIFT_UNIT_MAX]. Un recibo cuya linea cae en esa banda se
+# considera de obsequio: aporta monto 0 al banco, de modo que una factura en 0
+# (regalo/descuento) se cubre con el y se auto-aprueba.
+GIFT_UNIT_MIN = 0.0001
+
+GIFT_UNIT_MAX = 0.9
+
 MAX_INVOICES_PER_OC_GROUP = 4
 
 MAX_MATCHES_PER_INVOICE = 8
@@ -39,8 +48,41 @@ def _to_float(value):
         return 0.0
 
 
-def _amount(receipt):
-    return _to_float(receipt.get("amount")) if isinstance(receipt, dict) else 0.0
+def is_gift_receipt(receipt):
+    """True si la linea del recibo trae valor unitario de obsequio/descuento.
+
+    La banda [GIFT_UNIT_MIN, GIFT_UNIT_MAX] la usa el proveedor para emitir
+    OC/recibos que en realidad valen 0 (su sistema no admite crear en 0).
+    """
+    if not isinstance(receipt, dict):
+        return False
+    unit_value = receipt.get("unit_value")
+    if unit_value is None:
+        return False
+    unit_value = _to_float(unit_value)
+    return GIFT_UNIT_MIN <= unit_value <= GIFT_UNIT_MAX
+
+
+def is_zero_invoice(invoice_total):
+    """True si el total de la factura es 0 (obsequio/descuento del proveedor)."""
+    return abs(_to_float(invoice_total)) <= DEFAULT_EPSILON
+
+
+def receipt_amount(receipt, invoice_total=None):
+    """Monto del recibo para el banco.
+
+    Un recibo de obsequio/descuento aporta 0 SOLO cuando la factura es de total
+    0 (regalo/descuento); en cualquier otro caso aporta su monto real.
+    """
+    if not isinstance(receipt, dict):
+        return 0.0
+    if is_zero_invoice(invoice_total) and is_gift_receipt(receipt):
+        return 0.0
+    return _to_float(receipt.get("amount"))
+
+
+def _amount(receipt, invoice_total=None):
+    return receipt_amount(receipt, invoice_total)
 
 
 def _sort_by_date_name(receipts):
@@ -69,12 +111,12 @@ def _chronological_skip(receipts, invoice_total, epsilon):
     matched = []
     total = 0.0
     for receipt in receipts:
-        amount = _amount(receipt)
+        amount = _amount(receipt, invoice_total)
         if total + amount > invoice_total + epsilon:
             continue
         matched.append(receipt)
         total += amount
-    if are_close(total, invoice_total, epsilon):
+    if matched and are_close(total, invoice_total, epsilon):
         return matched
     return None
 
@@ -91,7 +133,7 @@ def _exact_subset(receipts, invoice_total, epsilon, max_matches, node_budget):
         if budget["left"] <= 0 or found[0] is not None:
             return
         budget["left"] -= 1
-        if are_close(remaining, 0.0, epsilon):
+        if chosen and are_close(remaining, 0.0, epsilon):
             found[0] = list(chosen)
             return
         if remaining < -epsilon or start >= len(receipts):
@@ -99,7 +141,7 @@ def _exact_subset(receipts, invoice_total, epsilon, max_matches, node_budget):
         if len(chosen) >= max_matches:
             return
         for index in range(start, len(receipts)):
-            amount = _amount(receipts[index])
+            amount = _amount(receipts[index], invoice_total)
             if amount > remaining + epsilon:
                 continue
             chosen.append(receipts[index])
@@ -147,13 +189,13 @@ def _collect_matches(invoice_total, receipts, epsilon, max_matches, budget):
         budget["left"] -= 1
         if len(chosen) > max_matches:
             return
-        if are_close(remaining, 0.0, epsilon):
+        if chosen and are_close(remaining, 0.0, epsilon):
             matches.append(list(chosen))
             return
         if remaining < -epsilon or start >= len(receipts):
             return
         for index in range(start, len(receipts)):
-            amount = _amount(receipts[index])
+            amount = _amount(receipts[index], invoice_total)
             if amount > remaining + epsilon:
                 continue
             chosen.append(receipts[index])

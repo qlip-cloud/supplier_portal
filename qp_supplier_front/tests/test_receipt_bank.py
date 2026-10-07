@@ -11,8 +11,12 @@ import unittest
 
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
     DEFAULT_EPSILON,
+    GIFT_UNIT_MAX,
+    GIFT_UNIT_MIN,
     are_close,
+    is_gift_receipt,
     pack_oc_group,
+    receipt_amount,
     solve_receipt_bank,
     unconsumed_receipts,
 )
@@ -109,6 +113,17 @@ class TestSolveReceiptBank(unittest.TestCase):
         self.assertIsNotNone(solve_receipt_bank(100.005, receipts, 0.01))
         self.assertIsNone(solve_receipt_bank(100.02, receipts, 0.01))
 
+    def test_factura_cero_no_empareja_recibo_positivo(self):
+        # El subconjunto vacio no debe contar como combinacion: un recibo con
+        # monto positivo no cubre una factura en 0.
+        receipts = [_receipt("R1", 176)]
+        self.assertIsNone(solve_receipt_bank(0, receipts, DEFAULT_EPSILON))
+
+    def test_factura_cero_empareja_recibo_cero(self):
+        receipts = [_receipt("R0", 0)]
+        matched = solve_receipt_bank(0, receipts, DEFAULT_EPSILON)
+        self.assertEqual([r["name"] for r in matched], ["R0"])
+
 
 class TestPackOCGroup(unittest.TestCase):
 
@@ -173,6 +188,12 @@ class TestPackOCGroup(unittest.TestCase):
         packed = pack_oc_group([invoice], receipts, 0.01, 4, 8)
         self.assertEqual([r["name"] for r in packed["A"]], ["R1", "R2"])
 
+    def test_factura_cero_no_consume_recibo_positivo(self):
+        # Una factura en 0 no debe consumir un recibo con monto positivo por
+        # el subconjunto vacio: queda sin match (=> se asigna).
+        receipts = [_receipt("R1", 176)]
+        self.assertEqual(pack_oc_group([_invoice("A", 0)], receipts, 0.01, 4, 8), {})
+
     def test_degrada_a_greedy_cuando_grupo_excede_max_invoices(self):
         receipts = [
             _receipt("R0", 10, date="2026-01-01"),
@@ -188,6 +209,49 @@ class TestPackOCGroup(unittest.TestCase):
         self.assertEqual([r["name"] for r in packed["A"]], ["R0"])
         self.assertEqual([r["name"] for r in packed["B"]], ["R1"])
         self.assertEqual([r["name"] for r in packed["C"]], ["R2"])
+
+
+def _gift(name, amount, unit_value, date="2026-01-01", qp_invoice=None):
+    return {"name": name, "amount": amount, "unit_value": unit_value,
+            "date": date, "qp_invoice": qp_invoice}
+
+
+class TestGiftReceipts(unittest.TestCase):
+    """Obsequio/descuento: linea con valor unitario en [0.0001, 0.9]."""
+
+    def test_detecta_obsequio_en_la_banda(self):
+        self.assertTrue(is_gift_receipt(_gift("R1", 176, 0.1)))
+        self.assertTrue(is_gift_receipt(_gift("R1", 17.6, GIFT_UNIT_MIN)))
+        self.assertTrue(is_gift_receipt(_gift("R1", 1584, GIFT_UNIT_MAX)))
+
+    def test_no_es_obsequio_fuera_de_la_banda_o_sin_valor(self):
+        self.assertFalse(is_gift_receipt(_gift("R1", 176, 1.5)))
+        self.assertFalse(is_gift_receipt(_gift("R1", 176, 0.0)))
+        self.assertFalse(is_gift_receipt(_gift("R1", 176, None)))
+        self.assertFalse(is_gift_receipt(_receipt("R1", 176)))
+
+    def test_monto_de_obsequio_depende_del_total_de_la_factura(self):
+        gift = _gift("R1", 176, 0.1)
+        # Factura en 0: el obsequio aporta 0.
+        self.assertEqual(receipt_amount(gift, 0), 0.0)
+        # Factura normal: aporta su monto real.
+        self.assertEqual(receipt_amount(gift, 176), 176.0)
+        # Recibo normal: siempre su monto.
+        self.assertEqual(receipt_amount(_receipt("R1", 176), 0), 176.0)
+
+    def test_factura_en_cero_se_cubre_con_obsequio(self):
+        receipts = [_gift("R120706", 176, 0.1)]
+        matched = solve_receipt_bank(0, receipts, DEFAULT_EPSILON)
+        self.assertEqual([r["name"] for r in matched], ["R120706"])
+
+    def test_pack_factura_en_cero_consume_obsequio(self):
+        receipts = [_gift("R120706", 176, 0.1)]
+        packed = pack_oc_group([_invoice("A", 0)], receipts, 0.01, 4, 8)
+        self.assertEqual([r["name"] for r in packed["A"]], ["R120706"])
+
+    def test_factura_en_cero_no_se_cubre_con_recibo_normal(self):
+        receipts = [_gift("R1", 176, 815.27)]
+        self.assertIsNone(solve_receipt_bank(0, receipts, DEFAULT_EPSILON))
 
 
 if __name__ == "__main__":

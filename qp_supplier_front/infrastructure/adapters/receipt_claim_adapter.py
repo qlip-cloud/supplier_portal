@@ -41,7 +41,7 @@ def get_bank_for_invoice(purchase_order_number, invoice_number,
     receipts = frappe_module.get_all(
         "Purchase Receipt",
         filters={"qp_supplier_oc": purchase_order_number},
-        fields=["name", "total", "posting_date", "qp_invoice"],
+        fields=["name", "total", "total_qty", "posting_date", "qp_invoice"],
     )
 
     rows = []
@@ -56,8 +56,23 @@ def get_bank_for_invoice(purchase_order_number, invoice_number,
             "qp_invoice": owner,
             "claimed_by_me": owner == invoice_number,
             "selectable": True,
+            "unit_value": _unit_value(receipt),
         })
     return rows
+
+
+def _unit_value(receipt):
+    """Valor unitario promedio (total / total_qty) o None si no hay cantidad."""
+    try:
+        total_qty = float(receipt.get("total_qty") or 0)
+    except (TypeError, ValueError):
+        total_qty = 0.0
+    if not total_qty:
+        return None
+    try:
+        return float(receipt.get("total") or 0) / total_qty
+    except (TypeError, ValueError):
+        return None
 
 
 def claim_receipts(doc, receipt_names, frappe_module=None):

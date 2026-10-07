@@ -38,9 +38,24 @@ def memory_get_receipt_bank(store, purchase_order):
             "amount": row.get("total") or 0,
             "date": row.get("posting_date"),
             "qp_invoice": row.get("qp_invoice"),
+            "unit_value": _unit_value(row),
         }
         for row in rows
     ]
+
+
+def _unit_value(row):
+    """Valor unitario promedio (total / total_qty) o None si no hay cantidad."""
+    try:
+        total_qty = float(row.get("total_qty") or 0)
+    except (TypeError, ValueError):
+        total_qty = 0.0
+    if not total_qty:
+        return None
+    try:
+        return float(row.get("total") or 0) / total_qty
+    except (TypeError, ValueError):
+        return None
 
 
 def memory_get_receipt_bank_for_invoice(store, purchase_order, invoice_number):
@@ -65,6 +80,7 @@ def memory_get_receipt_bank_for_invoice(store, purchase_order, invoice_number):
             "qp_invoice": owner,
             "claimed_by_me": owner == invoice_number,
             "selectable": True,
+            "unit_value": _unit_value(row),
         })
     return result
 

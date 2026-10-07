@@ -23,7 +23,10 @@ Estados de la seleccion (comparados con epsilon):
 No importa Frappe: entradas/salidas son dicts/listas planas.
 """
 
-from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILON
+from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
+    DEFAULT_EPSILON,
+    receipt_amount,
+)
 
 # Estados en los que la factura ya no permite aplicar/desmarcar recibos.
 DEFINITIVE_STATES = ("BCC", "PA", "PR", "A", "R")
@@ -53,11 +56,16 @@ def classify_selection(invoice_amount, selected_amount, epsilon=DEFAULT_EPSILON)
     return "parcial"
 
 
-def sum_selected(bank, receipt_names):
-    """Suma de montos de los recibos del banco cuyos name estan en receipt_names."""
+def sum_selected(bank, receipt_names, invoice_total=None):
+    """Suma de montos de los recibos del banco cuyos name estan en receipt_names.
+
+    Usa receipt_amount: un recibo de obsequio/descuento (valor unitario en la
+    banda de obsequio) aporta 0 cuando la factura es de total 0, no su total
+    (que es qty x valor simbolico).
+    """
     by_name = {row.get("name"): row for row in (bank or [])}
     return sum(
-        _to_float(by_name.get(name, {}).get("amount"))
+        receipt_amount(by_name.get(name, {}), invoice_total)
         for name in (receipt_names or [])
         if name in by_name
     )
@@ -121,7 +129,9 @@ def validate_apply(doc, selected_names, bank, epsilon=DEFAULT_EPSILON):
         return False, "Seleccione al menos un recibo para aplicar", None
 
     classification = classify_selection(
-        doc.get("nvfac_stot"), sum_selected(bank, selected_names), epsilon
+        doc.get("nvfac_stot"),
+        sum_selected(bank, selected_names, doc.get("nvfac_stot")),
+        epsilon,
     )
     if classification == "excede":
         return False, (

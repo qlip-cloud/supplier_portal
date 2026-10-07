@@ -90,7 +90,7 @@ class TestGetReceiptTotal(unittest.TestCase):
         frappe_mock.get_all.assert_called_once_with(
             "Purchase Receipt",
             filters={"qp_supplier_oc": "OC111"},
-            fields=["name", "total", "posting_date", "qp_invoice"],
+            fields=["name", "total", "total_qty", "posting_date", "qp_invoice"],
         )
 
     def test_sin_recibos_retorna_none(self):
@@ -123,13 +123,15 @@ class TestGetReceiptBank(unittest.TestCase):
         bank = self._run(frappe_mock, "OC111")
 
         self.assertEqual(bank, [
-            {"name": "R1", "amount": 400, "date": "2026-01-01", "qp_invoice": None},
-            {"name": "R2", "amount": 600, "date": "2026-01-02", "qp_invoice": "FAC001"},
+            {"name": "R1", "amount": 400, "date": "2026-01-01",
+             "qp_invoice": None, "unit_value": None},
+            {"name": "R2", "amount": 600, "date": "2026-01-02",
+             "qp_invoice": "FAC001", "unit_value": None},
         ])
         frappe_mock.get_all.assert_called_once_with(
             "Purchase Receipt",
             filters={"qp_supplier_oc": "OC111"},
-            fields=["name", "total", "posting_date", "qp_invoice"],
+            fields=["name", "total", "total_qty", "posting_date", "qp_invoice"],
         )
 
     def test_sin_recibos_retorna_lista_vacia(self):

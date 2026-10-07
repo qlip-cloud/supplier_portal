@@ -66,7 +66,9 @@ def _banco_response(doc, bank):
     claimed_names = [
         row.get("name") for row in bank if row.get("claimed_by_me")
     ]
-    current_sum = sum_selected(bank, claimed_names)
+    current_sum = sum_selected(
+        bank, claimed_names, doc.get("nvfac_stot")
+    )
     return {
         "stot": doc.get("nvfac_stot") or 0,
         "current_sum": current_sum,

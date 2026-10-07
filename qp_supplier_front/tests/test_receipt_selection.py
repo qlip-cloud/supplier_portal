@@ -79,6 +79,12 @@ class TestSumSelected(unittest.TestCase):
     def test_banco_vacio(self):
         self.assertEqual(sum_selected([], ["R1"]), 0.0)
 
+    def test_obsequio_aporta_cero_solo_en_factura_cero(self):
+        bank = [{"name": "R1", "amount": 176, "unit_value": 0.1,
+                 "date": "2026-01-01", "qp_invoice": None}]
+        self.assertEqual(sum_selected(bank, ["R1"], 0), 0.0)
+        self.assertEqual(sum_selected(bank, ["R1"], 176), 176.0)
+
 
 class TestSelectClaimRelease(unittest.TestCase):
 
@@ -155,6 +161,22 @@ class TestValidateApply(unittest.TestCase):
             doc, ["R1"], bank, 0.01)
         self.assertTrue(ok)
         self.assertEqual(classification, "completo")
+
+    def test_factura_cero_con_obsequio_es_completo(self):
+        doc = _doc(nvfac_stot=0)
+        bank = [{"name": "R1", "amount": 176, "unit_value": 0.1,
+                 "date": "2026-01-01", "qp_invoice": None}]
+        ok, error, classification = validate_apply(doc, ["R1"], bank, 0.01)
+        self.assertTrue(ok)
+        self.assertEqual(classification, "completo")
+
+    def test_factura_cero_con_recibo_normal_excede(self):
+        doc = _doc(nvfac_stot=0)
+        bank = [{"name": "R1", "amount": 176, "unit_value": 815.27,
+                 "date": "2026-01-01", "qp_invoice": None}]
+        ok, error, classification = validate_apply(doc, ["R1"], bank, 0.01)
+        self.assertFalse(ok)
+        self.assertEqual(classification, "excede")
 
 
 if __name__ == "__main__":

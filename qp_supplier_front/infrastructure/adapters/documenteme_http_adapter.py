@@ -83,7 +83,7 @@ def get_receipt_bank(purchase_order_number, frappe_module=None):
     receipts = frappe_module.get_all(
         "Purchase Receipt",
         filters={"qp_supplier_oc": purchase_order_number},
-        fields=["name", "total", "posting_date", "qp_invoice"],
+        fields=["name", "total", "total_qty", "posting_date", "qp_invoice"],
     )
 
     return [
@@ -92,9 +92,29 @@ def get_receipt_bank(purchase_order_number, frappe_module=None):
             "amount": receipt.get("total") or 0,
             "date": receipt.get("posting_date"),
             "qp_invoice": receipt.get("qp_invoice"),
+            "unit_value": _unit_value(receipt),
         }
         for receipt in receipts
     ]
+
+
+def _unit_value(receipt):
+    """Valor unitario promedio de la recepcion (total / total_qty).
+
+    Se usa para detectar recibos de obsequio/descuento (valor unitario en la
+    banda de obsequio: OC/recibo emitidos con un valor simbolico porque el
+    sistema del proveedor no permite crear en 0). None si no hay cantidad.
+    """
+    try:
+        total_qty = float(receipt.get("total_qty") or 0)
+    except (TypeError, ValueError):
+        total_qty = 0.0
+    if not total_qty:
+        return None
+    try:
+        return float(receipt.get("total") or 0) / total_qty
+    except (TypeError, ValueError):
+        return None
 
 
 def get_receipt_total(purchase_order_number, frappe_module=None):
