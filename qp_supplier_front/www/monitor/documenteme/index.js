@@ -930,19 +930,23 @@ $(document).ready(function () {
         );
     }
 
-    $(document).on("click", ".btn-control-reference", function (event) {
-        event.stopPropagation();
-        refNcDocName = $(this).data("name");
+    function loadRefCandidates(start, end) {
         refNcSelected = null;
-
-        $("#reference-nc-range").text("Rango de fechas: -");
+        $("#reference-nc-confirm").hide();
         $("#reference-nc-search").val("");
         $("#reference-nc-body").html(
             '<tr><td colspan="5" class="text-center" style="color:#8a9099">Cargando candidatas...</td></tr>'
         );
-        $("#reference-nc-confirm").hide();
 
-        petition_get_data({ doc_name: refNcDocName },
+        var args = { doc_name: refNcDocName };
+        if (start) {
+            args.start = start;
+        }
+        if (end) {
+            args.end = end;
+        }
+
+        petition_get_data(args,
             "qp_supplier_front.resources.documenteme.nc_reference.get_reference_candidates",
             function (response) {
                 if (response.status !== 200) {
@@ -950,21 +954,29 @@ $(document).ready(function () {
                         '<tr><td colspan="5" class="text-center" style="color:#dc3545">' +
                         escapeHtml(response.msg || "Error") + '</td></tr>'
                     );
-                    $("#reference_nc_modal").modal("show");
                     frappe.msgprint(response.msg || "Error al obtener candidatas");
                     return;
                 }
                 var data = response.data || {};
                 window.__refNcInvoices = data.invoices || [];
-                var start = data.start || "";
-                var end = data.end || "";
-                $("#reference-nc-range").text(
-                    "Rango de fechas: " + (start ? start + " a " + (end || "-") : "sin rango")
-                );
+                $("#reference-nc-start").val(data.start || "");
+                $("#reference-nc-end").val(data.end || "");
                 renderRefCandidates(window.__refNcInvoices, "");
-                $("#reference_nc_modal").modal("show");
             }
         );
+    }
+
+    $(document).on("click", ".btn-control-reference", function (event) {
+        event.stopPropagation();
+        refNcDocName = $(this).data("name");
+        $("#reference-nc-start").val("");
+        $("#reference-nc-end").val("");
+        $("#reference_nc_modal").modal("show");
+        loadRefCandidates("", "");
+    });
+
+    $("#reference-nc-start, #reference-nc-end").on("change", function () {
+        loadRefCandidates($("#reference-nc-start").val(), $("#reference-nc-end").val());
     });
 
     $("#reference-nc-search").on("input", function () {

@@ -13,10 +13,19 @@
         #reference_nc_modal .modal-title {
             color: #004D90;
         }
-        #reference_nc_modal .range-label {
+        #reference_nc_modal .range-filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        #reference_nc_modal .range-filters .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        #reference_nc_modal .range-filters label {
             color: #8a9099;
             font-size: 13px;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
         #reference_nc_modal .ref-table {
             margin-bottom: 0;
@@ -68,7 +77,18 @@
                 </button>
             </div>
             <div class="modal-body">
-                <div class="range-label" id="reference-nc-range">Rango de fechas: -</div>
+                <div class="range-filters">
+                    <div class="form-group">
+                        <label for="reference-nc-start">Desde</label>
+                        <input type="date" class="form-control" id="reference-nc-start"
+                            autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="reference-nc-end">Hasta</label>
+                        <input type="date" class="form-control" id="reference-nc-end"
+                            autocomplete="off">
+                    </div>
+                </div>
                 <div class="form-group">
                     <input type="text" class="form-control" id="reference-nc-search"
                         placeholder="Buscar por numero de factura...">

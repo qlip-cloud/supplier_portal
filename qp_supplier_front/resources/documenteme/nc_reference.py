@@ -92,12 +92,17 @@ def _resolve_reference_pi(doc_name, invoice_number):
 
 
 @frappe.whitelist()
-def get_reference_candidates(doc_name):
+def get_reference_candidates(doc_name, start=None, end=None):
     """Candidatas de referencia para una NC tipo 5.
 
-    Retorna {"start", "end", "invoices"}: rango de fechas del XML y las
+    Retorna {"start", "end", "invoices"}: rango de fechas efectivo y las
     facturas de compra (gp_tipo_factura_doc 1/2) del proveedor cuya fecha de
     registro (registration_date) cae dentro del rango.
+
+    El rango lo elige el usuario en el front (dos datepickers): si envia
+    ``start``/``end`` se usan tal cual; si faltan se completan con el rango del
+    XML (qp_ref_date_start/end o parseo del adjunto). Asi una NC cuyo XML no
+    trae periodo puede filtrar las candidatas igual.
     """
     try:
         if not _has_permission(frappe.get_roles()):
@@ -112,9 +117,14 @@ def get_reference_candidates(doc_name):
             response(400, "Las notas de credito de servicio no requieren referencia")
             return
 
-        start, end = _nc_period(doc)
-        if not start and not end:
-            response(200, "ok", {"start": "", "end": "", "invoices": []})
+        start = str(start or "").strip()
+        end = str(end or "").strip()
+        if not start or not end:
+            default_start, default_end = _nc_period(doc)
+            start = start or default_start or ""
+            end = end or default_end or ""
+        if not start or not end:
+            response(200, "ok", {"start": start, "end": end, "invoices": []})
             return
 
         supplier = get_supplier_by_tax_id(doc.get("nvpro_ndoc"))
