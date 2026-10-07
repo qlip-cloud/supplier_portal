@@ -108,6 +108,9 @@ def extract_period_dates(xml_content):
     if not xml_content:
         return None, None
 
+    if isinstance(xml_content, bytes):
+        xml_content = xml_content.decode("utf-8", "replace")
+
     root = _try_parse(xml_content)
     start, end = _period_from_root(root)
     if start or end:

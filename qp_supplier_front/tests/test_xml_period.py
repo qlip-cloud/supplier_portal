@@ -75,6 +75,24 @@ class TestExtractPeriodDates(unittest.TestCase):
         self.assertEqual(extract_period_dates(""), (None, None))
         self.assertEqual(extract_period_dates("<not xml"), (None, None))
 
+    def test_bytes_con_documento_embebido(self):
+        wrapper = (
+            'contenido no parseable'
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<CreditNote xmlns:cac="urn:oasis:names:specification:ubl:'
+            'schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:'
+            'names:specification:ubl:schema:xsd:CommonBasicComponents-2">'
+            '<cac:ValidityPeriod>'
+            '<cbc:StartDate>2026-10-01</cbc:StartDate>'
+            '<cbc:EndDate>2026-10-31</cbc:EndDate>'
+            '</cac:ValidityPeriod>'
+            '</CreditNote>'
+        )
+        self.assertEqual(
+            extract_period_dates(wrapper.encode("utf-8")),
+            ("2026-10-01", "2026-10-31"),
+        )
+
     def test_solo_fecha_inicio(self):
         xml = (
             '<?xml version="1.0" encoding="utf-8"?>'
