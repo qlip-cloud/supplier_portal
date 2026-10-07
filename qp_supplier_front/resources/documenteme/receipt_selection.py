@@ -6,21 +6,17 @@ Seleccion manual del banco de recepciones para una factura documenteme.
 
 - get_bank(doc_name): banco visible para la factura (recibos no reclamados +
   los reclamados por ella) + clasificacion de la seleccion actual.
-- apply(doc_name, receipt_names): reclamar/liberar recibos segun el check de
-  la UI. Si la seleccion cubre el subtotal (completo) se dispara el proceso de
-  aprobacion (crear en BC -> BCC -> confirmacion); si es parcial solo se
-  reservan los recibos (la factura queda no definitiva).
+- apply(doc_name, receipt_names): reclama/libera recibos y los vincula a la
+  factura (queda NO definitiva). NUNCA aprueba: la aprobacion es siempre
+  manual, para que el usuario pueda revisar, cambiar los recibos o decidir no
+  aprobar.
 """
 
 import frappe
 from frappe import parse_json
 
 from qp_supplier_front.resources.documenteme import runtime
-from qp_supplier_front.resources.documenteme._approve_base import (
-    _has_permission,
-    run_approve_with_receipts,
-)
-from qp_supplier_front.resources.documenteme.approve import resolve_backend
+from qp_supplier_front.resources.documenteme._approve_base import _has_permission
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILON
 from qp_supplier_front.uses_cases.documenteme.receipt_selection import (
@@ -157,50 +153,44 @@ def apply(doc_name, receipt_names=None):
         if to_release:
             components["release_receipts_fn"](doc, to_release)
 
-        if classification == "parcial":
-            _commit(data)
-            if release_only:
-                response(
-                    200,
-                    (
-                        "Se liberaron los recibos asociados a la factura; "
-                        "la factura vuelve a quedar disponible para el flujo "
-                        "automático."
-                    ),
-                    {"classification": classification, "claimed": receipt_names},
-                )
-                return
+        _commit(data)
+
+        if release_only:
             response(
                 200,
                 (
-                    "El monto seleccionado no cubre el total. Los recibos "
-                    "quedaron reservados para esta factura y no estarán "
-                    "disponibles para otras."
+                    "Se liberaron los recibos asociados a la factura; "
+                    "la factura vuelve a quedar disponible para el flujo "
+                    "automático."
                 ),
                 {"classification": classification, "claimed": receipt_names},
             )
             return
 
-        result = run_approve_with_receipts(
-            [doc.get("name")], {doc.get("name"): receipt_names},
-            backend=resolve_backend(),
-        )
-        errors = result.get("errors") or []
-        if errors:
-            detail = ", ".join(
-                "{}: {}".format(err.get("nvfac_nume"), err.get("error"))
-                for err in errors
+        # Aplicar SOLO vincula los recibos a la factura (queda NO definitiva):
+        # la aprobacion es siempre manual, para que el usuario pueda revisar,
+        # cambiar los recibos o decidir no aprobar.
+        if classification == "parcial":
+            message = (
+                "El monto seleccionado no cubre el total de la factura. Los "
+                "recibos quedaron aplicados; aprueba la factura manualmente "
+                "cuando lo decidas."
             )
-            response(500, "Error al aprobar: {}".format(detail), result)
-            return
-
+        elif classification == "excede":
+            message = (
+                "El monto seleccionado excede el total de la factura. Los "
+                "recibos quedaron aplicados completos; aprueba la factura "
+                "manualmente cuando lo decidas."
+            )
+        else:
+            message = (
+                "Recibos aplicados a la factura. Revisalos y aprueba la "
+                "factura manualmente cuando lo decidas."
+            )
         response(
             200,
-            (
-                "Recibos aplicados. La factura se está aprobando "
-                "automáticamente."
-            ),
-            result,
+            message,
+            {"classification": classification, "claimed": receipt_names},
         )
 
     except Exception as error:

@@ -198,5 +198,99 @@ class TestConsumeReceipts(unittest.TestCase):
         frappe_mock.db.sql.assert_not_called()
 
 
+class TestBuildManualReceiptSelection(unittest.TestCase):
+
+    def _doc(self, **overrides):
+        data = {
+            "name": "DOC1",
+            "nvfac_nume": "FAC001",
+            "nvfac_orde": "PO1",
+            "nvfac_conv": "2",
+            "nvtip_docu": "F",
+            "nvfac_stot": 100,
+        }
+        data.update(overrides)
+        return data
+
+    @staticmethod
+    def _receipt(name, amount, qp_invoice=None):
+        return {"name": name, "amount": amount, "date": "2026-01-01",
+                "qp_invoice": qp_invoice}
+
+    def _run(self, docs, bank, active_count=1, service=False, names=None,
+             backend="BC"):
+        claimed = []
+
+        def claim(doc, names):
+            claimed.append((doc.get("name"), list(names)))
+            return []
+
+        bundle = {
+            "data": None,
+            "claim_receipts_fn": claim,
+            "approve_callbacks": {
+                "get_docs_fn": lambda requested: [
+                    doc for doc in docs if doc.get("name") in list(requested)
+                ],
+                "receipt_bank_fn": lambda po: bank,
+                "is_service_supplier_fn": lambda doc: service,
+            },
+        }
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [{}] * active_count
+        with patch.object(infra.runtime, "resolve", lambda: bundle), \
+                patch.object(infra, "frappe", frappe_mock):
+            selection = infra._build_manual_receipt_selection(
+                names or ["DOC1"], backend=backend
+            )
+        return selection, claimed
+
+    def test_usa_las_recepciones_aplicadas(self):
+        bank = [self._receipt("R1", 40, "FAC001"),
+                self._receipt("R2", 60, None)]
+        selection, claimed = self._run([self._doc()], bank)
+        self.assertEqual(selection, {"DOC1": ["R1"]})
+        self.assertEqual(claimed, [])
+
+    def test_caso_relajado_aplica_automaticamente(self):
+        bank = [self._receipt("R1", 100, None)]
+        selection, claimed = self._run([self._doc()], bank, active_count=1)
+        self.assertEqual(selection, {"DOC1": ["R1"]})
+        self.assertEqual(claimed, [("DOC1", ["R1"])])
+
+    def test_varias_recepciones_no_aplica_automaticamente(self):
+        bank = [self._receipt("R1", 40, None), self._receipt("R2", 60, None)]
+        selection, claimed = self._run([self._doc()], bank, active_count=1)
+        self.assertEqual(selection, {})
+        self.assertEqual(claimed, [])
+
+    def test_varias_facturas_no_aplica_automaticamente(self):
+        bank = [self._receipt("R1", 100, None)]
+        selection, claimed = self._run([self._doc()], bank, active_count=2)
+        self.assertEqual(selection, {})
+        self.assertEqual(claimed, [])
+
+    def test_relajado_excedido_aplica_automaticamente(self):
+        bank = [self._receipt("R1", 140, None)]
+        selection, claimed = self._run([self._doc()], bank, active_count=1)
+        self.assertEqual(selection, {"DOC1": ["R1"]})
+        self.assertEqual(claimed, [("DOC1", ["R1"])])
+
+    def test_proveedor_servicio_se_omite(self):
+        bank = [self._receipt("R1", 100, None)]
+        selection, claimed = self._run(
+            [self._doc()], bank, service=True, backend="GP")
+        self.assertEqual(selection, {})
+        self.assertEqual(claimed, [])
+
+    def test_contado_y_nota_credito_se_omiten(self):
+        bank = [self._receipt("R1", 100, None)]
+        docs = [self._doc(name="DOC1", nvfac_conv="1"),
+                self._doc(name="DOC2", nvtip_docu="C")]
+        selection, claimed = self._run(docs, bank, names=["DOC1", "DOC2"])
+        self.assertEqual(selection, {})
+        self.assertEqual(claimed, [])
+
+
 if __name__ == "__main__":
     unittest.main()

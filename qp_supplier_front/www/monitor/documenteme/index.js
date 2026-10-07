@@ -133,22 +133,39 @@ $(document).ready(function () {
             }
 
             var violations = (response.data && response.data.violations) || [];
-            if (violations.length === 0) {
+
+            var renderViolations = function (items) {
+                return items.map(function (item) {
+                    var html = "<li><strong>" + (item.nvfac_nume || "") + "</strong><ul>";
+                    (item.violations || []).forEach(function (message) {
+                        html += "<li>" + message + "</li>";
+                    });
+                    html += "</ul></li>";
+                    return html;
+                }).join("");
+            };
+
+            var blocking = violations.filter(function (item) {
+                return item.blocking;
+            });
+            if (blocking.length > 0) {
+                frappe.msgprint(
+                    "No se puede aprobar las siguientes facturas hasta resolver lo indicado:<br><ul>" +
+                    renderViolations(blocking) + "</ul>"
+                );
+                return;
+            }
+
+            var forceable = violations.filter(function (item) {
+                return !item.blocking;
+            });
+            if (forceable.length === 0) {
                 doApprove(false);
                 return;
             }
 
-            var detail = violations.map(function (item) {
-                var html = "<li><strong>" + (item.nvfac_nume || "") + "</strong><ul>";
-                (item.violations || []).forEach(function (message) {
-                    html += "<li>" + message + "</li>";
-                });
-                html += "</ul></li>";
-                return html;
-            }).join("");
-
             frappe.confirm(
-                "Las siguientes facturas no cumplen las condiciones de aprobaci&oacute;n autom&aacute;tica:<br><ul>" + detail + "</ul>&iquest;Desea continuar con la aprobaci&oacute;n de todas las facturas seleccionadas?",
+                "Las siguientes facturas no cumplen las condiciones de aprobaci&oacute;n autom&aacute;tica:<br><ul>" + renderViolations(forceable) + "</ul>&iquest;Desea continuar con la aprobaci&oacute;n de todas las facturas seleccionadas?",
                 function () {
                     doApprove(true);
                 },
@@ -758,7 +775,7 @@ $(document).ready(function () {
 
         $bank.find(".receipt-apply").prop(
             "disabled",
-            state.classification === "excede" || state.count === 0
+            state.count === 0
         );
 
         // Completo: ya se cubre el total; bloquea marcar mas recibos.
@@ -800,10 +817,6 @@ $(document).ready(function () {
             receiptNames.push($(this).val());
         });
 
-        if (state.classification === "excede") {
-            frappe.msgprint("La selecci\u00f3n excede el total de la factura; desmarque recibos para aplicar.");
-            return;
-        }
         if (receiptNames.length === 0) {
             frappe.msgprint("Seleccione al menos un recibo para aplicar.");
             return;
@@ -811,11 +824,15 @@ $(document).ready(function () {
 
         var msg;
         if (state.classification === "completo") {
-            msg = "Al confirmar se aprobar\u00e1 autom\u00e1ticamente la factura con " +
-                state.count + " recibo(s) seleccionado(s), se iniciar\u00e1 el proceso de aprobaci\u00f3n y los recibos quedar\u00e1n vinculados definitivamente. \u00bfDesea continuar?";
+            msg = "Al confirmar se aplicar\u00e1n " + state.count +
+                " recibo(s) a la factura (quedar\u00e1n vinculados). La factura NO se aprueba autom\u00e1ticamente; podr\u00e1s aprobarla manualmente. \u00bfDesea continuar?";
+        } else if (state.classification === "excede") {
+            msg = "El valor de las recepciones seleccionadas (" + fmtMoney(state.sum) +
+                ") excede el total de la factura (" + fmtMoney(state.stot) +
+                "). Las recepciones son indivisibles, por lo que se aplicar\u00e1n completas; la factura NO se aprueba autom\u00e1ticamente. \u00bfDesea continuar?";
         } else {
             msg = "El monto seleccionado (" + fmtMoney(state.sum) + ") no cubre el total de la factura (" +
-                fmtMoney(state.stot) + "). Al confirmar, los recibos quedar\u00e1n reservados para esta factura y no estar\u00e1n disponibles para otras. \u00bfDesea continuar?";
+                fmtMoney(state.stot) + "). Los recibos quedar\u00e1n aplicados a esta factura y no estar\u00e1n disponibles para otras; la factura NO se aprueba autom\u00e1ticamente. \u00bfDesea continuar?";
         }
 
         frappe.confirm(msg, function () {
@@ -998,6 +1015,29 @@ $(document).ready(function () {
 
     $("#reference-nc-approve").on("click", function () {
         submitRefAssign(true);
+    });
+
+    // =====================================================================
+    // Discrepancia de precio factura vs orden de compra: al pasar el cursor
+    // por el icono se resaltan los productos afectados en ambas tablas
+    // (factura y orden de compra) que comparten el mismo grupo.
+    // =====================================================================
+    var PRICE_MISMATCH_HIGHLIGHT = "price-mismatch-highlight";
+
+    $(document).on("mouseenter", ".price-mismatch-icon", function () {
+        var group = $(this).attr("data-precio-grupo");
+        if (group === undefined || group === null || group === "") {
+            return;
+        }
+        var $scope = $(this).closest(".collapse");
+        $scope.find('tr[data-precio-grupo="' + group + '"]')
+            .addClass(PRICE_MISMATCH_HIGHLIGHT);
+    });
+
+    $(document).on("mouseleave", ".price-mismatch-icon", function () {
+        var $scope = $(this).closest(".collapse");
+        $scope.find("." + PRICE_MISMATCH_HIGHLIGHT)
+            .removeClass(PRICE_MISMATCH_HIGHLIGHT);
     });
 
     // Render inicial + re-render tras scroll infinito / filtros.

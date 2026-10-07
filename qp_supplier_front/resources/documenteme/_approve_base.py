@@ -27,15 +27,23 @@ from qp_supplier_front.resources.documenteme.auto_reject import (
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.uses_cases.documenteme.approve import (
+    ANALYSIS_STATES,
     GP_TIPO_ENVIO,
     GP_TIPO_NC,
     GP_TIPO_NC_5,
     approve_documents,
     collect_registrable_violations,
+    collect_selection_violations,
     make_invoice_builder,
     resolve_nc_tipo_for_doc,
 )
-from qp_supplier_front.uses_cases.documenteme.conversion import is_credit_note
+from qp_supplier_front.uses_cases.documenteme.conversion import (
+    is_cash_invoice,
+    is_credit_note,
+)
+from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
+    unconsumed_receipts,
+)
 
 ALLOWED_ROLES = {"Administrador Documenteme", "Administrador Sede Documenteme"}
 
@@ -185,6 +193,18 @@ def get_lines_from_invoice(doc):
         return [], "La factura no tiene lineas homologadas para enviar"
 
     return lines, ""
+
+
+def get_lines_for_receipts(doc, receipt_names):
+    """Lineas del payload restringidas a las recepciones asignadas al doc.
+
+    Se usa cuando la aprobacion ya resolvio la seleccion (reparto automatico
+    o seleccion manual) para que el payload lleve SOLO esas recepciones y no
+    todas las de la OC.
+    """
+    return get_lines_from_receipts(
+        doc.get("nvfac_orde"), receipt_names=receipt_names
+    ), ""
 
 
 def po_exists(purchase_order):
@@ -1201,27 +1221,6 @@ def send_purchase_invoice_request_gp(endpoint_code, payload):
 # =========================================================================
 # Orquestacion compartida
 # =========================================================================
-def _get_lines_for_selected(base_get_lines, selected_receipts, data):
-    """get_lines restringido a los recibos de la seleccion manual.
-
-    En modo real lee los items de SOLO los recibos vinculados al doc
-    (get_lines_from_receipts con receipt_names); en simulador delega en el
-    get_lines del bundle (lineas de la factura del proveedor en memoria).
-    """
-
-    def get_selected_lines(doc):
-        receipt_names = ((selected_receipts or {}).get(doc.get("name")) or [])
-        if not receipt_names:
-            return [], "La factura no tiene recepciones seleccionadas"
-        if data is not None:
-            return base_get_lines(doc)
-        return get_lines_from_receipts(
-            doc.get("nvfac_orde"), receipt_names=receipt_names
-        ), ""
-
-    return get_selected_lines
-
-
 def approve_documents_core(doc_names, send_request_fn=None, force=False,
                            selected_receipts=None, backend="BC"):
     components = runtime.resolve()
@@ -1233,6 +1232,10 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
             send_request_fn = components.get("approve_send_fn") \
                 or send_purchase_invoice_request
     cb = components.get("approve_callbacks") or {}
+    data = components.get("data")
+    get_lines_for_receipts_fn = (
+        None if data is not None else get_lines_for_receipts
+    )
     is_service_supplier_fn = None
     resolve_supplier_rule_fn = None
     if backend == "GP":
@@ -1245,10 +1248,6 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         elif force:
             base_get_lines_fn = get_lines_fn
             get_lines_fn = lambda doc: base_get_lines_fn(doc, force=force)
-        if selected_receipts is not None:
-            get_lines_fn = _get_lines_for_selected(
-                get_lines_fn, selected_receipts, components.get("data")
-            )
         build_invoice_fn = cb.get("build_invoice_fn")
         if build_invoice_fn is None:
             build_invoice_fn = make_invoice_builder(
@@ -1268,10 +1267,6 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
             "resolve_supplier_rule_fn", resolve_supplier_rule)
     else:
         get_lines_fn = cb.get("get_lines_fn", get_lines)
-        if selected_receipts is not None:
-            get_lines_fn = _get_lines_for_selected(
-                get_lines_fn, selected_receipts, components.get("data")
-            )
         build_invoice_fn = cb.get("build_invoice_fn")
     sync_flow = "GP" if backend == "GP" else "BC"
     persist_invoice_fn = cb.get("persist_invoice_fn")
@@ -1308,6 +1303,7 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         build_invoice_fn=build_invoice_fn,
         is_service_supplier_fn=is_service_supplier_fn,
         resolve_supplier_rule_fn=resolve_supplier_rule_fn,
+        get_lines_for_receipts_fn=get_lines_for_receipts_fn,
     )
 
     on_batch_approved = components["on_batch_approved_fn"]
@@ -1387,23 +1383,52 @@ def collect_document_violations(doc_names, backend="BC"):
     cb = components.get("approve_callbacks") or {}
     data = components.get("data")
     get_docs_fn = cb.get("get_docs_fn", get_docs)
+    po_exists_fn = cb.get("po_exists_fn", po_exists)
+    receipt_bank_fn = cb.get("receipt_bank_fn", receipt_bank)
+    is_service_supplier_fn = (
+        cb.get("is_service_supplier_fn", is_service_supplier_doc)
+        if backend == "GP" else None
+    )
+    resolve_supplier_rule_fn = (
+        cb.get("resolve_supplier_rule_fn", resolve_supplier_rule)
+        if backend == "GP" else None
+    )
     docs = get_docs_fn(doc_names)
     violations = collect_registrable_violations(
         docs,
-        po_exists,
-        receipt_bank,
+        po_exists_fn,
+        receipt_bank_fn,
         resolve_rule_fn=_resolve_rule,
-        is_service_supplier_fn=(
-            is_service_supplier_doc if backend == "GP" else None
-        ),
-        resolve_supplier_rule_fn=(
-            resolve_supplier_rule if backend == "GP" else None
-        ),
+        is_service_supplier_fn=is_service_supplier_fn,
+        resolve_supplier_rule_fn=resolve_supplier_rule_fn,
+        skip_credit=True,
     )
-    if backend != "GP":
-        return violations
-
     by_nume = {v.get("nvfac_nume"): v for v in violations}
+
+    def _merge(entry):
+        existing = by_nume.get(entry.get("nvfac_nume"))
+        if existing is None:
+            by_nume[entry.get("nvfac_nume")] = entry
+            return
+        for message in entry.get("violations") or []:
+            if message not in existing["violations"]:
+                existing["violations"].append(message)
+        if entry.get("blocking"):
+            existing["blocking"] = True
+
+    selection_violations = collect_selection_violations(
+        docs,
+        po_exists_fn,
+        receipt_bank_fn,
+        lambda purchase_order: _active_invoice_count(purchase_order, data),
+        is_service_supplier_fn=is_service_supplier_fn,
+    )
+    for entry in selection_violations:
+        _merge(entry)
+
+    if backend != "GP":
+        return list(by_nume.values())
+
     for doc in (docs or []):
         if not is_credit_note(doc.get("nvtip_docu")):
             continue
@@ -1419,12 +1444,93 @@ def collect_document_violations(doc_names, backend="BC"):
     return list(by_nume.values())
 
 
+def _active_invoice_count(purchase_order, data=None):
+    """Numero de facturas documenteme activas (E/V/T) de una orden de compra.
+
+    Se usa para el caso relajado de auto-aplicacion de recepciones: la OC
+    debe estar asociada a una sola factura activa.
+    """
+    filters = {
+        "nvfac_orde": purchase_order,
+        "nvfac_esta": ["in", list(ANALYSIS_STATES)],
+    }
+    if data is not None:
+        rows = data.get_all(
+            "qp_SP_DocumentDetail", filters=filters, fields=["name"]
+        )
+    else:
+        rows = frappe.get_all(
+            "qp_SP_DocumentDetail", filters=filters, fields=["name"]
+        )
+    return len(rows or [])
+
+
+def _build_manual_receipt_selection(doc_names, backend="BC"):
+    """Seleccion de recepciones para la aprobacion manual.
+
+    Para cada factura de credito con OC:
+    - usa las recepciones ya aplicadas/reclamadas (qp_invoice == nvfac_nume);
+    - si no hay aplicadas y la OC esta en el caso relajado (una sola recepcion
+      disponible y una sola factura activa), aplica automaticamente esa
+      recepcion;
+    - en otro caso no agrega seleccion (el core bloquea "debe aplicar").
+
+    Los proveedores de servicio solo se omiten con backend GP (en BC se tratan
+    como credito y si requieren seleccion). El contado y las notas credito
+    nunca requieren seleccion.
+
+    Retorna {doc_name: [receipt_names]}.
+    """
+    components = runtime.resolve()
+    data = components.get("data")
+    cb = components.get("approve_callbacks") or {}
+    get_docs_fn = cb.get("get_docs_fn", get_docs)
+    receipt_bank_fn = cb.get("receipt_bank_fn", receipt_bank)
+    is_service_supplier_fn = cb.get("is_service_supplier_fn", is_service_supplier_doc)
+    claim_fn = components.get("claim_receipts_fn")
+
+    selection = {}
+    for doc in get_docs_fn(doc_names):
+        if is_credit_note(doc.get("nvtip_docu")):
+            continue
+        if is_cash_invoice(doc.get("nvfac_conv")):
+            continue
+        if backend == "GP" and is_service_supplier_fn(doc):
+            continue
+        purchase_order = doc.get("nvfac_orde")
+        if not purchase_order:
+            continue
+        bank = receipt_bank_fn(purchase_order) or []
+        applied = [
+            receipt.get("name") for receipt in bank
+            if receipt.get("qp_invoice") == doc.get("nvfac_nume")
+        ]
+        if applied:
+            selection[doc.get("name")] = applied
+            continue
+        available = unconsumed_receipts(bank)
+        if len(available) != 1:
+            continue
+        if _active_invoice_count(purchase_order, data) != 1:
+            continue
+        receipt_name = available[0].get("name")
+        if claim_fn is not None:
+            claim_fn(doc, [receipt_name])
+        selection[doc.get("name")] = [receipt_name]
+    return selection
+
+
 def run_approve(doc_names_raw, send_request_fn=None, force=False, backend="BC"):
     """Flujo manual: valida permisos y aprueba el lote seleccionado.
 
-    Con force=True (el usuario confirmo las violaciones en el front) se
-    omiten las advertencias de OC - recepcion - montos; los estados
-    definitivos/en proceso siguen bloqueando.
+    La aprobacion manual de facturas de credito con OC que tiene recepciones
+    exige que el usuario haya aplicado las recepciones que respaldan la
+    factura (o que aplique el caso relajado una sola recepcion / una sola
+    factura activa, que se aplica automaticamente). Con force=True (el usuario
+    confirmo las violaciones en el front) se omiten las advertencias de
+    OC - recepcion - montos (incluida la seleccion parcial por debajo del
+    total); los bloqueos duros (estados definitivos/en proceso, no aplicar
+    recepciones, seleccion que excede) siguen bloqueando.
 
     backend ("BC" o "GP") selecciona el origen de la creacion de factura
     (builder, envio y persistencia).
@@ -1435,8 +1541,14 @@ def run_approve(doc_names_raw, send_request_fn=None, force=False, backend="BC"):
         response(403, "No tiene permisos para aprobar facturas")
         return
 
+    selected_receipts = _build_manual_receipt_selection(doc_names, backend=backend)
+
     result = approve_documents_core(
-        doc_names, send_request_fn=send_request_fn, force=force, backend=backend
+        doc_names,
+        send_request_fn=send_request_fn,
+        force=force,
+        selected_receipts=selected_receipts,
+        backend=backend,
     )
     frappe.db.commit()
 

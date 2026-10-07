@@ -98,10 +98,14 @@ def validate_apply(doc, selected_names, bank, epsilon=DEFAULT_EPSILON):
 
     Retorna (ok, error, classification):
     - ok: False si la factura esta en estado definitivo, no hay recibos
-      seleccionados, la seleccion excede el total, o algun recibo seleccionado
-      ya no esta disponible (reclamado por otra factura).
+      seleccionados, o algun recibo seleccionado ya no esta disponible
+      (reclamado por otra factura).
     - classification: "parcial"/"completo"/"excede" cuando la validacion se
       puede calcular; None si ok es False por otro motivo.
+
+    La seleccion que excede el total NO se bloquea: los recibos son
+    indivisibles, por lo que un recibo puede ser mayor que la factura. La
+    advertencia se muestra al usuario al aprobar (es forceable).
     """
     status = doc.get("nvfac_esta")
     if is_definitive(status):
@@ -133,10 +137,4 @@ def validate_apply(doc, selected_names, bank, epsilon=DEFAULT_EPSILON):
         sum_selected(bank, selected_names, doc.get("nvfac_stot")),
         epsilon,
     )
-    if classification == "excede":
-        return False, (
-            "La selección excede el total de la factura; desmarque recibos "
-            "para aplicar"
-        ), classification
-
     return True, "", classification

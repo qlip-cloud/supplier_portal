@@ -114,7 +114,9 @@ class TestApproveSelected(unittest.TestCase):
         # El consumo solo toca los recibos elegidos (no pack_oc_group).
         self.assertEqual(calls.get("consumed"), [["R1", "R2"]])
 
-    def test_seleccion_parcial_no_aprueba(self):
+    def test_seleccion_parcial_aprueba(self):
+        # La seleccion por debajo del total (parcial) se aprueba: el usuario ya
+        # confirmo la advertencia ("la factura excede los recibos aplicados").
         docs = [_doc()]
         bank = [_receipt("R1", 40), _receipt("R2", 60)]
         calls, kwargs = _callbacks(docs, bank)
@@ -122,11 +124,13 @@ class TestApproveSelected(unittest.TestCase):
             ["DOC1"], now="2026-01-01 10:00:00",
             selected_receipts={"DOC1": ["R1"]}, **kwargs,
         )
-        self.assertEqual(result["approved"], [])
-        self.assertEqual(len(result["errors"]), 1)
-        self.assertIn("no cubre", result["errors"][0]["error"])
+        self.assertEqual(len(result["approved"]), 1)
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(calls.get("consumed"), [["R1"]])
 
-    def test_seleccion_excede_no_aprueba(self):
+    def test_seleccion_excede_aprueba(self):
+        # La seleccion que excede ya no se bloquea: los recibos son
+        # indivisibles y se aplican completos (con advertencia confirmada).
         docs = [_doc()]
         bank = [_receipt("R1", 140)]
         calls, kwargs = _callbacks(docs, bank)
@@ -134,8 +138,9 @@ class TestApproveSelected(unittest.TestCase):
             ["DOC1"], now="2026-01-01 10:00:00",
             selected_receipts={"DOC1": ["R1"]}, **kwargs,
         )
-        self.assertEqual(result["approved"], [])
-        self.assertGreater(len(result["errors"]), 0)
+        self.assertEqual(len(result["approved"]), 1)
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(calls.get("consumed"), [["R1"]])
 
     def test_recibo_reclamado_por_otra_factura_no_aprueba(self):
         docs = [_doc()]
@@ -157,6 +162,37 @@ class TestApproveSelected(unittest.TestCase):
             selected_receipts={}, **kwargs,
         )
         self.assertEqual(result["approved"], [])
+        self.assertIn("seleccionar y aplicar", result["errors"][0]["error"])
+
+    def test_lineas_restringidas_a_la_seleccion(self):
+        docs = [_doc()]
+        bank = [_receipt("R1", 40), _receipt("R2", 60), _receipt("R3", 10)]
+        calls, kwargs = _callbacks(docs, bank)
+        seen = []
+        result = approve_documents(
+            ["DOC1"], now="2026-01-01 10:00:00",
+            selected_receipts={"DOC1": ["R1", "R2"]},
+            get_lines_for_receipts_fn=lambda doc, names: (
+                seen.append(list(names)) or ([], "")),
+            **kwargs
+        )
+        self.assertEqual(len(result["approved"]), 1)
+        self.assertEqual(seen, [["R1", "R2"]])
+
+    def test_auto_restringe_lineas_a_los_recibos_asignados(self):
+        docs = [_doc()]
+        bank = [_receipt("R1", 40), _receipt("R2", 60)]
+        calls, kwargs = _callbacks(docs, bank)
+        seen = []
+        result = approve_documents(
+            ["DOC1"], now="2026-01-01 10:00:00",
+            get_lines_for_receipts_fn=lambda doc, names: (
+                seen.append(sorted(names)) or ([], "")),
+            **kwargs
+        )
+        self.assertEqual(len(result["approved"]), 1)
+        # _allocate_registrables asigna la combinacion exacta (no todos).
+        self.assertEqual(seen, [["R1", "R2"]])
 
 
 if __name__ == "__main__":

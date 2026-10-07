@@ -127,13 +127,12 @@ class TestValidateApply(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(classification, "completo")
 
-    def test_excede_bloquea(self):
+    def test_excede_permitido(self):
         bank = [_receipt("R1", 140)]
         ok, error, classification = validate_apply(
             _doc(), ["R1"], bank, 0.01)
-        self.assertFalse(ok)
+        self.assertTrue(ok)
         self.assertEqual(classification, "excede")
-        self.assertIn("excede", error)
 
     def test_estado_definitivo_bloquea(self):
         bank = [_receipt("R1", 40)]
@@ -175,7 +174,7 @@ class TestValidateApply(unittest.TestCase):
         bank = [{"name": "R1", "amount": 176, "unit_value": 815.27,
                  "date": "2026-01-01", "qp_invoice": None}]
         ok, error, classification = validate_apply(doc, ["R1"], bank, 0.01)
-        self.assertFalse(ok)
+        self.assertTrue(ok)
         self.assertEqual(classification, "excede")
 
 

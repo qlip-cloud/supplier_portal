@@ -64,7 +64,7 @@ def _bundle(bank, claim=None, release=None, data=None):
 class _Base(unittest.TestCase):
 
     def _setup(self, bank, claim=None, release=None, data=None, doc=None,
-               approve=None, permission=True):
+               permission=True):
         frappe_mock = sys.modules["frappe"]
         frappe_mock.reset_mock()
         frappe_mock.response = {}
@@ -74,9 +74,6 @@ class _Base(unittest.TestCase):
             patch.object(infra.runtime, "resolve", lambda: bundle),
             patch.object(infra, "_has_permission", lambda roles: permission),
         ]
-        if approve is not None:
-            patches.append(patch.object(
-                infra, "run_approve_with_receipts", return_value=approve))
         start = [p.start() for p in patches]
         self.addCleanup(lambda: [p.stop() for p in reversed(patches)])
         return frappe_mock
@@ -140,39 +137,24 @@ class TestApplyPartial(_Base):
 
 class TestApplyComplete(_Base):
 
-    def test_completo_dispara_aprobacion(self):
+    def test_completo_aplica_sin_aprobar(self):
+        claim_calls = []
         bank = _bank([("R1", 40, None), ("R2", 60, None)])
         frappe_mock = self._setup(
             bank=bank,
-            approve={
-                "approved": [{"name": "DOC1", "nvfac_nume": "FAC1", "doc_number": "BC1"}],
-                "errors": [],
-            },
+            claim=lambda doc, names: claim_calls.append(names) or [],
         )
         infra.apply("DOC1", '["R1","R2"]')
         message = self._message(frappe_mock)
         self.assertEqual(message["status"], 200)
-        self.assertIn("aprobando", message["msg"])
-        infra.run_approve_with_receipts.assert_called_once()
-
-    def test_error_de_aprobacion_devuelve_500(self):
-        bank = _bank([("R1", 40, None), ("R2", 60, None)])
-        frappe_mock = self._setup(
-            bank=bank,
-            approve={
-                "approved": [],
-                "errors": [{"nvfac_nume": "FAC1", "error": "BC fallo"}],
-            },
-        )
-        infra.apply("DOC1", '["R1","R2"]')
-        message = self._message(frappe_mock)
-        self.assertEqual(message["status"], 500)
-        self.assertIn("BC fallo", message["msg"])
+        self.assertIn("manualmente", message["msg"])
+        self.assertEqual(message["data"]["classification"], "completo")
+        self.assertEqual(claim_calls, [["R1", "R2"]])
 
 
 class TestApplyBlocks(_Base):
 
-    def test_excede_no_reclama(self):
+    def test_excede_aplica_sin_aprobar(self):
         claim_calls = []
         bank = _bank([("R1", 140, None)])
         frappe_mock = self._setup(
@@ -181,8 +163,9 @@ class TestApplyBlocks(_Base):
         )
         infra.apply("DOC1", '["R1"]')
         message = self._message(frappe_mock)
-        self.assertEqual(message["status"], 400)
-        self.assertEqual(claim_calls, [])
+        self.assertEqual(message["status"], 200)
+        self.assertIn("excede", message["msg"])
+        self.assertEqual(claim_calls, [["R1"]])
 
     def test_estado_definitivo_bloquea(self):
         claim_calls = []

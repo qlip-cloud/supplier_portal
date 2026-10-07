@@ -45,6 +45,8 @@ from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
     unconsumed_receipts,
 )
 from qp_supplier_front.uses_cases.documenteme.receipt_selection import (
+    classify_selection,
+    sum_selected,
     validate_apply,
 )
 
@@ -85,6 +87,44 @@ def _no_match_warning(invoice_total):
         "No existe una combinación de recepciones que coincida con el total "
         "de la factura ({})".format(invoice_total)
     )
+
+
+def _must_select_warning(purchase_order):
+    return (
+        "La orden de compra {} tiene recepciones; debe seleccionar y aplicar "
+        "en la factura las recepciones que la respaldan".format(purchase_order)
+    )
+
+
+def _selection_exceeds_warning(invoice_total, selected_total):
+    return (
+        "El valor de las recepciones aplicadas ({}) excede el total de la "
+        "factura ({}); las recepciones son indivisibles y se aplicarán "
+        "completas".format(selected_total, invoice_total)
+    )
+
+
+def _selection_partial_warning(invoice_total, selected_total):
+    return (
+        "El valor de la factura ({}) excede el valor de las recepciones "
+        "aplicadas ({})".format(invoice_total, selected_total)
+    )
+
+
+def _applied_receipts(bank, invoice_number):
+    """Recibos del banco reclamados/aplicados a la factura."""
+    return [
+        receipt for receipt in (bank or [])
+        if receipt.get("qp_invoice") == invoice_number
+    ]
+
+
+def _is_relaxed_auto_apply(bank, oc_invoice_count):
+    """Caso relajado de auto-aplicación: una sola recepción disponible en la
+    OC y la OC asociada a una sola factura activa (sin conflicto con otras
+    facturas ni recepciones)."""
+    available = unconsumed_receipts(bank)
+    return len(available) == 1 and oc_invoice_count == 1
 
 
 def is_definitive(status):
@@ -299,9 +339,24 @@ def validate_registrable(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=Non
     return True, ""
 
 
+def _is_pure_credit(doc, is_service_supplier_fn=None):
+    """True si la factura usa la regla credito (OC + recepcion exacta).
+
+    Excluye notas credito, contado y proveedores de servicio (esas ramas
+    tienen su propia logica de validacion).
+    """
+    if is_credit_note(doc.get("nvtip_docu")):
+        return False
+    if is_cash_invoice(doc.get("nvfac_conv")):
+        return False
+    if is_service_supplier_fn is not None and is_service_supplier_fn(doc):
+        return False
+    return True
+
+
 def collect_registrable_violations(docs, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None,
                                    is_service_supplier_fn=None, resolve_supplier_rule_fn=None,
-                                   epsilon=DEFAULT_EPSILON):
+                                   epsilon=DEFAULT_EPSILON, skip_credit=False):
     """Acumula todas las violaciones de aprobacion automatica por factura.
 
     Retorna una lista de dicts {"nvfac_nume", "violations": [mensaje, ...]}
@@ -309,11 +364,16 @@ def collect_registrable_violations(docs, po_exists_fn, receipt_bank_fn, resolve_
     Las facturas con bloqueo duro (estados definitivos/en proceso) no se
     incluyen porque no son anulables por el usuario: se mantienen fuera de
     la decision de aprobacion forzada.
+
+    Con skip_credit=True omite las facturas de credito puras (las cubre
+    collect_selection_violations con la logica de seleccion manual).
     """
     violations = []
     for doc in (docs or []):
         blocker = get_registrable_blockers(doc)
         if blocker:
+            continue
+        if skip_credit and _is_pure_credit(doc, is_service_supplier_fn):
             continue
         warnings = get_registrable_warnings(
             doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=resolve_rule_fn,
@@ -327,6 +387,109 @@ def collect_registrable_violations(docs, po_exists_fn, receipt_bank_fn, resolve_
                 "violations": warnings,
             })
     return violations
+
+
+def collect_selection_violations(docs, po_exists_fn, receipt_bank_fn,
+                                 oc_invoice_count_fn, epsilon=DEFAULT_EPSILON,
+                                 is_service_supplier_fn=None):
+    """Violaciones de la regla de SELECCION manual para facturas de credito.
+
+    La aprobacion manual de una factura de credito con OC que tiene
+    recepciones exige que el usuario haya aplicado (reclamado) las
+    recepciones que la respaldan. Regras:
+
+    - Sin recepciones aplicadas y la OC con recepciones disponibles:
+      bloqueo duro ("debe seleccionar y aplicar"), salvo el caso relajado
+      (una sola recepcion disponible y la OC asociada a una sola factura
+      activa), donde el flujo aplica automaticamente al aprobar.
+    - Con recepciones aplicadas por debajo del total: advertencia forceable
+      (la factura se puede enviar confirmando).
+    - Con recepciones aplicadas que exceden el total: bloqueo duro.
+
+    Retorna [{"nvfac_nume", "violations": [...], "blocking": bool}].
+    """
+    violations = []
+    for doc in (docs or []):
+        if not _is_pure_credit(doc, is_service_supplier_fn):
+            continue
+        if get_registrable_blockers(doc):
+            continue
+        purchase_order = doc.get("nvfac_orde")
+        if not purchase_order:
+            continue
+        if po_exists_fn is not None and not po_exists_fn(purchase_order):
+            continue
+        bank = receipt_bank_fn(purchase_order) or [] if receipt_bank_fn else []
+        invoice_number = doc.get("nvfac_nume")
+        invoice_total = doc.get("nvfac_stot") or 0
+        applied = _applied_receipts(bank, invoice_number)
+        if applied:
+            selected_total = sum_selected(
+                bank,
+                [receipt.get("name") for receipt in applied],
+                invoice_total,
+            )
+            violation = _selection_floor_violation(
+                invoice_number, invoice_total, selected_total, epsilon
+            )
+            if violation:
+                violations.append(violation)
+            continue
+        available = unconsumed_receipts(bank)
+        if not available:
+            # La OC no tiene recepciones: no hay seleccion posible; advertencia
+            # forceable (coincide con el comportamiento previo).
+            violations.append({
+                "nvfac_nume": invoice_number,
+                "violations": [_no_receipts_warning(purchase_order)],
+                "blocking": False,
+            })
+            continue
+        count = oc_invoice_count_fn(purchase_order) if oc_invoice_count_fn else 0
+        if _is_relaxed_auto_apply(bank, count):
+            single_total = sum_selected(
+                bank, [available[0].get("name")], invoice_total
+            )
+            violation = _selection_floor_violation(
+                invoice_number, invoice_total, single_total, epsilon
+            )
+            if violation:
+                violations.append(violation)
+            continue
+        violations.append({
+            "nvfac_nume": invoice_number,
+            "violations": [_must_select_warning(purchase_order)],
+            "blocking": True,
+        })
+    return violations
+
+
+def _selection_floor_violation(invoice_number, invoice_total, selected_total,
+                               epsilon):
+    """Advertencia de la seleccion segun como se compara con el total.
+
+    Tanto la seleccion por debajo (parcial) como la que excede son forceables
+    (los recibos son indivisibles; el usuario confirma y se envia completo).
+    Exacto -> sin violacion.
+    """
+    classification = classify_selection(invoice_total, selected_total, epsilon)
+    if classification == "excede":
+        return {
+            "nvfac_nume": invoice_number,
+            "violations": [
+                _selection_exceeds_warning(invoice_total, selected_total)
+            ],
+            "blocking": False,
+        }
+    if classification == "parcial":
+        return {
+            "nvfac_nume": invoice_number,
+            "violations": [
+                _selection_partial_warning(invoice_total, selected_total)
+            ],
+            "blocking": False,
+        }
+    return None
 
 
 def validate_registrables(docs, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None,
@@ -1107,15 +1270,26 @@ def _bank_available_for_invoice(bank, invoice_number):
     ]
 
 
-def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon):
+def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon,
+                       force=False, po_exists_fn=None, resolve_rule_fn=None,
+                       is_service_supplier_fn=None,
+                       resolve_supplier_rule_fn=None):
     """Valida la seleccion manual de recepciones por factura.
 
     A diferencia de _allocate_registrables, NO re-runnea pack_oc_group: la
-    combinacion la eligio el usuario (recibos ya vinculados via "aplicar") y
-    aqui solo se re-valida que el set siga cubriendo el total y que la factura
-    sea registrable. Las facturas de NOTA CREDITO (nvtip_docu == "C") siempre
-    se aprueban (sin restriccion ni validacion). Retorna
-    (valid, errors, allocation) como la variante automatica.
+    combinacion la eligio el usuario (recepciones aplicadas/reclamadas) y aqui
+    se re-valida que el set este disponible y no exceda el total de la factura.
+
+    Reglas por tipo:
+    - Nota credito: siempre valida (sin restriccion ni seleccion).
+    - Contado / proveedor de servicio: seleccion no obligatoria; con force=True
+      se omiten las advertencias de su regla (aprobacion manual forzada).
+    - Credito: si la OC tiene recepciones, exige que la factura tenga
+      recepciones aplicadas (bloqueo duro si no); la seleccion puede quedar por
+      debajo del total (parcial) y la factura se aprueba igual, pero no puede
+      exceder el total.
+
+    Retorna (valid, errors, allocation) como la variante automatica.
     """
     valid = []
     errors = []
@@ -1132,16 +1306,82 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon):
         if is_credit_note(doc.get("nvtip_docu")):
             valid.append(doc)
             continue
-        receipt_names = ((selected_receipts or {}).get(doc.get("name")) or [])
-        if not receipt_names:
+        if is_service_supplier_fn is not None and is_service_supplier_fn(doc):
+            if force:
+                valid.append(doc)
+                continue
+            warnings = _get_service_supplier_registrable_warnings(
+                doc,
+                po_exists_fn,
+                _receipt_for_po_from_bank(receipt_bank_fn),
+                resolve_supplier_rule_fn or resolve_rule_fn,
+            )
+            if warnings:
+                errors.append({
+                    "name": doc.get("name"),
+                    "nvfac_nume": doc.get("nvfac_nume"),
+                    "error": warnings[0],
+                })
+            else:
+                valid.append(doc)
+            continue
+        if is_cash_invoice(doc.get("nvfac_conv")):
+            if force:
+                valid.append(doc)
+                continue
+            warnings = _get_cash_registrable_warnings(
+                doc,
+                po_exists_fn,
+                _receipt_for_po_from_bank(receipt_bank_fn),
+                resolve_rule_fn,
+            )
+            if warnings:
+                errors.append({
+                    "name": doc.get("name"),
+                    "nvfac_nume": doc.get("nvfac_nume"),
+                    "error": warnings[0],
+                })
+            else:
+                valid.append(doc)
+            continue
+        purchase_order = doc.get("nvfac_orde")
+        if not purchase_order:
             errors.append({
                 "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
-                "error": "La factura no tiene recepciones seleccionadas",
+                "error": _no_order_warning(),
             })
             continue
+        if po_exists_fn is not None and not po_exists_fn(purchase_order):
+            errors.append({
+                "name": doc.get("name"),
+                "nvfac_nume": doc.get("nvfac_nume"),
+                "error": _order_not_exists_warning(purchase_order),
+            })
+            continue
+        receipt_names = ((selected_receipts or {}).get(doc.get("name")) or [])
+        if not receipt_names:
+            bank = receipt_bank_fn(purchase_order) or [] if receipt_bank_fn else []
+            if unconsumed_receipts(bank):
+                errors.append({
+                    "name": doc.get("name"),
+                    "nvfac_nume": doc.get("nvfac_nume"),
+                    "error": _must_select_warning(purchase_order),
+                })
+            elif force:
+                # La OC no tiene recepciones: no hay nada que seleccionar; el
+                # modo forzado (usuario confirmo) aprueba con las lineas de la
+                # factura homologadas.
+                valid.append(doc)
+            else:
+                errors.append({
+                    "name": doc.get("name"),
+                    "nvfac_nume": doc.get("nvfac_nume"),
+                    "error": _no_receipts_warning(purchase_order),
+                })
+            continue
         bank = _bank_available_for_invoice(
-            receipt_bank_fn(doc.get("nvfac_orde")) or [],
+            receipt_bank_fn(purchase_order) or [] if receipt_bank_fn else [],
             doc.get("nvfac_nume"),
         )
         ok, error, classification = validate_apply(
@@ -1154,15 +1394,9 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon):
                 "error": error,
             })
             continue
-        # La aprobacion exige seleccion completa: una seleccion parcial solo
-        # reserva recibos (no inicia el proceso de aprobacion).
-        if classification != "completo":
-            errors.append({
-                "name": doc.get("name"),
-                "nvfac_nume": doc.get("nvfac_nume"),
-                "error": "La selección de recepciones no cubre el total de la factura",
-            })
-            continue
+        # La seleccion parcial (por debajo del total) se aprueba: el usuario
+        # ya confirmo la advertencia ("el valor de la factura excede el de las
+        # recepciones aplicadas"). La seleccion que excede se bloqueo arriba.
         valid.append(doc)
         names = set(receipt_names)
         allocation[doc.get("name")] = [
@@ -1195,6 +1429,7 @@ def approve_documents(
     build_invoice_fn=None,
     is_service_supplier_fn=None,
     resolve_supplier_rule_fn=None,
+    get_lines_for_receipts_fn=None,
 ):
     """Aprueba en lote las facturas: un solo envio a BC con array.
 
@@ -1206,13 +1441,17 @@ def approve_documents(
        combinacion exacta caen a error.
        Con selected_receipts (seleccion manual del banco) se usa
        _allocate_selected: re-valida el set elegido por el usuario sin
-       re-runnear pack_oc_group (la combinacion ya la decidio el usuario).
-       Con force=True (aprobacion manual con confirmacion del usuario) se
-       ignoran las advertencias de OC - recepcion - montos, pero los bloqueos
-       duros (estados definitivos/en proceso) siguen impidiendo la aprobacion.
-       El modo forzado NUNCA consume recepciones: sin combinacion exacta la
-       factura no marca ningun recibo y el banco queda intacto.
-    2. Resuelve las lineas de cada factura via get_lines_fn(doc).
+       re-runnear pack_oc_group. En credito la factura debe tener recepciones
+       aplicadas cuando la OC tiene recepciones (si no, bloqueo duro); la
+       seleccion por debajo del total (parcial) se aprueba con la advertencia
+       ya confirmada, y la que excede se bloquea.
+       Con force=True (aprobacion manual con confirmacion del usuario) sin
+       selected_receipts se ignoran las advertencias de OC - recepcion -
+       montos, pero los bloqueos duros siguen impidiendo la aprobacion.
+    2. Resuelve las lineas de cada factura via get_lines_fn(doc), o via
+       get_lines_for_receipts_fn(doc, receipt_names) cuando hay recepciones
+       asignadas (reparto automatico o seleccion manual), de modo que el
+       payload lleve SOLO las recepciones asignadas a la factura.
     3. Construye un solo payload (array) y lo envia a BC.
     4. Las facturas con doc_number se persisten y marcan "BCC"; sus
        recepciones asignadas se consumen via consume_receipts_fn (solo las
@@ -1225,13 +1464,18 @@ def approve_documents(
     """
     docs = get_docs_fn(doc_names)
 
-    if force:
+    if selected_receipts is not None:
+        valid, errors, allocation = _allocate_selected(
+            docs, selected_receipts, receipt_bank_fn, epsilon,
+            force=force,
+            po_exists_fn=po_exists_fn,
+            resolve_rule_fn=resolve_rule_fn,
+            is_service_supplier_fn=is_service_supplier_fn,
+            resolve_supplier_rule_fn=resolve_supplier_rule_fn,
+        )
+    elif force:
         valid, errors = _split_by_blockers(docs)
         allocation = {}
-    elif selected_receipts is not None:
-        valid, errors, allocation = _allocate_selected(
-            docs, selected_receipts, receipt_bank_fn, epsilon
-        )
     elif receipt_bank_fn is not None:
         valid, errors, allocation = _allocate_registrables(
             docs, po_exists_fn, receipt_bank_fn, epsilon,
@@ -1259,7 +1503,14 @@ def approve_documents(
     payload_docs = []
     payload = []
     for doc in valid:
-        lines, line_error = get_lines_fn(doc)
+        matched = allocation.get(doc.get("name"))
+        receipt_names = (
+            [receipt.get("name") for receipt in matched] if matched else None
+        )
+        if get_lines_for_receipts_fn is not None and receipt_names:
+            lines, line_error = get_lines_for_receipts_fn(doc, receipt_names)
+        else:
+            lines, line_error = get_lines_fn(doc)
         if line_error:
             _record_error(errors, mark_error_fn, doc, line_error)
             continue

@@ -9,8 +9,8 @@ runtime (callbacks de memoria + confirmacion simulada), sin base de datos.
 Cubre:
 - parcial: reclamar RESERVA los recibos (qp_invoice seteado) sin iniciar
   aprobacion (la factura sigue no definitiva).
-- completo: reclamar + iniciar aprobacion -> BCC -> confirmacion simulada
-  (030/032/033) -> A; los recibos quedan consumidos.
+- completo/excede: reclamar vincula los recibos y deja la factura NO
+  definitiva; la aprobacion es siempre manual (no se aprueba al aplicar).
 - liberar todo: aplicar sin seleccion libera los recibos de vuelta al pool.
 - exclusion: los recibos reclamados por una factura NO aparecen en el banco
   de otra factura de la misma OC.
@@ -97,21 +97,18 @@ class TestSimReceiptApplication(unittest.TestCase):
         doc = self.store.get("qp_SP_DocumentDetail", "SIM:PO-MANUAL-0001")
         self.assertEqual(doc["nvfac_esta"], "E")
 
-    def test_completo_aprueba_y_consume(self):
+    def test_completo_aplica_sin_aprobar(self):
+        # Aplicar SOLO vincula los recibos: la factura queda NO definitiva y
+        # la aprobacion es manual (no se aprueba al aplicar).
         infra.apply("SIM:PO-MANUAL-0001", '["REC-A-1"]')
         infra.apply("SIM:PO-MANUAL-0001", '["REC-A-1", "REC-A-2"]')
         message = self._msg()
         self.assertEqual(message["status"], 200)
-        self.assertIn("aprobando", message["msg"])
-        # Credit: BCC -> confirmacion simulada 030/032/033 -> A.
+        self.assertIn("manualmente", message["msg"])
         doc = self.store.get("qp_SP_DocumentDetail", "SIM:PO-MANUAL-0001")
-        self.assertEqual(doc["nvfac_esta"], "A")
-        self.assertEqual(doc["nvfac_ueve"], "033")
+        self.assertEqual(doc["nvfac_esta"], "E")
         self.assertEqual(self._receipt("REC-A-1")["qp_invoice"], "PO-MANUAL-0001")
         self.assertEqual(self._receipt("REC-A-2")["qp_invoice"], "PO-MANUAL-0001")
-        # REC-A-3/4 siguen libres.
-        self.assertFalse(self._receipt("REC-A-3")["qp_invoice"])
-        self.assertFalse(self._receipt("REC-A-4")["qp_invoice"])
 
     def test_sin_seleccion_libera_todo(self):
         infra.apply("SIM:PO-MANUAL-0001", '["REC-A-1"]')
