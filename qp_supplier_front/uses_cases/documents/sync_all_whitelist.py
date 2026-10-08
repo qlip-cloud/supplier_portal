@@ -168,7 +168,7 @@ def run_documenteme_stale_status_alerts():
 
 @frappe.whitelist()
 def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
-    """Sincronizacion programada (cron */30).
+    """Sincronizacion programada (cron 0 6 * * *, una vez al dia a las 6 AM).
 
     La descarga de facturas es SINCRONA dentro del lock (para no pisar a
     otro cron en curso). Al final se lanza el auto-rechazo en segundo plano
