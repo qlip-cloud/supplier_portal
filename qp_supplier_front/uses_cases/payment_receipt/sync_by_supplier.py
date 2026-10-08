@@ -28,6 +28,7 @@ from qp_supplier_front.uses_cases.payment_receipt.sync_core import (
 )
 from qp_supplier_front.infrastructure.adapters.fetch_adapter import (
     fetch_invoices as fetch_bearer,
+    fetch_payment_receipts,
 )
 from qp_supplier_front.infrastructure.adapters.fetch_oauth_adapter import (
     fetch_invoices as fetch_oauth,
@@ -55,7 +56,7 @@ from qp_supplier_front.services.sync_lock import acquire, release, wait_for
 
 
 FETCH_MAP = {
-    "GP": fetch_bearer,
+    "GP": fetch_payment_receipts,
     "BC": fetch_oauth,
 }
 
