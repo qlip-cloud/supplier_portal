@@ -77,3 +77,17 @@ def compute_sync_start(last_date, today, historical_start=HISTORICAL_START_DATE)
 
 def today_start(today):
     return today.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def coerce_datetime(value):
+    """Convierte date/datetime/str a datetime (util pura)."""
+    return _as_datetime(value)
+
+
+def resolve_on_demand_start(checkpoint, last_receipt_date, initial_start, today):
+    """Resuelve la fecha de inicio on-demand con prioridad:
+    1. checkpoint (ultima sincronizacion), 2. ultima fecha de recibo,
+    3. fecha inicial global."""
+    last_date = _as_datetime(checkpoint) or _as_datetime(last_receipt_date)
+    initial_start = _as_datetime(initial_start) or HISTORICAL_START_DATE
+    return compute_sync_start(last_date, today, historical_start=initial_start)

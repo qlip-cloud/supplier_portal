@@ -18,6 +18,7 @@
     "init_fiscal_year",
     "invoices_date_sync",
     "receipts_date_sync",
+    "initial_sync_date",
     "section_break_redirect",
     "redirect_to_welcome",
     "column_break_welcome_content",
@@ -112,12 +113,19 @@
     "label": "Facturas BC - \u00faltima fecha sincronizada",
     "description": "Fecha de inicio del full sync de facturas BC. Se actualiza automaticamente a la \u00faltima fecha sincronizada."
    },
-   {
-    "fieldname": "receipts_date_sync",
-    "fieldtype": "Datetime",
-    "label": "Recibos BC - \u00faltima fecha sincronizada",
-    "description": "Fecha de inicio del full sync de recibos BC. Se actualiza automaticamente a la \u00faltima fecha sincronizada."
-   },
+{
+     "fieldname": "receipts_date_sync",
+     "fieldtype": "Datetime",
+     "label": "Recibos BC - \u00faltima fecha sincronizada",
+     "description": "Fecha de inicio del full sync de recibos BC. Se actualiza automaticamente a la \u00faltima fecha sincronizada."
+    },
+    {
+     "default": "2024-01-01",
+     "fieldname": "initial_sync_date",
+     "fieldtype": "Date",
+     "label": "Fecha inicial global de sincronizaci\u00f3n",
+     "description": "Fecha de inicio por defecto del sync de recibos para proveedores sin checkpoint ni recibos previos (por defecto 2024-01-01)."
+    },
    {
     "fieldname": "section_break_redirect",
     "fieldtype": "Section Break",
@@ -168,7 +176,7 @@
 "index_web_pages_for_search": 1,
   "issingle": 1,
   "links": [],
-   "modified": "2026-09-11 12:00:00.000000",
+   "modified": "2026-10-08 15:30:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_MasterSetup",

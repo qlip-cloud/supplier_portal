@@ -240,6 +240,12 @@ $(document).ready(function () {
 
     function loadMoreInvoices(is_filter = false) {
 
+        let accordion = $("#accordion");
+
+        if (accordion.length === 0) {
+            return;
+        }
+
         if ($("#no-load").length === 0) {
 
 
@@ -253,8 +259,6 @@ $(document).ready(function () {
                 loading = true;
 
                 $("#loading").show()
-
-                let accordion = $("#accordion");
 
                 let supplier_id = $("#supplier_id").val();
 

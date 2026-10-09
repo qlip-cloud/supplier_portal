@@ -14,6 +14,8 @@ from qp_supplier_front.services.sync_window import (
     compute_sync_start,
     today_start,
     HISTORICAL_START_DATE,
+    resolve_on_demand_start,
+    coerce_datetime,
 )
 
 
@@ -129,6 +131,37 @@ class TestTodayStart(unittest.TestCase):
         today = datetime(2026, 8, 6, 23, 59, 59)
         start = today_start(today)
         self.assertEqual((start.hour, start.minute, start.second), (0, 0, 0))
+
+
+class TestResolveOnDemandStart(unittest.TestCase):
+
+    def setUp(self):
+        self.today = datetime(2026, 8, 6, 12, 0, 0)
+        self.initial = datetime(2024, 1, 1)
+
+    def test_checkpoint_has_priority(self):
+        checkpoint = datetime(2026, 8, 1, 10, 0, 0)
+        last_receipt = datetime(2026, 7, 1, 0, 0, 0)
+        start = resolve_on_demand_start(checkpoint, last_receipt, self.initial, self.today)
+        self.assertEqual(start, checkpoint)
+
+    def test_last_receipt_when_no_checkpoint(self):
+        last_receipt = datetime(2026, 7, 1, 0, 0, 0)
+        start = resolve_on_demand_start(None, last_receipt, self.initial, self.today)
+        self.assertEqual(start, last_receipt)
+
+    def test_initial_when_nothing_exists(self):
+        start = resolve_on_demand_start(None, None, self.initial, self.today)
+        self.assertEqual(start, self.initial)
+
+    def test_initial_when_string_value(self):
+        start = resolve_on_demand_start(None, None, "2024-01-01", self.today)
+        self.assertEqual(start, self.initial)
+
+    def test_coerce_datetime_norm(self):
+        self.assertEqual(
+            coerce_datetime("2026-07-01 00:00:00"), datetime(2026, 7, 1, 0, 0, 0)
+        )
 
 
 if __name__ == "__main__":

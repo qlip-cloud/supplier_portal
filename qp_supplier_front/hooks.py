@@ -136,10 +136,16 @@ scheduler_events = {
 			"qp_supplier_front.taks.sync.all"
 		],
 		"0 1 * * *": [
-			"qp_supplier_front.uses_cases.purchase_invoice.sync_by_supplier.scheduled_sync_bc"
+			"qp_supplier_front.uses_cases.purchase_invoice.sync_by_supplier.sync_incremental"
 		],
-		"*/5 * * * *": [
-			"qp_supplier_front.taks.sync.scheduled_sync_recent"
+		"0 0 * * *": [
+			"qp_supplier_front.uses_cases.payment_receipt.sync_by_supplier.sync_incremental"
+		],
+		"0 2 * * 6": [
+			"qp_supplier_front.uses_cases.payment_receipt.sync_by_supplier.sync_full_job"
+		],
+		"0 3 * * 6": [
+			"qp_supplier_front.uses_cases.purchase_invoice.sync_by_supplier.sync_full_job"
 		],
     },
  	"daily": [
