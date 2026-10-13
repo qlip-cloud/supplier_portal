@@ -98,6 +98,7 @@ def _golden_invoice(no_factura_proveedor, cufe, almacen="HQ01"):
                 "NoLineaRecepcion": "10000",
                 "NoRecepcion": "R108349",
                 "NoPedido": "45238",
+                "Comentario": "Recepcion R108349",
             }
         ],
     }

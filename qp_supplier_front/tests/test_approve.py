@@ -263,6 +263,7 @@ class TestBuildPayload(unittest.TestCase):
         self.assertEqual(line["NoLineaRecepcion"], "10000")
         self.assertEqual(line["NoRecepcion"], "R108349")
         self.assertEqual(line["NoPedido"], "45238")
+        self.assertEqual(line["Comentario"], "Recepcion R108349")
 
     def test_no_linea_recepcion_se_incrementa_por_factura(self):
         payload = build_payload([_doc()], self._multi_lines, self._get_headquarter)
@@ -293,6 +294,11 @@ class TestBuildPayload(unittest.TestCase):
     def test_sin_lineas_de_recepcion_deja_array_vacio(self):
         payload = build_payload([_doc()], lambda po: ([], ""), self._get_headquarter)
         self.assertEqual(payload[0]["vendorInvoiceLine"], [])
+
+    def test_comentario_vacio_sin_recepcion(self):
+        lines = lambda po: ([_line(receiving_no="")], "")
+        payload = build_payload([_doc()], lines, self._get_headquarter)
+        self.assertEqual(payload[0]["vendorInvoiceLine"][0]["Comentario"], "")
 
 
 class TestIsErrorResponse(unittest.TestCase):

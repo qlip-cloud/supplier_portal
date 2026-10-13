@@ -531,6 +531,10 @@ def _build_vendor_invoice_line(line, idx="10000"):
         "NoLineaRecepcion": idx,
         "NoRecepcion": line.get("receiving_no") or "",
         "NoPedido": line.get("order_no") or "",
+        "Comentario": (
+            "Recepcion {}".format(line.get("receiving_no"))
+            if line.get("receiving_no") else ""
+        ),
     }
 
 
