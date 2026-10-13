@@ -276,6 +276,87 @@ class TestSimGpDocumentemeInMemory(unittest.TestCase):
         self.assertAlmostEqual(lines[0]["precio"], 10.0)
         self.assertEqual(lines[0]["noLineaRecepcion"], 1)
 
+    def test_tipo1_usa_precio_unitario_de_la_factura(self):
+        # OC con recepcion: el payload GP debe llevar el precio unitario que
+        # declara la factura, aunque difiera del de la OC/recepcion.
+        from qp_supplier_front.simulation import references_memory
+
+        name = _seed_doc(self.store, nume="FAC-GP-REC-0001")
+        self.store.insert("qp_SP_PurchaseReceipt", {
+            "name": "REC-GP-0001",
+            "qp_supplier_oc": "GP-PO-0001",
+            "total": 2550.0,
+            "posting_date": "2026-09-02",
+            "qp_invoice": "FAC-GP-REC-0001",
+        })
+        self.store.insert("qp_SP_PurchaseReceiptItem", {
+            "name": "REC-GP-ITEM-0001",
+            "parent": "REC-GP-0001",
+            "parenttype": "Purchase Receipt",
+            "item_code": "ITEM-GP-1",
+            "qty": 85,
+            "rate": 30.0,
+            "idx": 1,
+            "uom": "UN",
+        })
+        _seed_detail_line(self.store, name, "SUP-1", 85, 31.58)
+
+        doc = self.store.get("qp_SP_DocumentDetail", name)
+        lines, error = references_memory.memory_get_lines_gp(self.store, doc)
+
+        self.assertEqual(error, "")
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(lines[0]["item_code"], "ITEM-GP-1")
+        # Precio de la factura (31.58), no el de la recepcion (30.0).
+        self.assertEqual(lines[0]["rate"], 31.58)
+        self.assertEqual(lines[0]["qty"], 85)
+        self.assertEqual(lines[0]["receiving_no"], "REC-GP-0001")
+        self.assertEqual(lines[0]["order_no"], "GP-PO-0001")
+
+    def test_tipo1_producto_sin_homologacion_bloquea_y_alerta(self):
+        # OC con recepcion y un producto de la factura SIN homologacion: la
+        # factura NO se envia (no continua) y se alerta al usuario con los
+        # codigos pendientes.
+        name = _seed_doc(self.store, nume="FAC-GP-NOHOM-0001")
+        self.store.insert("qp_SP_PurchaseReceipt", {
+            "name": "REC-GP-NOHOM-0001",
+            "qp_supplier_oc": "GP-PO-0001",
+            "total": 2550.0,
+            "posting_date": "2026-09-02",
+            "qp_invoice": "FAC-GP-NOHOM-0001",
+        })
+        self.store.insert("qp_SP_PurchaseReceiptItem", {
+            "name": "REC-GP-NOHOM-ITEM-0001",
+            "parent": "REC-GP-NOHOM-0001",
+            "parenttype": "Purchase Receipt",
+            "item_code": "ITEM-GP-1",
+            "qty": 85,
+            "rate": 30.0,
+            "idx": 1,
+            "uom": "UN",
+        })
+        # SUP-9 no tiene homologacion configurada.
+        _seed_detail_line(self.store, name, "SUP-9", 85, 31.58)
+
+        calls = {"sent": 0}
+
+        def send_request_fn(endpoint_code, payload):
+            calls["sent"] += 1
+            return {"Result": 0, "invoices": []}, 200
+
+        result = self._run([name], send_request_fn=send_request_fn)
+
+        self.assertEqual(result["approved"], [])
+        self.assertEqual(calls["sent"], 0)
+        self.assertEqual(len(result["errors"]), 1)
+        self.assertIn("Faltan homologaciones", result["errors"][0]["error"])
+        self.assertIn("SUP-9", result["errors"][0]["error"])
+        alerts = self.store.query("qp_SP_Alert")
+        self.assertTrue(
+            any("SUP-9" in (a.get("message") or "") for a in alerts),
+            "debe alertar al usuario sobre el producto sin homologar",
+        )
+
     def test_proveedor_servicio_envia_tipo3(self):
         name = _seed_doc(
             self.store,

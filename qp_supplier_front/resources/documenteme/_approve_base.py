@@ -31,6 +31,7 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     GP_TIPO_ENVIO,
     GP_TIPO_NC,
     GP_TIPO_NC_5,
+    apply_invoice_unit_prices,
     approve_documents,
     collect_registrable_violations,
     collect_selection_violations,
@@ -350,6 +351,11 @@ def _get_lines_gp_from_invoice(doc):
     bc_item_code, filtra los productos que coinciden con la OC (una OC que
     puede estar parcialmente facturada) y consolida por producto (cantidad y
     monto; idx de la OC).
+
+    Si algun producto de la factura no tiene homologacion retorna error: la
+    factura NO se envia y se alerta al usuario con los codigos pendientes
+    (ver mark_error). Esto aplica tambien al tipo 1, que necesita el precio
+    unitario de la factura.
     """
     from qp_supplier_front.infrastructure.adapters.item_homologation_adapter import (
         get_homologation_map,
@@ -394,8 +400,11 @@ def get_lines_gp(doc, resolve_nc_tipo_fn=None, force=False):
     - Proveedor servicio (tipo 3 CxP): NO se envian productos. La peticion
       va solo con la cabecera (vendorInvoiceLine vacio) y No se valida
       homologacion ni lineas de la factura.
-    - Con recepciones (tipo 1): las lineas de las recepciones (comportamiento
-      actual de documenteme).
+    - Con recepciones (tipo 1): las lineas de las recepciones, pero con el
+      precio unitario que indique la factura del proveedor (ver
+      apply_invoice_unit_prices), sea igual o no al de la OC/recepcion. Si
+      algun producto de la factura no esta homologado la factura NO se envia
+      y se alerta al usuario (mismos codigos pendientes del tipo 2).
     - Sin recepciones (tipo 2): homogenizar y consolidar contra la OC.
     """
     if is_credit_note(doc.get("nvtip_docu")):
@@ -414,7 +423,10 @@ def get_lines_gp(doc, resolve_nc_tipo_fn=None, force=False):
     purchase_order = doc.get("nvfac_orde")
     receipt_lines = get_lines_from_receipts(purchase_order)
     if receipt_lines:
-        return receipt_lines, ""
+        invoice_lines, line_error = _get_lines_gp_from_invoice(doc)
+        if line_error:
+            return [], line_error
+        return apply_invoice_unit_prices(receipt_lines, invoice_lines), ""
 
     return _get_lines_gp_from_invoice(doc)
 

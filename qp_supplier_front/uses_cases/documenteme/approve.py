@@ -708,6 +708,31 @@ def consolidate_gp_lines(detail_lines, homologation_map, oc_items=None,
     return lines, missing
 
 
+def apply_invoice_unit_prices(lines, invoice_lines):
+    """Fija el precio unitario (rate) de las lineas GP al de la factura.
+
+    El payload GP debe llevar SIEMPRE el precio unitario que indique la
+    factura del proveedor, sea igual o no al de la OC/recepcion. `lines` son
+    las lineas base (p.ej. de recepcion) y `invoice_lines` las lineas de la
+    factura homologadas/consolidadas por producto (item_code -> rate). Se
+    conserva cantidad, recepcion y orden de la linea base; las lineas cuyo
+    producto no aparezca en la factura conservan su rate original.
+    """
+    price_by_item = {}
+    for invoice_line in (invoice_lines or []):
+        code = invoice_line.get("item_code")
+        if code and code not in price_by_item:
+            price_by_item[code] = invoice_line.get("rate")
+    if not price_by_item:
+        return lines
+    return [
+        dict(line, rate=price_by_item[line.get("item_code")])
+        if line.get("item_code") in price_by_item
+        else line
+        for line in (lines or [])
+    ]
+
+
 def build_gp_vendor_invoice_line(line, date_value, fecha_requerida="",
                                  fecha_prometida="",
                                  tipo_factura_doc=GP_TIPO_ENVIO_FACTURA):

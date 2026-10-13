@@ -18,6 +18,7 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     GP_TIPO_ENVIO,
     GP_TIPO_NC,
     GP_TIPO_NC_5,
+    apply_invoice_unit_prices,
     build_gp_invoice,
     build_gp_vendor_invoice_line,
     build_payload,
@@ -267,6 +268,39 @@ class TestConsolidateGpLines(unittest.TestCase):
         )
         self.assertEqual(missing, ["SUP-9"])
         self.assertEqual(lines, [])
+
+
+class TestApplyInvoiceUnitPrices(unittest.TestCase):
+    """El precio unitario GP lo fija la factura, no la OC/recepcion."""
+
+    def test_sobreescribe_rate_con_el_de_la_factura(self):
+        receipt_lines = [
+            {"item_code": "ITEM-1", "qty": 2, "rate": 100.0,
+             "receiving_no": "REC-1", "order_no": "OC-1", "idx": 1},
+        ]
+        invoice_lines = [{"item_code": "ITEM-1", "rate": 95.5}]
+        result = apply_invoice_unit_prices(receipt_lines, invoice_lines)
+        self.assertEqual(result[0]["rate"], 95.5)
+        # Conserva cantidad, recepcion y orden de la linea base.
+        self.assertEqual(result[0]["qty"], 2)
+        self.assertEqual(result[0]["receiving_no"], "REC-1")
+        self.assertEqual(result[0]["order_no"], "OC-1")
+        self.assertEqual(result[0]["idx"], 1)
+
+    def test_producto_no_facturado_conserva_rate_original(self):
+        receipt_lines = [
+            {"item_code": "ITEM-1", "qty": 2, "rate": 100.0},
+            {"item_code": "ITEM-2", "qty": 1, "rate": 50.0},
+        ]
+        invoice_lines = [{"item_code": "ITEM-1", "rate": 95.5}]
+        result = apply_invoice_unit_prices(receipt_lines, invoice_lines)
+        self.assertEqual(result[0]["rate"], 95.5)
+        self.assertEqual(result[1]["rate"], 50.0)
+
+    def test_sin_lineas_de_factura_devuelve_las_originales(self):
+        receipt_lines = [{"item_code": "ITEM-1", "qty": 2, "rate": 100.0}]
+        result = apply_invoice_unit_prices(receipt_lines, [])
+        self.assertEqual(result, receipt_lines)
 
 
 class TestCreditNoteGp(unittest.TestCase):
