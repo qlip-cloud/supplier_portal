@@ -240,6 +240,7 @@ class TestBuildPayload(unittest.TestCase):
 
         factura = payload[0]
         self.assertEqual(factura["NoFacturaProveedor"], "FAC001")
+        self.assertEqual(factura["NoPedidoProveedor"], "45238")
         self.assertEqual(factura["vendorNumber"], "050633410")
         self.assertEqual(factura["invoiceDate"], "2026-07-09")
         self.assertEqual(factura["postingDate"], "2026-07-09")

@@ -873,6 +873,7 @@ def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar"):
         "vendorNumber": doc.get("nvpro_ndoc"),
         "puntofacturacion": puntofacturacion,
         "NoFacturaProveedor": doc.get("nvfac_nume"),
+        "NoPedidoProveedor": doc.get("nvfac_orde") or "",
         "Cufe": doc.get("nvfac_cufe") or "",
         "Almacen": headquarter or "",
         "tipoFacturaDoc": "Estándar",
