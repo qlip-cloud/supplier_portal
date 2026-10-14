@@ -874,6 +874,8 @@ def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar"):
         "puntofacturacion": puntofacturacion,
         "NoFacturaProveedor": doc.get("nvfac_nume"),
         "NoPedidoProveedor": doc.get("nvfac_orde") or "",
+        "Categoria": "",
+        "SubCategoria": "",
         "Cufe": doc.get("nvfac_cufe") or "",
         "Almacen": headquarter or "",
         "tipoFacturaDoc": "Estándar",
