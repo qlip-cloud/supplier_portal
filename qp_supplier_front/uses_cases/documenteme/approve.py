@@ -708,15 +708,41 @@ def consolidate_gp_lines(detail_lines, homologation_map, oc_items=None,
     return lines, missing
 
 
+RECEIPT_MATCH_EPSILON = 0.01
+
+
+def _as_float(value):
+    """Convierte a float de forma tolerante (None/''/no numerico -> 0.0)."""
+    try:
+        return float(value or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def invoice_matches_lines(invoice_total, lines, epsilon=RECEIPT_MATCH_EPSILON):
+    """True si el total de la factura coincide con el de las lineas de la
+    OC/recepcion (dentro de epsilon).
+
+    El total de las lineas es la suma de cantidad * precio unitario
+    (qty * rate). Se usa para decidir si se puede enviar el precio de la
+    OC/recepcion tal cual (factura y recepcion/OC coinciden) o si hay que usar
+    el precio unitario de la factura.
+    """
+    line_total = sum(
+        _as_float(line.get("qty")) * _as_float(line.get("rate"))
+        for line in (lines or [])
+    )
+    return abs(_as_float(invoice_total) - line_total) <= epsilon
+
+
 def apply_invoice_unit_prices(lines, invoice_lines):
     """Fija el precio unitario (rate) de las lineas GP al de la factura.
 
-    El payload GP debe llevar SIEMPRE el precio unitario que indique la
-    factura del proveedor, sea igual o no al de la OC/recepcion. `lines` son
-    las lineas base (p.ej. de recepcion) y `invoice_lines` las lineas de la
-    factura homologadas/consolidadas por producto (item_code -> rate). Se
-    conserva cantidad, recepcion y orden de la linea base; las lineas cuyo
-    producto no aparezca en la factura conservan su rate original.
+    `lines` son las lineas base (p.ej. de recepcion) y `invoice_lines` las
+    lineas de la factura homologadas/consolidadas por producto
+    (item_code -> rate). Se conserva cantidad, recepcion y orden de la linea
+    base; las lineas cuyo producto no aparezca en la factura conservan su rate
+    original.
     """
     price_by_item = {}
     for invoice_line in (invoice_lines or []):

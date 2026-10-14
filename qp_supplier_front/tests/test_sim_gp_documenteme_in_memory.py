@@ -357,6 +357,41 @@ class TestSimGpDocumentemeInMemory(unittest.TestCase):
             "debe alertar al usuario sobre el producto sin homologar",
         )
 
+    def test_tipo1_factura_coincide_con_recepcion_envia_precio_recepcion(self):
+        # La factura coincide con la recepcion (mismo total): se envia el
+        # precio de la recepcion, SIN exigir homologacion (el producto de la
+        # factura no esta homologado).
+        from qp_supplier_front.simulation import references_memory
+
+        name = _seed_doc(self.store, nume="FAC-GP-MATCH-0001", total=2550.0)
+        self.store.insert("qp_SP_PurchaseReceipt", {
+            "name": "REC-GP-MATCH-0001",
+            "qp_supplier_oc": "GP-PO-0001",
+            "total": 2550.0,
+            "posting_date": "2026-09-02",
+            "qp_invoice": "FAC-GP-MATCH-0001",
+        })
+        self.store.insert("qp_SP_PurchaseReceiptItem", {
+            "name": "REC-GP-MATCH-ITEM-0001",
+            "parent": "REC-GP-MATCH-0001",
+            "parenttype": "Purchase Receipt",
+            "item_code": "ITEM-GP-1",
+            "qty": 85,
+            "rate": 30.0,
+            "idx": 1,
+            "uom": "UN",
+        })
+        # SUP-9 no homologado, pero el total coincide con la recepcion.
+        _seed_detail_line(self.store, name, "SUP-9", 85, 30.0)
+
+        doc = self.store.get("qp_SP_DocumentDetail", name)
+        lines, error = references_memory.memory_get_lines_gp(self.store, doc)
+
+        self.assertEqual(error, "")
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(lines[0]["item_code"], "ITEM-GP-1")
+        self.assertEqual(lines[0]["rate"], 30.0)
+
     def test_proveedor_servicio_envia_tipo3(self):
         name = _seed_doc(
             self.store,
