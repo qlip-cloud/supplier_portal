@@ -111,13 +111,11 @@ def _resolve_start(supplier_id, flow, mode, today):
         return compute_sync_start(None, today, historical_start=initial)
 
     checkpoint = get_checkpoint(supplier_id, CHECKPOINT_FIELD)
-    last_invoice = None
-    if not checkpoint:
-        last_invoice = get_last_creation(
-            strategy["doctype"],
-            supplier_id,
-            strategy["db_fields"]["order_field"],
-        )
+    last_invoice = get_last_creation(
+        strategy["doctype"],
+        supplier_id,
+        strategy["db_fields"]["order_field"],
+    )
     return resolve_on_demand_start(checkpoint, last_invoice, initial, today)
 
 
