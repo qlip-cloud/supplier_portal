@@ -44,6 +44,7 @@ from qp_supplier_front.resources.documenteme._alerts import (
     resolve_open_alerts,
 )
 from qp_supplier_front.resources.documenteme import runtime
+from qp_supplier_front.services import sync_lock
 from qp_supplier_front.uses_cases.documenteme.auto_reject import (
     auto_reject as auto_reject_core,
     resolve_auto_reject_config,
@@ -63,6 +64,12 @@ from qp_supplier_front.uses_cases.documenteme.reject_retry import (
 
 MAX_HTTP_WORKERS = 5
 REJECT_JOB_METHOD = "qp_supplier_front.resources.documenteme.auto_reject.reject_batch_job"
+
+# Lock por documento para que dos jobs (manual + automatico, o dos ciclos) no
+# envien la secuencia 030/032/031 en paralelo sobre la misma factura. El TTL
+# cubre el timeout del job (14400s); sync_lock es fail-open ante fallo de Redis.
+REJECT_LOCK_PREFIX = "documenteme_reject"
+REJECT_LOCK_TTL = 14400
 
 EVENT_CONFIG = {"031": {"nvfac_esta": "R"}}
 
@@ -301,6 +308,10 @@ def receipt_for_po(purchase_order_number):
 # =========================================================================
 # Rechazo (job de fondo con reintentos)
 # =========================================================================
+def _reject_lock_domain(doc_name):
+    return "{}:{}".format(REJECT_LOCK_PREFIX, doc_name)
+
+
 def reject_batch_job(rejects, http_fn=None):
     components = runtime.resolve()
     if http_fn is None:
@@ -313,17 +324,47 @@ def reject_batch_job(rejects, http_fn=None):
     all_results = []
     for item in (rejects or []):
         doc_name = item["doc"]
-        doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
-        result = _reject_one(
-            doc,
-            config,
-            company_tax_id,
-            url,
-            headers,
-            method,
-            sender,
-        )
-        all_results.append((doc_name, result))
+        domain = _reject_lock_domain(doc_name)
+        token = sync_lock.acquire(domain, ttl=REJECT_LOCK_TTL)
+        if token is None:
+            # Otro job ya esta procesando esta factura: se omite para no
+            # enviar la secuencia en paralelo.
+            all_results.append((doc_name, {
+                "doc": doc_name,
+                "rejected": False,
+                "attempts": 0,
+                "error": "En proceso por otro job",
+            }))
+            continue
+        try:
+            doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
+            result = _reject_one(
+                doc,
+                config,
+                company_tax_id,
+                url,
+                headers,
+                method,
+                sender,
+            )
+            all_results.append((doc_name, result))
+            # Persiste de inmediato el "R" final de _mark_rejected: un fallo
+            # en un documento posterior no debe revertirlo.
+            frappe.db.commit()
+        except Exception as error:
+            frappe.db.rollback()
+            frappe.log_error(
+                message=frappe.get_traceback(),
+                title="reject documents - {}".format(doc_name),
+            )
+            all_results.append((doc_name, {
+                "doc": doc_name,
+                "rejected": False,
+                "attempts": 0,
+                "error": str(error),
+            }))
+        finally:
+            sync_lock.release(domain, token.get("token"))
 
     frappe.db.commit()
     return all_results

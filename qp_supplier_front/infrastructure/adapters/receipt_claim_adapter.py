@@ -135,6 +135,19 @@ def release_receipts(doc, receipt_names, frappe_module=None):
     )
 
 
+def claimed_receipt_names(invoice_number, frappe_module=None):
+    """Nombres de las recepciones reclamadas por la factura (qp_invoice)."""
+    if not invoice_number:
+        return []
+    if frappe_module is None:
+        import frappe as frappe_module
+    return frappe_module.get_all(
+        "Purchase Receipt",
+        filters={"qp_invoice": invoice_number},
+        pluck="name",
+    ) or []
+
+
 def has_claimed_receipts(invoice_number, frappe_module=None):
     """True si la factura tiene al menos un recibo reclamado manualmente."""
     if not invoice_number:

@@ -582,8 +582,6 @@ $(document).ready(function () {
         var motive = $("#motive_text").val().trim();
         var is_invoice_error = $("#is_invoice_error").is(":checked");
 
-        $("#motive_text").val("");
-        $("#is_invoice_error").prop("checked", false);
         $("#confirm-reject").prop("disabled", true);
         $("#reject_invoice_motive").modal("hide");
 
@@ -599,13 +597,28 @@ $(document).ready(function () {
             overlayEl.style.display = "none";
             frappe.msgprint(response.msg);
             if (response.status === 200) {
+                $("#motive_text").val("");
+                $("#is_invoice_error").prop("checked", false);
+                var rejectedDocs = (response.data && response.data.rejected) || [];
+                var inProcessDocs = (response.data && response.data.in_process) || [];
                 $('tbody input[name="seleccion"]:checked').each(function () {
-                    $(this).closest("tr").find(".status-badge")
-                        .removeClass("status-open status-ready status-paid status-default status-cancelled")
-                        .addClass("status-progress")
-                        .text("En proceso de rechazo");
+                    var docName = $(this).val();
+                    var $badge = $(this).closest("tr").find(".status-badge");
+                    $badge.removeClass("status-open status-ready status-paid status-default status-cancelled status-progress");
+                    if (inProcessDocs.indexOf(docName) !== -1) {
+                        $badge.addClass("status-progress").text("En proceso de rechazo");
+                    } else if (rejectedDocs.indexOf(docName) !== -1) {
+                        $badge.addClass("status-cancelled").text("Rechazada");
+                    } else {
+                        // Respuesta sin desglose (backend previo): conservar
+                        // el comportamiento anterior.
+                        $badge.addClass("status-progress").text("En proceso de rechazo");
+                    }
                     $(this).prop("checked", false);
                 });
+            } else {
+                // El motivo queda en el formulario para que el usuario reintente.
+                $("#confirm-reject").prop("disabled", false);
             }
         };
 
