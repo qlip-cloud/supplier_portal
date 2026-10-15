@@ -35,6 +35,7 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     approve_documents,
     collect_registrable_violations,
     collect_selection_violations,
+    invoice_matches_lines,
     make_invoice_builder,
     resolve_nc_tipo_for_doc,
 )
@@ -421,11 +422,13 @@ def get_lines_gp(doc, resolve_nc_tipo_fn=None, force=False):
     - Proveedor servicio (tipo 3 CxP): NO se envian productos. La peticion
       va solo con la cabecera (vendorInvoiceLine vacio) y No se valida
       homologacion ni lineas de la factura.
-    - Con recepciones (tipo 1): las lineas de las recepciones, pero con el
-      precio unitario que indique la factura del proveedor (ver
-      apply_invoice_unit_prices), sea igual o no al de la OC/recepcion. Si
-      algun producto de la factura no esta homologado la factura NO se envia
-      y se alerta al usuario (mismos codigos pendientes del tipo 2).
+    - Con recepciones (tipo 1): si el total de la factura coincide con el de
+      las lineas de recepcion (ver invoice_matches_lines), se envian las
+      lineas de recepcion tal cual (precio de la OC/recepcion) SIN exigir
+      homologacion. Si no coinciden, se envia el precio unitario de la factura
+      (apply_invoice_unit_prices); si algun producto de la factura no esta
+      homologado la factura NO se envia y se alerta al usuario (mismos codigos
+      pendientes del tipo 2).
     - Sin recepciones (tipo 2): homogenizar y consolidar contra la OC.
     """
     if is_credit_note(doc.get("nvtip_docu")):
@@ -444,12 +447,41 @@ def get_lines_gp(doc, resolve_nc_tipo_fn=None, force=False):
     purchase_order = doc.get("nvfac_orde")
     receipt_lines = get_lines_from_receipts(purchase_order)
     if receipt_lines:
-        invoice_lines, line_error = _get_lines_gp_from_invoice(doc)
-        if line_error:
-            return [], line_error
-        return apply_invoice_unit_prices(receipt_lines, invoice_lines), ""
+        return _gp_lines_with_invoice_price(doc, receipt_lines)
 
     return _get_lines_gp_from_invoice(doc)
+
+
+def _gp_lines_with_invoice_price(doc, receipt_lines):
+    """Aplica la regla del precio GP a las lineas de recepcion (tipo 1).
+
+    - Si el total de la factura coincide con el de las lineas de recepcion
+      (invoice_matches_lines), se envian las lineas de recepcion tal cual
+      (precio de la OC/recepcion) SIN exigir homologacion.
+    - Si no coinciden, se envia el precio unitario de la factura; si falta
+      alguna homologacion retorna error (la factura no se envia y se alerta).
+    """
+    if invoice_matches_lines(doc.get("nvfac_stot"), receipt_lines):
+        return receipt_lines, ""
+    invoice_lines, line_error = _get_lines_gp_from_invoice(doc)
+    if line_error:
+        return [], line_error
+    return apply_invoice_unit_prices(receipt_lines, invoice_lines), ""
+
+
+def get_lines_gp_for_receipts(doc, receipt_names):
+    """Lineas GP restringidas a las recepciones asignadas (tipo 1, credito).
+
+    Es la version GP de get_lines_for_receipts: usa las recepciones asignadas
+    a la factura (reparto automatico/seleccion manual) y aplica la regla del
+    precio GP (_gp_lines_with_invoice_price).
+    """
+    receipt_lines = get_lines_from_receipts(
+        doc.get("nvfac_orde"), receipt_names=receipt_names
+    )
+    if not receipt_lines:
+        return [], ""
+    return _gp_lines_with_invoice_price(doc, receipt_lines)
 
 
 def get_nc_reference(doc):
@@ -1266,12 +1298,15 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
                 or send_purchase_invoice_request
     cb = components.get("approve_callbacks") or {}
     data = components.get("data")
-    get_lines_for_receipts_fn = (
-        None if data is not None else get_lines_for_receipts
-    )
     is_service_supplier_fn = None
     resolve_supplier_rule_fn = None
     if backend == "GP":
+        # Con recepciones asignadas (tipo 1 en credito) la ruta GP tambien debe
+        # aplicar la regla del precio (coincide con la OC/recepcion -> precio de
+        # estas; si no, precio de la factura).
+        get_lines_for_receipts_fn = (
+            None if data is not None else get_lines_gp_for_receipts
+        )
         get_lines_fn = cb.get("get_lines_gp_fn")
         if get_lines_fn is None:
             resolve_nc_tipo_fn = cb.get(
@@ -1299,6 +1334,9 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         resolve_supplier_rule_fn = cb.get(
             "resolve_supplier_rule_fn", resolve_supplier_rule)
     else:
+        get_lines_for_receipts_fn = (
+            None if data is not None else get_lines_for_receipts
+        )
         get_lines_fn = cb.get("get_lines_fn", get_lines)
         build_invoice_fn = cb.get("build_invoice_fn")
     sync_flow = "GP" if backend == "GP" else "BC"

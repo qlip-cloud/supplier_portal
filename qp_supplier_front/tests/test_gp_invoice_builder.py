@@ -23,6 +23,7 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     build_gp_vendor_invoice_line,
     build_payload,
     consolidate_gp_lines,
+    invoice_matches_lines,
     make_gp_invoice_builder,
     make_invoice_builder,
     map_nc_gp_tipo,
@@ -301,6 +302,26 @@ class TestApplyInvoiceUnitPrices(unittest.TestCase):
         receipt_lines = [{"item_code": "ITEM-1", "qty": 2, "rate": 100.0}]
         result = apply_invoice_unit_prices(receipt_lines, [])
         self.assertEqual(result, receipt_lines)
+
+
+class TestInvoiceMatchesLines(unittest.TestCase):
+    """El total de la factura coincide con el de la OC/recepcion."""
+
+    def test_coincide_dentro_de_epsilon(self):
+        lines = [
+            {"qty": 85, "rate": 30.0},
+            {"qty": 40, "rate": 12.0},
+        ]
+        self.assertTrue(invoice_matches_lines(3030.0, lines))
+        self.assertTrue(invoice_matches_lines(3030.005, lines))
+
+    def test_no_coincide(self):
+        lines = [{"qty": 85, "rate": 30.0}]
+        self.assertFalse(invoice_matches_lines(3000.0, lines))
+
+    def test_tolera_valores_vacios(self):
+        self.assertTrue(invoice_matches_lines(None, []))
+        self.assertTrue(invoice_matches_lines("", [{"qty": None, "rate": None}]))
 
 
 class TestCreditNoteGp(unittest.TestCase):
