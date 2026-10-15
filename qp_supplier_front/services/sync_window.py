@@ -87,7 +87,13 @@ def coerce_datetime(value):
 def resolve_on_demand_start(checkpoint, last_receipt_date, initial_start, today):
     """Resuelve la fecha de inicio on-demand con prioridad:
     1. checkpoint (ultima sincronizacion), 2. ultima fecha de recibo,
-    3. fecha inicial global."""
-    last_date = _as_datetime(checkpoint) or _as_datetime(last_receipt_date)
+    3. fecha inicial global.
+
+    Si hay checkpoint pero NO hay datos locales (last_receipt_date vacio), el
+    checkpoint no es confiable (pudo avanzar sin insertar registros) y se
+    fuerza un backfill desde la fecha inicial global."""
     initial_start = _as_datetime(initial_start) or HISTORICAL_START_DATE
+    if checkpoint and not last_receipt_date:
+        return compute_sync_start(None, today, historical_start=initial_start)
+    last_date = _as_datetime(checkpoint) or _as_datetime(last_receipt_date)
     return compute_sync_start(last_date, today, historical_start=initial_start)
