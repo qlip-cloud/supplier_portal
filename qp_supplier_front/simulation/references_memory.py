@@ -232,15 +232,18 @@ def memory_get_lines_gp(store, doc, force=False):
       force=True.
     - Proveedor servicio (tipo 3): NO se envian productos (vendorInvoiceLine
       vacio); No se valida homologacion ni lineas de la factura.
-    - Con recepciones (tipo 1): lineas de las recepciones, pero con el precio
-      unitario que indique la factura del proveedor (apply_invoice_unit_prices).
-      Si algun producto de la factura no esta homologado la factura NO se
+    - Con recepciones (tipo 1): si el total de la factura coincide con el de
+      las lineas de recepcion (invoice_matches_lines), se envian las lineas de
+      recepcion tal cual (precio de la OC/recepcion) SIN exigir homologacion.
+      Si no coinciden, se envia el precio de la factura
+      (apply_invoice_unit_prices); si falta homologacion la factura NO se
       envia y se alerta al usuario.
     - Sin recepciones (tipo 2): homogenizar y consolidar contra la OC.
     """
     from qp_supplier_front.uses_cases.documenteme.approve import (
         GP_TIPO_NC_5,
         apply_invoice_unit_prices,
+        invoice_matches_lines,
     )
     from qp_supplier_front.uses_cases.documenteme.conversion import is_credit_note
 
@@ -259,6 +262,8 @@ def memory_get_lines_gp(store, doc, force=False):
     purchase_order = doc.get("nvfac_orde")
     receipt_lines = _memory_gp_lines_from_receipts(store, purchase_order)
     if receipt_lines:
+        if invoice_matches_lines(doc.get("nvfac_stot"), receipt_lines):
+            return receipt_lines, ""
         invoice_lines, line_error = _memory_gp_lines_from_invoice(store, doc)
         if line_error:
             return [], line_error
