@@ -23,6 +23,10 @@ class MemoryReferenceSource(object):
     def po_exists(self, purchase_order):
         return references_memory.memory_po_exists(self._store, purchase_order)
 
+    def po_belongs_to_supplier(self, purchase_order, tax_id):
+        return references_memory.memory_po_belongs_to_supplier(
+            self._store, purchase_order, tax_id)
+
     def po_items(self, purchase_order):
         store = self._store
         if not purchase_order:

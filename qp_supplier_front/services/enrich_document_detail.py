@@ -38,7 +38,9 @@ def enrich_document_detail(document, data=None, references=None):
     _enrich_conversation(document, data)
     _enrich_factura_interna(document, data)
 
-    if purchase_order_number:
+    if purchase_order_number and _po_belongs_to_invoice(
+            _resolve_references(data, references), document,
+            purchase_order_number):
         _enrich_purchase_orders(document, purchase_order_number, references, data)
         _enrich_purchase_receipts(document, purchase_order_number, references, data)
         _enrich_receipt_bank(document, purchase_order_number, references, data)
@@ -194,12 +196,24 @@ def _enrich_conversation(document, data=None):
     document["has_unread_conversation"] = unread > 0
 
 
+def _po_belongs_to_invoice(refs, document, purchase_order_number):
+    """True si la OC puede mostrarse para la factura (existe y es del proveedor).
+
+    Los Purchase Order se nombran con order_confirmation_no y el numero puede
+    repetirse entre proveedores, por lo que la existencia por numero no basta:
+    el front debe aplicar el mismo criterio que la validacion de aprobacion
+    (po_supplier_match) y no mostrar la OC de otro proveedor. Los adaptadores
+    sin soporte de proveedor caen a la verificacion por existencia.
+    """
+    belongs = getattr(refs, "po_belongs_to_supplier", None)
+    if belongs is None:
+        return refs.po_exists(purchase_order_number)
+    return bool(belongs(purchase_order_number, document.get("nvpro_ndoc")))
+
+
 def _enrich_purchase_orders(document, purchase_order_number, references=None,
                             data=None):
     refs = _resolve_references(data, references)
-    if not refs.po_exists(purchase_order_number):
-        return
-
     items = refs.po_items(purchase_order_number)
 
     document["ordenes_compra"] = [purchase_order_number]

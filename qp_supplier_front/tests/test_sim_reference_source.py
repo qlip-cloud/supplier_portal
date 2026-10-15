@@ -31,6 +31,24 @@ class TestMemoryReferenceSource(unittest.TestCase):
             [i["item_code"] for i in items], ["ITEM-POA1", "ITEM-POA2"])
         self.assertEqual(items[0]["qp_unit_cost"], 2000)
 
+    def test_po_belongs_to_supplier_sin_proveedor_sembrado(self):
+        # Seeds legados: la OC no trae supplier -> no se puede validar -> True.
+        self.assertTrue(self.refs.po_belongs_to_supplier(
+            "PO-A-0001", seeds.SIM_NIT))
+        self.assertFalse(self.refs.po_belongs_to_supplier(
+            "PO-NO-EXISTE", seeds.SIM_NIT))
+
+    def test_po_belongs_to_supplier_compara_proveedor(self):
+        self.store.set_value(
+            "qp_SP_PurchaseOrder", "PO-A-0001", "supplier", "9001")
+        seeds.seed_supplier(self.store, "9001")
+        self.assertTrue(self.refs.po_belongs_to_supplier(
+            "PO-A-0001", "9001"))
+        self.assertFalse(self.refs.po_belongs_to_supplier(
+            "PO-A-0001", "9002"))
+        self.assertFalse(self.refs.po_belongs_to_supplier(
+            "PO-NO-EXISTE", "9001"))
+
     def test_receipts_y_items_con_delivery_note(self):
         receipts = self.refs.receipts_for("PO-POC-0001")
         self.assertEqual(
