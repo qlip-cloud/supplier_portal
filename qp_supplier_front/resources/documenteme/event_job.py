@@ -48,6 +48,14 @@ EVENT_JOB_METHOD = (
 EVENT_LOCK_PREFIX = "documenteme_event"
 EVENT_LOCK_TTL = 300
 
+# Reintentos de persistencia ante errores transitorios de BD (doc modificado
+# por otro proceso, deadlock, lock timeout o tabla alterada por migrate).
+SAVE_RETRIES = 3
+
+# Errores de MySQL transitorios que conviene reintentar:
+#   1205 lock wait timeout | 1213 deadlock | 1412 table definition changed
+TRANSIENT_DB_ERRNOS = (1205, 1213, 1412)
+
 # Al agotar los intentos el documento se "aparca" este tiempo antes de
 # reintentar con un presupuesto nuevo (evita reenviar/alertar cada minuto).
 GIVEUP_BACKOFF_SECONDS = 3600
@@ -199,11 +207,52 @@ def run_documenteme_event(doc_name, http_fn=None, lock_token=None):
             base_state=_base_state(doc, intent),
         )
         response, status = _send(http_fn, payload, url, headers, method)
-        _append_log(doc, code, payload, response, status, _now_str)
 
-        return _apply_outcome(doc, intent, code, response, status, config)
+        return _persist_with_retry(
+            doc_name, doc, intent, code, payload, response, status, config
+        )
     finally:
         sync_lock.release(domain, token.get("token"))
+
+
+def _persist_with_retry(doc_name, doc, intent, code, payload, response, status,
+                        config, retries=SAVE_RETRIES):
+    """Guarda log + estado, reintentando ante errores transitorios de BD.
+
+    El HTTP ya se envio; si el `save` falla por `TimestampMismatchError`
+    (otro proceso modifico el doc), deadlock, lock timeout o tabla alterada
+    por migrate, se recarga el doc y se re-aplica en un intento nuevo.
+    """
+    retries = int(retries)
+    for attempt in range(1, retries + 1):
+        try:
+            _append_log(doc, code, payload, response, status, _now_str)
+            return _apply_outcome(doc, intent, code, response, status, config)
+        except frappe.TimestampMismatchError:
+            if attempt >= retries:
+                frappe.db.rollback()
+                raise
+            frappe.db.rollback()
+            doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
+        except Exception as error:
+            if attempt >= retries or not _is_transient_db_error(error):
+                raise
+            frappe.db.rollback()
+            doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
+
+
+def _is_transient_db_error(error):
+    """True si el error de BD es reintentable (deadlock, lock timeout, 1412)."""
+    args = getattr(error, "args", None) or ()
+    code = args[0] if args else None
+    if code in TRANSIENT_DB_ERRNOS:
+        return True
+    try:
+        return bool(
+            frappe.db.is_deadlocked(error) or frappe.db.is_timedout(error)
+        )
+    except Exception:
+        return False
 
 
 def _send(http_fn, payload, url, headers, method):

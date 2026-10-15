@@ -279,6 +279,47 @@ class TestRunEvent(unittest.TestCase):
         self.assertTrue(result.get("skipped"))
         self.assertEqual(sent, [])
 
+    def test_reintenta_tras_timestamp_mismatch(self):
+        docs = [FakeDoc(qp_event_pending_code="030"), FakeDoc(qp_event_pending_code="030")]
+        calls = {"n": 0}
+
+        class FakeTimestamp(Exception):
+            pass
+
+        def fake_apply(doc, intent, code, response, status, config):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise FakeTimestamp("modified")
+            return {"doc": doc.name, "done": True}
+
+        bundle = {
+            "event_http_fn": lambda p: (SUCCESS, 200),
+            "company_tax_id_fn": lambda: "890900123",
+            "event_endpoint_fn": lambda: ("http://x", {}, "POST"),
+        }
+        frappe_mock = MagicMock()
+        frappe_mock.get_doc.side_effect = lambda *a, **k: docs.pop(0)
+        frappe_mock.TimestampMismatchError = FakeTimestamp
+
+        with patch.object(mod, "frappe", frappe_mock), \
+             patch.object(mod.runtime, "resolve", return_value=bundle), \
+             patch.object(mod.sync_lock, "acquire", return_value={"token": "t"}), \
+             patch.object(mod.sync_lock, "release"), \
+             patch.object(mod, "_build_payload",
+                          return_value={"Nveve_dian": "030"}), \
+             patch.object(mod, "_append_log"), \
+             patch.object(mod, "_apply_outcome", side_effect=fake_apply), \
+             patch(
+                 "qp_supplier_front.resources.documenteme.auto_reject.get_reject_config",
+                 return_value=BASE_CONFIG,
+             ):
+            result = mod.run_documenteme_event(
+                "FAC1", http_fn=lambda p: (SUCCESS, 200)
+            )
+
+        self.assertEqual(calls["n"], 2)
+        self.assertTrue(result["done"])
+
     def test_lock_tomado_se_omite(self):
         doc = FakeDoc()
         frappe_mock = MagicMock()
@@ -288,6 +329,27 @@ class TestRunEvent(unittest.TestCase):
             result = mod.run_documenteme_event(doc.name, http_fn=lambda p: (SUCCESS, 200))
         self.assertTrue(result.get("skipped"))
         self.assertEqual(frappe_mock.get_doc.call_count, 0)
+
+
+class TestTransientDbError(unittest.TestCase):
+
+    class _Err(Exception):
+        pass
+
+    def test_errno_transitorio(self):
+        for code in (1205, 1213, 1412):
+            self.assertTrue(mod._is_transient_db_error(self._Err(code, "x")))
+
+    def test_errno_no_transitorio(self):
+        with patch.object(mod.frappe.db, "is_deadlocked", return_value=False), \
+             patch.object(mod.frappe.db, "is_timedout", return_value=False):
+            self.assertFalse(mod._is_transient_db_error(self._Err(9999, "otro")))
+
+    def test_flags_de_frappe(self):
+        err = self._Err(9999, "otro")
+        with patch.object(mod.frappe.db, "is_deadlocked", return_value=True), \
+             patch.object(mod.frappe.db, "is_timedout", return_value=False):
+            self.assertTrue(mod._is_transient_db_error(err))
 
 
 if __name__ == "__main__":
