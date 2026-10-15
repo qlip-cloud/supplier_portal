@@ -27,6 +27,7 @@ from qp_supplier_front.resources.documenteme._approve_base import (
     approve_documents_core,
     is_service_supplier_doc,
     po_exists,
+    po_supplier_match,
     receipt_bank,
     resolve_supplier_rule,
 )
@@ -171,6 +172,7 @@ def promote_eligible_to_v(doc_names=None, backend=None):
     po_ok = cb.get("po_exists_fn", po_exists)
     bank_fn = cb.get("receipt_bank_fn", receipt_bank)
     resolve_rule = cb.get("resolve_rule_fn", _resolve_rule)
+    po_supplier_match_fn = cb.get("po_supplier_match_fn", po_supplier_match)
 
     is_service_supplier_fn = None
     resolve_supplier_rule_fn = None
@@ -193,6 +195,7 @@ def promote_eligible_to_v(doc_names=None, backend=None):
         resolve_rule_fn=resolve_rule,
         is_service_supplier_fn=is_service_supplier_fn,
         resolve_supplier_rule_fn=resolve_supplier_rule_fn,
+        po_supplier_match_fn=po_supplier_match_fn,
     )
 
     promoted = []

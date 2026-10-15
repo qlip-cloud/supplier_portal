@@ -157,7 +157,12 @@ def run_reject(store, doc_names=None):
             continue
 
         po_match = has_po_match(
-            doc, lambda po: references_memory.memory_po_exists(store, po))
+            doc,
+            lambda po: references_memory.memory_po_exists(store, po),
+            po_supplier_match_fn=lambda d: (
+                references_memory.memory_po_supplier_match(store, d)
+            ),
+        )
         receipt_match = has_receipt_match(doc, _receipt_for_po(store))
 
         if not should_auto_reject(po_match, receipt_match,

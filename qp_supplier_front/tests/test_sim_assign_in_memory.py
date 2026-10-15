@@ -11,6 +11,7 @@ Ejecutar con: python -m unittest qp_supplier_front.tests.test_sim_assign_in_memo
 import unittest
 
 from qp_supplier_front.simulation import assign_memory
+from qp_supplier_front.simulation import references_memory
 from qp_supplier_front.simulation import seeds
 from qp_supplier_front.simulation.store import MemoryStore
 
@@ -128,6 +129,42 @@ class TestSimAssignRolesInMemory(unittest.TestCase):
         })
         emails = assign_memory._assignee_emails(store, None, None)
         self.assertEqual(emails, ["rol@sim.local"])
+
+
+class TestMemoryPoSupplierMatch(unittest.TestCase):
+
+    def setUp(self):
+        self.store = MemoryStore()
+        self.store.insert("qp_SP_Supplier", {
+            "name": "S1", "tax_id": SIM_NIT}, name="S1")
+        self.store.insert("qp_SP_Supplier", {
+            "name": "S2", "tax_id": "OTHER"}, name="S2")
+
+    def _doc(self, po="OC1"):
+        return {"nvfac_orde": po, "nvpro_ndoc": SIM_NIT}
+
+    def _po(self, supplier):
+        self.store.insert("qp_SP_PurchaseOrder", {
+            "name": "OC1", "supplier": supplier}, name="OC1")
+
+    def test_mismo_proveedor(self):
+        self._po("S1")
+        self.assertTrue(references_memory.memory_po_supplier_match(
+            self.store, self._doc()))
+
+    def test_otro_proveedor(self):
+        self._po("S2")
+        self.assertFalse(references_memory.memory_po_supplier_match(
+            self.store, self._doc()))
+
+    def test_po_sin_supplier_no_bloquea(self):
+        self.store.insert("qp_SP_PurchaseOrder", {"name": "OC1"}, name="OC1")
+        self.assertTrue(references_memory.memory_po_supplier_match(
+            self.store, self._doc()))
+
+    def test_sin_oc(self):
+        self.assertFalse(references_memory.memory_po_supplier_match(
+            self.store, self._doc(po="")))
 
 
 if __name__ == "__main__":

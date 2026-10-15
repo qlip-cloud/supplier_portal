@@ -150,7 +150,8 @@ def should_auto_assign(invoice, receipt_bank=None, epsilon=DEFAULT_EPSILON):
     ) is None
 
 
-def should_assign_contado(invoice, resolve_rule_fn, po_exists_fn, receipt_for_po_fn):
+def should_assign_contado(invoice, resolve_rule_fn, po_exists_fn, receipt_for_po_fn,
+                          po_supplier_match_fn=None):
     """Una factura de CONTADO se asigna (no se aprueba) si la regla de
     rechazo activa la vulnera (exige OC/recibo y la factura no lo cumplen).
 
@@ -168,7 +169,7 @@ def should_assign_contado(invoice, resolve_rule_fn, po_exists_fn, receipt_for_po
     if not rule_code or rule_code == RULE_NO_ACTION:
         return False
 
-    po_match = has_po_match(invoice, po_exists_fn)
+    po_match = has_po_match(invoice, po_exists_fn, po_supplier_match_fn)
     receipt_match = has_receipt_match(invoice, receipt_for_po_fn)
     return should_auto_reject(po_match, receipt_match, rule_code)
 
@@ -192,6 +193,7 @@ def auto_assign(
     po_exists_fn=None,
     is_service_supplier_fn=None,
     epsilon=DEFAULT_EPSILON,
+    po_supplier_match_fn=None,
 ):
     assigned = []
     candidates = candidates_fn() if doc_names is None else candidates_fn(doc_names)
@@ -217,6 +219,7 @@ def auto_assign(
                 resolve_rule_fn,
                 po_exists_fn,
                 lambda po: get_receipt_bank_fn(po) or None,
+                po_supplier_match_fn=po_supplier_match_fn,
             ):
                 continue
         elif not should_auto_assign(invoice, bank, epsilon):

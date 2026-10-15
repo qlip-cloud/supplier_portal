@@ -10,6 +10,7 @@ from qp_supplier_front.resources.documenteme.auto_reject import (
 )
 from qp_supplier_front.resources.documenteme._approve_base import (
     is_service_supplier_doc as _is_service_supplier_doc,
+    po_supplier_match,
 )
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.qp_supplier_front.doctype.qp_sp_assignmentconfig.qp_sp_assignmentconfig import (
@@ -36,6 +37,7 @@ def run_auto_assign(doc_names=None):
         resolve_rule_fn=_resolve_rule,
         po_exists_fn=_po_exists,
         is_service_supplier_fn=_is_service_supplier_doc,
+        po_supplier_match_fn=po_supplier_match,
     )
 
 

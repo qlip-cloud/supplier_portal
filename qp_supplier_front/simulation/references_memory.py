@@ -17,6 +17,27 @@ def memory_po_exists(store, purchase_order):
     return store.exists("qp_SP_PurchaseOrder", purchase_order)
 
 
+def memory_po_supplier_match(store, doc):
+    """True si la OC existe y pertenece al mismo proveedor de la factura.
+
+    Si la OC sembrada no trae `supplier` (seeds legados) no se puede validar:
+    se devuelve True para no alterar el comportamiento del modo simulador.
+    """
+    purchase_order = (doc or {}).get("nvfac_orde")
+    if not purchase_order:
+        return False
+    if not store.exists("qp_SP_PurchaseOrder", purchase_order):
+        return False
+    po_supplier = store.get_value(
+        "qp_SP_PurchaseOrder", purchase_order, "supplier"
+    )
+    if not po_supplier:
+        return True
+    invoice_supplier = memory_get_supplier_by_tax_id(
+        store, (doc or {}).get("nvpro_ndoc"))
+    return po_supplier == invoice_supplier
+
+
 def memory_receipts_total(store, purchase_order):
     """Total de recepciones por OC (None si no hay)."""
     rows = store.query("qp_SP_PurchaseReceipt",

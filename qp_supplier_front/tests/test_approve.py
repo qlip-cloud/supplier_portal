@@ -264,7 +264,7 @@ class TestBuildPayload(unittest.TestCase):
         self.assertEqual(line["NoLineaRecepcion"], "10000")
         self.assertEqual(line["NoRecepcion"], "R108349")
         self.assertEqual(line["NoPedido"], "45238")
-        self.assertEqual(line["Comentario"], "Recepcion R108349")
+        self.assertEqual(line["Comentarios"], "Recepcion R108349")
 
     def test_no_linea_recepcion_se_incrementa_por_factura(self):
         payload = build_payload([_doc()], self._multi_lines, self._get_headquarter)
@@ -299,7 +299,7 @@ class TestBuildPayload(unittest.TestCase):
     def test_comentario_vacio_sin_recepcion(self):
         lines = lambda po: ([_line(receiving_no="")], "")
         payload = build_payload([_doc()], lines, self._get_headquarter)
-        self.assertEqual(payload[0]["vendorInvoiceLine"][0]["Comentario"], "")
+        self.assertEqual(payload[0]["vendorInvoiceLine"][0]["Comentarios"], "")
 
 
 class TestIsErrorResponse(unittest.TestCase):
@@ -1803,6 +1803,86 @@ class TestApproveDocumentsForce(unittest.TestCase):
                          ["FAC001", "FAC003"])
         self.assertEqual(len(result["errors"]), 1)
         self.assertEqual(result["errors"][0]["nvfac_nume"], "FAC002")
+
+
+class TestPoSupplierMatch(unittest.TestCase):
+    """La OC debe pertenecer al proveedor de la factura (no solo existir)."""
+
+    def _po_exists(self, exists=True):
+        return lambda purchase_order: exists
+
+    def _receipts_total(self, total=50000):
+        return _bank(total)
+
+    def _supplier_match(self, matched=True):
+        return lambda doc: matched
+
+    def test_credito_oc_otro_proveedor_bloquea(self):
+        doc = _doc()
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(),
+            po_supplier_match_fn=self._supplier_match(False),
+        )
+        self.assertFalse(ok)
+        self.assertIn("no existe", error)
+
+    def test_credito_oc_mismo_proveedor_aprueba(self):
+        doc = _doc()
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(),
+            po_supplier_match_fn=self._supplier_match(True),
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_sin_callback_conserva_comportamiento(self):
+        doc = _doc()
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total()
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
+
+    def test_get_registrable_warnings_oc_otro_proveedor(self):
+        doc = _doc()
+        warnings = get_registrable_warnings(
+            doc, self._po_exists(), self._receipts_total(),
+            po_supplier_match_fn=self._supplier_match(False),
+        )
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("no existe", warnings[0])
+
+    def test_allocate_registrables_oc_otro_proveedor_cae_error(self):
+        doc = _doc()
+        valid, errors, allocation = _allocate_registrables(
+            [doc], self._po_exists(), self._receipts_total(), 0.01,
+            po_supplier_match_fn=self._supplier_match(False),
+        )
+        self.assertEqual(valid, [])
+        self.assertEqual(len(errors), 1)
+        self.assertIn("no existe", errors[0]["error"])
+
+    def test_cash_no_po_oc_otro_proveedor_no_aprueba(self):
+        doc = _doc(nvfac_conv="1")
+        no_po = lambda doc: {"rule_code": "no_po"}
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(),
+            resolve_rule_fn=no_po,
+            po_supplier_match_fn=self._supplier_match(False),
+        )
+        self.assertFalse(ok)
+        self.assertIn("contado", error)
+
+    def test_cash_no_po_oc_mismo_proveedor_aprueba(self):
+        doc = _doc(nvfac_conv="1")
+        no_po = lambda doc: {"rule_code": "no_po"}
+        ok, error = validate_registrable(
+            doc, self._po_exists(), self._receipts_total(),
+            resolve_rule_fn=no_po,
+            po_supplier_match_fn=self._supplier_match(True),
+        )
+        self.assertTrue(ok)
+        self.assertEqual(error, "")
 
 
 if __name__ == "__main__":

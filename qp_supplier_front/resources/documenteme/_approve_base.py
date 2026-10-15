@@ -214,6 +214,27 @@ def po_exists(purchase_order):
     return bool(frappe.db.exists("Purchase Order", purchase_order))
 
 
+def po_supplier_match(doc):
+    """True si la OC de la factura existe y pertenece al mismo proveedor.
+
+    Los Purchase Order se nombran con order_confirmation_no
+    (uses_cases/purchase_order/__init__.py:set_name), por lo que el numero de
+    orden puede repetirse entre proveedores. Esta validacion impide que una
+    factura se apruebe/rechace contra la OC (y sus recepciones) de otro
+    proveedor comparando el supplier de la OC con el nvpro_ndoc de la factura.
+    """
+    purchase_order = (doc or {}).get("nvfac_orde")
+    if not purchase_order:
+        return False
+    supplier = get_supplier_by_tax_id((doc or {}).get("nvpro_ndoc"))
+    if not supplier:
+        return False
+    return bool(frappe.db.exists(
+        "Purchase Order",
+        {"name": purchase_order, "supplier": supplier},
+    ))
+
+
 def get_headquarter(purchase_order):
     if not purchase_order:
         return ""
@@ -1316,6 +1337,7 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         is_service_supplier_fn=is_service_supplier_fn,
         resolve_supplier_rule_fn=resolve_supplier_rule_fn,
         get_lines_for_receipts_fn=get_lines_for_receipts_fn,
+        po_supplier_match_fn=cb.get("po_supplier_match_fn", po_supplier_match),
     )
 
     on_batch_approved = components["on_batch_approved_fn"]
@@ -1405,6 +1427,7 @@ def collect_document_violations(doc_names, backend="BC"):
         cb.get("resolve_supplier_rule_fn", resolve_supplier_rule)
         if backend == "GP" else None
     )
+    po_supplier_match_fn = cb.get("po_supplier_match_fn", po_supplier_match)
     docs = get_docs_fn(doc_names)
     violations = collect_registrable_violations(
         docs,
@@ -1414,6 +1437,7 @@ def collect_document_violations(doc_names, backend="BC"):
         is_service_supplier_fn=is_service_supplier_fn,
         resolve_supplier_rule_fn=resolve_supplier_rule_fn,
         skip_credit=True,
+        po_supplier_match_fn=po_supplier_match_fn,
     )
     by_nume = {v.get("nvfac_nume"): v for v in violations}
 
@@ -1434,6 +1458,7 @@ def collect_document_violations(doc_names, backend="BC"):
         receipt_bank_fn,
         lambda purchase_order: _active_invoice_count(purchase_order, data),
         is_service_supplier_fn=is_service_supplier_fn,
+        po_supplier_match_fn=po_supplier_match_fn,
     )
     for entry in selection_violations:
         _merge(entry)

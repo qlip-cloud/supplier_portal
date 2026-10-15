@@ -226,6 +226,9 @@ def run_auto_assign(store, doc_names=None):
         resolve_rule_fn=lambda doc: references_memory.memory_resolve_rule(
             store, doc),
         po_exists_fn=lambda po: _po_exists(store, po),
+        po_supplier_match_fn=lambda doc: (
+            references_memory.memory_po_supplier_match(store, doc)
+        ),
         is_service_supplier_fn=lambda doc: (
             references_memory.memory_is_service_supplier(
                 store, doc.get("nvpro_ndoc"))

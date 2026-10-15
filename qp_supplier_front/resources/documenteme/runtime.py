@@ -167,6 +167,8 @@ def _simulated_bundle():
                 references_memory.memory_is_service_supplier_doc),
             "resolve_supplier_rule_fn": _bind(
                 references_memory.memory_resolve_supplier_rule),
+            "po_supplier_match_fn": _bind(
+                references_memory.memory_po_supplier_match),
         },
         "sync_persist": {
             "create_log": _bind(documents_memory.memory_create_sync_log),

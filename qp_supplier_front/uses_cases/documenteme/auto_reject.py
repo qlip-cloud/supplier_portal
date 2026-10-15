@@ -77,11 +77,21 @@ def get_reject_motive(rule):
     return DEFAULT_MOTIVES.get(rule.get("rule_code"), DEFAULT_MOTIVES[RULE_NO_PO])
 
 
-def has_po_match(invoice, po_exists_fn):
+def has_po_match(invoice, po_exists_fn, po_supplier_match_fn=None):
+    """True si la OC de la factura existe Y pertenece al mismo proveedor.
+
+    po_supplier_match_fn (opcional) valida ademas que el proveedor de la OC
+    coincida con el de la factura; sin el callback se conserva el
+    comportamiento por numero de orden (solo existencia).
+    """
     purchase_order = invoice.get("nvfac_orde")
     if not purchase_order:
         return False
-    return bool(po_exists_fn(purchase_order))
+    if not po_exists_fn(purchase_order):
+        return False
+    if po_supplier_match_fn is not None and not po_supplier_match_fn(invoice):
+        return False
+    return True
 
 
 def has_receipt_match(invoice, receipt_for_po_fn):
@@ -110,7 +120,8 @@ def is_eligible_doc(doc):
     )
 
 
-def collect_rejectable(candidates, resolve_rule_fn, po_exists_fn, receipt_for_po_fn):
+def collect_rejectable(candidates, resolve_rule_fn, po_exists_fn, receipt_for_po_fn,
+                       po_supplier_match_fn=None):
     rejectable = []
     for doc in candidates:
         if doc.get("nvfac_esta") == "PR":
@@ -123,7 +134,7 @@ def collect_rejectable(candidates, resolve_rule_fn, po_exists_fn, receipt_for_po
         rule = resolve_rule_fn(doc)
         if not is_active_rule(rule):
             continue
-        po_match = has_po_match(doc, po_exists_fn)
+        po_match = has_po_match(doc, po_exists_fn, po_supplier_match_fn)
         receipt_match = has_receipt_match(doc, receipt_for_po_fn)
         if should_auto_reject(po_match, receipt_match, rule.get("rule_code")):
             rejectable.append({"doc": doc, "rule": rule})
@@ -136,6 +147,7 @@ def auto_reject(
     po_exists_fn,
     receipt_for_po_fn,
     doc_names=None,
+    po_supplier_match_fn=None,
 ):
     candidates = []
     raw = candidates_fn() if doc_names is None else candidates_fn(doc_names)
@@ -145,7 +157,8 @@ def auto_reject(
         and not is_credit_note(doc.get("nvtip_docu"))
     ]
     rejectable = collect_rejectable(
-        candidates, resolve_rule_fn, po_exists_fn, receipt_for_po_fn
+        candidates, resolve_rule_fn, po_exists_fn, receipt_for_po_fn,
+        po_supplier_match_fn=po_supplier_match_fn,
     )
     return [
         {

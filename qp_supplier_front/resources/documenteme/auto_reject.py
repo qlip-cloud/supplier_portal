@@ -89,6 +89,7 @@ def run_auto_reject(http_fn=None, enqueue=True, doc_names=None):
         po_exists_fn=po_exists,
         receipt_for_po_fn=receipt_for_po,
         doc_names=doc_names,
+        po_supplier_match_fn=_po_supplier_match,
     )
 
     # Guard / kill-switch: los docs con retry deshabilitado no se envian.
@@ -234,6 +235,17 @@ def _is_service_supplier_doc(doc):
         is_service_supplier,
     )
     return is_service_supplier(doc.get("nvpro_ndoc"))
+
+
+def _po_supplier_match(doc):
+    """True si la OC existe y pertenece al mismo proveedor de la factura.
+
+    Import lazy para evitar el ciclo _approbe_base <-> auto_reject.
+    """
+    from qp_supplier_front.resources.documenteme._approve_base import (
+        po_supplier_match,
+    )
+    return po_supplier_match(doc)
 
 
 def get_supplier_rule(tax_id):
