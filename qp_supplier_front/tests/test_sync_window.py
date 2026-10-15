@@ -154,6 +154,11 @@ class TestResolveOnDemandStart(unittest.TestCase):
         start = resolve_on_demand_start(None, None, self.initial, self.today)
         self.assertEqual(start, self.initial)
 
+    def test_initial_when_checkpoint_without_local_data(self):
+        checkpoint = datetime(2026, 8, 5, 10, 0, 0)
+        start = resolve_on_demand_start(checkpoint, None, self.initial, self.today)
+        self.assertEqual(start, self.initial)
+
     def test_initial_when_string_value(self):
         start = resolve_on_demand_start(None, None, "2024-01-01", self.today)
         self.assertEqual(start, self.initial)
