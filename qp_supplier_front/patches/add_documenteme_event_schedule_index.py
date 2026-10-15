@@ -24,6 +24,11 @@ def execute():
     if not frappe.db.table_exists(DOCTYPE):
         return
 
+    # Los patches corren antes de sync_all, por lo que las columnas nuevas del
+    # doctype (qp_event_next_at, qp_reject_retry_enabled, ...) aun no existen.
+    # Forzamos el sync del doctype para crearlas antes de consultarlas.
+    frappe.reload_doc("qp_supplier_front", "doctype", DOCTYPE, force=True)
+
     frappe.db.sql(
         """
         UPDATE `tabqp_SP_DocumentDetail`
