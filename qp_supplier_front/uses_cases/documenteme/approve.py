@@ -549,7 +549,9 @@ def _to_date(value):
     return value.strftime("%Y-%m-%d")
 
 
-def _build_vendor_invoice_line(line, idx="10000"):
+def _build_vendor_invoice_line(line, idx="10000", comment=""):
+    receiving = line.get("receiving_no")
+    receiving_label = "Recepcion {}".format(receiving) if receiving else ""
     return {
         "NoProducto": line.get("item_code") or "",
         "cantidad": line.get("qty") or 0,
@@ -557,9 +559,8 @@ def _build_vendor_invoice_line(line, idx="10000"):
         "NoLineaRecepcion": idx,
         "NoRecepcion": line.get("receiving_no") or "",
         "NoPedido": line.get("order_no") or "",
-        "Comentarios": (
-            "Recepcion {}".format(line.get("receiving_no"))
-            if line.get("receiving_no") else ""
+        "Comentarios": "::".join(
+            part for part in (receiving_label, comment) if part
         ),
     }
 
@@ -919,6 +920,7 @@ def homologate_lines(detail_lines, homologation_map, order_no="", receiving_no="
 
 def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar"):
     invoice_date = _to_date(doc.get("nvfac_fech"))
+    bc_comment = doc.get("qp_bc_comment") or ""
     return {
         "invoiceDate": invoice_date,
         "postingDate": invoice_date,
@@ -936,7 +938,8 @@ def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar"):
             {"code": "TERCERO", "valueCode": doc.get("nvpro_ndoc")}
         ],
         "vendorInvoiceLine": [
-            _build_vendor_invoice_line(line, idx=str((i+1) * 10000))
+            _build_vendor_invoice_line(line, idx=str((i+1) * 10000),
+                                       comment=bc_comment)
             for i, line in enumerate(lines or [])
         ],
     }

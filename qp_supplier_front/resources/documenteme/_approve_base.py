@@ -209,6 +209,29 @@ def get_lines_for_receipts(doc, receipt_names):
     ), ""
 
 
+def get_bc_comment(doc, data=None):
+    """Mensaje del comentario marcado 'Enviar a BC' del documento (o "").
+
+    El comentario se elige en el modal de conversacion (check "Enviar a BC") y
+    solo puede haber uno por documento. En simulacion (data con facade) se lee
+    del store de memoria via el adaptador de timeline.
+    """
+    from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+        RealTimelineAdapter,
+    )
+    adapter = data.timeline if data is not None else RealTimelineAdapter()
+    return adapter.get_bc_comment(doc.get("name")) or ""
+
+
+def _with_bc_comment(build_invoice_fn, data=None):
+    """Envuelve el builder BC inyectando el comentario marcado en el doc."""
+    def build(doc, lines, headquarter):
+        enriched = dict(doc)
+        enriched["qp_bc_comment"] = get_bc_comment(doc, data)
+        return build_invoice_fn(enriched, lines, headquarter)
+    return build
+
+
 def po_exists(purchase_order):
     if not purchase_order:
         return False
@@ -1339,6 +1362,9 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         )
         get_lines_fn = cb.get("get_lines_fn", get_lines)
         build_invoice_fn = cb.get("build_invoice_fn")
+        if build_invoice_fn is None:
+            build_invoice_fn = make_invoice_builder("documenteme")
+        build_invoice_fn = _with_bc_comment(build_invoice_fn, data)
     sync_flow = "GP" if backend == "GP" else "BC"
     persist_invoice_fn = cb.get("persist_invoice_fn")
     if persist_invoice_fn is None:

@@ -301,6 +301,33 @@ class TestBuildPayload(unittest.TestCase):
         payload = build_payload([_doc()], lines, self._get_headquarter)
         self.assertEqual(payload[0]["vendorInvoiceLine"][0]["Comentarios"], "")
 
+    def test_comentario_bc_se_agrega_a_recepcion(self):
+        lines = lambda po: ([_line(receiving_no="R108349")], "")
+        payload = build_payload(
+            [_doc(qp_bc_comment="Entregar en bodega 2")],
+            lines, self._get_headquarter,
+        )
+        self.assertEqual(
+            payload[0]["vendorInvoiceLine"][0]["Comentarios"],
+            "Recepcion R108349::Entregar en bodega 2",
+        )
+
+    def test_comentario_bc_en_todas_las_lineas(self):
+        payload = build_payload(
+            [_doc(qp_bc_comment="Urgente")],
+            self._multi_lines, self._get_headquarter,
+        )
+        self.assertEqual(
+            [line["Comentarios"] for line in payload[0]["vendorInvoiceLine"]],
+            ["Recepcion R108349::Urgente", "Recepcion R108349::Urgente"],
+        )
+
+    def test_comentario_bc_sin_recepcion(self):
+        lines = lambda po: ([_line(receiving_no="")], "")
+        payload = build_payload([_doc(qp_bc_comment="Solo nota")], lines,
+                                self._get_headquarter)
+        self.assertEqual(payload[0]["vendorInvoiceLine"][0]["Comentarios"], "Solo nota")
+
 
 class TestIsErrorResponse(unittest.TestCase):
 

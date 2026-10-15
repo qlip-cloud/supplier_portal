@@ -251,6 +251,7 @@ $(document).ready(function () {
     // Conversación (comentarios) de facturas documenteme
     // =====================================================================
     var timelineDocName = null;
+    var timelineCanSendToBc = false;
 
     var TIMELINE_TYPE_META = {
         creacion: {
@@ -311,7 +312,7 @@ $(document).ready(function () {
             .replace(/'/g, "&#39;");
     }
 
-    function renderTimelineEntry(entry) {
+    function renderTimelineEntry(entry, canSendToBc) {
         var meta = TIMELINE_TYPE_META[entry.type] || {
             icon: "history",
             color: "#6c757d",
@@ -332,6 +333,15 @@ $(document).ready(function () {
         var titleLine = isComment
             ? escapeHtml(entry.entry_by || "") + " &middot; " + formatTimelineDate(entry.entry_date)
             : escapeHtml(meta.title || "");
+        // Check "Enviar a BC" (solo comentarios y solo si la factura aun puede
+        // enviarse a BC). Marca el comentario que viajara en el payload BC.
+        var bcCheck = "";
+        if (isComment && canSendToBc) {
+            bcCheck = "<label style=\"float:right;font-weight:normal;font-size:11px;color:#004D90;margin:0;cursor:pointer\">" +
+                "<input type=\"checkbox\" class=\"bc-comment-check\" data-entry=\"" + escapeHtml(entry.name || "") + "\"" +
+                (entry.send_to_bc ? " checked" : "") +
+                " style=\"vertical-align:middle;margin-right:3px\">Enviar a BC</label>";
+        }
         var footer = isComment
             ? ""
             : "<div style=\"color:#8a9099;font-size:11px;margin-top:3px\">" +
@@ -342,14 +352,14 @@ $(document).ready(function () {
             "<span class=\"material-symbols-outlined\" style=\"color:" + color + "\">" + meta.icon + "</span>" +
             "</span>" +
             "<div style=\"font-size:13px\">" +
-            "<div style=\"color:#333;font-weight:bold;font-size:12px;margin-bottom:2px\">" + titleLine + "</div>" +
+            "<div style=\"color:#333;font-weight:bold;font-size:12px;margin-bottom:2px\">" + titleLine + bcCheck + "</div>" +
             "<div style=\"color:#444;white-space:pre-wrap;word-break:break-word\">" + message + "</div>" +
             footer +
             "</div></div>";
         return body;
     }
 
-    function renderCommentList(entries) {
+    function renderCommentList(entries, canSendToBc) {
         var $list = $("#timeline-list");
         $list.empty();
         if (!entries || entries.length === 0) {
@@ -358,7 +368,7 @@ $(document).ready(function () {
         }
         var html = "";
         entries.forEach(function (entry) {
-            html += renderTimelineEntry(entry);
+            html += renderTimelineEntry(entry, canSendToBc);
         });
         $list.html(html);
     }
@@ -375,7 +385,10 @@ $(document).ready(function () {
             doc_name: docName
         }, "qp_supplier_front.resources.documenteme.timeline.get_conversation", function (response) {
             if (response.status === 200) {
-                renderCommentList(response.data.comments);
+                timelineCanSendToBc = !!(response.data && response.data.can_send_to_bc);
+                renderCommentList(response.data.comments, timelineCanSendToBc);
+                $("#timeline_send_to_bc").prop("checked", false);
+                $("#timeline_send_to_bc_wrapper").toggle(timelineCanSendToBc);
                 var unread = response.data.unread_count || 0;
                 $("#timeline_unread_hint").text(
                     unread > 0 ? unread + " comentario(s) sin leer" : ""
@@ -433,11 +446,15 @@ $(document).ready(function () {
 
         petition_get_data({
             doc_name: timelineDocName,
-            comment: comment
+            comment: comment,
+            send_to_bc: JSON.stringify(
+                timelineCanSendToBc && $("#timeline_send_to_bc").is(":checked")
+            )
         }, "qp_supplier_front.resources.documenteme.timeline.add_comment", function (response) {
             if (response.status === 200) {
                 $("#timeline_comment_text").val("");
-                renderCommentList(response.data);
+                $("#timeline_send_to_bc").prop("checked", false);
+                renderCommentList(response.data, timelineCanSendToBc);
                 updateCommentButton(timelineDocName, false);
             } else {
                 $("#confirm-timeline-comment").prop("disabled", false);
@@ -446,8 +463,34 @@ $(document).ready(function () {
         });
     });
 
+    // Solo un comentario puede marcarse como "Enviar a BC": al marcar uno se
+    // desmarcan los demas (el servidor tambien lo garantiza). El mensaje
+    // marcado viaja en la key Comentarios del payload BC.
+    $(document).on("change", ".bc-comment-check", function () {
+        var entryName = $(this).data("entry");
+        var checked = $(this).is(":checked");
+        if (!timelineDocName || !entryName) {
+            return;
+        }
+        $(".bc-comment-check").not(this).prop("checked", false);
+        petition_get_data({
+            doc_name: timelineDocName,
+            entry_name: entryName,
+            flag: JSON.stringify(checked)
+        }, "qp_supplier_front.resources.documenteme.timeline.set_bc_comment", function (response) {
+            if (response.status === 200) {
+                timelineCanSendToBc = !!(response.data && response.data.can_send_to_bc);
+                renderCommentList(response.data.comments, timelineCanSendToBc);
+            } else {
+                frappe.msgprint(response.msg || "Error al marcar el comentario");
+                loadConversation(timelineDocName);
+            }
+        });
+    });
+
     $("#timeline_invoice_modal").on("hidden.bs.modal", function () {
         timelineDocName = null;
+        timelineCanSendToBc = false;
     });
 
     // =====================================================================

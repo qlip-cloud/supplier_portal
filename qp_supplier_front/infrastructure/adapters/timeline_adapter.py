@@ -105,6 +105,7 @@ def _insert_row(parent_name, entry, frappe=None):
             "Administrator",
         ),
     )
+    return row_name
 
 
 def _insert_read_row(parent_name, user, now, frappe=None):
@@ -182,7 +183,7 @@ class RealTimelineAdapter(object):
         entry = build_comment_entry(
             comment, _user_name(user, self._frappe), _now_str(now)
         )
-        _insert_row(doc_name, entry, self._frappe)
+        entry["name"] = _insert_row(doc_name, entry, self._frappe)
         return entry
 
     def set_state(self, doc_name, new_state, extra_fields=None, user=None, now=None,
@@ -224,22 +225,60 @@ class RealTimelineAdapter(object):
                 "entry_type": ENTRY_COMMENT,
             },
             fields=[
-                "entry_type", "message", "old_state", "new_state",
-                "entry_by", "entry_date",
+                "name", "entry_type", "message", "old_state", "new_state",
+                "entry_by", "entry_date", "send_to_bc",
             ],
         )
         comments = [
             {
+                "name": row.get("name") or "",
                 "type": row.get("entry_type"),
                 "message": row.get("message") or "",
                 "old_state": row.get("old_state") or None,
                 "new_state": row.get("new_state") or None,
                 "entry_by": row.get("entry_by") or "",
                 "entry_date": row.get("entry_date") or "",
+                "send_to_bc": bool(row.get("send_to_bc")),
             }
             for row in rows
         ]
         return order_desc(comments)
+
+    def get_bc_comment(self, doc_name):
+        """Mensaje del comentario marcado 'Enviar a BC' (vacio si no hay)."""
+        rows = self._frappe.get_all(
+            TIMELINE_ENTRY,
+            filters={
+                "parent": doc_name,
+                "parenttype": DOCUMENT_DETAIL,
+                "entry_type": ENTRY_COMMENT,
+                "send_to_bc": 1,
+            },
+            fields=["message"],
+            limit=1,
+        )
+        return (rows[0].get("message") or "") if rows else ""
+
+    def set_bc_comment(self, doc_name, entry_name, enabled):
+        """Marca/desmarca un comentario como 'Enviar a BC'.
+
+        Solo puede haber un comentario marcado: al habilitar uno se limpian los
+        demas comentarios del documento. Deshabilitar deja el documento sin
+        comentario marcado.
+        """
+        frappe = self._frappe
+        frappe.db.sql(
+            """
+            UPDATE `tabqp_SP_TimelineEntry`
+            SET send_to_bc = 0
+            WHERE parent = %s AND parenttype = %s AND entry_type = %s
+            """,
+            (doc_name, DOCUMENT_DETAIL, ENTRY_COMMENT),
+        )
+        if enabled:
+            frappe.db.set_value(TIMELINE_ENTRY, entry_name, "send_to_bc", 1)
+        return self.get_bc_comment(doc_name)
+
 
     def _session_user(self):
         return getattr(self._frappe.session, "user", "Administrator")

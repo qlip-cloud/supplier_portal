@@ -146,6 +146,41 @@ class TestMemoryTimelineAdapter(unittest.TestCase):
         entries = self.adapter.get("D1")
         self.assertEqual([e["message"] for e in entries], ["nuevo", "viejo"])
 
+    def test_set_bc_comment_marca_solo_uno(self):
+        _seed_doc(self.store)
+        self.adapter.add_comment("D1", "primero")
+        self.adapter.add_comment("D1", "segundo")
+        rows = self.store.query("qp_SP_TimelineEntry",
+                                filters={"parent": "D1"}, order_by="name asc")
+        first, second = rows[0]["name"], rows[1]["name"]
+
+        self.adapter.set_bc_comment("D1", first, True)
+        self.assertEqual(self.adapter.get_bc_comment("D1"), "primero")
+
+        self.adapter.set_bc_comment("D1", second, True)
+        self.assertEqual(self.adapter.get_bc_comment("D1"), "segundo")
+        comments = self.adapter.get_comments("D1")
+        flagged = [c for c in comments if c.get("send_to_bc")]
+        self.assertEqual(len(flagged), 1)
+        self.assertEqual(flagged[0]["message"], "segundo")
+
+        self.adapter.set_bc_comment("D1", second, False)
+        self.assertEqual(self.adapter.get_bc_comment("D1"), "")
+
+    def test_get_comments_expone_name_y_flag(self):
+        _seed_doc(self.store)
+        self.adapter.add_comment("D1", "c1")
+        comment = self.adapter.get_comments("D1")[0]
+        self.assertTrue(comment.get("name"))
+        self.assertFalse(comment.get("send_to_bc"))
+
+    def test_add_comment_devuelve_name(self):
+        _seed_doc(self.store)
+        entry = self.adapter.add_comment("D1", "c1")
+        self.assertTrue(entry.get("name"))
+        self.adapter.set_bc_comment("D1", entry["name"], True)
+        self.assertEqual(self.adapter.get_bc_comment("D1"), "c1")
+
 
 class TestMemoryIntegration(unittest.TestCase):
 

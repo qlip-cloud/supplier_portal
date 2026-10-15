@@ -74,6 +74,7 @@ class TestRealTimelineAdapter(unittest.TestCase):
 
     def test_add_comment_inserta_fila(self):
         entry = self.adapter.add_comment("D1", "Revisar monto elevado")
+        entry.pop("name")
         self.assertEqual(entry, build_comment_entry(
             "Revisar monto elevado", "Admin Name", entry["entry_date"]))
         self.assertTrue(self.frappe.db.sql.called)
@@ -122,6 +123,40 @@ class TestRealTimelineAdapter(unittest.TestCase):
         entries = self.adapter.get("D1")
         self.assertEqual([e["type"] for e in entries], ["comentario"])
         self.assertEqual(self.frappe.get_all.call_count, 2)
+
+    def test_get_comments_expone_name_y_flag(self):
+        self.frappe.get_all.return_value = [
+            {"name": "TE1", "entry_type": "comentario", "message": "c1",
+             "old_state": None, "new_state": None, "entry_by": "Admin Name",
+             "entry_date": "2026-09-01 09:00:00", "send_to_bc": 1},
+        ]
+        comment = self.adapter.get_comments("D1")[0]
+        self.assertEqual(comment["name"], "TE1")
+        self.assertTrue(comment["send_to_bc"])
+
+    def test_get_bc_comment(self):
+        self.frappe.get_all.return_value = [{"message": "Entregar en bodega"}]
+        self.assertEqual(self.adapter.get_bc_comment("D1"),
+                         "Entregar en bodega")
+        filters = self.frappe.get_all.call_args[1]["filters"]
+        self.assertEqual(filters["send_to_bc"], 1)
+
+    def test_get_bc_comment_vacio(self):
+        self.frappe.get_all.return_value = []
+        self.assertEqual(self.adapter.get_bc_comment("D1"), "")
+
+    def test_set_bc_comment_limpia_y_marca(self):
+        self.frappe.get_all.return_value = []
+        self.adapter.set_bc_comment("D1", "TE2", True)
+        self.assertTrue(self.frappe.db.sql.called)
+        self.frappe.db.set_value.assert_called_once_with(
+            "qp_SP_TimelineEntry", "TE2", "send_to_bc", 1
+        )
+
+    def test_set_bc_comment_desmarca_no_escribe(self):
+        self.frappe.get_all.return_value = []
+        self.adapter.set_bc_comment("D1", "TE2", False)
+        self.frappe.db.set_value.assert_not_called()
 
 
 def _make_doc(frappe, new=False, old_state="E", new_state="V", doctype="qp_SP_DocumentDetail"):

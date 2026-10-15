@@ -25,6 +25,7 @@ from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
 )
 from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.resources.response import handler as response
+from qp_supplier_front.services.flow_config import get_sync_backend
 from qp_supplier_front.uses_cases.documenteme.event_logs import (
     notification_summary,
     notification_timeline,
@@ -38,6 +39,24 @@ from qp_supplier_front.uses_cases.documenteme.timeline import (
 DOCUMENT_DETAIL = "qp_SP_DocumentDetail"
 DOCUMENT_EVENT_LOG = "qp_SP_EventLog"
 DOCUMENT_ALERT = "qp_SP_Alert"
+
+# Estados en los que la factura aun puede enviarse a BC: mientras esta
+# registrada/lista para registro. Al crearse en BC (BCC y posteriores) el
+# check "Enviar a BC" deja de mostrarse.
+BC_COMMENT_STATES = ("E", "V")
+
+
+def _as_bool(value):
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in ("1", "true", "yes", "y", "si")
+
+
+def _can_send_to_bc(data, doc_name):
+    """True si el comentario puede marcarse para BC (backend BC + estado)."""
+    if get_sync_backend() != "BC":
+        return False
+    return _doc_state(data, doc_name) in BC_COMMENT_STATES
 
 
 def _timeline(data):
@@ -79,7 +98,7 @@ def get_timeline(doc_name):
 
 
 @frappe.whitelist()
-def add_comment(doc_name, comment):
+def add_comment(doc_name, comment, send_to_bc=None):
     try:
         if not doc_name:
             response(400, "Falta el documento")
@@ -89,7 +108,10 @@ def add_comment(doc_name, comment):
             response(400, "El comentario no puede estar vac\u00edo")
             return
         data = runtime.resolve().get("data")
-        _timeline(data).add_comment(doc_name, comment)
+        adapter = _timeline(data)
+        entry = adapter.add_comment(doc_name, comment)
+        if _as_bool(send_to_bc) and _can_send_to_bc(data, doc_name):
+            adapter.set_bc_comment(doc_name, entry.get("name"), True)
         if data is not None:
             data.commit()
         else:
@@ -97,7 +119,7 @@ def add_comment(doc_name, comment):
         response(
             200,
             "Comentario agregado correctamente",
-            data=_timeline(data).get_comments(doc_name),
+            data=adapter.get_comments(doc_name),
         )
     except Exception as error:
         frappe.db.rollback()
@@ -144,10 +166,48 @@ def get_conversation(doc_name):
             "comments": comments,
             "unread_count": unread,
             "has_unread": unread > 0,
+            "can_send_to_bc": _can_send_to_bc(data, doc_name),
         }, msg="")
     except Exception as error:
         frappe.db.rollback()
         response(500, "Error al obtener la conversacion: {}".format(str(error)))
+
+
+@frappe.whitelist()
+def set_bc_comment(doc_name, entry_name, flag):
+    """Marca/desmarca un comentario para incluirlo en el payload BC.
+
+    Solo aplica con backend BC y mientras la factura no haya sido creada en BC
+    (estados E/V). Solo un comentario puede estar marcado a la vez.
+    """
+    try:
+        if not doc_name or not entry_name:
+            response(400, "Faltan datos del comentario")
+            return
+        if get_sync_backend() != "BC":
+            response(400, "La funcionalidad solo aplica al backend BC")
+            return
+        data = runtime.resolve().get("data")
+        if not _can_send_to_bc(data, doc_name):
+            response(400, "La factura ya no permite marcar comentarios para BC")
+            return
+        adapter = _timeline(data)
+        adapter.set_bc_comment(doc_name, entry_name, _as_bool(flag))
+        if data is not None:
+            data.commit()
+        else:
+            frappe.db.commit()
+        response(
+            200,
+            "Comentario actualizado correctamente",
+            data={
+                "comments": adapter.get_comments(doc_name),
+                "can_send_to_bc": True,
+            },
+        )
+    except Exception as error:
+        frappe.db.rollback()
+        response(500, "Error al marcar el comentario: {}".format(str(error)))
 
 
 @frappe.whitelist()

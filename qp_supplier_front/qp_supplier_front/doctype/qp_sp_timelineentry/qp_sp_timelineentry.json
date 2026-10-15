@@ -10,7 +10,8 @@
   "old_state",
   "new_state",
   "entry_by",
-  "entry_date"
+  "entry_date",
+  "send_to_bc"
  ],
  "fields": [
   {
@@ -46,12 +47,19 @@
    "fieldtype": "Datetime",
    "in_list_view": 1,
    "label": "Fecha"
+  },
+  {
+   "default": "0",
+   "description": "Marcado por el usuario para incluir el comentario en la key Comentarios del payload BC.",
+   "fieldname": "send_to_bc",
+   "fieldtype": "Check",
+   "label": "Enviar a BC"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-09-02 18:05:12",
+ "modified": "2026-10-15 10:00:00",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_TimelineEntry",
