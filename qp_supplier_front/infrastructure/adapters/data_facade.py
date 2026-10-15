@@ -156,7 +156,8 @@ class MemDoc(_MemRow):
                    "qp_reject_orig_state", "qp_motive", "qp_is_event_completed",
                    "qp_auto_reject_rule", "qp_reject_retry_enabled",
                    "qp_reject_is_invoice_error", "nvfac_nume", "nvpro_ndoc",
-                   "nvfac_cont"):
+                   "nvfac_cont", "qp_event_sequence", "qp_event_pending_code",
+                   "qp_event_next_at", "qp_event_attempts"):
             return self._fields.get(key, None)
         return _MemRow.__getattr__(self, key)
 

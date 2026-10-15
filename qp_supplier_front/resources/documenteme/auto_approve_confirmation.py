@@ -9,27 +9,20 @@ cuyo evento final es 033:
 
   1. El servicio update_document recibe la confirmacion de BC
      (invoice_id + confirmation_id), guarda el confirmation_id, marca el
-     documento en estado "PA" (En proceso de Aprobacion) y encola este job.
-  2. El job envía la secuencia 030 -> 032 -> 033 con delay entre eventos y
-     reintentos, reiniciando siempre la secuencia completa desde 030 ante
-     cualquier fallo.
+     documento en estado "PA" (En proceso de Aprobacion) y programa el
+     primer evento.
+  2. Los eventos 030 -> 032 -> 033 se envian UNO POR JOB
+     (event_job.run_documenteme_event); el dispatcher (event_dispatch)
+     materializa los siguientes a partir de qp_event_next_at.
   3. Si la secuencia completa tiene exito, el documento se marca "A"
      (Aprobado) con nvfac_ueve "033" y se resuelven sus alertas.
   4. Si se agotan los intentos, se inserta una alerta y el documento
-     permanece en "PA" (En proceso de Aprobacion) para reintentarse.
+     permanece en "PA" (En proceso de Aprobacion).
 """
-
-import time
 
 import frappe
 
-from qp_supplier_front.resources.documenteme._alerts import (
-    insert_alert,
-    resolve_open_alerts,
-)
-from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.uses_cases.documenteme.event_notifier import (
-    _append_log,
     _is_error,
     _build_payload,
 )
@@ -63,14 +56,18 @@ def get_approval_config(master_setup=None):
 
 
 def enqueue_approve_confirmation(doc_name):
-    """Encola el job de fondo que notifica la aprobacion a documenteme."""
-    frappe.enqueue(
-        APPROVE_JOB_METHOD,
-        doc_names=[doc_name],
-        queue="long",
-        timeout=14400,
-        job_name="approve confirmation {}".format(doc_name),
+    """Programa la notificacion de aprobacion (un evento por job).
+
+    Marca la secuencia "A" (030 -> 032 -> 033) en el documento y encola el
+    primer evento; el dispatcher (event_dispatch) materializa los siguientes.
+    """
+    from qp_supplier_front.resources.documenteme.event_job import (
+        initialize_event_schedule_db,
+        schedule_event,
     )
+
+    initialize_event_schedule_db(doc_name, "A")
+    schedule_event(doc_name)
 
 
 # =========================================================================
@@ -116,107 +113,22 @@ def is_sequence_successful(sent):
 
 
 # =========================================================================
-# Job de fondo
+# Job de aprobacion: programacion de eventos (un evento por job)
 # =========================================================================
 def approve_confirmation_batch_job(doc_names, http_fn=None):
-    components = runtime.resolve()
-    company_tax_id = components["company_tax_id_fn"]()
-    url, headers, method = components["event_endpoint_fn"]()
-    config = get_approval_config()
+    """Compatibilidad: programa UN evento por factura (sin sleeps).
 
-    all_results = []
+    El envio de la secuencia 030/032/033 ahora lo materializa
+    event_job/event_dispatch. Se conserva el nombre para callers/tests.
+    """
+    from qp_supplier_front.resources.documenteme.event_job import (
+        schedule_event,
+    )
+
+    results = []
     for doc_name in (doc_names or []):
-        doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
-        result = _approve_one(doc, config, company_tax_id, url, headers, method,
-                              http_fn=http_fn)
-        all_results.append((doc_name, result))
-
-    frappe.db.commit()
-    return all_results
-
-
-def _approve_one(doc, config, company_tax_id, url, headers, method, http_fn=None):
-    result = {"doc": doc.name, "approved": False, "attempts": 0, "error": None}
-
-    # En la secuencia de aprobacion, DOCUMENTEME_EVENT_STATES (event_notifier)
-    # fija el estado que sale en el payload por codigo: los eventos 030/032
-    # notifican con "E" (y el doc interno viaja en BCC/PA); solo el 033 lleva
-    # "A" (Aprobado). El base_state recibido por build_approval_events solo
-    # aplica a codigos sin mapeo explicito, por lo que nunca sale "BCC".
-    base_state = "BCC"
-
-    for attempt_no in range(1, config["max_attempts"] + 1):
-        result["attempts"] = attempt_no
-        if attempt_no > 1:
-            time.sleep(config["retry_interval"])
-
-        resume_index = get_approval_resume_index(doc.get("event_logs"))
-        events = build_approval_events(
-            doc, company_tax_id, resume_index, base_state=base_state
-        )
-
-        sent = []
-        for event in events:
-            response, status = _send_event(
-                event["payload"], url, headers, method, http_fn=http_fn
-            )
-            sent.append({
-                "event_code": event["event_code"],
-                "payload": event["payload"],
-                "response": response,
-                "status": status,
-            })
-            _append_log(
-                doc,
-                event["event_code"],
-                event["payload"],
-                response,
-                status,
-                make_now,
-            )
-            doc.save()
-            frappe.db.commit()
-            if event["event_code"] != "033":
-                time.sleep(config["event_delay"])
-            # Un evento que "ya esta aplicado" cuenta como exito: se avanza
-            # al siguiente (p. ej. 030 ya emitido -> seguir a 032).
-            if _is_error(response, status) and not is_already_applied(response):
-                break
-
-        if is_sequence_successful(sent):
-            _mark_approved(doc)
-            result["approved"] = True
-            return result
-
-    insert_alert(
-        doc.name,
-        "No se ha podido notificar la aprobacion en documenteme. "
-        "Se reintentara en la proxima sincronizacion.",
-        make_now(),
-        alert_type="ErrorUrgente",
-    )
-    result["error"] = "Maximo de intentos alcanzado"
-    return result
-
-
-def _send_event(payload, url, headers, method, http_fn=None):
-    sender = (
-        http_fn
-        if http_fn is not None
-        else runtime.resolve()["event_http_fn"]
-    )
-    try:
-        return sender(payload, url, headers, method)
-    except Exception as error:
-        return {"errorInterno": str(error)}, 500
-
-
-def _mark_approved(doc):
-    doc.nvfac_esta = "A"
-    doc.qp_is_event_completed = 1
-    doc.nvfac_ueve = "033"
-    resolve_open_alerts(doc.name)
-    doc.save()
+        results.append((doc_name, schedule_event(doc_name, http_fn=http_fn)))
+    return results
 
 
 def make_now():

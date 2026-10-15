@@ -270,17 +270,12 @@ class TestRunAutoReject(unittest.TestCase):
                                "enabled": 1, "motive": "Rechazo automático: motivo"},
              ), \
              patch.object(infra, "po_exists", return_value=False), \
-             patch.object(infra, "receipt_for_po", return_value=None):
+             patch.object(infra, "receipt_for_po", return_value=None), \
+             patch.object(infra, "schedule_event") as schedule_mock:
             result = infra.run_auto_reject()
 
         self.assertEqual(result["rejected"], ["DOC1"])
-        frappe_mock.enqueue.assert_called_once_with(
-            infra.REJECT_JOB_METHOD,
-            rejects=[_reject()],
-            queue="long",
-            timeout=14400,
-            job_name="auto reject documents",
-        )
+        schedule_mock.assert_called_once_with("DOC1", http_fn=None, enqueue=True)
 
     def test_sin_rechazos_no_encola(self):
         frappe_mock = MagicMock()
@@ -309,10 +304,10 @@ class TestRunAutoReject(unittest.TestCase):
              ), \
              patch.object(infra, "po_exists", return_value=False), \
              patch.object(infra, "receipt_for_po", return_value=None), \
-             patch.object(infra, "reject_batch_job") as job_mock:
+             patch.object(infra, "schedule_event") as schedule_mock:
             infra.run_auto_reject(http_fn=http_fn)
 
-        job_mock.assert_called_once_with([_reject()], http_fn=http_fn)
+        schedule_mock.assert_called_once_with("DOC1", http_fn=http_fn, enqueue=True)
         frappe_mock.enqueue.assert_not_called()
 
     def test_marca_pendiente_antes_de_encolar(self):
@@ -410,18 +405,13 @@ class TestRunAutoReject(unittest.TestCase):
                                "enabled": 1, "motive": "Rechazo automático: motivo"},
              ), \
              patch.object(infra, "po_exists", return_value=False), \
-             patch.object(infra, "receipt_for_po", return_value=None):
+             patch.object(infra, "receipt_for_po", return_value=None), \
+             patch.object(infra, "schedule_event") as schedule_mock:
             result = infra.run_auto_reject()
 
-        # El contado (DOC1) no se rechaza: se asigna. Solo la de credito se encola.
+        # El contado (DOC1) no se rechaza: se asigna. Solo la de credito se programa.
         self.assertEqual(result["rejected"], ["DOC2"])
-        frappe_mock.enqueue.assert_called_once_with(
-            infra.REJECT_JOB_METHOD,
-            rejects=[_reject(doc="DOC2", nvfac_conv="2")],
-            queue="long",
-            timeout=14400,
-            job_name="auto reject documents",
-        )
+        schedule_mock.assert_called_once_with("DOC2", http_fn=None, enqueue=True)
 
 
 class MockLogRow(object):
@@ -490,176 +480,24 @@ SUCCESS = {"Result": 0, "Description": "OK"}
 ERROR = {"Result": 1, "Description": "Error"}
 
 
-class TestRejectOne(unittest.TestCase):
-
-    def _reject_one(self, doc, config=None, sender=None):
-        config = config or REJECT_CONFIG
-        if sender is None:
-            sender = lambda payload, url, headers, method: (SUCCESS, 200)
-        with patch.object(infra, "time") as time_mock, \
-             patch.object(infra, "frappe") as frappe_mock, \
-             patch.object(infra, "insert_alert") as insert_alert_mock, \
-             patch.object(infra, "resolve_open_alerts") as resolve_mock:
-            result = infra._reject_one(
-                doc, config, "890900123", "http://x", {}, "POST", sender
-            )
-        return result, time_mock, insert_alert_mock, frappe_mock
-
-    def test_secuencia_completa_marca_rechazada(self):
-        doc = MockDoc()
-        sent = []
-
-        def sender(payload, url, headers, method):
-            sent.append(payload["Nveve_dian"])
-            return (SUCCESS, 200)
-
-        result, _, insert_alert_mock, _ = self._reject_one(doc, sender=sender)
-        self.assertTrue(result["rejected"])
-        self.assertEqual(doc.nvfac_esta, "R")
-        self.assertEqual(doc.qp_is_event_completed, 1)
-        self.assertEqual(doc.nvfac_ueve, "031")
-        self.assertEqual(sent, ["030", "032", "031"])
-        insert_alert_mock.assert_not_called()
-
-    def test_error_en_031_reinicia_desde_030(self):
-        doc = MockDoc(nvfac_esta="PR")
-        responses = {"030": SUCCESS, "032": SUCCESS, "031": ERROR}
-        sent = []
-
-        def sender(payload, url, headers, method):
-            code = payload["Nveve_dian"]
-            sent.append(code)
-            return (responses[code], 200)
-
-        config = {"max_attempts": 3, "retry_interval": 60, "event_delay": 60}
-        result, _, insert_alert_mock, _ = self._reject_one(doc, config=config, sender=sender)
-
-        self.assertFalse(result["rejected"])
-        self.assertEqual(doc.nvfac_esta, "PR")
-        insert_alert_mock.assert_called_once()
-        # Intento 1..3: cada uno envia 030, 032, 031 (031 siempre error).
-        # Tras el error de 031, el siguiente intento reinicia desde 030.
-        self.assertEqual(sent.count("030"), 3)   # se reenvia en cada intento
-        self.assertGreater(sent.count("032"), 1)  # se reenvia en los reintentos
-
-    def test_doc_con_retry_deshabilitado_no_envia(self):
-        doc = MockDoc()
-        doc.qp_reject_retry_enabled = 0
-        sent = []
-
-        def sender(payload, url, headers, method):
-            sent.append(payload["Nveve_dian"])
-            return (SUCCESS, 200)
-
-        result, _, insert_alert_mock, _ = self._reject_one(doc, sender=sender)
-
-        self.assertFalse(result["rejected"])
-        self.assertEqual(result["error"], "Reintentos deshabilitados")
-        self.assertEqual(sent, [])
-        insert_alert_mock.assert_not_called()
-
-    def test_respeta_intervalos_y_delays(self):
-        doc = MockDoc()
-        config = {"max_attempts": 2, "retry_interval": 0, "event_delay": 0}
-
-        def sender(payload, url, headers, method):
-            return (ERROR, 200)
-
-        result, time_mock, _, _ = self._reject_one(doc, config=config, sender=sender)
-        # Entre intentos y entre eventos se usa time.sleep
-        time_mock.sleep.assert_called()
-
-    def test_ya_aplicado_con_031_fallido_reinicia_desde_030(self):
-        # Replica la secuencia de la prueba real:
-        # intento 1: 030 ok, 032 ok, 031 fail
-        # intento 2: 030, 032 responde "ya aplicado" (no error) -> avanza a 031
-        # (030 se reenvia: el fallo de 031 reinicia la secuencia completa)
-        doc = MockDoc(nvfac_esta="PR")
-        sent = []
-        state = {"phase": "ok"}
-
-        def sender(payload, url, headers, method):
-            code = payload["Nveve_dian"]
-            sent.append(code)
-            if code == "030":
-                return (SUCCESS, 200)
-            if code == "032":
-                if state["phase"] == "ok":
-                    return (SUCCESS, 200)
-                # fase de reintento: 032 ya aplicado
-                return ({
-                    "Result": 1,
-                    "Description": "El documento [X] ya cuenta con el/los evento(s) [032] y se encuentra(n) en estado exitoso.",
-                }, 200)
-            if code == "031":
-                state["phase"] = "retry"
-                return (ERROR, 200)
-            return (SUCCESS, 200)
-
-        config = {"max_attempts": 3, "retry_interval": 0, "event_delay": 0}
-        result, _, insert_alert_mock, _ = self._reject_one(doc, config=config, sender=sender)
-
-        # 030 se envia en cada intento (el fallo de 031 reinicia desde 030)
-        self.assertEqual(sent.count("030"), 3)
-        # 032 se reenvia en los reintentos pero "ya aplicado" no rompe la secuencia
-        self.assertGreaterEqual(sent.count("032"), 2)
-        # Se llega a intentar el 031 mas de una vez (el reintento avanza a 031)
-        self.assertGreaterEqual(sent.count("031"), 2)
-        # El doc no quedo rechazado en este escenario (031 nunca tuvo exito real)
-        self.assertFalse(result["rejected"])
-
-
 class TestRejectBatchJob(unittest.TestCase):
+    """reject_batch_job ahora solo programa UN evento por factura."""
 
-    def test_rechaza_documentos_eligibles(self):
-        doc = MockDoc("DOC1", nvfac_esta="PR")
-        frappe_mock = MagicMock()
-        company = MagicMock()
-        company.tax_id = "890900123"
-        frappe_mock.defaults.get_user_default.return_value = "COMP"
+    def test_programa_un_evento_por_factura(self):
+        with patch.object(infra, "schedule_event") as schedule_mock:
+            results = infra.reject_batch_job(
+                [_reject(doc="DOC1"), _reject(doc="DOC2")]
+            )
 
-        def get_doc(doctype, name):
-            if doctype == "qp_SP_DocumentDetail":
-                return doc
-            return company
+        self.assertEqual(schedule_mock.call_count, 2)
+        schedule_mock.assert_any_call("DOC1", http_fn=None)
+        schedule_mock.assert_any_call("DOC2", http_fn=None)
+        self.assertEqual([name for name, _ in results], ["DOC1", "DOC2"])
 
-        frappe_mock.get_doc.side_effect = get_doc
-        frappe_mock.db.get_single_value.return_value = 5
-
-        def http_fn(payload, url, headers, method):
-            return (SUCCESS, 200)
-
-        with patch.object(infra, "frappe", frappe_mock), \
-             patch.object(infra, "time") as time_mock:
-            results = infra.reject_batch_job([_reject(pending=True)], http_fn=http_fn)
-
-        self.assertEqual(doc.nvfac_esta, "R")
-        self.assertEqual(doc.qp_is_event_completed, 1)
-        self.assertEqual(doc.nvfac_ueve, "031")
-        self.assertEqual(len(doc.event_logs), 3)
-        frappe_mock.db.commit.assert_called()
-
-    def test_documento_con_retry_deshabilitado_se_salta(self):
-        doc = MockDoc("DOC1", nvfac_esta="PR")
-        doc.qp_reject_retry_enabled = 0
-        frappe_mock = MagicMock()
-        company = MagicMock()
-        company.tax_id = "890900123"
-        frappe_mock.defaults.get_user_default.return_value = "COMP"
-
-        def get_doc(doctype, name):
-            if doctype == "qp_SP_DocumentDetail":
-                return doc
-            return company
-
-        frappe_mock.get_doc.side_effect = get_doc
-        frappe_mock.db.get_single_value.return_value = 5
-
-        with patch.object(infra, "frappe", frappe_mock):
-            infra.reject_batch_job([_reject(pending=True)], http_fn=lambda *a: (SUCCESS, 200))
-
-        self.assertEqual(doc.nvfac_esta, "PR")
-        self.assertEqual(len(doc.event_logs), 0)
+    def test_propaga_http_fn(self):
+        with patch.object(infra, "schedule_event") as schedule_mock:
+            infra.reject_batch_job([_reject(doc="DOC1")], http_fn="SENDER")
+        schedule_mock.assert_called_once_with("DOC1", http_fn="SENDER")
 
 
 class TestToggleRejectRetry(unittest.TestCase):

@@ -73,12 +73,20 @@ def _append_log(doc, event_code, payload, response, status, now_fn):
     from qp_supplier_front.uses_cases.documenteme.event_logs import (
         event_is_success,
         filter_by_code,
+        is_already_applied,
         plan_event_log,
     )
 
     new_is_success = event_is_success(response, status)
     existing = filter_by_code(doc.get("event_logs"), event_code)
-    error_message = "" if new_is_success else _get_error_message(response)
+    # El mensaje del servidor se conserva cuando el evento "ya estaba
+    # aplicado" (p. ej. "ya ha sido rechazado el dia [...] por [...]") para
+    # que quede visible en la notificacion; un exito limpio no lleva mensaje.
+    already_applied = is_already_applied(response)
+    error_message = (
+        "" if (new_is_success and not already_applied)
+        else _get_error_message(response)
+    )
     serialized = (
         json.dumps(response) if not isinstance(response, str) else response
     )

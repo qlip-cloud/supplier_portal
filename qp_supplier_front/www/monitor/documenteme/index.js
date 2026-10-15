@@ -503,7 +503,7 @@ $(document).ready(function () {
                     "<div style=\"color:#333;font-weight:bold;font-size:12px;margin-bottom:2px\">Evento " + escapeHtml(ev.event_code) + " &mdash; <span style=\"color:" + meta.color + "\">" + escapeHtml(meta.label) + "</span></div>" +
                     "<div style=\"color:#8a9099;font-size:11px\">" + formatTimelineDate(ev.date) + "</div>" +
                     (ev.error_message
-                        ? "<div style=\"color:#dc3545;font-size:11px;word-break:break-word\">" + escapeHtml(ev.error_message) + "</div>"
+                        ? "<div style=\"color:" + meta.color + ";font-size:11px;word-break:break-word\">" + escapeHtml(ev.error_message) + "</div>"
                         : "") +
                     "</div></div>"
             });

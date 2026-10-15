@@ -129,6 +129,9 @@ get_website_user_home_page = "qp_supplier_front.redirect.login.get_home_page"
 
 scheduler_events = {
  	"cron": {
+		"* * * * *": [
+			"qp_supplier_front.resources.documenteme.event_dispatch.dispatch_pending_events"
+		],
 		"0 6 * * *": [
 			"qp_supplier_front.uses_cases.documents.sync_all_whitelist.sync_all"
 		],

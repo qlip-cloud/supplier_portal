@@ -100,41 +100,19 @@ class TestFlowEndToEnd(unittest.TestCase):
             "qp_SP_DocumentDetail", "FAC001", "nvfac_esta", "PA"
         )
 
-    def test_job_exitoso_marca_a_y_ueve_033(self):
-        doc = _Doc()
-        with patch.object(approval, "get_approval_config", return_value={
-            "max_attempts": 2, "retry_interval": 0, "event_delay": 0,
-        }), \
-             patch.object(approval, "_send_event",
-                          return_value=({"Result": 0}, 200)):
-            result = approval._approve_one(
-                doc,
-                {"max_attempts": 2, "retry_interval": 0, "event_delay": 0},
-                "890900123", "http://x", {"k": "v"}, "POST",
-            )
-        self.assertTrue(result["approved"])
-        self.assertEqual(doc.nvfac_esta, "A")
-        self.assertEqual(doc.nvfac_ueve, "033")
-        self.assertEqual(doc.qp_is_event_completed, 1)
+    def test_enqueue_approve_confirmation_inicializa_secuencia(self):
+        # La aprobacion ahora se notifica con jobs de un evento: al encolar se
+        # marca la secuencia "A" y se programa el primer evento (030).
+        with patch(
+            "qp_supplier_front.resources.documenteme.event_job"
+            ".initialize_event_schedule_db"
+        ) as init_mock, patch(
+            "qp_supplier_front.resources.documenteme.event_job.schedule_event"
+        ) as schedule_mock:
+            approval.enqueue_approve_confirmation("FAC001")
 
-    def test_job_falla_queda_en_estado_previo_con_alerta(self):
-        doc = _Doc(nvfac_esta="PA")
-        with patch.object(approval, "get_approval_config", return_value={
-            "max_attempts": 2, "retry_interval": 0, "event_delay": 0,
-        }), \
-             patch.object(approval, "_send_event",
-                          return_value=({"Result": 1}, 200)), \
-             patch.object(approval, "insert_alert") as insert_alert:
-            result = approval._approve_one(
-                doc,
-                {"max_attempts": 2, "retry_interval": 0, "event_delay": 0},
-                "890900123", "http://x", {"k": "v"}, "POST",
-            )
-        self.assertFalse(result["approved"])
-        insert_alert.assert_called_once()
-        # permanece en PA (no se revierte)
-        self.assertEqual(doc.nvfac_esta, "PA")
-        self.assertNotEqual(doc.nvfac_ueve, "033")
+        init_mock.assert_called_once_with("FAC001", "A")
+        schedule_mock.assert_called_once_with("FAC001")
 
 
 if __name__ == "__main__":

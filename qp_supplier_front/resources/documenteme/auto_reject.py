@@ -4,72 +4,46 @@ auto_reject.py (documenteme) — infraestructura
 Cablea el nucleo puro de rechazo automatico (uses_cases/documenteme/auto_reject)
 con implementaciones Frappe y orquesta la notificacion a documenteme.
 
-El rechazo es ASINCRONO y usa un estado intermedio "En proceso" (P):
+El rechazo es ASINCRONO y usa un estado intermedio "En proceso" (PR):
 
-1. run_auto_reject() escanea facturas pendientes, tanto nuevas en estado "E"
-   (resuelve la regla por proveedor con fallback al setup global) como las
-   que ya quedaron "en proceso" (P) por un rechazo manual o previo fallido.
-2. Cada factura pasa a estado "PR" (En proceso de rechazo) de inmediato, de
-   forma que queda visible en la UI y no se vuelve a evaluar precio/regla.
-3. Se encola un job de fondo (reject_batch_job) que intenta la secuencia
-   030 -> 032 -> 031 con:
-   - delay configurable ENTRE eventos de la misma secuencia
-     (reject_event_delay_seconds) porque el servidor externo tarda en
-     aplicar cada cambio.
-   - reintentos (hasta reject_retry_max_attempts, por defecto 5) separados
-     por reject_retry_interval_seconds.
-   - ante cualquier fallo, cada intento reinicia la secuencia completa
-     desde 030 (ver reject_retry.get_reject_resume_index).
+1. run_auto_reject() escanea facturas pendientes (nuevas en "E" y las que ya
+   quedaron en "PR") y resuelve la regla por proveedor con fallback al setup.
+2. Cada factura pasa a "PR" y se marca con la secuencia de eventos en curso
+   ("R") y el primer evento pendiente ("030").
+3. Se envia UN evento por job (event_job.run_documenteme_event): 030 -> 032
+   -> 031. El job hace un solo HTTP, libera el worker y deja el proximo
+   evento programado en la factura (qp_event_next_at). El dispatcher
+   (event_dispatch, cron por minuto) materializa los vencidos.
 4. Si la secuencia completa tiene exito, la factura se marca "R" y se
-   resuelven sus alertas. Si se agotan los intentos, se inserta una alerta
-   de "no se ha podido rechazar" y la factura permanece en "PR" para
-   reintentarse en el siguiente ciclo (mientras qp_reject_retry_enabled=1).
+   resuelven sus alertas. Si se agotan los intentos (fallos acumulados, sin
+   resetear con exitos intermedios), se inserta una alerta y la factura
+   permanece en "PR" (mientras qp_reject_retry_enabled=1).
 5. Kill-switch POR FACTURA: si qp_reject_retry_enabled=0, ese documento no
    envia peticiones aunque este en "PR".
 """
 
-import time
-
 import frappe
 import requests
-from concurrent.futures import ThreadPoolExecutor
 
 from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
     get_company_tax_id as _adapter_get_company_tax_id,
     get_receipt_total,
     raw_http as _adapter_raw_http,
 )
-from qp_supplier_front.resources.documenteme._alerts import (
-    insert_alert,
-    resolve_open_alerts,
+from qp_supplier_front.resources.documenteme.event_job import (
+    initialize_event_schedule,
+    schedule_event,
 )
-from qp_supplier_front.resources.documenteme import runtime
-from qp_supplier_front.services import sync_lock
 from qp_supplier_front.uses_cases.documenteme.auto_reject import (
     auto_reject as auto_reject_core,
     resolve_auto_reject_config,
 )
-from qp_supplier_front.uses_cases.documenteme.event_notifier import (
-    _append_log,
-    _is_error,
-)
 from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
 from qp_supplier_front.uses_cases.documenteme.reject_retry import (
     REJECT_PENDING_STATES,
-    build_retry_events,
-    get_reject_resume_index,
-    is_already_applied,
-    is_sequence_successful,
 )
 
-MAX_HTTP_WORKERS = 5
 REJECT_JOB_METHOD = "qp_supplier_front.resources.documenteme.auto_reject.reject_batch_job"
-
-# Lock por documento para que dos jobs (manual + automatico, o dos ciclos) no
-# envien la secuencia 030/032/031 en paralelo sobre la misma factura. El TTL
-# cubre el timeout del job (14400s); sync_lock es fail-open ante fallo de Redis.
-REJECT_LOCK_PREFIX = "documenteme_reject"
-REJECT_LOCK_TTL = 14400
 
 EVENT_CONFIG = {"031": {"nvfac_esta": "R"}}
 
@@ -111,16 +85,10 @@ def run_auto_reject(http_fn=None, enqueue=True, doc_names=None):
     _mark_pending(rejects)
     frappe.db.commit()
 
-    if rejects and enqueue and http_fn is None:
-        frappe.enqueue(
-            REJECT_JOB_METHOD,
-            rejects=rejects,
-            queue="long",
-            timeout=14400,
-            job_name="auto reject documents",
-        )
-    elif rejects:
-        reject_batch_job(rejects, http_fn=http_fn)
+    # Un job de UN evento por factura (el dispatcher materializa los
+    # siguientes). Ya no se encola un batch largo con sleeps.
+    for reject in rejects:
+        schedule_event(reject["doc"], http_fn=http_fn, enqueue=enqueue)
 
     return {"rejected": [reject["doc"] for reject in rejects]}
 
@@ -155,6 +123,7 @@ def _mark_pending(rejects):
             doc.qp_motive = item["motive"]
         if item.get("rule"):
             doc.qp_auto_reject_rule = item["rule"]
+        initialize_event_schedule(doc, "R")
         doc.save()
 
 
@@ -306,162 +275,20 @@ def receipt_for_po(purchase_order_number):
 
 
 # =========================================================================
-# Rechazo (job de fondo con reintentos)
+# Rechazo: programacion de eventos (un evento por job)
 # =========================================================================
-def _reject_lock_domain(doc_name):
-    return "{}:{}".format(REJECT_LOCK_PREFIX, doc_name)
-
-
 def reject_batch_job(rejects, http_fn=None):
-    components = runtime.resolve()
-    if http_fn is None:
-        http_fn = components["event_http_fn"]
-    config = get_reject_config()
-    company_tax_id = components["company_tax_id_fn"]()
-    url, headers, method = components["event_endpoint_fn"]()
-    sender = http_fn
+    """Compatibilidad: programa UN evento por factura (sin sleeps).
 
-    all_results = []
-    for item in (rejects or []):
-        doc_name = item["doc"]
-        domain = _reject_lock_domain(doc_name)
-        token = sync_lock.acquire(domain, ttl=REJECT_LOCK_TTL)
-        if token is None:
-            # Otro job ya esta procesando esta factura: se omite para no
-            # enviar la secuencia en paralelo.
-            all_results.append((doc_name, {
-                "doc": doc_name,
-                "rejected": False,
-                "attempts": 0,
-                "error": "En proceso por otro job",
-            }))
-            continue
-        try:
-            doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
-            result = _reject_one(
-                doc,
-                config,
-                company_tax_id,
-                url,
-                headers,
-                method,
-                sender,
-            )
-            all_results.append((doc_name, result))
-            # Persiste de inmediato el "R" final de _mark_rejected: un fallo
-            # en un documento posterior no debe revertirlo.
-            frappe.db.commit()
-        except Exception as error:
-            frappe.db.rollback()
-            frappe.log_error(
-                message=frappe.get_traceback(),
-                title="reject documents - {}".format(doc_name),
-            )
-            all_results.append((doc_name, {
-                "doc": doc_name,
-                "rejected": False,
-                "attempts": 0,
-                "error": str(error),
-            }))
-        finally:
-            sync_lock.release(domain, token.get("token"))
-
-    frappe.db.commit()
-    return all_results
-
-
-def _reject_one(doc, config, company_tax_id, url, headers, method, sender):
-    """Reintenta la secuencia para un documento hasta agotar intentos.
-
-    Retorna un dict con el estado final del intento para permitir tests.
+    El envio de la secuencia 030/032/031 ahora lo materializa
+    event_job/event_dispatch (un evento por job, con la espera entre eventos
+    persistida en el documento). Se conserva el nombre para callers/tests.
     """
-    result = {"doc": doc.name, "rejected": False, "attempts": 0, "error": None}
-
-    # Kill-switch por factura: no se envia nada.
-    if not getattr(doc, "qp_reject_retry_enabled", True):
-        result["error"] = "Reintentos deshabilitados"
-        return result
-
-    base_state = getattr(doc, "qp_reject_orig_state", None) or "E"
-
-    for attempt_no in range(1, config["max_attempts"] + 1):
-        result["attempts"] = attempt_no
-        if attempt_no > 1:
-            time.sleep(config["retry_interval"])
-
-        resume_index = get_reject_resume_index(doc.get("event_logs"))
-        events = build_retry_events(
-            doc,
-            EVENT_CONFIG,
-            company_tax_id,
-            resume_index,
-            base_state=base_state,
-        )
-        if not events:
-            sent = []
-        else:
-            sent = []
-            for event in events:
-                response, status = _send_event(
-                    event, url, headers, method, sender
-                )
-                sent.append({
-                    "event_code": event["event_code"],
-                    "payload": event["payload"],
-                    "response": response,
-                    "status": status,
-                })
-                _append_log(
-                    doc,
-                    event["event_code"],
-                    event["payload"],
-                    response,
-                    status,
-                    make_now,
-                )
-                doc.save()
-                frappe.db.commit()
-                # Espera entre eventos (no tras el ultimo).
-                if event["event_code"] != "031":
-                    time.sleep(config["event_delay"])
-                # Un evento que "ya esta aplicado" cuenta como exito: se
-                # avanza al siguiente (p. ej. 032 ya emitido -> seguir a 031).
-                if _is_error(response, status) and not is_already_applied(response):
-                    break
-
-        if is_sequence_successful(sent):
-            _mark_rejected(doc)
-            result["rejected"] = True
-            return result
-
-    # Se agotaron los intentos.
-    insert_alert(
-        doc.name,
-        "No se ha podido rechazar la factura en documenteme. Se reintentara "
-        "en la proxima sincronizacion.",
-        make_now(),
-        alert_type="ErrorUrgente",
-    )
-    result["error"] = "Maximo de intentos alcanzado"
-    return result
-
-
-def _send_event(event, url, headers, method, sender):
-    try:
-        response, status = sender(
-            event["payload"], url, headers, method
-        )
-        return response, status
-    except Exception as error:
-        return {"errorInterno": str(error)}, 500
-
-
-def _mark_rejected(doc):
-    doc.nvfac_esta = "R"
-    doc.qp_is_event_completed = 1
-    doc.nvfac_ueve = "031"
-    resolve_open_alerts(doc.name)
-    doc.save()
+    results = []
+    for item in (rejects or []):
+        doc_name = item.get("doc") if isinstance(item, dict) else item
+        results.append((doc_name, schedule_event(doc_name, http_fn=http_fn)))
+    return results
 
 
 def raw_http(payload, url, headers, method):

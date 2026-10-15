@@ -21,8 +21,12 @@
     "qp_is_event_completed",
     "qp_auto_reject_rule",
     "qp_reject_orig_state",
-    "qp_reject_is_invoice_error",
-    "qp_reject_retry_enabled",
+     "qp_reject_is_invoice_error",
+     "qp_reject_retry_enabled",
+     "qp_event_sequence",
+     "qp_event_pending_code",
+     "qp_event_next_at",
+     "qp_event_attempts",
 "nvfac_rfec",
     "nvfac_orde",
     "nvfac_rece",
@@ -159,6 +163,29 @@
      "fieldtype": "Check",
      "label": "Reintentos de rechazo habilitados",
      "description": "Si se desmarca, este documento deja de reintentar el rechazo hacia documenteme aunque quede en proceso."
+    },
+    {
+     "fieldname": "qp_event_sequence",
+     "fieldtype": "Data",
+     "label": "Secuencia de eventos en curso",
+     "description": "R = rechazo (030/032/031); A = aprobacion (030/032/033)."
+    },
+    {
+     "fieldname": "qp_event_pending_code",
+     "fieldtype": "Data",
+     "label": "Evento pendiente",
+     "description": "Codigo del proximo evento a notificar (030/032/031/033)."
+    },
+    {
+     "fieldname": "qp_event_next_at",
+     "fieldtype": "Datetime",
+     "label": "Proximo intento de evento"
+    },
+    {
+     "default": "0",
+     "fieldname": "qp_event_attempts",
+     "fieldtype": "Int",
+     "label": "Intentos fallidos de evento"
     },
    {
     "fieldname": "nvfac_rfec",
@@ -350,7 +377,7 @@
   ],
   "index_web_pages_for_search": 1,
   "links": [],
-   "modified": "2026-10-01 12:00:00.000000",
+   "modified": "2026-10-15 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DocumentDetail",

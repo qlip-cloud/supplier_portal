@@ -94,8 +94,9 @@ def run_reject(doc_names_raw, motive, is_invoice_error_raw, send_request_fn):
     secuencia 030 -> 032 -> 031 con reintentos hacia documenteme. No
     bloquea el servicio ni depende de la velocidad del servidor externo.
     """
-    from qp_supplier_front.resources.documenteme.auto_reject import (
-        REJECT_JOB_METHOD,
+    from qp_supplier_front.resources.documenteme.event_job import (
+        initialize_event_schedule,
+        schedule_event,
     )
 
     doc_names = _normalize_doc_names(doc_names_raw)
@@ -174,6 +175,7 @@ def run_reject(doc_names_raw, motive, is_invoice_error_raw, send_request_fn):
         doc.nvfac_esta = "PR"
         doc.qp_motive = motive
         doc.qp_reject_is_invoice_error = is_invoice_error
+        initialize_event_schedule(doc, "R")
         doc.save()
         _release_claimed_receipts(doc)
         rejects.append({
@@ -187,13 +189,8 @@ def run_reject(doc_names_raw, motive, is_invoice_error_raw, send_request_fn):
     enqueue_error = None
     if rejects:
         try:
-            frappe.enqueue(
-                REJECT_JOB_METHOD,
-                rejects=rejects,
-                queue="long",
-                timeout=14400,
-                job_name="reject documents ({})".format(len(rejects)),
-            )
+            for item in rejects:
+                schedule_event(item["doc"])
         except Exception as error:
             # El estado ya quedo commiteado ("PR"); un fallo de encolado no
             # debe responder error contradictorio. Se registra y se alerta:
