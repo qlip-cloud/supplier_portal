@@ -53,20 +53,18 @@
                 </select>
             </div>
             <div class="col-lg-3 text-right">
-                {% if not is_sede_documenteme %}
-                <button type="button" class="btn btn-primary btn-sm rounded" id="assign-document" title="Asignar">
-                    <span class="material-symbols-outlined">assignment_ind</span>
-                </button>
-                {% endif %}
-                <button type="button" class="btn btn-danger btn-sm rounded" id="reject-document" title="Rechazar">
-                    <span class="material-symbols-outlined">block</span>
-                </button>
-                <button type="button" class="btn btn-success btn-sm rounded" id="approve-document" title="Aprobar">
-                    <span class="material-symbols-outlined">check_circle</span>
-                </button>
-                <button type="button" class="btn btn-primary btn-sm rounded" id="refresh_filter_list" title="Actualizar">
-                    <span class="material-symbols-outlined">refresh</span>
-                </button>
+                <div class="d-flex justify-content-end ml-4">
+                    {% if not is_sede_documenteme %}
+                    <button type="button" class="btn btn-primary btn-sm rounded mr-2" id="assign-document" title="Asignar"
+                        style="flex:1 1 0; white-space:nowrap; font-size:0.7em;">Asignar</button>
+                    {% endif %}
+                    <button type="button" class="btn btn-danger btn-sm rounded mr-2" id="reject-document" title="Rechazar"
+                        style="flex:1 1 0; white-space:nowrap; font-size:0.7em;">Rechazar</button>
+                    <button type="button" class="btn btn-success btn-sm rounded mr-2" id="approve-document" title="Aprobar"
+                        style="flex:1 1 0; white-space:nowrap; font-size:0.7em;">Aprobar</button>
+                    <button type="button" class="btn btn-primary btn-sm rounded" id="refresh_filter_list" title="Actualizar"
+                        style="flex:1 1 0; white-space:nowrap; font-size:0.7em;">Actualizar</button>
+                </div>
             </div>
         </div>
 
