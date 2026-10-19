@@ -209,8 +209,24 @@ def get_lines_for_receipts(doc, receipt_names):
     ), ""
 
 
-def get_bc_comment(doc, data=None):
-    """Mensaje del comentario marcado 'Enviar a BC' del documento (o "").
+def _public_attachment_url(url):
+    """URL absoluta y publica del adjunto (BC la consulta sin login).
+
+    El front sube el archivo como File publico (is_private=0); aqui se
+    completa el host cuando la url guardada es relativa (/files/...).
+    """
+    if not url:
+        return ""
+    if str(url).startswith("http"):
+        return url
+    try:
+        return frappe.utils.get_url(url)
+    except Exception:
+        return url
+
+
+def get_bc_comment_entry(doc, data=None):
+    """Comentario marcado 'Enviar a BC': mensaje + URL publica del adjunto.
 
     El comentario se elige en el modal de conversacion (check "Enviar a BC") y
     solo puede haber uno por documento. En simulacion (data con facade) se lee
@@ -220,14 +236,27 @@ def get_bc_comment(doc, data=None):
         RealTimelineAdapter,
     )
     adapter = data.timeline if data is not None else RealTimelineAdapter()
-    return adapter.get_bc_comment(doc.get("name")) or ""
+    entry = adapter.get_bc_comment_entry(doc.get("name")) or {}
+    return {
+        "message": entry.get("message") or "",
+        "attachment_file_url": _public_attachment_url(
+            entry.get("attachment_file_url")
+        ),
+    }
+
+
+def get_bc_comment(doc, data=None):
+    """Mensaje del comentario marcado 'Enviar a BC' del documento (o "")."""
+    return get_bc_comment_entry(doc, data).get("message") or ""
 
 
 def _with_bc_comment(build_invoice_fn, data=None):
     """Envuelve el builder BC inyectando el comentario marcado en el doc."""
     def build(doc, lines, headquarter):
         enriched = dict(doc)
-        enriched["qp_bc_comment"] = get_bc_comment(doc, data)
+        entry = get_bc_comment_entry(doc, data)
+        enriched["qp_bc_comment"] = entry.get("message") or ""
+        enriched["qp_bc_comment_url"] = entry.get("attachment_file_url") or ""
         return build_invoice_fn(enriched, lines, headquarter)
     return build
 

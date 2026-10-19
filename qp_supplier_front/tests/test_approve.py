@@ -13,6 +13,7 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     FINAL_STATES,
     _allocate_registrables,
     approve_documents,
+    build_bc_comment,
     build_payload,
     collect_registrable_violations,
     get_error_message,
@@ -309,7 +310,7 @@ class TestBuildPayload(unittest.TestCase):
         )
         self.assertEqual(
             payload[0]["vendorInvoiceLine"][0]["Comentarios"],
-            "Recepcion R108349::Entregar en bodega 2",
+            "ALERTA:Recepcion R108349::Entregar en bodega 2",
         )
 
     def test_comentario_bc_en_todas_las_lineas(self):
@@ -319,14 +320,46 @@ class TestBuildPayload(unittest.TestCase):
         )
         self.assertEqual(
             [line["Comentarios"] for line in payload[0]["vendorInvoiceLine"]],
-            ["Recepcion R108349::Urgente", "Recepcion R108349::Urgente"],
+            ["ALERTA:Recepcion R108349::Urgente",
+             "ALERTA:Recepcion R108349::Urgente"],
         )
 
     def test_comentario_bc_sin_recepcion(self):
         lines = lambda po: ([_line(receiving_no="")], "")
         payload = build_payload([_doc(qp_bc_comment="Solo nota")], lines,
                                 self._get_headquarter)
-        self.assertEqual(payload[0]["vendorInvoiceLine"][0]["Comentarios"], "Solo nota")
+        self.assertEqual(payload[0]["vendorInvoiceLine"][0]["Comentarios"],
+                         "ALERTA:::Solo nota")
+
+
+class TestBuildBcComment(unittest.TestCase):
+
+    def test_sin_comentario_ni_adjunto_conserva_recepcion(self):
+        self.assertEqual(build_bc_comment("R108349"), "Recepcion R108349")
+
+    def test_sin_comentario_ni_adjunto_sin_recepcion_es_vacio(self):
+        self.assertEqual(build_bc_comment(""), "")
+
+    def test_comentario_y_adjunto_con_recepcion(self):
+        self.assertEqual(
+            build_bc_comment("R108349", "Revisar", "https://x/files/a.pdf"),
+            "ALERTA:Recepcion R108349:https://x/files/a.pdf:Revisar",
+        )
+
+    def test_solo_adjunto_con_recepcion(self):
+        self.assertEqual(
+            build_bc_comment("R108349", "", "https://x/files/a.pdf"),
+            "ALERTA:Recepcion R108349:https://x/files/a.pdf:",
+        )
+
+    def test_solo_comentario_sin_recepcion(self):
+        self.assertEqual(build_bc_comment("", "Solo nota"), "ALERTA:::Solo nota")
+
+    def test_adjunto_sin_recepcion(self):
+        self.assertEqual(
+            build_bc_comment("", "nota", "https://x/files/a.pdf"),
+            "ALERTA::https://x/files/a.pdf:nota",
+        )
 
 
 class TestIsErrorResponse(unittest.TestCase):

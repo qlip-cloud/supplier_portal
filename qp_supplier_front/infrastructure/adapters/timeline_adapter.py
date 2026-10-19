@@ -83,9 +83,11 @@ def _insert_row(parent_name, entry, frappe=None):
         """
         INSERT INTO `tabqp_SP_TimelineEntry`
         (name, parent, parentfield, parenttype, idx, entry_type, message,
-         old_state, new_state, entry_by, entry_date, creation, modified,
-         modified_by, owner)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+         old_state, new_state, entry_by, entry_date, send_to_bc,
+         attachment_file_id, attachment_file_url, attachment_file_name,
+         creation, modified, modified_by, owner)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s)
         """,
         (
             row_name,
@@ -99,6 +101,10 @@ def _insert_row(parent_name, entry, frappe=None):
             entry.get("new_state") or None,
             entry["entry_by"],
             now,
+            1 if entry.get("send_to_bc") else 0,
+            entry.get("attachment_file_id") or None,
+            entry.get("attachment_file_url") or None,
+            entry.get("attachment_file_name") or None,
             now,
             now,
             "Administrator",
@@ -179,9 +185,14 @@ class RealTimelineAdapter(object):
         ]
         return order_desc(timeline)
 
-    def add_comment(self, doc_name, comment, user=None, now=None):
+    def add_comment(self, doc_name, comment, user=None, now=None,
+                    attachment_file_id="", attachment_file_url="",
+                    attachment_file_name=""):
         entry = build_comment_entry(
-            comment, _user_name(user, self._frappe), _now_str(now)
+            comment, _user_name(user, self._frappe), _now_str(now),
+            attachment_file_id=attachment_file_id,
+            attachment_file_url=attachment_file_url,
+            attachment_file_name=attachment_file_name,
         )
         entry["name"] = _insert_row(doc_name, entry, self._frappe)
         return entry
@@ -227,6 +238,8 @@ class RealTimelineAdapter(object):
             fields=[
                 "name", "entry_type", "message", "old_state", "new_state",
                 "entry_by", "entry_date", "send_to_bc",
+                "attachment_file_id", "attachment_file_url",
+                "attachment_file_name",
             ],
         )
         comments = [
@@ -239,6 +252,9 @@ class RealTimelineAdapter(object):
                 "entry_by": row.get("entry_by") or "",
                 "entry_date": row.get("entry_date") or "",
                 "send_to_bc": bool(row.get("send_to_bc")),
+                "attachment_file_id": row.get("attachment_file_id") or "",
+                "attachment_file_url": row.get("attachment_file_url") or "",
+                "attachment_file_name": row.get("attachment_file_name") or "",
             }
             for row in rows
         ]
@@ -246,6 +262,10 @@ class RealTimelineAdapter(object):
 
     def get_bc_comment(self, doc_name):
         """Mensaje del comentario marcado 'Enviar a BC' (vacio si no hay)."""
+        return self.get_bc_comment_entry(doc_name).get("message") or ""
+
+    def get_bc_comment_entry(self, doc_name):
+        """Comentario marcado 'Enviar a BC': mensaje + URL del adjunto."""
         rows = self._frappe.get_all(
             TIMELINE_ENTRY,
             filters={
@@ -254,10 +274,25 @@ class RealTimelineAdapter(object):
                 "entry_type": ENTRY_COMMENT,
                 "send_to_bc": 1,
             },
-            fields=["message"],
+            fields=["message", "attachment_file_url"],
             limit=1,
         )
-        return (rows[0].get("message") or "") if rows else ""
+        if not rows:
+            return {"message": "", "attachment_file_url": ""}
+        return {
+            "message": rows[0].get("message") or "",
+            "attachment_file_url": rows[0].get("attachment_file_url") or "",
+        }
+
+    def set_comment_attachment(self, doc_name, entry_name, file_id="",
+                               file_url="", file_name=""):
+        """Reemplaza (o quita) el adjunto de un comentario."""
+        self._frappe.db.set_value(TIMELINE_ENTRY, entry_name, {
+            "attachment_file_id": file_id or "",
+            "attachment_file_url": file_url or "",
+            "attachment_file_name": file_name or "",
+        })
+        return self.get_comments(doc_name)
 
     def set_bc_comment(self, doc_name, entry_name, enabled):
         """Marca/desmarca un comentario como 'Enviar a BC'.

@@ -252,6 +252,8 @@ $(document).ready(function () {
     // =====================================================================
     var timelineDocName = null;
     var timelineCanSendToBc = false;
+    var timelineNewAttachment = null;
+    var timelineChangeEntry = null;
 
     var TIMELINE_TYPE_META = {
         creacion: {
@@ -312,6 +314,79 @@ $(document).ready(function () {
             .replace(/'/g, "&#39;");
     }
 
+    // Sube un archivo como File publico (is_private=0) para que la URL sea
+    // consultable sin login (BC la recibe en el comentario).
+    function uploadPublicFile(file) {
+        return new Promise(function (resolve, reject) {
+            if (!file) {
+                resolve(null);
+                return;
+            }
+            var formData = new FormData();
+            formData.append("file", file);
+            formData.append("is_private", "0");
+            fetch("/api/method/upload_file", {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "X-Frappe-CSRF-Token": frappe.csrf_token
+                }
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error("upload_failed");
+                }
+                return response.json();
+            }).then(function (data) {
+                var message = (data && data.message) || {};
+                resolve({
+                    file_id: message.name || "",
+                    file_url: message.file_url || "",
+                    file_name: message.file_name || file.name
+                });
+            }).catch(reject);
+        });
+    }
+
+    function attachmentIcon(icon, title, cls, entryName, color) {
+        return "<a href=\"#\" class=\"" + cls + "\" data-entry=\"" + escapeHtml(entryName || "") +
+            "\" title=\"" + title + "\" style=\"color:" + color + ";margin-left:8px;text-decoration:none\">" +
+            "<span class=\"material-symbols-outlined\" style=\"font-size:16px;vertical-align:middle\">" +
+            icon + "</span></a>";
+    }
+
+    function renderAttachmentControls(entry, canSendToBc) {
+        var url = entry.attachment_file_url || "";
+        var name = entry.attachment_file_name || "";
+        var entryName = entry.name || "";
+        var icons = "";
+        if (url) {
+            icons += "<a href=\"" + escapeHtml(url) + "\" target=\"_blank\" rel=\"noopener\" " +
+                "title=\"Ver adjunto\" style=\"color:#004D90;margin-left:8px;text-decoration:none\">" +
+                "<span class=\"material-symbols-outlined\" style=\"font-size:16px;vertical-align:middle\">visibility</span></a>";
+        }
+        if (canSendToBc) {
+            var changeLabel = url ? "Cambiar archivo" : "Adjuntar archivo";
+            icons += "<a href=\"#\" class=\"comment-attachment-change\" data-entry=\"" +
+                escapeHtml(entryName) + "\" title=\"" + changeLabel +
+                "\" style=\"color:#6c757d;margin-left:8px;text-decoration:none\">" +
+                "<span class=\"material-symbols-outlined\" style=\"font-size:16px;vertical-align:middle\">" +
+                (url ? "swap_horiz" : "attach_file") + "</span> " + changeLabel + "</a>";
+            if (url) {
+                icons += attachmentIcon(
+                    "close", "Quitar adjunto",
+                    "comment-attachment-remove", entryName, "#dc3545"
+                );
+            }
+        }
+        if (!url && !canSendToBc) {
+            return "";
+        }
+        var label = name
+            ? "<span style=\"color:#8a9099\">" + escapeHtml(name) + "</span>"
+            : "";
+        return "<div style=\"margin-top:3px;font-size:11px\">" + label + icons + "</div>";
+    }
+
     function renderTimelineEntry(entry, canSendToBc) {
         var meta = TIMELINE_TYPE_META[entry.type] || {
             icon: "history",
@@ -347,6 +422,9 @@ $(document).ready(function () {
             : "<div style=\"color:#8a9099;font-size:11px;margin-top:3px\">" +
                 escapeHtml(entry.entry_by || "") + " &middot; " + formatTimelineDate(entry.entry_date) +
                 "</div>";
+        var attachControls = isComment
+            ? renderAttachmentControls(entry, canSendToBc)
+            : "";
         var body = "<div class=\"timeline-entry\">" +
             "<span class=\"timeline-dot\" style=\"border-color:" + color + "\">" +
             "<span class=\"material-symbols-outlined\" style=\"color:" + color + "\">" + meta.icon + "</span>" +
@@ -354,6 +432,7 @@ $(document).ready(function () {
             "<div style=\"font-size:13px\">" +
             "<div style=\"color:#333;font-weight:bold;font-size:12px;margin-bottom:2px\">" + titleLine + bcCheck + "</div>" +
             "<div style=\"color:#444;white-space:pre-wrap;word-break:break-word\">" + message + "</div>" +
+            attachControls +
             footer +
             "</div></div>";
         return body;
@@ -380,6 +459,33 @@ $(document).ready(function () {
         }
     }
 
+    function resetNewAttachment() {
+        timelineNewAttachment = null;
+        $("#timeline_new_attachment_input").val("");
+        $("#timeline_new_attachment_name").text("");
+        $("#timeline_new_attachment_remove").hide();
+        updateConfirmCommentButton();
+    }
+
+    function updateConfirmCommentButton() {
+        var hasText = String($("#timeline_comment_text").val() || "").trim() !== "";
+        var hasAttachment = !!timelineNewAttachment;
+        $("#confirm-timeline-comment").prop(
+            "disabled", !timelineDocName || !(hasText || hasAttachment)
+        );
+    }
+
+    // "Enviar a BC" marcado por defecto si ningun comentario lo esta (solo un
+    // comentario puede viajar a BC a la vez).
+    function updateDefaultBcCheckbox(comments) {
+        var hasMarked = (comments || []).some(function (comment) {
+            return !!comment.send_to_bc;
+        });
+        $("#timeline_send_to_bc").prop(
+            "checked", timelineCanSendToBc && !hasMarked
+        );
+    }
+
     function loadConversation(docName, callback) {
         petition_get_data({
             doc_name: docName
@@ -387,8 +493,10 @@ $(document).ready(function () {
             if (response.status === 200) {
                 timelineCanSendToBc = !!(response.data && response.data.can_send_to_bc);
                 renderCommentList(response.data.comments, timelineCanSendToBc);
-                $("#timeline_send_to_bc").prop("checked", false);
+                updateDefaultBcCheckbox(response.data.comments);
                 $("#timeline_send_to_bc_wrapper").toggle(timelineCanSendToBc);
+                $("#timeline_attachment_wrapper").toggle(timelineCanSendToBc);
+                resetNewAttachment();
                 var unread = response.data.unread_count || 0;
                 $("#timeline_unread_hint").text(
                     unread > 0 ? unread + " comentario(s) sin leer" : ""
@@ -424,6 +532,7 @@ $(document).ready(function () {
         $("#timeline_comment_text").val("");
         $("#confirm-timeline-comment").prop("disabled", true);
         $("#timeline_unread_hint").text("");
+        resetNewAttachment();
         loadConversation(timelineDocName, function () {
             $("#timeline_invoice_modal").modal("show");
             markConversationRead(timelineDocName);
@@ -431,34 +540,121 @@ $(document).ready(function () {
     });
 
     $("#timeline_comment_text").on("input", function () {
-        $("#confirm-timeline-comment").prop(
-            "disabled",
-            String($(this).val() || "").trim() === ""
+        updateConfirmCommentButton();
+    });
+
+    // Adjunto del nuevo comentario: seleccion / quitar.
+    $("#timeline_attach_trigger").on("click", function (event) {
+        event.preventDefault();
+        $("#timeline_new_attachment_input").trigger("click");
+    });
+
+    $("#timeline_new_attachment_input").on("change", function () {
+        timelineNewAttachment = (this.files && this.files[0]) || null;
+        $("#timeline_new_attachment_name").text(
+            timelineNewAttachment ? timelineNewAttachment.name : ""
         );
+        $("#timeline_new_attachment_remove").toggle(!!timelineNewAttachment);
+        updateConfirmCommentButton();
+    });
+
+    $("#timeline_new_attachment_remove").on("click", function (event) {
+        event.preventDefault();
+        resetNewAttachment();
     });
 
     $("#confirm-timeline-comment").on("click", function () {
         var comment = String($("#timeline_comment_text").val() || "").trim();
-        if (!timelineDocName || !comment) {
+        if (!timelineDocName || (!comment && !timelineNewAttachment)) {
             return;
         }
         $("#confirm-timeline-comment").prop("disabled", true);
+        var attachment = timelineNewAttachment;
 
+        uploadPublicFile(attachment).then(function (file) {
+            petition_get_data({
+                doc_name: timelineDocName,
+                comment: comment,
+                send_to_bc: JSON.stringify(
+                    timelineCanSendToBc && $("#timeline_send_to_bc").is(":checked")
+                ),
+                attachment_file_id: file ? file.file_id : "",
+                attachment_file_url: file ? file.file_url : "",
+                attachment_file_name: file ? file.file_name : ""
+            }, "qp_supplier_front.resources.documenteme.timeline.add_comment", function (response) {
+                if (response.status === 200) {
+                    $("#timeline_comment_text").val("");
+                    resetNewAttachment();
+                    renderCommentList(response.data, timelineCanSendToBc);
+                    updateDefaultBcCheckbox(response.data);
+                    updateCommentButton(timelineDocName, false);
+                } else {
+                    updateConfirmCommentButton();
+                    frappe.msgprint(response.msg || "Error al agregar comentario");
+                }
+            });
+        }).catch(function () {
+            updateConfirmCommentButton();
+            frappe.msgprint("Error al subir el archivo adjunto");
+        });
+    });
+
+    // Cambiar / quitar el adjunto de un comentario existente (aunque no este
+    // marcado "Enviar a BC"). El archivo se sube como publico y se reemplaza.
+    $(document).on("click", ".comment-attachment-change", function (event) {
+        event.preventDefault();
+        timelineChangeEntry = $(this).data("entry");
+        $("#timeline_change_attachment_input").val("").trigger("click");
+    });
+
+    $("#timeline_change_attachment_input").on("change", function () {
+        var entryName = timelineChangeEntry;
+        var file = (this.files && this.files[0]) || null;
+        $("#timeline_change_attachment_input").val("");
+        timelineChangeEntry = null;
+        if (!timelineDocName || !entryName || !file) {
+            return;
+        }
+        uploadPublicFile(file).then(function (uploaded) {
+            petition_get_data({
+                doc_name: timelineDocName,
+                entry_name: entryName,
+                attachment_file_id: uploaded ? uploaded.file_id : "",
+                attachment_file_url: uploaded ? uploaded.file_url : "",
+                attachment_file_name: uploaded ? uploaded.file_name : ""
+            }, "qp_supplier_front.resources.documenteme.timeline.set_comment_attachment", function (response) {
+                if (response.status === 200) {
+                    timelineCanSendToBc = !!(response.data && response.data.can_send_to_bc);
+                    renderCommentList(response.data.comments, timelineCanSendToBc);
+                } else {
+                    frappe.msgprint(response.msg || "Error al actualizar el adjunto");
+                    loadConversation(timelineDocName);
+                }
+            });
+        }).catch(function () {
+            frappe.msgprint("Error al subir el archivo adjunto");
+        });
+    });
+
+    $(document).on("click", ".comment-attachment-remove", function (event) {
+        event.preventDefault();
+        var entryName = $(this).data("entry");
+        if (!timelineDocName || !entryName) {
+            return;
+        }
         petition_get_data({
             doc_name: timelineDocName,
-            comment: comment,
-            send_to_bc: JSON.stringify(
-                timelineCanSendToBc && $("#timeline_send_to_bc").is(":checked")
-            )
-        }, "qp_supplier_front.resources.documenteme.timeline.add_comment", function (response) {
+            entry_name: entryName,
+            attachment_file_id: "",
+            attachment_file_url: "",
+            attachment_file_name: ""
+        }, "qp_supplier_front.resources.documenteme.timeline.set_comment_attachment", function (response) {
             if (response.status === 200) {
-                $("#timeline_comment_text").val("");
-                $("#timeline_send_to_bc").prop("checked", false);
-                renderCommentList(response.data, timelineCanSendToBc);
-                updateCommentButton(timelineDocName, false);
+                timelineCanSendToBc = !!(response.data && response.data.can_send_to_bc);
+                renderCommentList(response.data.comments, timelineCanSendToBc);
             } else {
-                $("#confirm-timeline-comment").prop("disabled", false);
-                frappe.msgprint(response.msg || "Error al agregar comentario");
+                frappe.msgprint(response.msg || "Error al quitar el adjunto");
+                loadConversation(timelineDocName);
             }
         });
     });
@@ -481,6 +677,7 @@ $(document).ready(function () {
             if (response.status === 200) {
                 timelineCanSendToBc = !!(response.data && response.data.can_send_to_bc);
                 renderCommentList(response.data.comments, timelineCanSendToBc);
+                updateDefaultBcCheckbox(response.data.comments);
             } else {
                 frappe.msgprint(response.msg || "Error al marcar el comentario");
                 loadConversation(timelineDocName);
@@ -491,6 +688,8 @@ $(document).ready(function () {
     $("#timeline_invoice_modal").on("hidden.bs.modal", function () {
         timelineDocName = null;
         timelineCanSendToBc = false;
+        timelineChangeEntry = null;
+        resetNewAttachment();
     });
 
     // =====================================================================

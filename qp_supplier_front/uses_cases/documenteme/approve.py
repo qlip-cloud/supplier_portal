@@ -549,9 +549,26 @@ def _to_date(value):
     return value.strftime("%Y-%m-%d")
 
 
-def _build_vendor_invoice_line(line, idx="10000", comment=""):
-    receiving = line.get("receiving_no")
-    receiving_label = "Recepcion {}".format(receiving) if receiving else ""
+def build_bc_comment(receiving_no, comment="", attachment_url=""):
+    """Mensaje de la key Comentarios del payload BC.
+
+    Formato: ``ALERTA:Recepcion xxx:<link del adjunto>:<comentario>``. La
+    palabra ALERTA solo viaja si hay comentario o adjunto. Sin ninguno de los
+    dos se conserva el comportamiento original (solo ``Recepcion xxx``). Los
+    segmentos vacios se mantienen para preservar la posicion del link y del
+    comentario.
+    """
+    receiving_label = (
+        "Recepcion {}".format(receiving_no) if receiving_no else ""
+    )
+    comment = comment or ""
+    attachment_url = attachment_url or ""
+    if not comment and not attachment_url:
+        return receiving_label
+    return ":".join(("ALERTA", receiving_label, attachment_url, comment))
+
+
+def _build_vendor_invoice_line(line, idx="10000", comment="", attachment_url=""):
     return {
         "NoProducto": line.get("item_code") or "",
         "cantidad": line.get("qty") or 0,
@@ -559,8 +576,8 @@ def _build_vendor_invoice_line(line, idx="10000", comment=""):
         "NoLineaRecepcion": idx,
         "NoRecepcion": line.get("receiving_no") or "",
         "NoPedido": line.get("order_no") or "",
-        "Comentarios": "::".join(
-            part for part in (receiving_label, comment) if part
+        "Comentarios": build_bc_comment(
+            line.get("receiving_no"), comment, attachment_url
         ),
     }
 
@@ -921,6 +938,7 @@ def homologate_lines(detail_lines, homologation_map, order_no="", receiving_no="
 def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar"):
     invoice_date = _to_date(doc.get("nvfac_fech"))
     bc_comment = doc.get("qp_bc_comment") or ""
+    bc_comment_url = doc.get("qp_bc_comment_url") or ""
     return {
         "invoiceDate": invoice_date,
         "postingDate": invoice_date,
@@ -939,7 +957,8 @@ def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar"):
         ],
         "vendorInvoiceLine": [
             _build_vendor_invoice_line(line, idx=str((i+1) * 10000),
-                                       comment=bc_comment)
+                                       comment=bc_comment,
+                                       attachment_url=bc_comment_url)
             for i, line in enumerate(lines or [])
         ],
     }

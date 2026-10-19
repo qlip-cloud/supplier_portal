@@ -24,11 +24,15 @@ Metodos (doc_name = name del qp_SP_DocumentDetail):
         Formato de entry en uses_cases/documenteme/timeline.py (dict con
         type/message/old_state/new_state/entry_by/entry_date).
 
-    add_comment(doc_name, comment, user=None, now=None) -> entry
+    add_comment(doc_name, comment, user=None, now=None,
+                attachment_file_id="", attachment_file_url="",
+                attachment_file_name="") -> entry
         Agrega una entrada de tipo comentario y retorna la entrada creada
         (incluye name, el id de la fila, para poder marcarla como "Enviar a
         BC"). user es el nombre del usuario; si no se pasa, el adaptador real
-        lo resuelve de la sesion y el de memoria usa "Administrator".
+        lo resuelve de la sesion y el de memoria usa "Administrator". Los
+        parametros de adjunto (uno por comentario, puede venir vacio) quedan
+        guardados en la fila.
 
     set_state(doc_name, new_state, extra_fields=None, user=None, now=None,
               old_state=None) -> entry|None
@@ -47,13 +51,27 @@ Metodos (doc_name = name del qp_SP_DocumentDetail):
         SOLO las entradas de tipo comentario (conversacion), ordenadas DESC
         por fecha. El modal de conversaciones consume este metodo; las
         entradas de creacion/estado viven en get() y se muestran en el modal
-        de alertas. Cada comentario incluye name (id de la fila) y send_to_bc
-        (bool) para renderizar el check "Enviar a BC".
+        de alertas. Cada comentario incluye name (id de la fila), send_to_bc
+        (bool) para renderizar el check "Enviar a BC" y los campos del adjunto
+        (attachment_file_id, attachment_file_url, attachment_file_name) para
+        ver/cambiar el archivo desde el modal.
 
     get_bc_comment(doc_name) -> str
         Mensaje del comentario marcado como "Enviar a BC" (send_to_bc=1). Si no
         hay ninguno marcado retorna "". Lo usa el armado del payload BC para
         completar la key Comentarios de cada linea.
+
+    get_bc_comment_entry(doc_name) -> dict
+        Comentario marcado como "Enviar a BC" con su mensaje y URL de adjunto:
+        {"message": str, "attachment_file_url": str}. Si no hay ninguno
+        marcado retorna {"message": "", "attachment_file_url": ""}. Lo usa el
+        armado del payload BC para completar Comentarios (mensaje + link).
+
+    set_comment_attachment(doc_name, entry_name, file_id="", file_url="",
+                           file_name="") -> [entry]
+        Reemplaza (o quita, con valores vacios) el adjunto de un comentario.
+        Retorna la conversacion actualizada (get_comments). El archivo debe ser
+        un File publico de Frappe para que la URL sea consultable.
 
     set_bc_comment(doc_name, entry_name, enabled) -> str
         Marca/desmarca un comentario como "Enviar a BC". Solo puede haber uno a

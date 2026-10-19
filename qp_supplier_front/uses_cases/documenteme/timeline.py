@@ -67,7 +67,8 @@ def build_state_entry(old_state, new_state, user, now):
     }
 
 
-def build_comment_entry(comment, user, now):
+def build_comment_entry(comment, user, now, attachment_file_id="",
+                        attachment_file_url="", attachment_file_name=""):
     return {
         "type": ENTRY_COMMENT,
         "message": comment or "",
@@ -75,6 +76,9 @@ def build_comment_entry(comment, user, now):
         "new_state": None,
         "entry_by": user or "",
         "entry_date": now or "",
+        "attachment_file_id": attachment_file_id or "",
+        "attachment_file_url": attachment_file_url or "",
+        "attachment_file_name": attachment_file_name or "",
     }
 
 

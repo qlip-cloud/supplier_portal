@@ -145,6 +145,46 @@ class TestRealTimelineAdapter(unittest.TestCase):
         self.frappe.get_all.return_value = []
         self.assertEqual(self.adapter.get_bc_comment("D1"), "")
 
+    def test_get_bc_comment_entry_con_adjunto(self):
+        self.frappe.get_all.return_value = [
+            {"message": "Entregar", "attachment_file_url": "/files/a.pdf"},
+        ]
+        self.assertEqual(
+            self.adapter.get_bc_comment_entry("D1"),
+            {"message": "Entregar", "attachment_file_url": "/files/a.pdf"},
+        )
+
+    def test_get_bc_comment_entry_vacio(self):
+        self.frappe.get_all.return_value = []
+        self.assertEqual(
+            self.adapter.get_bc_comment_entry("D1"),
+            {"message": "", "attachment_file_url": ""},
+        )
+
+    def test_add_comment_con_adjunto(self):
+        entry = self.adapter.add_comment(
+            "D1", "", attachment_file_id="F1",
+            attachment_file_url="/files/a.pdf", attachment_file_name="a.pdf",
+        )
+        self.assertEqual(entry["attachment_file_id"], "F1")
+        self.assertEqual(entry["attachment_file_url"], "/files/a.pdf")
+        self.assertEqual(entry["attachment_file_name"], "a.pdf")
+
+    def test_set_comment_attachment_llama_set_value(self):
+        self.frappe.get_all.return_value = []
+        self.adapter.set_comment_attachment(
+            "D1", "TE1", file_id="F1",
+            file_url="/files/a.pdf", file_name="a.pdf",
+        )
+        self.frappe.db.set_value.assert_called_once_with(
+            "qp_SP_TimelineEntry", "TE1",
+            {
+                "attachment_file_id": "F1",
+                "attachment_file_url": "/files/a.pdf",
+                "attachment_file_name": "a.pdf",
+            },
+        )
+
     def test_set_bc_comment_limpia_y_marca(self):
         self.frappe.get_all.return_value = []
         self.adapter.set_bc_comment("D1", "TE2", True)
