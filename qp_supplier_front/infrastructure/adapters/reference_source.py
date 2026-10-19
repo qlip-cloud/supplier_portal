@@ -46,6 +46,26 @@ class RealReferenceSource(object):
             fields=["item_code", "uom", "qty", "qp_unit_cost", "qp_extd_cost"],
         )
 
+    def po_belongs_to_supplier(self, purchase_order, tax_id):
+        """True si la OC existe y pertenece al proveedor de la factura (tax_id).
+
+        Los Purchase Order se nombran con order_confirmation_no y el numero
+        puede repetirse entre proveedores; por eso la existencia por numero no
+        basta. Espejo de la validacion de aprobacion
+        (resources/documenteme/_approve_base.po_supplier_match) para que el
+        front no muestre la OC de otro proveedor.
+        """
+        frappe = _frappe()
+        if not purchase_order:
+            return False
+        supplier = self.supplier_by_tax_id(tax_id)
+        if not supplier:
+            return False
+        return bool(frappe.db.exists(
+            "Purchase Order",
+            {"name": purchase_order, "supplier": supplier},
+        ))
+
     def receipts_for(self, purchase_order, qp_invoice=None):
         """Recibos de una OC; si qp_invoice se indica, solo los asignados a esa
         factura (consumidos con nvfac_nume = qp_invoice)."""

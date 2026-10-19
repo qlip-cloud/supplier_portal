@@ -371,10 +371,10 @@ class TestRunAutoRejectSync(unittest.TestCase):
         self.patch.start()
         self.addCleanup(self.patch.stop)
 
-    def test_enqueue_false_no_encola_y_ejecuta_batch(self):
+    def test_enqueue_false_programa_inline(self):
         rejects = [{"doc": "F1", "motive": "m", "rule": "r"}]
         with patch.object(arrej, "auto_reject_core", return_value=rejects) as core, \
-             patch.object(arrej, "reject_batch_job") as batch:
+             patch.object(arrej, "schedule_event") as schedule:
             result = arrej.run_auto_reject(enqueue=False, doc_names=["F1"])
         core.assert_called_once_with(
             candidates_fn=arrej.get_candidates,
@@ -382,18 +382,18 @@ class TestRunAutoRejectSync(unittest.TestCase):
             po_exists_fn=arrej.po_exists,
             receipt_for_po_fn=arrej.receipt_for_po,
             doc_names=["F1"],
+            po_supplier_match_fn=arrej._po_supplier_match,
         )
-        batch.assert_called_once_with(rejects, http_fn=None)
+        schedule.assert_called_once_with("F1", http_fn=None, enqueue=False)
         self.frappe_mock.enqueue.assert_not_called()
         self.assertEqual(result["rejected"], ["F1"])
 
     def test_enqueue_default_encola(self):
         rejects = [{"doc": "F1", "motive": "m", "rule": "r"}]
         with patch.object(arrej, "auto_reject_core", return_value=rejects), \
-             patch.object(arrej, "reject_batch_job") as batch:
+             patch.object(arrej, "schedule_event") as schedule:
             arrej.run_auto_reject()
-        self.frappe_mock.enqueue.assert_called_once()
-        batch.assert_not_called()
+        schedule.assert_called_once_with("F1", http_fn=None, enqueue=True)
 
 
 class TestRunAutoApproveSync(unittest.TestCase):

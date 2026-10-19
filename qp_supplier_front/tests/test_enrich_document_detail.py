@@ -97,11 +97,21 @@ class TestEnrichDocumentDetail(unittest.TestCase):
             "nvfac_totp": nvfac_totp,
             "nvfac_stot": 1000,
             "nvfac_esta": nvfac_esta,
+            "nvpro_ndoc": "9001",
         }
 
-    def _mock_frappe(self, po_exists=True, po_items=None, receipts=None, alerts=None, receipt_items=None):
+    def _mock_frappe(self, po_exists=True, po_items=None, receipts=None, alerts=None,
+                     receipt_items=None, supplier="SUP-A", po_belongs=None):
         frappe_mock = MagicMock()
-        frappe_mock.db.exists.return_value = po_exists
+        if po_belongs is None:
+            po_belongs = po_exists
+
+        def _exists(doctype, name=None):
+            if isinstance(name, dict):
+                return po_belongs
+            return po_exists
+
+        frappe_mock.db.exists.side_effect = _exists
         po_items = po_items if po_items is not None else [
             {"item_code": "SH00086", "uom": "UN", "qty": 1, "qp_unit_cost": 1000, "qp_extd_cost": 1000}
         ]
@@ -118,7 +128,9 @@ class TestEnrichDocumentDetail(unittest.TestCase):
             ]
         alerts = alerts if alerts is not None else []
 
-        def _get_all(doctype, filters=None, fields=None, order_by=None):
+        def _get_all(doctype, filters=None, fields=None, order_by=None, **kwargs):
+            if doctype == "Supplier":
+                return [supplier] if supplier else []
             if doctype == "Purchase Order Item":
                 return po_items
             if doctype == "Purchase Receipt":
@@ -173,7 +185,35 @@ class TestEnrichDocumentDetail(unittest.TestCase):
 
         self.assertEqual(document["ordenes_compra"], [])
         self.assertEqual(document["productos_orden_compra"], [])
-        frappe_mock.db.exists.assert_called_once_with("Purchase Order", "OC111")
+        frappe_mock.db.exists.assert_called_once_with(
+            "Purchase Order", {"name": "OC111", "supplier": "SUP-A"})
+
+    def test_oc_de_otro_proveedor_no_se_muestra(self):
+        frappe_mock = self._mock_frappe(po_exists=True, po_belongs=False)
+        document = self._make_document(nvfac_orde="OC111", nvfac_totp=1000, nvfac_esta="E")
+        self._run(document, frappe_mock)
+
+        self.assertEqual(document["ordenes_compra"], [])
+        self.assertEqual(document["productos_orden_compra"], [])
+        frappe_mock.db.exists.assert_called_once_with(
+            "Purchase Order", {"name": "OC111", "supplier": "SUP-A"})
+
+    def test_oc_de_otro_proveedor_no_muestra_recibos_ni_banco(self):
+        frappe_mock = self._mock_frappe(
+            po_exists=True, po_belongs=False,
+            receipts=[
+                {"name": "REC1:9001", "supplier_delivery_note": "REC1",
+                 "posting_date": "2026-07-16", "total": 1000},
+            ],
+        )
+        document = self._make_document(nvfac_orde="OC111", nvfac_totp=1000, nvfac_esta="E")
+        self._run(document, frappe_mock)
+
+        self.assertEqual(document["recepciones"], [])
+        self.assertEqual(document["productos_recepcion"], [])
+        self.assertEqual(document["banco_recepciones"], [])
+        self.assertEqual(document["recepciones_detalle"], [])
+        self.assertEqual(document["nvfac_esta"], "E")
 
     def test_sin_recibos_asociados(self):
         frappe_mock = self._mock_frappe(receipts=[])

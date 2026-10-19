@@ -25,9 +25,10 @@ Metodos (doc_name = name del qp_SP_DocumentDetail):
         type/message/old_state/new_state/entry_by/entry_date).
 
     add_comment(doc_name, comment, user=None, now=None) -> entry
-        Agrega una entrada de tipo comentario y retorna la entrada creada.
-        user es el nombre del usuario; si no se pasa, el adaptador real lo
-        resuelve de la sesion y el de memoria usa "Administrator".
+        Agrega una entrada de tipo comentario y retorna la entrada creada
+        (incluye name, el id de la fila, para poder marcarla como "Enviar a
+        BC"). user es el nombre del usuario; si no se pasa, el adaptador real
+        lo resuelve de la sesion y el de memoria usa "Administrator".
 
     set_state(doc_name, new_state, extra_fields=None, user=None, now=None,
               old_state=None) -> entry|None
@@ -46,7 +47,21 @@ Metodos (doc_name = name del qp_SP_DocumentDetail):
         SOLO las entradas de tipo comentario (conversacion), ordenadas DESC
         por fecha. El modal de conversaciones consume este metodo; las
         entradas de creacion/estado viven en get() y se muestran en el modal
-        de alertas.
+        de alertas. Cada comentario incluye name (id de la fila) y send_to_bc
+        (bool) para renderizar el check "Enviar a BC".
+
+    get_bc_comment(doc_name) -> str
+        Mensaje del comentario marcado como "Enviar a BC" (send_to_bc=1). Si no
+        hay ninguno marcado retorna "". Lo usa el armado del payload BC para
+        completar la key Comentarios de cada linea.
+
+    set_bc_comment(doc_name, entry_name, enabled) -> str
+        Marca/desmarca un comentario como "Enviar a BC". Solo puede haber uno a
+        la vez: al habilitar se limpian los demas comentarios del documento;
+        deshabilitar deja el documento sin comentario marcado. Retorna el
+        mensaje vigente (o ""). Se permite solo con backend BC y mientras la
+        factura no haya sido creada en BC (la validacion vive en la capa de
+        recursos).
 
     mark_read(doc_name, user=None, now=None) -> None
         Registra/actualiza la marca de lectura de un usuario en

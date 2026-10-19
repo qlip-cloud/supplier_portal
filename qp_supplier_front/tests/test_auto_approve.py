@@ -119,6 +119,7 @@ class TestPromoteEligibleToV(_WithData, unittest.TestCase):
         frappe_mock = self._frappe()
         self._ctx(frappe_mock, extra=[
             patch.object(infra, "po_exists", return_value=True),
+            patch.object(infra, "po_supplier_match", return_value=True),
             patch.object(infra, "receipt_bank", return_value=_bank(50000)),
         ])
         promoted = infra.promote_eligible_to_v()
@@ -174,6 +175,7 @@ class TestPromoteEligibleToV(_WithData, unittest.TestCase):
         frappe_mock.get_all.return_value = [doc1, doc2]
         self._ctx(frappe_mock, extra=[
             patch.object(infra, "po_exists", return_value=True),
+            patch.object(infra, "po_supplier_match", return_value=True),
             patch.object(infra, "receipt_bank", return_value=[
                 {"name": "R1", "amount": 400000, "date": "2026-01-01", "qp_invoice": None},
                 {"name": "R2", "amount": 200000, "date": "2026-01-02", "qp_invoice": None},

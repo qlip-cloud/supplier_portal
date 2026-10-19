@@ -59,7 +59,7 @@ class MemoryTimelineAdapter(object):
         entry = build_comment_entry(
             comment, user or "Administrator", _now_str(now)
         )
-        self._insert(doc_name, entry)
+        entry["name"] = self._insert(doc_name, entry)
         return entry
 
     def set_state(self, doc_name, new_state, extra_fields=None, user=None, now=None,
@@ -102,16 +102,46 @@ class MemoryTimelineAdapter(object):
         )
         comments = [
             {
+                "name": row.get("name") or "",
                 "type": row.get("entry_type"),
                 "message": row.get("message") or "",
                 "old_state": row.get("old_state") or None,
                 "new_state": row.get("new_state") or None,
                 "entry_by": row.get("entry_by") or "",
                 "entry_date": row.get("entry_date") or "",
+                "send_to_bc": bool(row.get("send_to_bc")),
             }
             for row in rows
         ]
         return order_desc(comments)
+
+    def get_bc_comment(self, doc_name):
+        """Mensaje del comentario marcado 'Enviar a BC' (vacio si no hay)."""
+        rows = self._store.query(
+            TIMELINE_ENTRY,
+            filters={
+                "parent": doc_name,
+                "entry_type": ENTRY_COMMENT,
+                "send_to_bc": 1,
+            },
+            limit=1,
+        )
+        return (rows[0].get("message") or "") if rows else ""
+
+    def set_bc_comment(self, doc_name, entry_name, enabled):
+        """Marca/desmarca un comentario como 'Enviar a BC' (uno a la vez)."""
+        rows = self._store.query(
+            TIMELINE_ENTRY,
+            filters={"parent": doc_name, "entry_type": ENTRY_COMMENT},
+        )
+        for row in rows:
+            if row.get("send_to_bc"):
+                self._store.set_value(TIMELINE_ENTRY, row["name"],
+                                      "send_to_bc", 0)
+        if enabled:
+            self._store.set_value(TIMELINE_ENTRY, entry_name, "send_to_bc", 1)
+        return self.get_bc_comment(doc_name)
+
 
     def _session_user(self):
         return "Administrator"
@@ -166,7 +196,7 @@ class MemoryTimelineAdapter(object):
         return self.unread_count(doc_name, user=user) > 0
 
     def _insert(self, doc_name, entry):
-        self._store.insert(TIMELINE_ENTRY, {
+        return self._store.insert(TIMELINE_ENTRY, {
             "parent": doc_name,
             "parenttype": DOCUMENT_DETAIL,
             "parentfield": "timeline",

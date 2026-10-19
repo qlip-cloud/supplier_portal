@@ -47,9 +47,26 @@ STATUS_LABELS = {
 ALREADY_APPLIED_MARKERS = (
     "ya cuenta",
     "ya fue emitido",
+    "ya ha sido emitido",
+    "ya fue rechazado",
+    "ya ha sido rechazado",
+    "ya fue aprobado",
+    "ya ha sido aprobado",
     "ya existe",
     "estado exitoso",
     "estado exitosamente",
+)
+
+# Marcadores directos: por si solos bastan para considerar el evento aplicado
+# (p. ej. "El documento ya ha sido rechazado el dia [...] por el usuario [...]").
+DIRECT_APPLIED_MARKERS = (
+    "ya fue emitido",
+    "ya ha sido emitido",
+    "ya existe",
+    "ya fue rechazado",
+    "ya ha sido rechazado",
+    "ya fue aprobado",
+    "ya ha sido aprobado",
 )
 
 
@@ -100,8 +117,7 @@ def is_already_applied(response):
     message = _extract_message(response)
     text = message.lower()
 
-    direct_markers = ("ya fue emitido", "ya existe")
-    if any(m in text for m in direct_markers):
+    if any(m in text for m in DIRECT_APPLIED_MARKERS):
         return True
 
     ya_markers = ("ya cuenta", "ya tiene")

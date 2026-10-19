@@ -14,6 +14,7 @@ from qp_supplier_front.uses_cases.documenteme.event_notifier import (
     send_event_sequence,
     _get_last_event_idx,
     _get_nvfac_esta,
+    _append_log,
     DOCUMENTEME_EVENT_STATES,
     EVENT_ORDER,
 )
@@ -534,6 +535,30 @@ class TestRejectDocument(unittest.TestCase):
             )
 
         self.assertIn("debe tener estado 'E'", str(ctx.exception))
+
+
+class TestAppendLogAlreadyApplied(unittest.TestCase):
+
+    def test_ya_aplicado_guarda_mensaje_en_historial(self):
+        doc = _make_doc()
+        response = {
+            "Result": 1,
+            "Description": (
+                "El documento ya ha sido rechazado el dia [09/10/2026 "
+                "03:29:39 p. m.] por el usuario [Fernando.Sanchez@MENTUM.group]."
+            ),
+        }
+        _append_log(doc, "031", {"Nveve_dian": "031"}, response, 200, _now_fn)
+        row = doc.event_logs[0]
+        self.assertEqual(row.event_code, "031")
+        self.assertIn("ya ha sido rechazado", row.error_message)
+
+    def test_exito_limpio_no_guarda_mensaje(self):
+        doc = _make_doc()
+        _append_log(doc, "030", {"Nveve_dian": "030"}, SUCCESS_RESPONSE, 200,
+                    _now_fn)
+        row = doc.event_logs[0]
+        self.assertEqual(row.error_message, "")
 
 
 # ============================================================================

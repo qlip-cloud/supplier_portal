@@ -28,7 +28,7 @@ def _insert_if_missing(store, doctype, row, name=None):
 
 def seed_purchase_order(store, name, headquarter="HQ01", oc_type=None,
                         order_confirmation_no=None, transaction_date=None,
-                        schedule_date=None):
+                        schedule_date=None, supplier=None):
     _insert_if_missing(store, "qp_SP_PurchaseOrder", {
         "name": name,
         "qp_headquarter": headquarter,
@@ -36,6 +36,7 @@ def seed_purchase_order(store, name, headquarter="HQ01", oc_type=None,
         "qp_order_confirmation_no": order_confirmation_no or name,
         "transaction_date": transaction_date or "",
         "schedule_date": schedule_date or "",
+        "supplier": supplier or "",
     })
 
 

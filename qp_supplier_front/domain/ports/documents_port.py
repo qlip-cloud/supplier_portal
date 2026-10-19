@@ -44,6 +44,7 @@ Factura en BC / confirmacion:
 
 Referencias (datos de otros dominios; solo lectura en real, seeds en memoria):
     po_exists(store|None, purchase_order) -> bool
+    po_belongs_to_supplier(store|None, purchase_order, tax_id) -> bool
     get_headquarter(store|None, purchase_order) -> str
     receipts_total(store|None, purchase_order) -> number|None
     supplier_by_tax_id(store|None, tax_id) -> name|None

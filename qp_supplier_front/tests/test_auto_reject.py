@@ -165,6 +165,19 @@ class TestHasPoMatch(unittest.TestCase):
     def test_oc_inexistente_retorna_false(self):
         self.assertFalse(has_po_match(_invoice(), lambda o: False))
 
+    def test_oc_otro_proveedor_retorna_false(self):
+        self.assertFalse(has_po_match(
+            _invoice(), lambda o: True, po_supplier_match_fn=lambda doc: False
+        ))
+
+    def test_oc_mismo_proveedor_retorna_true(self):
+        self.assertTrue(has_po_match(
+            _invoice(), lambda o: True, po_supplier_match_fn=lambda doc: True
+        ))
+
+    def test_sin_callback_ignora_proveedor(self):
+        self.assertTrue(has_po_match(_invoice(), lambda o: True))
+
 
 class TestHasReceiptMatch(unittest.TestCase):
 
@@ -321,6 +334,16 @@ class TestAutoReject(unittest.TestCase):
             po_exists_fn=po_exists_fn,
             receipt_for_po_fn=receipt_fn,
         )
+
+    def test_oc_de_otro_proveedor_cuenta_como_sin_oc(self):
+        result = auto_reject(
+            candidates_fn=lambda: [_invoice(name="DOC1")],
+            resolve_rule_fn=lambda doc: _rule(RULE_NO_PO),
+            po_exists_fn=lambda o: True,
+            receipt_for_po_fn=lambda o: None,
+            po_supplier_match_fn=lambda doc: False,
+        )
+        self.assertEqual([r["doc"] for r in result], ["DOC1"])
 
     def test_recolecta_descriptores(self):
         result = self._run(

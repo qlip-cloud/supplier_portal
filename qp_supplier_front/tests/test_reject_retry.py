@@ -80,6 +80,26 @@ class TestIsAlreadyApplied(unittest.TestCase):
             {"Result": 1, "Message": "El evento 032 ya existe."}
         ))
 
+    def test_ya_ha_sido_rechazado(self):
+        # Respuesta real del 031 cuando el documento ya fue rechazado antes.
+        resp = {
+            "Result": 1,
+            "Description": (
+                "Error en [UpdFacFacturasproveedorErp] detalles de la novedad: "
+                "El documento ya ha sido rechazado el dia [09/10/2026 "
+                "03:29:39 p. m.] por el usuario [Fernando.Sanchez@MENTUM.group], "
+                "por favor verifique el Log de procesos."
+            ),
+        }
+        self.assertTrue(is_already_applied(resp))
+
+    def test_ya_ha_sido_aprobado(self):
+        resp = {
+            "Result": 1,
+            "Description": "El documento ya ha sido aprobado el dia [01/10/2026].",
+        }
+        self.assertTrue(is_already_applied(resp))
+
     def test_error_real_no_es_ya_aplicado(self):
         resp = {"Result": 1, "Description": "Error de conexion con la DIAN"}
         self.assertFalse(is_already_applied(resp))
