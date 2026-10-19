@@ -141,7 +141,7 @@ def get_receipt_total(purchase_order_number):
     )
 
 
-def get_assignee_emails(oc_type, headquarter):
+def get_assignee_emails(oc_type, headquarter, has_receipt=None):
     oc_type_records = frappe.get_all(
         "qp_SP_OCType", fields=["name", "oc_type", "is_inventariable"]
     )
@@ -161,6 +161,7 @@ def get_assignee_emails(oc_type, headquarter):
         oc_type_rows,
         assignment_rows,
         roles_to_users_fn=resolve_role_users,
+        has_receipt=has_receipt,
     )
 
 
@@ -204,7 +205,7 @@ def _load_assignment_rows(oc_type_records=None):
         child_rows = frappe.get_all(
             "qp_SP_AssignmentConfigUser",
             filters={"parent": config["name"], "parenttype": "qp_SP_AssignmentConfig"},
-            fields=["user_email"],
+            fields=["user_email", "receipt_preference"],
         )
         role_rows = frappe.get_all(
             "qp_SP_AssignmentConfigRole",
@@ -215,6 +216,10 @@ def _load_assignment_rows(oc_type_records=None):
             "headquarter": _normalize_headquarter(config.get("headquarter")),
             "oc_type": _normalize_oc_type(config.get("oc_type"), oc_type_records),
             "user_emails": [row.get("user_email") for row in child_rows],
+            "user_preferences": {
+                row.get("user_email"): row.get("receipt_preference")
+                for row in child_rows
+            },
             "user_roles": [row.get("role") for row in role_rows],
         })
 

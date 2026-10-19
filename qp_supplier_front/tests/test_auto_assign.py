@@ -256,7 +256,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         def get_receipt_bank_fn(purchase_order_number):
             return receipt_bank
 
-        def resolve_emails_fn(oc_type, headquarter):
+        def resolve_emails_fn(oc_type, headquarter, has_receipt=None):
             return emails
 
         def resolve_users_fn(resolved_emails):

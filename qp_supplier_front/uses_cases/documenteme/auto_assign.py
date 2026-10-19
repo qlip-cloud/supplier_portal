@@ -38,6 +38,10 @@ from qp_supplier_front.uses_cases.documenteme.conversion import (
 
 NO_APLICA = "No aplica"
 
+PREF_BOTH = "Ambos"
+PREF_WITH_RECEIPT = "Con Recepcion"
+PREF_WITHOUT_RECEIPT = "Sin Recepcion"
+
 
 def is_inventariable_oc_type(oc_type, oc_type_rows):
     for row in (oc_type_rows or []):
@@ -73,7 +77,7 @@ def _is_catch_all(row):
 
 def resolve_assignee_emails(
         oc_type, headquarter, oc_type_rows, assignment_rows,
-        roles_to_users_fn=None):
+        roles_to_users_fn=None, has_receipt=None):
     """Resuelve los emails destino para una factura.
 
     Las filas "No aplica" (oc_type = NO_APLICA) son wildcard: se asigna sin
@@ -83,6 +87,14 @@ def resolve_assignee_emails(
     roles_to_users_fn: callback opcional que recibe la lista de roles de las
     filas que hicieron match y devuelve los emails de los usuarios con esos
     roles (complemento de user_emails; _dedupe evita duplicados).
+
+    has_receipt: indica si el documento tiene recepcion (banco de recepciones
+    de su OC no vacio). Cuando es distinto de None se filtra el renglon de
+    USUARIOS por su preferencia (row["user_preferences"]): "Ambos" siempre
+    pasa, "Con Recepcion" solo si has_receipt, "Sin Recepcion" solo si no lo
+    tiene. Un email presente en varias filas pasa si alguna lo permite. Los
+    emails resueltos por roles no se filtran (los roles no tienen preferencia).
+    Con has_receipt=None no se filtra (comportamiento historico).
     """
     rows = assignment_rows or []
     wildcards = [row for row in rows if _is_wildcard(row)]
@@ -107,11 +119,7 @@ def resolve_assignee_emails(
                 if matcher(row, oc_type, headquarter)
             ] + wildcards
 
-    emails = [
-        email
-        for row in matching
-        for email in (row.get("user_emails") or [])
-    ]
+    emails = _user_emails(matching, has_receipt)
 
     roles = _dedupe([
         role
@@ -122,6 +130,54 @@ def resolve_assignee_emails(
         emails += (roles_to_users_fn(roles) or [])
 
     return _dedupe(emails)
+
+
+def _user_emails(rows, has_receipt):
+    """Emails del renglon de usuarios de las filas match, filtrados por la
+    preferencia de recepcion cuando has_receipt no es None.
+
+    Un mismo email puede aparecer en varias filas con preferencias distintas:
+    se considera elegible si al menos una fila lo permite (union).
+    """
+    if has_receipt is None:
+        return [
+            email
+            for row in rows
+            for email in (row.get("user_emails") or [])
+        ]
+
+    eligible = set()
+    for row in rows:
+        preferences = row.get("user_preferences") or {}
+        for email in (row.get("user_emails") or []):
+            if not email:
+                continue
+            if _preference_allows(preferences.get(email), has_receipt):
+                eligible.add(email)
+
+    return [
+        email
+        for row in rows
+        for email in (row.get("user_emails") or [])
+        if email in eligible
+    ]
+
+
+def _preference_allows(preference, has_receipt):
+    """True si la preferencia del usuario acepta un documento con/sin recibo.
+
+    Ausente, vacia o "Ambos" acepta cualquier documento. Un valor no
+    reconocido se trata como "Ambos" (fail-open, no pierde asignaciones).
+    """
+    if has_receipt is None:
+        return True
+
+    value = (preference or "").strip() or PREF_BOTH
+    if value == PREF_WITH_RECEIPT:
+        return bool(has_receipt)
+    if value == PREF_WITHOUT_RECEIPT:
+        return not has_receipt
+    return True
 
 
 def _dedupe(items):
@@ -210,6 +266,7 @@ def auto_assign(
             continue
 
         bank = get_receipt_bank_fn(invoice.get("nvfac_orde"))
+        has_receipt = bool(bank)
 
         cash = is_cash_invoice(invoice.get("nvfac_conv"))
         if cash:
@@ -231,10 +288,11 @@ def auto_assign(
             emails = resolve_emails_fn(
                 oc_context.get("oc_type"),
                 oc_context.get("headquarter"),
+                has_receipt=has_receipt,
             )
         elif cash:
             # Contado sin OC: destinatarios de la fila catch-all.
-            emails = resolve_emails_fn(None, None)
+            emails = resolve_emails_fn(None, None, has_receipt=has_receipt)
         else:
             continue
 

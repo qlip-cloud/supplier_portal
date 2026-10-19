@@ -140,7 +140,7 @@ def _load_assignment_rows(store, oc_type_records=None):
             "qp_SP_AssignmentConfigUser",
             filters={"parent": config["name"],
                      "parenttype": "qp_SP_AssignmentConfig"},
-            fields=["user_email"],
+            fields=["user_email", "receipt_preference"],
         )
         role_rows = store.query(
             "qp_SP_AssignmentConfigRole",
@@ -152,12 +152,16 @@ def _load_assignment_rows(store, oc_type_records=None):
             "headquarter": _normalize_headquarter(config.get("headquarter")),
             "oc_type": _normalize_oc_type(config.get("oc_type"), oc_type_records),
             "user_emails": [row.get("user_email") for row in child_rows],
+            "user_preferences": {
+                row.get("user_email"): row.get("receipt_preference")
+                for row in child_rows
+            },
             "user_roles": [row.get("role") for row in role_rows],
         })
     return rows
 
 
-def _assignee_emails(store, oc_type, headquarter):
+def _assignee_emails(store, oc_type, headquarter, has_receipt=None):
     oc_type_records = store.query(
         "qp_SP_OCType", fields=["name", "oc_type", "is_inventariable"])
     oc_type_rows = [
@@ -175,7 +179,8 @@ def _assignee_emails(store, oc_type, headquarter):
     assignment_rows = _load_assignment_rows(store, oc_type_records)
     return resolve_assignee_emails(
         oc_type, headquarter, oc_type_rows, assignment_rows,
-        roles_to_users_fn=lambda roles: _role_users(store, roles))
+        roles_to_users_fn=lambda roles: _role_users(store, roles),
+        has_receipt=has_receipt)
 
 
 def _assignee_users(store, emails):
@@ -217,8 +222,8 @@ def run_auto_assign(store, doc_names=None):
         candidates_fn=lambda names=None: _candidates(store, names),
         get_oc_context_fn=lambda po: _oc_context(store, po),
         get_receipt_bank_fn=lambda po: _receipt_bank(store, po),
-        resolve_emails_fn=lambda oc_type, hq: _assignee_emails(
-            store, oc_type, hq),
+        resolve_emails_fn=lambda oc_type, hq, has_receipt=None: _assignee_emails(
+            store, oc_type, hq, has_receipt=has_receipt),
         resolve_users_fn=lambda emails: _assignee_users(store, emails),
         add_assignees_fn=lambda line, users: _add_assignees(
             store, line, users),
