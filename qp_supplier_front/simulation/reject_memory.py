@@ -24,6 +24,9 @@ from qp_supplier_front.uses_cases.documenteme.conversion import (
     is_cash_invoice,
     is_credit_note,
 )
+from qp_supplier_front.uses_cases.documenteme.home_delivery import (
+    is_home_delivery,
+)
 
 
 def _memory_timeline(store):
@@ -150,6 +153,8 @@ def run_reject(store, doc_names=None):
         if is_cash_invoice(str(doc.get("nvfac_conv"))):
             continue
         if is_credit_note(doc.get("nvtip_docu")):
+            continue
+        if is_home_delivery(doc):
             continue
 
         rule = references_memory.memory_resolve_rule(store, doc)

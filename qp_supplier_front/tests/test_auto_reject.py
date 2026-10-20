@@ -429,6 +429,21 @@ class TestAutoReject(unittest.TestCase):
         self.assertNotIn("NC1", [r["doc"] for r in result])
         self.assertEqual([r["doc"] for r in result], ["FAC1"])
 
+    def test_home_delivery_nunca_se_rechaza(self):
+        candidates = [
+            _invoice(name="HD1", nvfac_esta="E",
+                     nvfac_orde="ENTREGAPACIENTE009"),
+            _invoice(name="FAC1", nvfac_esta="E"),
+        ]
+        result = self._run(
+            candidates,
+            _rule(RULE_NO_PO),
+            lambda o: False,
+            lambda o: None,
+        )
+        self.assertNotIn("HD1", [r["doc"] for r in result])
+        self.assertEqual([r["doc"] for r in result], ["FAC1"])
+
 
 if __name__ == "__main__":
     unittest.main()

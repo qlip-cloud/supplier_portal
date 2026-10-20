@@ -65,6 +65,18 @@ class TestRejectCredit(unittest.TestCase):
         doc = self.store.get("qp_SP_DocumentDetail", "999999999:F1")
         self.assertEqual(doc["nvfac_esta"], "E")
 
+    def test_home_delivery_no_se_rechaza_por_falta_de_oc(self):
+        _doc(self.store, "999999999:HD", "HD", conv="2",
+             orde="ENTREGAPACIENTE009")
+        with patch(
+            "qp_supplier_front.resources.documenteme.runtime.is_simulation_enabled",
+            return_value=True):
+            result = reject_memory.run_reject(
+                self.store, doc_names=["999999999:HD"])
+        self.assertEqual(result["rejected"], [])
+        doc = self.store.get("qp_SP_DocumentDetail", "999999999:HD")
+        self.assertEqual(doc["nvfac_esta"], "E")
+
     def test_contado_nunca_se_rechaza_por_regla(self):
         _doc(self.store, "999999999:F1", "F1", conv="1")
         with patch(
@@ -123,6 +135,7 @@ class TestFullFlowInMemory(unittest.TestCase):
         session.reset()
         _seed_rule(self.store)
         seeds.seed_purchase_order(self.store, "PO-X", headquarter="HQ01")
+        seeds.seed_purchase_order_item(self.store, "PO-X", "ITEM-X", 1, 50000)
         _doc(self.store, "999999999:F2", "F2", conv="1", orde="PO-X")
         _doc(self.store, "999999999:F1", "F1", conv="2")
 
