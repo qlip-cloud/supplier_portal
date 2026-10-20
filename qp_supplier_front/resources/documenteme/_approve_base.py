@@ -43,6 +43,11 @@ from qp_supplier_front.uses_cases.documenteme.conversion import (
     is_cash_invoice,
     is_credit_note,
 )
+from qp_supplier_front.uses_cases.documenteme.home_delivery import (
+    HOME_DELIVERY_COMMENT,
+    build_home_delivery_line,
+    is_home_delivery,
+)
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
     unconsumed_receipts,
 )
@@ -99,24 +104,30 @@ def get_lines(doc):
     - lines: lista de dicts {item_code, qty, rate, idx, receiving_no, order_no}.
     - error: mensaje si la factura no puede generar lineas (vacio si ok).
 
-    Fuente de lineas:
-    - Si la OC tiene recepciones: se usan los Purchase Receipt Items, cuyo
-      item_code ya es el codigo BC. Aplica a credito (obligatorio) y a contado
-      con recepcion.
-    - Si no hay recepciones (contado sin recibo, o credito aprobado por el
-      usuario en modo forzado): se toman las lineas de la factura del
-      proveedor (qp_SP_DetailLine) y se homologa el codigo del proveedor
-      (nvpro_codi) al codigo BC (bc_item_code) via la tabla
-      qp_SP_ItemHomologation. Si algun codigo no tiene homologacion la
-      factura queda en error (se mantiene en "E" con alerta).
+    Fuente de lineas (los productos ya NO requieren homologacion en BC):
+    - Home delivery (`nvfac_orde` = entregapaciente009): UNA linea con el
+      producto configurado en qp_SP_MasterSetup.home_delivery_item y la
+      cantidad/subtotal acumulados de la factura.
+    - Si la OC tiene recepciones: se usan los Purchase Receipt Items (codigo
+      ya BC).
+    - Si no hay recepciones pero hay OC: se usan los Purchase Order Items.
+    - Sin OC ni recepciones: error (salvo home delivery).
     """
+    if is_home_delivery(doc):
+        return get_home_delivery_lines(doc)
+
     purchase_order = doc.get("nvfac_orde")
     receipt_lines = get_lines_from_receipts(purchase_order)
-
     if receipt_lines:
         return receipt_lines, ""
 
-    return get_lines_from_invoice(doc)
+    po_lines = get_lines_from_purchase_order(purchase_order)
+    if po_lines:
+        return po_lines, ""
+
+    return [], (
+        "La factura no tiene orden de compra ni recepciones para enviar"
+    )
 
 
 def get_lines_from_receipts(purchase_order, receipt_names=None):
@@ -158,43 +169,67 @@ def get_lines_from_receipts(purchase_order, receipt_names=None):
     ]
 
 
-def get_lines_from_invoice(doc):
-    """Lineas de la factura del proveedor homologadas al codigo BC.
+def get_lines_from_purchase_order(purchase_order):
+    """Lineas desde los Purchase Order Items (codigo ya BC, sin homologar).
 
-    Resuelve el proveedor por tax_id (nvpro_ndoc), carga el mapa de
-    homologacion y las lineas de detalle de la factura. Si falta alguna
-    homologacion retorna un error con los codigos pendientes.
+    Se usa cuando la factura tiene OC pero aun no tiene recepciones: el
+    payload lleva la informacion de la OC (NoPedido) y NoRecepcion vacio.
+    """
+    if not purchase_order:
+        return []
+    items = frappe.get_all(
+        "Purchase Order Item",
+        filters={
+            "parent": purchase_order,
+            "parenttype": "Purchase Order",
+        },
+        fields=["item_code", "qty", "rate", "idx", "uom"],
+        order_by="idx",
+    )
+    return [
+        {
+            "item_code": item.get("item_code"),
+            "qty": item.get("qty"),
+            "rate": item.get("rate"),
+            "idx": item.get("idx") or 0,
+            "uom": item.get("uom") or "",
+            "receiving_no": "",
+            "order_no": purchase_order,
+        }
+        for item in items
+    ]
 
-    El JSON a BC lleva la informacion que la factura tiene: si el contado
-    tiene OC (pero no recibo) se incluye NoPedido (order_no); sin OC/recibo
-    van vacios y BC decide.
+
+def get_home_delivery_lines(doc):
+    """Linea unica de una factura de home delivery (producto configurado).
+
+    El producto sale de qp_SP_MasterSetup.home_delivery_item. Si no esta
+    configurado o la factura no tiene lineas, la factura queda en error (no se
+    envia) para que el usuario complete la configuracion.
     """
     from qp_supplier_front.infrastructure.adapters.item_homologation_adapter import (
-        get_homologation_map,
         get_invoice_detail_lines,
-        resolve_supplier,
     )
-    from qp_supplier_front.uses_cases.documenteme.approve import homologate_lines
-
-    supplier = resolve_supplier(doc.get("nvpro_ndoc"))
-    homologation_map = get_homologation_map(supplier)
-    detail_lines = get_invoice_detail_lines(doc.get("name"))
-
-    lines, missing_codes = homologate_lines(
-        detail_lines,
-        homologation_map,
-        order_no=doc.get("nvfac_orde") or "",
+    from qp_supplier_front.infrastructure.adapters.master_setup_source import (
+        resolve_master_setup_source,
     )
 
-    if missing_codes:
+    item_code = resolve_master_setup_source(
+        frappe_module=frappe
+    ).home_delivery_item()
+    if not item_code:
         return [], (
-            "Faltan homologaciones de producto: {}"
-        ).format(", ".join(sorted(set(missing_codes))))
+            "No hay producto configurado para las facturas de home delivery "
+            "(qp_SP_MasterSetup.home_delivery_item)"
+        )
 
-    if not lines:
-        return [], "La factura no tiene lineas homologadas para enviar"
-
-    return lines, ""
+    detail_lines = get_invoice_detail_lines(doc.get("name"))
+    line = build_home_delivery_line(detail_lines, item_code)
+    if line is None:
+        return [], (
+            "La factura de home delivery no tiene lineas de detalle para enviar"
+        )
+    return [line], ""
 
 
 def get_lines_for_receipts(doc, receipt_names):
@@ -251,14 +286,34 @@ def get_bc_comment(doc, data=None):
 
 
 def _with_bc_comment(build_invoice_fn, data=None):
-    """Envuelve el builder BC inyectando el comentario marcado en el doc."""
+    """Envuelve el builder BC inyectando el comentario marcado en el doc.
+
+    En facturas de home delivery SIEMPRE se agrega el comentario
+    "Factura de home delivery" (ademas del comentario manual marcado, si lo
+    hay) y se limpia el campo OC: `entregapaciente009` es un marcador, no una
+    orden de compra real.
+    """
     def build(doc, lines, headquarter):
         enriched = dict(doc)
         entry = get_bc_comment_entry(doc, data)
-        enriched["qp_bc_comment"] = entry.get("message") or ""
+        comment = entry.get("message") or ""
+        if is_home_delivery(doc):
+            comment = _merge_home_delivery_comment(comment)
+            enriched["nvfac_orde"] = ""
+        enriched["qp_bc_comment"] = comment
         enriched["qp_bc_comment_url"] = entry.get("attachment_file_url") or ""
         return build_invoice_fn(enriched, lines, headquarter)
     return build
+
+
+def _merge_home_delivery_comment(comment):
+    """Combina el comentario de home delivery con el comentario manual."""
+    comment = comment or ""
+    if HOME_DELIVERY_COMMENT in comment:
+        return comment
+    if not comment:
+        return HOME_DELIVERY_COMMENT
+    return "{}. {}".format(HOME_DELIVERY_COMMENT, comment)
 
 
 def po_exists(purchase_order):
@@ -1431,6 +1486,10 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         resolve_supplier_rule_fn=resolve_supplier_rule_fn,
         get_lines_for_receipts_fn=get_lines_for_receipts_fn,
         po_supplier_match_fn=cb.get("po_supplier_match_fn", po_supplier_match),
+        is_home_delivery_fn=(
+            None if backend == "GP" else is_home_delivery
+        ),
+        cash_without_po_blocks=(backend != "GP"),
     )
 
     on_batch_approved = components["on_batch_approved_fn"]
@@ -1521,6 +1580,7 @@ def collect_document_violations(doc_names, backend="BC"):
         if backend == "GP" else None
     )
     po_supplier_match_fn = cb.get("po_supplier_match_fn", po_supplier_match)
+    is_home_delivery_fn = None if backend == "GP" else is_home_delivery
     docs = get_docs_fn(doc_names)
     violations = collect_registrable_violations(
         docs,
@@ -1531,6 +1591,8 @@ def collect_document_violations(doc_names, backend="BC"):
         resolve_supplier_rule_fn=resolve_supplier_rule_fn,
         skip_credit=True,
         po_supplier_match_fn=po_supplier_match_fn,
+        is_home_delivery_fn=is_home_delivery_fn,
+        cash_without_po_blocks=(backend != "GP"),
     )
     by_nume = {v.get("nvfac_nume"): v for v in violations}
 
@@ -1552,6 +1614,7 @@ def collect_document_violations(doc_names, backend="BC"):
         lambda purchase_order: _active_invoice_count(purchase_order, data),
         is_service_supplier_fn=is_service_supplier_fn,
         po_supplier_match_fn=po_supplier_match_fn,
+        is_home_delivery_fn=is_home_delivery_fn,
     )
     for entry in selection_violations:
         _merge(entry)
@@ -1621,6 +1684,8 @@ def _build_manual_receipt_selection(doc_names, backend="BC"):
 
     selection = {}
     for doc in get_docs_fn(doc_names):
+        if is_home_delivery(doc):
+            continue
         if is_credit_note(doc.get("nvtip_docu")):
             continue
         if is_cash_invoice(doc.get("nvfac_conv")):

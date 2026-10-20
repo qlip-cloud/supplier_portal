@@ -371,19 +371,100 @@ def memory_get_docs(store, doc_names):
 
 
 def memory_get_lines(store, doc):
-    rows = store.query("qp_SP_DetailLine",
-                       filters={"parent": doc.get("name")})
+    """Lineas del payload BC (espejo de resources/documenteme/_approve_base).
+
+    Sin homologacion: home delivery usa UNA linea con el producto configurado;
+    con recepciones se usan los items de los recibos; con OC sin recepciones se
+    usan los items de la OC; sin OC ni recibos la factura queda en error.
+    """
+    from qp_supplier_front.simulation.master_setup_source import (
+        MemoryMasterSetupSource,
+    )
+    from qp_supplier_front.uses_cases.documenteme.home_delivery import (
+        build_home_delivery_line,
+        is_home_delivery,
+    )
+
+    if is_home_delivery(doc):
+        item_code = MemoryMasterSetupSource(store).home_delivery_item()
+        if not item_code:
+            return [], (
+                "No hay producto configurado para las facturas de home delivery "
+                "(qp_SP_MasterSetup.home_delivery_item)"
+            )
+        rows = store.query("qp_SP_DetailLine",
+                           filters={"parent": doc.get("name")})
+        line = build_home_delivery_line(rows, item_code)
+        if line is None:
+            return [], (
+                "La factura de home delivery no tiene lineas de detalle para "
+                "enviar"
+            )
+        return [line], ""
+
+    purchase_order = doc.get("nvfac_orde")
+    receipt_lines = _memory_bc_receipt_lines(store, purchase_order)
+    if receipt_lines:
+        return receipt_lines, ""
+    po_lines = _memory_bc_po_lines(store, purchase_order)
+    if po_lines:
+        return po_lines, ""
+    return [], "La factura no tiene orden de compra ni recepciones para enviar"
+
+
+def _memory_bc_receipt_lines(store, purchase_order):
+    if not purchase_order:
+        return []
+    receipts = store.query(
+        "qp_SP_PurchaseReceipt",
+        filters={"qp_supplier_oc": purchase_order},
+        pluck="name",
+    )
+    if not receipts:
+        return []
+    items = store.query(
+        "qp_SP_PurchaseReceiptItem",
+        filters={"parent": ["in", receipts],
+                 "parenttype": "Purchase Receipt"},
+        fields=["parent", "item_code", "qty", "rate", "idx", "uom"],
+        order_by="parent, idx",
+    )
     return [
         {
-            "item_code": row.get("nvpro_codi") or "",
-            "qty": row.get("nvdet_tcan") or 0,
-            "rate": row.get("nvdet_valo") or 0,
-            "idx": 0,
-            "receiving_no": "",
-            "order_no": doc.get("nvfac_orde") or "",
+            "item_code": item.get("item_code"),
+            "qty": item.get("qty"),
+            "rate": item.get("rate"),
+            "idx": item.get("idx") or 0,
+            "uom": item.get("uom") or "",
+            "receiving_no": item.get("parent") or "",
+            "order_no": purchase_order,
         }
-        for row in rows
-    ], ""
+        for item in items
+    ]
+
+
+def _memory_bc_po_lines(store, purchase_order):
+    if not purchase_order:
+        return []
+    items = store.query(
+        "qp_SP_PurchaseOrderItem",
+        filters={"parent": purchase_order,
+                 "parenttype": "Purchase Order"},
+        fields=["item_code", "qty", "rate", "qp_unit_cost", "idx", "uom"],
+        order_by="idx",
+    )
+    return [
+        {
+            "item_code": item.get("item_code"),
+            "qty": item.get("qty"),
+            "rate": item.get("rate") or item.get("qp_unit_cost"),
+            "idx": item.get("idx") or 0,
+            "uom": item.get("uom") or "",
+            "receiving_no": "",
+            "order_no": purchase_order,
+        }
+        for item in items
+    ]
 
 
 def memory_persist_invoice(store, doc, doc_number, now, sync_flow="BC"):
