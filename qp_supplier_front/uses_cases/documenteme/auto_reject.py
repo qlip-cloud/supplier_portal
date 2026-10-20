@@ -39,6 +39,9 @@ FINAL_STATES = ("A", "R")
 import qp_supplier_front.uses_cases.documenteme.reject_retry
 
 from qp_supplier_front.uses_cases.documenteme.conversion import is_credit_note
+from qp_supplier_front.uses_cases.documenteme.home_delivery import (
+    is_home_delivery,
+)
 
 REJECT_PENDING_STATES = qp_supplier_front.uses_cases.documenteme.reject_retry.REJECT_PENDING_STATES
 
@@ -155,6 +158,7 @@ def auto_reject(
         doc for doc in raw
         if is_eligible_doc(doc)
         and not is_credit_note(doc.get("nvtip_docu"))
+        and not is_home_delivery(doc)
     ]
     rejectable = collect_rejectable(
         candidates, resolve_rule_fn, po_exists_fn, receipt_for_po_fn,
