@@ -195,7 +195,8 @@ def _receipt_for_po_from_bank(receipt_bank_fn):
 
 
 def _get_cash_registrable_warnings(doc, po_exists_fn, receipts_total_fn, resolve_rule_fn,
-                                   po_supplier_match_fn=None):
+                                   po_supplier_match_fn=None,
+                                   cash_without_po_blocks=False):
     """Advertencias de la regla de rechazo aplicadas a una factura de CONTADO.
 
     Las facturas de contado no se rechazan, pero si la regla activa (proveedor
@@ -203,6 +204,13 @@ def _get_cash_registrable_warnings(doc, po_exists_fn, receipts_total_fn, resolve
     se aprueba automaticamente y pasa a asignacion. Con "no_action" o sin
     regla configurada, el contado se aprueba sin validar OC ni recibo.
     """
+    po_match = has_po_match(doc, po_exists_fn, po_supplier_match_fn)
+    if cash_without_po_blocks and not po_match:
+        return [
+            "La factura de contado no tiene orden de compra; queda registrada "
+            "en espera de que se cargue la OC o la recepcion"
+        ]
+
     if resolve_rule_fn is None:
         return []
 
@@ -214,7 +222,6 @@ def _get_cash_registrable_warnings(doc, po_exists_fn, receipts_total_fn, resolve
     if not rule_code or rule_code == RULE_NO_ACTION:
         return []
 
-    po_match = has_po_match(doc, po_exists_fn, po_supplier_match_fn)
     receipt_match = has_receipt_match(doc, receipts_total_fn)
     if should_auto_reject(po_match, receipt_match, rule_code):
         return [
@@ -264,7 +271,9 @@ def _get_service_supplier_registrable_warnings(doc, po_exists_fn, receipts_total
 
 def get_registrable_warnings(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None,
                              is_service_supplier_fn=None, resolve_supplier_rule_fn=None,
-                             epsilon=DEFAULT_EPSILON, po_supplier_match_fn=None):
+                             epsilon=DEFAULT_EPSILON, po_supplier_match_fn=None,
+                             is_home_delivery_fn=None,
+                             cash_without_po_blocks=False):
     """Retorna todas las violaciones que impedirian la aprobacion automatica.
 
     Devuelve una lista de mensajes (una por regla incumplida) para la regla
@@ -288,6 +297,9 @@ def get_registrable_warnings(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn
     if is_credit_note(doc.get("nvtip_docu")):
         return []
 
+    if is_home_delivery_fn is not None and is_home_delivery_fn(doc):
+        return []
+
     if is_service_supplier_fn is not None and is_service_supplier_fn(doc):
         return _get_service_supplier_registrable_warnings(
             doc,
@@ -304,6 +316,7 @@ def get_registrable_warnings(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn
             _receipt_for_po_from_bank(receipt_bank_fn),
             resolve_rule_fn,
             po_supplier_match_fn=po_supplier_match_fn,
+            cash_without_po_blocks=cash_without_po_blocks,
         )
 
     purchase_order = doc.get("nvfac_orde")
@@ -326,7 +339,9 @@ def get_registrable_warnings(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn
 
 def validate_registrable(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None,
                          is_service_supplier_fn=None, resolve_supplier_rule_fn=None,
-                         epsilon=DEFAULT_EPSILON, po_supplier_match_fn=None):
+                         epsilon=DEFAULT_EPSILON, po_supplier_match_fn=None,
+                         is_home_delivery_fn=None,
+                         cash_without_po_blocks=False):
     """Valida la regla factura - orden - recepcion + montos.
 
     Retorna (ok, error).
@@ -353,6 +368,8 @@ def validate_registrable(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn=Non
         resolve_supplier_rule_fn=resolve_supplier_rule_fn,
         epsilon=epsilon,
         po_supplier_match_fn=po_supplier_match_fn,
+        is_home_delivery_fn=is_home_delivery_fn,
+        cash_without_po_blocks=cash_without_po_blocks,
     )
     first_warning = warnings[0] if warnings else ""
     if first_warning:
@@ -379,7 +396,9 @@ def _is_pure_credit(doc, is_service_supplier_fn=None):
 def collect_registrable_violations(docs, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None,
                                    is_service_supplier_fn=None, resolve_supplier_rule_fn=None,
                                    epsilon=DEFAULT_EPSILON, skip_credit=False,
-                                   po_supplier_match_fn=None):
+                                   po_supplier_match_fn=None,
+                                   is_home_delivery_fn=None,
+                                   cash_without_po_blocks=False):
     """Acumula todas las violaciones de aprobacion automatica por factura.
 
     Retorna una lista de dicts {"nvfac_nume", "violations": [mensaje, ...]}
@@ -396,6 +415,8 @@ def collect_registrable_violations(docs, po_exists_fn, receipt_bank_fn, resolve_
         blocker = get_registrable_blockers(doc)
         if blocker:
             continue
+        if is_home_delivery_fn is not None and is_home_delivery_fn(doc):
+            continue
         if skip_credit and _is_pure_credit(doc, is_service_supplier_fn):
             continue
         warnings = get_registrable_warnings(
@@ -404,6 +425,8 @@ def collect_registrable_violations(docs, po_exists_fn, receipt_bank_fn, resolve_
             resolve_supplier_rule_fn=resolve_supplier_rule_fn,
             epsilon=epsilon,
             po_supplier_match_fn=po_supplier_match_fn,
+            is_home_delivery_fn=is_home_delivery_fn,
+            cash_without_po_blocks=cash_without_po_blocks,
         )
         if warnings:
             violations.append({
@@ -416,7 +439,8 @@ def collect_registrable_violations(docs, po_exists_fn, receipt_bank_fn, resolve_
 def collect_selection_violations(docs, po_exists_fn, receipt_bank_fn,
                                  oc_invoice_count_fn, epsilon=DEFAULT_EPSILON,
                                  is_service_supplier_fn=None,
-                                 po_supplier_match_fn=None):
+                                 po_supplier_match_fn=None,
+                                 is_home_delivery_fn=None):
     """Violaciones de la regla de SELECCION manual para facturas de credito.
 
     La aprobacion manual de una factura de credito con OC que tiene
@@ -435,6 +459,8 @@ def collect_selection_violations(docs, po_exists_fn, receipt_bank_fn,
     """
     violations = []
     for doc in (docs or []):
+        if is_home_delivery_fn is not None and is_home_delivery_fn(doc):
+            continue
         if not _is_pure_credit(doc, is_service_supplier_fn):
             continue
         if get_registrable_blockers(doc):
@@ -519,7 +545,9 @@ def _selection_floor_violation(invoice_number, invoice_total, selected_total,
 
 def validate_registrables(docs, po_exists_fn, receipt_bank_fn, resolve_rule_fn=None,
                           is_service_supplier_fn=None, resolve_supplier_rule_fn=None,
-                          epsilon=DEFAULT_EPSILON, po_supplier_match_fn=None):
+                          epsilon=DEFAULT_EPSILON, po_supplier_match_fn=None,
+                          is_home_delivery_fn=None,
+                          cash_without_po_blocks=False):
     valid = []
     errors = []
     for doc in (docs or []):
@@ -529,6 +557,8 @@ def validate_registrables(docs, po_exists_fn, receipt_bank_fn, resolve_rule_fn=N
             resolve_supplier_rule_fn=resolve_supplier_rule_fn,
             epsilon=epsilon,
             po_supplier_match_fn=po_supplier_match_fn,
+            is_home_delivery_fn=is_home_delivery_fn,
+            cash_without_po_blocks=cash_without_po_blocks,
         )
         if ok:
             valid.append(doc)
@@ -1237,7 +1267,8 @@ def _scalar_bank_fn(receipts_total_fn):
 
 def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve_rule_fn=None,
                            is_service_supplier_fn=None, resolve_supplier_rule_fn=None,
-                           po_supplier_match_fn=None):
+                           po_supplier_match_fn=None, is_home_delivery_fn=None,
+                           cash_without_po_blocks=False):
     """Valida y asigna el banco de recepciones por orden de compra.
 
     Separa las facturas de CONTADO (sin banco) y agrupa las de credito por
@@ -1278,6 +1309,9 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
         if is_credit_note(doc.get("nvtip_docu")):
             valid.append(doc)
             continue
+        if is_home_delivery_fn is not None and is_home_delivery_fn(doc):
+            valid.append(doc)
+            continue
         if is_service_supplier_fn is not None and is_service_supplier_fn(doc):
             warnings = _get_service_supplier_registrable_warnings(
                 doc,
@@ -1302,6 +1336,7 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
                 _receipt_for_po_from_bank(receipt_bank_fn),
                 resolve_rule_fn,
                 po_supplier_match_fn=po_supplier_match_fn,
+                cash_without_po_blocks=cash_without_po_blocks,
             )
             if warnings:
                 errors.append({
@@ -1383,7 +1418,9 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon,
                        force=False, po_exists_fn=None, resolve_rule_fn=None,
                        is_service_supplier_fn=None,
                        resolve_supplier_rule_fn=None,
-                       po_supplier_match_fn=None):
+                       po_supplier_match_fn=None,
+                       is_home_delivery_fn=None,
+                       cash_without_po_blocks=False):
     """Valida la seleccion manual de recepciones por factura.
 
     A diferencia de _allocate_registrables, NO re-runnea pack_oc_group: la
@@ -1414,6 +1451,9 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon,
             })
             continue
         if is_credit_note(doc.get("nvtip_docu")):
+            valid.append(doc)
+            continue
+        if is_home_delivery_fn is not None and is_home_delivery_fn(doc):
             valid.append(doc)
             continue
         if is_service_supplier_fn is not None and is_service_supplier_fn(doc):
@@ -1543,6 +1583,8 @@ def approve_documents(
     resolve_supplier_rule_fn=None,
     get_lines_for_receipts_fn=None,
     po_supplier_match_fn=None,
+    is_home_delivery_fn=None,
+    cash_without_po_blocks=False,
 ):
     """Aprueba en lote las facturas: un solo envio a BC con array.
 
@@ -1586,6 +1628,8 @@ def approve_documents(
             is_service_supplier_fn=is_service_supplier_fn,
             resolve_supplier_rule_fn=resolve_supplier_rule_fn,
             po_supplier_match_fn=po_supplier_match_fn,
+            is_home_delivery_fn=is_home_delivery_fn,
+            cash_without_po_blocks=cash_without_po_blocks,
         )
     elif force:
         valid, errors = _split_by_blockers(docs)
@@ -1597,6 +1641,8 @@ def approve_documents(
             is_service_supplier_fn=is_service_supplier_fn,
             resolve_supplier_rule_fn=resolve_supplier_rule_fn,
             po_supplier_match_fn=po_supplier_match_fn,
+            is_home_delivery_fn=is_home_delivery_fn,
+            cash_without_po_blocks=cash_without_po_blocks,
         )
     else:
         valid, errors = validate_registrables(
@@ -1605,6 +1651,8 @@ def approve_documents(
             is_service_supplier_fn=is_service_supplier_fn,
             resolve_supplier_rule_fn=resolve_supplier_rule_fn,
             po_supplier_match_fn=po_supplier_match_fn,
+            is_home_delivery_fn=is_home_delivery_fn,
+            cash_without_po_blocks=cash_without_po_blocks,
         )
         allocation = {}
 

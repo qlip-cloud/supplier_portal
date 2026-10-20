@@ -19,12 +19,25 @@ from qp_supplier_front.simulation.store import MemoryStore
 SIM_NIT = "999999999"
 
 
-def _seed(store, estado="E"):
+def _seed(store, estado="E", purchase_order="PO-SIM-0002"):
+    store.insert("qp_SP_Supplier", {"name": SIM_NIT, "tax_id": SIM_NIT})
+    if purchase_order:
+        store.insert("qp_SP_PurchaseOrder", {
+            "name": purchase_order, "supplier": SIM_NIT,
+            "qp_headquarter": "HQ01",
+        })
+        store.insert("qp_SP_PurchaseOrderItem", {
+            "name": "{}:ITEM-2".format(purchase_order),
+            "parent": purchase_order, "parenttype": "Purchase Order",
+            "item_code": "ITEM-2", "qty": 2, "rate": 400000,
+            "idx": 0, "uom": "UND",
+        })
     store.insert("qp_SP_DocumentDetail", {
         "name": "999999999:F2", "nvfac_nume": "SIM-FAC-0002",
         "nvpro_ndoc": SIM_NIT, "nvfac_fech": "2026-08-25",
         "nvfac_cufe": "CUFE2", "nvtip_docu": "FAC", "nvfac_fpag": "",
-        "nvfac_orde": "", "nvfac_rece": "", "nvfac_totp": 800000,
+        "nvfac_orde": purchase_order or "", "nvfac_rece": "",
+        "nvfac_totp": 800000,
         "nvfac_esta": estado, "nvfac_ueve": "", "nvfac_conv": "1",
         "nvmon_codi": "COP", "nvfac_stot": 800000, "nvfac_viva": 0,
         "nvpro_nomb": "PROVEEDOR SIM",
@@ -67,6 +80,21 @@ class TestSimAutoApproveInMemory(unittest.TestCase):
         self.assertEqual(row["nvfac_esta"], "A")
         self.assertTrue(self.store.exists("qp_SP_PurchaseInvoice", "999999999:F2"))
         self.assertTrue(self.store.exists("qp_SP_PurchaseInvoiceBC", "SIMSIM-FAC-0002"))
+
+    def test_contado_sin_oc_queda_en_espera(self):
+        _seed(self.store, purchase_order=None)
+        with patch("qp_supplier_front.simulation.session.store",
+                   return_value=self.store):
+            for p in self._patched():
+                p.start()
+                self.addCleanup(p.stop)
+
+            result = arapp.run_auto_approve(enqueue=False)
+
+        self.assertEqual(result["approved"], [])
+        row = self.store.get("qp_SP_DocumentDetail", "999999999:F2")
+        self.assertEqual(row["nvfac_esta"], "E")
+        self.assertFalse(self.store.exists("qp_SP_PurchaseInvoice", "999999999:F2"))
 
 
 if __name__ == "__main__":

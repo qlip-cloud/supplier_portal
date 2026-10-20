@@ -150,7 +150,7 @@ class TestPromoteEligibleToV(_WithData, unittest.TestCase):
         promoted = infra.promote_eligible_to_v()
         self.assertEqual(promoted, [])
 
-    def test_promueve_contado_sin_oc_ni_recibos(self):
+    def test_no_promueve_contado_sin_oc_ni_recibos(self):
         frappe_mock = MagicMock()
         frappe_mock.get_all.return_value = [
             _doc(name="DOC1", nvfac_esta="E", nvfac_orde=None,
@@ -161,10 +161,8 @@ class TestPromoteEligibleToV(_WithData, unittest.TestCase):
             patch.object(infra, "receipt_bank", return_value=_bank(None)),
         ])
         promoted = infra.promote_eligible_to_v()
-        self.assertEqual(promoted, ["DOC1"])
-        frappe_mock.db.set_value.assert_called_once_with(
-            "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "V"
-        )
+        self.assertEqual(promoted, [])
+        frappe_mock.db.set_value.assert_not_called()
 
     def test_solo_quien_obtiene_reparto_se_promueve(self):
         frappe_mock = MagicMock()

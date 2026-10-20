@@ -38,6 +38,9 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     ANALYSIS_STATES,
     _allocate_registrables,
 )
+from qp_supplier_front.uses_cases.documenteme.home_delivery import (
+    is_home_delivery,
+)
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILON
 
 AUTO_APPROVE_JOB_METHOD = (
@@ -176,11 +179,14 @@ def promote_eligible_to_v(doc_names=None, backend=None):
 
     is_service_supplier_fn = None
     resolve_supplier_rule_fn = None
+    is_home_delivery_fn = None
     if backend == "GP":
         is_service_supplier_fn = cb.get(
             "is_service_supplier_fn", is_service_supplier_doc)
         resolve_supplier_rule_fn = cb.get(
             "resolve_supplier_rule_fn", resolve_supplier_rule)
+    else:
+        is_home_delivery_fn = is_home_delivery
 
     candidates = [
         doc
@@ -196,6 +202,8 @@ def promote_eligible_to_v(doc_names=None, backend=None):
         is_service_supplier_fn=is_service_supplier_fn,
         resolve_supplier_rule_fn=resolve_supplier_rule_fn,
         po_supplier_match_fn=po_supplier_match_fn,
+        is_home_delivery_fn=is_home_delivery_fn,
+        cash_without_po_blocks=(backend != "GP"),
     )
 
     promoted = []
