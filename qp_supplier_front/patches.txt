@@ -5,3 +5,4 @@ qp_supplier_front.patches.remove_duplicate_dynamic_links
 qp_supplier_front.patches.add_auto_reject_rules
 qp_supplier_front.patches.add_no_action_reject_rule
 qp_supplier_front.patches.add_documenteme_event_schedule_index
+qp_supplier_front.patches.add_delivery_type_config

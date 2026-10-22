@@ -66,6 +66,12 @@ class TestRejectCredit(unittest.TestCase):
         self.assertEqual(doc["nvfac_esta"], "E")
 
     def test_home_delivery_no_se_rechaza_por_falta_de_oc(self):
+        self.store.insert("qp_SP_DeliveryType", {
+            "name": "home_delivery",
+            "title": "Home delivery",
+            "code": "entregapaciente009",
+            "description": "Factura de home delivery",
+        })
         _doc(self.store, "999999999:HD", "HD", conv="2",
              orde="ENTREGAPACIENTE009")
         with patch(

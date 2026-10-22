@@ -151,14 +151,16 @@ def auto_reject(
     receipt_for_po_fn,
     doc_names=None,
     po_supplier_match_fn=None,
+    is_delivery_fn=None,
 ):
+    is_delivery_fn = is_delivery_fn or is_home_delivery
     candidates = []
     raw = candidates_fn() if doc_names is None else candidates_fn(doc_names)
     candidates = [
         doc for doc in raw
         if is_eligible_doc(doc)
         and not is_credit_note(doc.get("nvtip_docu"))
-        and not is_home_delivery(doc)
+        and not is_delivery_fn(doc)
     ]
     rejectable = collect_rejectable(
         candidates, resolve_rule_fn, po_exists_fn, receipt_for_po_fn,

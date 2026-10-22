@@ -1,0 +1,41 @@
+{
+ "actions": [],
+ "creation": "2026-10-22 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "delivery_type",
+  "item_code"
+ ],
+ "fields": [
+  {
+   "fieldname": "delivery_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Tipo de delivery",
+   "options": "qp_SP_DeliveryType",
+   "reqd": 1
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Producto",
+   "options": "Item",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-22 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_DeliveryItem",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

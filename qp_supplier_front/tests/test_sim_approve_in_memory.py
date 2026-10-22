@@ -47,8 +47,19 @@ def _seed_cash(store, name="999999999:F2", nume="SIM-FAC-0002", total=800000):
 def _seed_home_delivery(store):
     store.insert("qp_SP_MasterSetup", {
         "name": "qp_SP_MasterSetup",
-        "home_delivery_item": "HD-ITEM",
         "documenteme_backend": "BC",
+    })
+    store.insert("qp_SP_DeliveryType", {
+        "name": "home_delivery",
+        "title": "Home delivery",
+        "code": "entregapaciente009",
+        "description": "Factura de home delivery",
+    })
+    store.insert("qp_SP_DeliveryItem", {
+        "parent": "qp_SP_MasterSetup",
+        "parentfield": "delivery_items",
+        "delivery_type": "home_delivery",
+        "item_code": "HD-ITEM",
     })
     store.insert("qp_SP_DocumentDetail", {
         "name": "999999999:HD", "nvfac_nume": "SIM-FAC-HD",
@@ -65,6 +76,47 @@ def _seed_home_delivery(store):
             "parent": "999999999:HD", "nvpro_codi": "ITEM-{}".format(idx),
             "nvdet_tcan": qty, "nvdet_valo": unit, "nvdet_stot": subtotal,
         })
+
+
+def _seed_internal_delivery(store, supplier_item=None, master_item=None):
+    store.insert("qp_SP_MasterSetup", {
+        "name": "qp_SP_MasterSetup",
+        "documenteme_backend": "BC",
+    })
+    store.insert("qp_SP_Supplier", {"name": SIM_NIT, "tax_id": SIM_NIT})
+    store.insert("qp_SP_DeliveryType", {
+        "name": "internal_delivery",
+        "title": "Internal delivery",
+        "code": "entregainterna009",
+        "description": "Factura de internal delivery",
+    })
+    if supplier_item:
+        store.insert("qp_SP_DeliveryItem", {
+            "parent": SIM_NIT,
+            "parentfield": "qp_delivery_items",
+            "delivery_type": "internal_delivery",
+            "item_code": supplier_item,
+        })
+    if master_item:
+        store.insert("qp_SP_DeliveryItem", {
+            "parent": "qp_SP_MasterSetup",
+            "parentfield": "delivery_items",
+            "delivery_type": "internal_delivery",
+            "item_code": master_item,
+        })
+    store.insert("qp_SP_DocumentDetail", {
+        "name": "999999999:ID", "nvfac_nume": "SIM-FAC-ID",
+        "nvpro_ndoc": SIM_NIT, "nvfac_fech": "2026-08-25",
+        "nvfac_cufe": "CUFEID", "nvtip_docu": "FAC", "nvfac_fpag": "",
+        "nvfac_orde": "ENTREGAINTERNA009", "nvfac_rece": "",
+        "nvfac_totp": 100000, "nvfac_esta": "V", "nvfac_ueve": "",
+        "nvfac_conv": "1", "nvmon_codi": "COP", "nvfac_stot": 100000,
+        "nvfac_viva": 0, "nvpro_nomb": "PROVEEDOR SIM",
+    })
+    store.insert("qp_SP_DetailLine", {
+        "parent": "999999999:ID", "nvpro_codi": "ITEM-1",
+        "nvdet_tcan": 2, "nvdet_valo": 50000, "nvdet_stot": 100000,
+    })
 
 
 def _seed_credit(store, name="999999999:F1", nume="SIM-FAC-0001", total=1500000):
@@ -146,6 +198,47 @@ class TestSimApproveInMemory(unittest.TestCase):
         self.assertEqual(line["Precio"], 70000)
         self.assertEqual(line["NoPedido"], "")
         self.assertIn("Factura de home delivery", line["Comentarios"])
+
+    def test_internal_delivery_prioriza_producto_del_proveedor(self):
+        _seed_internal_delivery(
+            self.store,
+            supplier_item="SUP-INT",
+            master_item="MASTER-INT",
+        )
+        captured = {}
+
+        def fake_send(endpoint_code=None, payload=None):
+            captured["payload"] = payload
+            return {
+                "Result": 0,
+                "invoices": [{"doc_number": "SIM-ID", "error": ""}],
+            }, 200
+
+        with patch.object(doc_sim, "send_purchase_invoice_request", fake_send), \
+             patch("qp_supplier_front.simulation.session.store",
+                   return_value=self.store):
+            result = self._run(["999999999:ID"])
+
+        self.assertEqual(len(result["approved"]), 1)
+        invoice = captured["payload"][0]
+        self.assertEqual(invoice["NoPedidoProveedor"], "")
+        line = invoice["vendorInvoiceLine"][0]
+        self.assertEqual(line["NoProducto"], "SUP-INT")
+        self.assertIn("Factura de internal delivery", line["Comentarios"])
+
+    def test_delivery_sin_producto_configurado_deja_error_explicito(self):
+        _seed_internal_delivery(self.store)
+
+        with patch("qp_supplier_front.simulation.session.store",
+                   return_value=self.store):
+            result = self._run(["999999999:ID"])
+
+        self.assertEqual(result["approved"], [])
+        self.assertEqual(len(result["errors"]), 1)
+        self.assertIn(
+            "No hay producto configurado para el tipo de delivery",
+            result["errors"][0]["error"],
+        )
 
 
 if __name__ == "__main__":

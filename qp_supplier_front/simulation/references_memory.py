@@ -171,6 +171,14 @@ def memory_get_headquarter(store, purchase_order):
     return store.get_value("qp_SP_PurchaseOrder", purchase_order, "qp_headquarter") or ""
 
 
+def memory_get_delivery_types(store):
+    """Tipos de delivery configurados en el store (qp_SP_DeliveryType)."""
+    from qp_supplier_front.simulation.delivery_source import (
+        MemoryDeliverySource,
+    )
+    return MemoryDeliverySource(store).delivery_types()
+
+
 def memory_get_supplier_by_tax_id(store, tax_id):
     if not tax_id:
         return None

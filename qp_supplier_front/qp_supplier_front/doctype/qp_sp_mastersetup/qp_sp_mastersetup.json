@@ -14,6 +14,7 @@
     "documenteme_simulation",
     "documenteme_backend",
     "home_delivery_item",
+    "delivery_items",
     "collection_invoices_simulation",
     "sede_source_doctype",
     "init_fiscal_year",
@@ -92,7 +93,14 @@
      "fieldtype": "Link",
      "label": "Producto factura home delivery",
      "options": "Item",
-     "description": "Producto de BC con el que se envían las facturas de home delivery (campo OC = entregapaciente009). Se envía una sola línea con la cantidad y el subtotal acumulados de las líneas de la factura."
+     "description": "Obsoleto: use la tabla 'Productos por tipo de delivery'. Se conserva solo para migrar la configuración existente."
+    },
+    {
+     "fieldname": "delivery_items",
+     "fieldtype": "Table",
+     "label": "Productos por tipo de delivery",
+     "options": "qp_SP_DeliveryItem",
+     "description": "Producto BC que se enviará según el tipo de delivery detectado en la OC. La configuración del proveedor tiene prioridad sobre esta tabla."
     },
    {
     "default": "0",
@@ -184,7 +192,7 @@
 "index_web_pages_for_search": 1,
   "issingle": 1,
   "links": [],
-   "modified": "2026-10-20 12:00:00.000000",
+   "modified": "2026-10-22 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_MasterSetup",

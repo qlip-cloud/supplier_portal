@@ -26,6 +26,7 @@ from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.resources.documenteme._approve_base import (
     approve_documents_core,
     is_service_supplier_doc,
+    make_delivery_order_predicate,
     po_exists,
     po_supplier_match,
     receipt_bank,
@@ -37,9 +38,6 @@ from qp_supplier_front.resources.documenteme.auto_reject import (
 from qp_supplier_front.uses_cases.documenteme.approve import (
     ANALYSIS_STATES,
     _allocate_registrables,
-)
-from qp_supplier_front.uses_cases.documenteme.home_delivery import (
-    is_home_delivery,
 )
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILON
 
@@ -186,7 +184,7 @@ def promote_eligible_to_v(doc_names=None, backend=None):
         resolve_supplier_rule_fn = cb.get(
             "resolve_supplier_rule_fn", resolve_supplier_rule)
     else:
-        is_home_delivery_fn = is_home_delivery
+        is_home_delivery_fn = make_delivery_order_predicate(data)
 
     candidates = [
         doc

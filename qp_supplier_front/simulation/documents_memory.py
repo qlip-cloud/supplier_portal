@@ -373,32 +373,52 @@ def memory_get_docs(store, doc_names):
 def memory_get_lines(store, doc):
     """Lineas del payload BC (espejo de resources/documenteme/_approve_base).
 
-    Sin homologacion: home delivery usa UNA linea con el producto configurado;
-    con recepciones se usan los items de los recibos; con OC sin recepciones se
-    usan los items de la OC; sin OC ni recibos la factura queda en error.
+    Sin homologacion: un tipo de delivery usa UNA linea con el producto
+    configurado en el proveedor o en qp_SP_MasterSetup; con recepciones se
+    usan los items de los recibos; con OC sin recepciones se usan los items de
+    la OC; sin OC ni recibos la factura queda en error.
     """
-    from qp_supplier_front.simulation.master_setup_source import (
-        MemoryMasterSetupSource,
+    from qp_supplier_front.simulation import references_memory
+    from qp_supplier_front.simulation.delivery_source import (
+        MemoryDeliverySource,
     )
     from qp_supplier_front.uses_cases.documenteme.home_delivery import (
         build_home_delivery_line,
-        is_home_delivery,
+        resolve_delivery,
     )
 
-    if is_home_delivery(doc):
-        item_code = MemoryMasterSetupSource(store).home_delivery_item()
+    source = MemoryDeliverySource(store)
+    supplier = references_memory.memory_get_supplier_by_tax_id(
+        store, (doc or {}).get("nvpro_ndoc")
+    )
+    delivery = resolve_delivery(
+        doc,
+        source.delivery_types(),
+        source.supplier_items(supplier),
+        source.master_items(),
+    )
+    if delivery is not None:
+        item_code = delivery.get("item_code")
         if not item_code:
+            delivery_type = delivery.get("delivery_type") or {}
             return [], (
-                "No hay producto configurado para las facturas de home delivery "
-                "(qp_SP_MasterSetup.home_delivery_item)"
+                "No hay producto configurado para el tipo de delivery '{}' "
+                "({}). Configure el producto en el proveedor o en "
+                "qp_SP_MasterSetup.delivery_items"
+            ).format(
+                delivery_type.get("title") or delivery_type.get("name") or "",
+                delivery_type.get("name") or "",
             )
         rows = store.query("qp_SP_DetailLine",
                            filters={"parent": doc.get("name")})
         line = build_home_delivery_line(rows, item_code)
         if line is None:
+            delivery_type = delivery.get("delivery_type") or {}
             return [], (
-                "La factura de home delivery no tiene lineas de detalle para "
-                "enviar"
+                "La factura del tipo de delivery '{}' no tiene lineas de "
+                "detalle para enviar"
+            ).format(
+                delivery_type.get("title") or delivery_type.get("name") or ""
             )
         return [line], ""
 

@@ -25,7 +25,7 @@ from qp_supplier_front.uses_cases.documenteme.conversion import (
     is_credit_note,
 )
 from qp_supplier_front.uses_cases.documenteme.home_delivery import (
-    is_home_delivery,
+    find_delivery_type,
 )
 
 
@@ -141,6 +141,7 @@ def run_reject(store, doc_names=None):
     # Seleccion manual en curso (recibos reclamados): se excluye del rechazo
     # automatico (manual excluye auto).
     claimed = references_memory.memory_claimed_invoice_numbers(store)
+    delivery_types = references_memory.memory_get_delivery_types(store)
 
     for name in (doc_names or []):
         doc = store.get("qp_SP_DocumentDetail", name) or {}
@@ -154,7 +155,7 @@ def run_reject(store, doc_names=None):
             continue
         if is_credit_note(doc.get("nvtip_docu")):
             continue
-        if is_home_delivery(doc):
+        if find_delivery_type(doc.get("nvfac_orde"), delivery_types) is not None:
             continue
 
         rule = references_memory.memory_resolve_rule(store, doc)

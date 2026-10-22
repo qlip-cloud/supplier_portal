@@ -46,7 +46,9 @@ from qp_supplier_front.uses_cases.documenteme.conversion import (
 from qp_supplier_front.uses_cases.documenteme.home_delivery import (
     HOME_DELIVERY_COMMENT,
     build_home_delivery_line,
-    is_home_delivery,
+    find_delivery_type,
+    get_delivery_comment,
+    resolve_delivery,
 )
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
     unconsumed_receipts,
@@ -97,6 +99,66 @@ def get_docs(doc_names):
     )
 
 
+def get_delivery_type(doc, data=None):
+    """Tipo de delivery configurado que coincide con la OC (o None)."""
+    from qp_supplier_front.infrastructure.adapters.delivery_source import (
+        resolve_delivery_source,
+    )
+
+    source = resolve_delivery_source(data=data, frappe_module=frappe)
+    return find_delivery_type(
+        (doc or {}).get("nvfac_orde"), source.delivery_types()
+    )
+
+
+def get_delivery_context(doc, data=None):
+    """Contexto de delivery de la factura (o None si no es delivery).
+
+    Detecta el tipo por los codigos configurados en qp_SP_DeliveryType y
+    resuelve el producto con la jerarquia proveedor -> qp_SP_MasterSetup.
+    Con data (facade) lee de memoria; sin data, de frappe.
+    """
+    from qp_supplier_front.infrastructure.adapters.delivery_source import (
+        resolve_delivery_source,
+    )
+
+    source = resolve_delivery_source(data=data, frappe_module=frappe)
+    tax_id = (doc or {}).get("nvpro_ndoc")
+    supplier = (
+        get_supplier_by_tax_id(tax_id)
+        if data is None
+        else data.references.supplier_by_tax_id(tax_id)
+    )
+    return resolve_delivery(
+        doc,
+        source.delivery_types(),
+        source.supplier_items(supplier),
+        source.master_items(),
+    )
+
+
+def make_delivery_order_predicate(data=None):
+    """Predicado barato: la OC coincide con algun codigo de delivery.
+
+    Carga los tipos UNA vez; se usa en validaciones y auto-rechazo, donde solo
+    importa saber si la factura es de delivery (no el producto).
+    """
+    from qp_supplier_front.infrastructure.adapters.delivery_source import (
+        resolve_delivery_source,
+    )
+
+    delivery_types = resolve_delivery_source(
+        data=data, frappe_module=frappe
+    ).delivery_types()
+
+    def is_delivery_order(doc):
+        return find_delivery_type(
+            (doc or {}).get("nvfac_orde"), delivery_types
+        ) is not None
+
+    return is_delivery_order
+
+
 def get_lines(doc):
     """Resuelve las lineas que alimentan el payload BC para una factura.
 
@@ -105,16 +167,17 @@ def get_lines(doc):
     - error: mensaje si la factura no puede generar lineas (vacio si ok).
 
     Fuente de lineas (los productos ya NO requieren homologacion en BC):
-    - Home delivery (`nvfac_orde` = entregapaciente009): UNA linea con el
-      producto configurado en qp_SP_MasterSetup.home_delivery_item y la
-      cantidad/subtotal acumulados de la factura.
+    - Delivery (`nvfac_orde` contiene el code de un qp_SP_DeliveryType): UNA
+      linea con el producto configurado en el proveedor o, en su defecto, en
+      qp_SP_MasterSetup; se acumulan cantidad y subtotal de la factura.
     - Si la OC tiene recepciones: se usan los Purchase Receipt Items (codigo
       ya BC).
     - Si no hay recepciones pero hay OC: se usan los Purchase Order Items.
-    - Sin OC ni recepciones: error (salvo home delivery).
+    - Sin OC ni recepciones: error (salvo delivery).
     """
-    if is_home_delivery(doc):
-        return get_home_delivery_lines(doc)
+    delivery = get_delivery_context(doc)
+    if delivery is not None:
+        return get_delivery_lines(doc, delivery)
 
     purchase_order = doc.get("nvfac_orde")
     receipt_lines = get_lines_from_receipts(purchase_order)
@@ -200,36 +263,48 @@ def get_lines_from_purchase_order(purchase_order):
     ]
 
 
-def get_home_delivery_lines(doc):
-    """Linea unica de una factura de home delivery (producto configurado).
+def _delivery_error(delivery):
+    delivery_type = (delivery or {}).get("delivery_type") or {}
+    return (
+        "No hay producto configurado para el tipo de delivery '{}' ({}). "
+        "Configure el producto en el proveedor o en "
+        "qp_SP_MasterSetup.delivery_items"
+    ).format(
+        delivery_type.get("title") or delivery_type.get("name") or "",
+        delivery_type.get("name") or "",
+    )
 
-    El producto sale de qp_SP_MasterSetup.home_delivery_item. Si no esta
-    configurado o la factura no tiene lineas, la factura queda en error (no se
-    envia) para que el usuario complete la configuracion.
+
+def get_delivery_lines(doc, delivery):
+    """Linea unica de una factura de delivery (producto configurado).
+
+    El producto se resuelve primero en el proveedor y luego en
+    qp_SP_MasterSetup. Si no esta configurado o la factura no tiene lineas,
+    la factura queda en error (no se envia) para que el usuario complete la
+    configuracion.
     """
     from qp_supplier_front.infrastructure.adapters.item_homologation_adapter import (
         get_invoice_detail_lines,
     )
-    from qp_supplier_front.infrastructure.adapters.master_setup_source import (
-        resolve_master_setup_source,
-    )
 
-    item_code = resolve_master_setup_source(
-        frappe_module=frappe
-    ).home_delivery_item()
+    item_code = (delivery or {}).get("item_code")
     if not item_code:
-        return [], (
-            "No hay producto configurado para las facturas de home delivery "
-            "(qp_SP_MasterSetup.home_delivery_item)"
-        )
+        return [], _delivery_error(delivery)
 
     detail_lines = get_invoice_detail_lines(doc.get("name"))
     line = build_home_delivery_line(detail_lines, item_code)
     if line is None:
+        delivery_type = (delivery or {}).get("delivery_type") or {}
         return [], (
-            "La factura de home delivery no tiene lineas de detalle para enviar"
-        )
+            "La factura del tipo de delivery '{}' no tiene lineas de detalle "
+            "para enviar"
+        ).format(delivery_type.get("title") or delivery_type.get("name") or "")
     return [line], ""
+
+
+def get_home_delivery_lines(doc):
+    """Compatibilidad: lineas de una factura de delivery."""
+    return get_delivery_lines(doc, get_delivery_context(doc))
 
 
 def get_lines_for_receipts(doc, receipt_names):
@@ -288,17 +363,20 @@ def get_bc_comment(doc, data=None):
 def _with_bc_comment(build_invoice_fn, data=None):
     """Envuelve el builder BC inyectando el comentario marcado en el doc.
 
-    En facturas de home delivery SIEMPRE se agrega el comentario
-    "Factura de home delivery" (ademas del comentario manual marcado, si lo
-    hay) y se limpia el campo OC: `entregapaciente009` es un marcador, no una
-    orden de compra real.
+    En facturas de delivery SIEMPRE se agrega el comentario configurado en
+    qp_SP_DeliveryType.description (ademas del comentario manual marcado, si
+    lo hay) y se limpia el campo OC: el code de delivery es un marcador, no
+    una orden de compra real.
     """
     def build(doc, lines, headquarter):
         enriched = dict(doc)
         entry = get_bc_comment_entry(doc, data)
         comment = entry.get("message") or ""
-        if is_home_delivery(doc):
-            comment = _merge_home_delivery_comment(comment)
+        delivery_type = get_delivery_type(doc, data)
+        if delivery_type is not None:
+            comment = _merge_delivery_comment(
+                comment, get_delivery_comment(delivery_type)
+            )
             enriched["nvfac_orde"] = ""
         enriched["qp_bc_comment"] = comment
         enriched["qp_bc_comment_url"] = entry.get("attachment_file_url") or ""
@@ -306,14 +384,22 @@ def _with_bc_comment(build_invoice_fn, data=None):
     return build
 
 
-def _merge_home_delivery_comment(comment):
-    """Combina el comentario de home delivery con el comentario manual."""
+def _merge_delivery_comment(comment, delivery_comment):
+    """Combina el comentario del tipo de delivery con el comentario manual."""
+    delivery_comment = (delivery_comment or "").strip()
     comment = comment or ""
-    if HOME_DELIVERY_COMMENT in comment:
+    if not delivery_comment:
+        return comment
+    if delivery_comment in comment:
         return comment
     if not comment:
-        return HOME_DELIVERY_COMMENT
-    return "{}. {}".format(HOME_DELIVERY_COMMENT, comment)
+        return delivery_comment
+    return "{}. {}".format(delivery_comment, comment)
+
+
+def _merge_home_delivery_comment(comment):
+    """Compatibilidad: comentario legacy de home delivery + comentario manual."""
+    return _merge_delivery_comment(comment, HOME_DELIVERY_COMMENT)
 
 
 def po_exists(purchase_order):
@@ -1487,7 +1573,7 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         get_lines_for_receipts_fn=get_lines_for_receipts_fn,
         po_supplier_match_fn=cb.get("po_supplier_match_fn", po_supplier_match),
         is_home_delivery_fn=(
-            None if backend == "GP" else is_home_delivery
+            None if backend == "GP" else make_delivery_order_predicate(data)
         ),
         cash_without_po_blocks=(backend != "GP"),
     )
@@ -1580,7 +1666,9 @@ def collect_document_violations(doc_names, backend="BC"):
         if backend == "GP" else None
     )
     po_supplier_match_fn = cb.get("po_supplier_match_fn", po_supplier_match)
-    is_home_delivery_fn = None if backend == "GP" else is_home_delivery
+    is_home_delivery_fn = (
+        None if backend == "GP" else make_delivery_order_predicate(data)
+    )
     docs = get_docs_fn(doc_names)
     violations = collect_registrable_violations(
         docs,
@@ -1681,10 +1769,11 @@ def _build_manual_receipt_selection(doc_names, backend="BC"):
     receipt_bank_fn = cb.get("receipt_bank_fn", receipt_bank)
     is_service_supplier_fn = cb.get("is_service_supplier_fn", is_service_supplier_doc)
     claim_fn = components.get("claim_receipts_fn")
+    is_delivery_order = make_delivery_order_predicate(data)
 
     selection = {}
     for doc in get_docs_fn(doc_names):
-        if is_home_delivery(doc):
+        if is_delivery_order(doc):
             continue
         if is_credit_note(doc.get("nvtip_docu")):
             continue

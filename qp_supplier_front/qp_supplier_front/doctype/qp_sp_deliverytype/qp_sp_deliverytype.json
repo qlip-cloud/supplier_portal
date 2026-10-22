@@ -1,0 +1,77 @@
+{
+ "actions": [],
+ "autoname": "prompt",
+ "creation": "2026-10-22 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "code",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "in_standard_filter": 1,
+   "label": "T\u00edtulo",
+   "reqd": 1
+  },
+  {
+   "description": "Valor esperado en el campo de la orden de compra de la factura. Se compara sin distinguir may\u00fasculas y por coincidencia parcial.",
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "C\u00f3digo en OC",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "description": "Texto que se enviar\u00e1 a BC como comentario de las l\u00edneas de la factura para este tipo de delivery.",
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Descripci\u00f3n / comentario BC"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-22 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_DeliveryType",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Alpla Administrator",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "title_field": "title",
+ "track_changes": 1
+}
