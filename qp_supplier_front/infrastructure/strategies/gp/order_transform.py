@@ -122,6 +122,18 @@ def build_order_records(orders_data, items_valid, now, company, strategy):
     return docs, items, errors, doc_errors
 
 
+_MONETARY_TOTAL_FIELDS = (
+    "total",
+    "net_total",
+    "grand_total",
+    "rounded_total",
+    "base_total",
+    "base_net_total",
+    "base_grand_total",
+    "base_rounded_total",
+)
+
+
 def _set_doc_totals(docs, items):
     """
     Calcula los totales del documento a partir de sus lineas.
@@ -141,20 +153,11 @@ def _set_doc_totals(docs, items):
 
     for doc_id, doc in docs.items():
         total, total_qty = totals.get(doc_id, (0.0, 0.0))
-        docs[doc_id] = doc + (
-            total,
-            total,
-            total,
-            total,
-            total,
-            total,
-            total,
-            total,
-            total_qty,
-            0,
-            0,
-            0,
-        )
+        docs[doc_id] = doc + _build_doc_totals(total, total_qty)
+
+
+def _build_doc_totals(total, total_qty):
+    return (total,) * len(_MONETARY_TOTAL_FIELDS) + (total_qty, 0, 0, 0)
 
 
 def _to_float(value):
