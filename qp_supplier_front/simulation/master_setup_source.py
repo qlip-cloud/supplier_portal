@@ -38,9 +38,6 @@ class MemoryMasterSetupSource(object):
     def documenteme_backend(self):
         return self._value("documenteme_backend")
 
-    def home_delivery_item(self):
-        return self._value("home_delivery_item")
-
     def reject_config(self):
         return {
             "max_attempts": int(self._value("reject_retry_max_attempts")

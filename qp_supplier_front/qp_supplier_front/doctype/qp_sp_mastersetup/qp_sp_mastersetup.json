@@ -13,7 +13,6 @@
     "auto_approve",
     "documenteme_simulation",
     "documenteme_backend",
-    "home_delivery_item",
     "delivery_items",
     "collection_invoices_simulation",
     "sede_source_doctype",
@@ -87,13 +86,6 @@
      "label": "Backend de creación de facturas",
      "description": "Backend de origen de las peticiones de creación de factura al aprobar (BC o GP). Es el valor predeterminado del selector manual de aprobación.",
      "options": "BC\nGP"
-    },
-    {
-     "fieldname": "home_delivery_item",
-     "fieldtype": "Link",
-     "label": "Producto factura home delivery",
-     "options": "Item",
-     "description": "Obsoleto: use la tabla 'Productos por tipo de delivery'. Se conserva solo para migrar la configuración existente."
     },
     {
      "fieldname": "delivery_items",

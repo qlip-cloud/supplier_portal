@@ -53,19 +53,6 @@ class RealMasterSetupSource(object):
         return frappe.db.get_single_value(
             MASTER_SETUP_DOCTYPE, "documenteme_backend")
 
-    def home_delivery_item(self):
-        """Producto BC configurado para las facturas de home delivery.
-
-        Tolera que la columna no exista aun (bench migrate pendiente): en ese
-        caso devuelve None en lugar de romper la aprobacion.
-        """
-        frappe = self._frappe_module()
-        try:
-            return frappe.db.get_single_value(
-                MASTER_SETUP_DOCTYPE, "home_delivery_item")
-        except Exception:
-            return None
-
     def reject_config(self):
         frappe = self._frappe_module()
         return {
