@@ -117,7 +117,51 @@ def build_order_records(orders_data, items_valid, now, company, strategy):
                 "message": json.dumps(doc_new),
             })
 
+    _set_doc_totals(docs, items)
+
     return docs, items, errors, doc_errors
+
+
+def _set_doc_totals(docs, items):
+    """
+    Calcula los totales del documento a partir de sus lineas.
+
+    El INSERT crudo no ejecuta los controladores de ERPNext, por lo que
+    net_total, total y grand_total quedarian en 0. Se replican aqui los
+    valores que ERPNext calcula al guardar (rate=unitCost, qty=1).
+    """
+    totals = {}
+
+    for item in items.values():
+        parent = item[7]
+        amount = _to_float(item[10])
+        qty = _to_float(item[3])
+        total, total_qty = totals.get(parent, (0.0, 0.0))
+        totals[parent] = (total + amount, total_qty + qty)
+
+    for doc_id, doc in docs.items():
+        total, total_qty = totals.get(doc_id, (0.0, 0.0))
+        docs[doc_id] = doc + (
+            total,
+            total,
+            total,
+            total,
+            total,
+            total,
+            total,
+            total,
+            total_qty,
+            0,
+            0,
+            0,
+        )
+
+
+def _to_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _build_doc_id(doc_new, request_key_id):

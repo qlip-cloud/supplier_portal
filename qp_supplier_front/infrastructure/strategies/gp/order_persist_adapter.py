@@ -16,7 +16,10 @@ def insert_orders(docs, now):
     doc_fields = (
         "(name, qp_order_id, qp_create_date, supplier, qp_due_date, "
         "transaction_date, schedule_date, company, creation, modified, "
-        "modified_by, owner)"
+        "modified_by, owner, total, net_total, grand_total, rounded_total, "
+        "base_total, base_net_total, base_grand_total, base_rounded_total, "
+        "total_qty, total_taxes_and_charges, base_total_taxes_and_charges, "
+        "rounding_adjustment)"
     )
     create_doc(docs, doc_fields, table)
 
