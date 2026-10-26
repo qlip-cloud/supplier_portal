@@ -73,29 +73,156 @@ def create_first_contact(supplier, email = None):
     
     user = candidate if frappe.db.exists("User", candidate) else None
     
-    contact_name = frappe.get_value(doctype, filters = {"user": user}) if user else None
+    contact = _find_first_contact(supplier, candidate, user)
     
-    if contact_name:
-    
-        contact = frappe.get_doc(doctype, contact_name)
+    if contact:
         
         set_contact(doctype, contact, supplier, candidate)
         
         contact.save()
+    
+    else:
         
-        return contact
-        
-    contact = create_contact(supplier, doctype, supplier.supplier_name, candidate, qp_contact_type=None, user=user)
+        contact = create_contact(supplier, doctype, supplier.supplier_name, candidate, qp_contact_type=None, user=user)
+    
+    _remove_orphan_contact_duplicates(candidate, contact)
     
     return contact
 
+def _normalize_key(value):
+    
+    return (value or "").strip().lower()
+
+def _contact_has_email(contact, email_id):
+    
+    if not email_id:
+        
+        return False
+    
+    if _normalize_key(contact.get("email_id")) == _normalize_key(email_id):
+        
+        return True
+    
+    return any(
+        _normalize_key(row.get("email_id")) == _normalize_key(email_id)
+        for row in (contact.get("email_ids") or [])
+    )
+
+def _find_supplier_contact_by_email(supplier, email_id):
+    
+    if not email_id:
+        
+        return None
+    
+    for contact in get_dynamic_link(supplier, "Contact"):
+        
+        if _contact_has_email(contact, email_id):
+            
+            return contact
+    
+    return None
+
+def _find_orphan_contact_by_email(email_id):
+    
+    if not email_id:
+        
+        return None
+    
+    rows = frappe.db.sql("""
+        SELECT DISTINCT ce.parent
+        FROM `tabContact Email` ce
+        WHERE LOWER(ce.email_id) = LOWER(%s)
+    """, (email_id,), as_dict=False)
+    
+    for row in rows:
+        
+        contact = frappe.get_doc("Contact", row[0])
+        
+        is_linked_to_supplier = any(
+            link.get("link_doctype") == "Supplier"
+            for link in (contact.get("links") or [])
+        )
+        
+        if not is_linked_to_supplier:
+            
+            return contact
+    
+    return None
+
+def _find_first_contact(supplier, candidate, user):
+    
+    existing = _find_supplier_contact_by_email(supplier, candidate)
+    
+    if existing:
+        
+        return existing
+    
+    if user:
+        
+        contact_name = frappe.get_value("Contact", filters = {"user": user})
+        
+        if contact_name:
+            
+            return frappe.get_doc("Contact", contact_name)
+    
+    return _find_orphan_contact_by_email(candidate)
+
+def _remove_orphan_contact_duplicates(candidate, kept_contact):
+    
+    if not candidate:
+        
+        return
+    
+    rows = frappe.db.sql("""
+        SELECT name
+        FROM `tabContact`
+        WHERE LOWER(user) = LOWER(%s)
+           OR name IN (
+               SELECT parent FROM `tabContact Email`
+               WHERE LOWER(email_id) = LOWER(%s)
+           )
+    """, (candidate, candidate), as_dict=False)
+    
+    for row in rows:
+        
+        name = row[0]
+        
+        if name == kept_contact.name:
+            
+            continue
+        
+        try:
+            
+            contact = frappe.get_doc("Contact", name)
+            
+        except Exception:
+            
+            continue
+        
+        if contact.get("links"):
+            
+            continue
+        
+        try:
+            
+            frappe.delete_doc("Contact", name, ignore_permissions=True)
+            
+        except Exception:
+            
+            continue
+
 def set_contact(doctype, contact, supplier, email_id, phone = None):
     
-    contact.append("email_ids", {
-        "email_id": email_id
-    })
+    if email_id and not _contact_has_email(contact, email_id):
+        
+        contact.append("email_ids", {
+            "email_id": email_id
+        })
     
-    if (phone):
+    if (phone) and not any(
+        (row.get("phone") or "").strip() == phone.strip()
+        for row in (contact.get("phone_nos") or [])
+    ):
         contact.append("phone_nos", {
             "phone": phone
         })
