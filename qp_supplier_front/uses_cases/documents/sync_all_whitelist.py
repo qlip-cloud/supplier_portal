@@ -103,6 +103,7 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
         "created": created_names,
         "approved": (approve_result or {}).get("approved") or [],
         "enqueued": (approve_result or {}).get("enqueued") or 0,
+        "already_queued": (approve_result or {}).get("already_queued") or False,
     }
 
 
@@ -210,6 +211,7 @@ def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
             "rejected": (reject_result or {}).get("rejected") or [],
             "approved": sync_result["approved"],
             "enqueued": sync_result.get("enqueued", 0),
+            "already_queued": sync_result.get("already_queued", False),
         }
     except Exception as e:
         frappe.db.rollback()
@@ -258,6 +260,7 @@ def refresh_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
             "rejected": (reject_result or {}).get("rejected") or [],
             "approved": sync_result["approved"],
             "enqueued": sync_result.get("enqueued", 0),
+            "already_queued": sync_result.get("already_queued", False),
         }
     except Exception as e:
         frappe.db.rollback()
@@ -265,6 +268,13 @@ def refresh_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
         return {"success": False, "error": "Internal error"}
     finally:
         sync_lock.release(DOCUMENTS_LOCK_DOMAIN, token)
+
+
+@frappe.whitelist()
+def unlock_documents_sync():
+    """Desbloqueo manual del sync global (lock colgado sin worker/crash)."""
+    sync_lock.force_release(DOCUMENTS_LOCK_DOMAIN)
+    return {"success": True, "locked": False}
 
 
 @frappe.whitelist()

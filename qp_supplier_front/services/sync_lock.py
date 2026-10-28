@@ -26,6 +26,7 @@ import uuid
 
 LOCK_PREFIX = "qp_supplier_front:sync_lock"
 DEFAULT_TTL = 5 * 60
+STALE_AFTER = 2 * 60
 WAIT_INTERVAL = 10
 
 
@@ -74,6 +75,18 @@ def _is_expired(payload):
     return _now() > (payload.get("expires_at") or 0)
 
 
+def _is_stale(payload):
+    """Sin heartbeat reciente: el dueno murio (proceso/worker caido).
+
+    Permite recuperar el lock en STALE_AFTER segundos en lugar de esperar el
+    TTL completo. Un proceso vivo renueva `updated_at` con heartbeat.
+    """
+    updated_at = payload.get("updated_at") or payload.get("started_at") or 0
+    if not updated_at:
+        return True
+    return (_now() - updated_at) > (STALE_AFTER * 1000)
+
+
 def _delete(key):
     try:
         frappe_cache().delete(key)
@@ -103,8 +116,9 @@ def acquire(domain, ttl=DEFAULT_TTL, owner=None):
             except Exception:
                 ttl_left = -1
             no_ttl = ttl_left is not None and ttl_left == -1
-            if no_ttl or payload is None or _is_expired(payload):
-                # colgado: sin TTL, valor ilegible (formato viejo) o lease vencido
+            if no_ttl or payload is None or _is_expired(payload) or _is_stale(payload):
+                # colgado: sin TTL, valor ilegible (formato viejo), lease vencido
+                # o sin heartbeat reciente (proceso/worker muerto)
                 _delete(key)
             else:
                 return None
@@ -175,7 +189,7 @@ def release_if_stale(domain):
         except Exception:
             ttl_left = -1
         no_ttl = ttl_left is not None and ttl_left == -1
-        if no_ttl or payload is None or _is_expired(payload):
+        if no_ttl or payload is None or _is_expired(payload) or _is_stale(payload):
             _delete(key)
     except Exception:
         pass
@@ -198,7 +212,7 @@ def is_locked(domain):
                 return False
 
         payload = _decode(raw)
-        return payload is not None and not _is_expired(payload)
+        return payload is not None and not _is_expired(payload) and not _is_stale(payload)
     except Exception:
         return False
 
@@ -216,7 +230,7 @@ def get_status(domain):
         if raw is None:
             return None
         payload = _decode(raw)
-        if payload is None or _is_expired(payload):
+        if payload is None or _is_expired(payload) or _is_stale(payload):
             return None
         return payload
     except Exception:

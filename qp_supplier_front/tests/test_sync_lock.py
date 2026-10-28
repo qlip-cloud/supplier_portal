@@ -89,7 +89,7 @@ class TestSyncLock(unittest.TestCase):
 
     def test_acquire_steals_old_plain_lock(self):
         # Lock con formato viejo (valor "1") y sin TTL => colgado => se roba
-        self.cache.set("orders", "1", nx=False)
+        self.cache.set(lock_mod._key("orders"), "1", nx=False)
         payload = lock_mod.acquire("orders")
         self.assertIsNotNone(payload)
         self.assertTrue(lock_mod.is_locked("orders"))
@@ -99,9 +99,41 @@ class TestSyncLock(unittest.TestCase):
         import time as _time
         past = int(_time.time() * 1000) - 60000
         stale = {"token": "x", "owner": "otro", "expires_at": past}
-        self.cache.set("orders", json.dumps(stale), nx=False, ex=10)
+        self.cache.set(lock_mod._key("orders"), json.dumps(stale), nx=False, ex=10)
         payload = lock_mod.acquire("orders")
         self.assertIsNotNone(payload)
+        self.assertTrue(lock_mod.is_locked("orders"))
+
+    def test_acquire_steals_stale_heartbeat(self):
+        # Lease vigente pero sin heartbeat reciente => dueno muerto => se roba
+        import json
+        import time as _time
+        now = int(_time.time() * 1000)
+        stale = {
+            "token": "x",
+            "owner": "otro",
+            "started_at": now - (lock_mod.STALE_AFTER * 1000) - 1000,
+            "updated_at": now - (lock_mod.STALE_AFTER * 1000) - 1000,
+            "expires_at": now + 60000,
+        }
+        self.cache.set(lock_mod._key("orders"), json.dumps(stale), nx=False, ex=300)
+        payload = lock_mod.acquire("orders")
+        self.assertIsNotNone(payload)
+        self.assertNotEqual(payload["token"], "x")
+
+    def test_heartbeat_prevents_stale_steal(self):
+        import json
+        import time as _time
+        now = int(_time.time() * 1000)
+        live = {
+            "token": "x",
+            "owner": "otro",
+            "started_at": now - 600000,
+            "updated_at": now - 1000,
+            "expires_at": now + 60000,
+        }
+        self.cache.set(lock_mod._key("orders"), json.dumps(live), nx=False, ex=300)
+        self.assertIsNone(lock_mod.acquire("orders"))
         self.assertTrue(lock_mod.is_locked("orders"))
 
     def test_is_locked(self):
