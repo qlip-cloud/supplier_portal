@@ -60,6 +60,8 @@ def _real_bundle():
         "sync_tax_id_fn": sync_all_whitelist.get_company_tax_id,
         "approve_send_fn": _approve_base.send_purchase_invoice_request,
         "approve_send_gp_fn": _approve_base.send_purchase_invoice_request_gp,
+        "super_approvers_fn": _approve_base.get_super_approvers,
+        "mark_pending_super_fn": _approve_base.mark_pending_super,
         "event_http_fn": auto_reject.raw_http,
         "company_tax_id_fn": documenteme_http_adapter.get_company_tax_id,
         "event_endpoint_fn": documenteme_http_adapter.get_event_endpoint,
@@ -122,6 +124,10 @@ def _simulated_bundle():
         "sync_tax_id_fn": lambda _company_id: simulation.get_company_tax_id(),
         "approve_send_fn": simulation.send_purchase_invoice_request,
         "approve_send_gp_fn": simulation.send_purchase_invoice_request_gp,
+        "super_approvers_fn": _bind(
+            documents_memory.memory_get_super_approvers),
+        "mark_pending_super_fn": _bind(
+            documents_memory.memory_mark_pending_super),
         "event_http_fn": simulation.http_event,
         "company_tax_id_fn": simulation.get_company_tax_id,
         "event_endpoint_fn": simulation.get_event_endpoint,
@@ -136,6 +142,7 @@ def _simulated_bundle():
         "claimed_invoice_numbers_fn": _bind(
             references_memory.memory_claimed_invoice_numbers),
         "approve_callbacks": {
+            "current_user_fn": lambda: "Administrator",
             "get_docs_fn": _bind(documents_memory.memory_get_docs),
             "get_lines_fn": _bind(documents_memory.memory_get_lines),
             "get_lines_gp_fn": _bind(references_memory.memory_get_lines_gp),

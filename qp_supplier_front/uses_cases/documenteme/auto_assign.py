@@ -35,6 +35,9 @@ from qp_supplier_front.uses_cases.documenteme.conversion import (
     is_cash_invoice,
     is_credit_note,
 )
+from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
+    parse_purchase_orders,
+)
 
 NO_APLICA = "No aplica"
 
@@ -237,6 +240,31 @@ def _service_supplier(invoice, is_service_supplier_fn):
     )
 
 
+def _pool_receipt_bank(get_receipt_bank_fn, orders):
+    """Recepciones de todas las OC de la factura, sin duplicar por nombre."""
+    pooled = []
+    seen = set()
+    for order in (orders or []):
+        for receipt in (get_receipt_bank_fn(order) or []):
+            name = receipt.get("name")
+            if name in seen:
+                continue
+            seen.add(name)
+            pooled.append(receipt)
+    return pooled
+
+
+def _order_is_valid(invoice, order, po_exists_fn, po_supplier_match_fn):
+    """True si la OC existe y pertenece al proveedor de la factura."""
+    if po_exists_fn is not None and not po_exists_fn(order):
+        return False
+    if po_supplier_match_fn is not None:
+        probe = dict(invoice)
+        probe["nvfac_orde"] = order
+        return bool(po_supplier_match_fn(probe))
+    return True
+
+
 def auto_assign(
     candidates_fn,
     get_oc_context_fn,
@@ -265,7 +293,13 @@ def auto_assign(
         if _service_supplier(invoice, is_service_supplier_fn):
             continue
 
-        bank = get_receipt_bank_fn(invoice.get("nvfac_orde"))
+        orders = parse_purchase_orders(invoice.get("nvfac_orde"))
+        valid_orders = [
+            order for order in orders
+            if _order_is_valid(
+                invoice, order, po_exists_fn, po_supplier_match_fn)
+        ]
+        bank = _pool_receipt_bank(get_receipt_bank_fn, valid_orders)
         has_receipt = bool(bank)
 
         cash = is_cash_invoice(invoice.get("nvfac_conv"))
@@ -275,27 +309,34 @@ def auto_assign(
                 invoice,
                 resolve_rule_fn,
                 po_exists_fn,
-                lambda po: get_receipt_bank_fn(po) or None,
+                lambda po: _pool_receipt_bank(
+                    get_receipt_bank_fn, parse_purchase_orders(po)
+                ) or None,
                 po_supplier_match_fn=po_supplier_match_fn,
             ):
                 continue
         elif not should_auto_assign(invoice, bank, epsilon):
             continue
 
-        oc_context = get_oc_context_fn(invoice.get("nvfac_orde"))
-
-        if oc_context:
-            emails = resolve_emails_fn(
+        emails = []
+        found_context = False
+        for order in valid_orders:
+            oc_context = get_oc_context_fn(order)
+            if not oc_context:
+                continue
+            found_context = True
+            emails += resolve_emails_fn(
                 oc_context.get("oc_type"),
                 oc_context.get("headquarter"),
                 has_receipt=has_receipt,
-            )
-        elif cash:
-            # Contado sin OC: destinatarios de la fila catch-all.
-            emails = resolve_emails_fn(None, None, has_receipt=has_receipt)
-        else:
+            ) or []
+        # Contado sin OC: destinatarios de la fila catch-all.
+        if not orders and cash:
+            emails = resolve_emails_fn(None, None, has_receipt=has_receipt) or []
+        elif not found_context:
             continue
 
+        emails = _dedupe(emails)
         if not emails:
             continue
 

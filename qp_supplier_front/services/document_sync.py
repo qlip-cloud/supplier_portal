@@ -215,7 +215,7 @@ def create_detail_line(detalle_item):
     return line
 
 
-ADVANCED_STATES = ("SR", "BCC", "PA", "A", "R")
+ADVANCED_STATES = ("SR", "PSA", "BCC", "PA", "A", "R")
 
 
 def _resolve_sync_state(current_state, origin_state, origin_ueve):

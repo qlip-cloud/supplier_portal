@@ -45,6 +45,29 @@ def is_sede_documenteme(user_roles):
     return ROLE_SEDE_DOCUMENTEME in roles and not can_see_all_documenteme(roles)
 
 
+def is_configured_super_approver(rows, user):
+    """True si el usuario figura en la config de superaprobadores."""
+    from qp_supplier_front.uses_cases.documenteme.super_approval import (
+        is_super_approver,
+        normalize_rows,
+    )
+
+    return is_super_approver(normalize_rows(rows), user)
+
+
+def can_super_approve_current_user():
+    """Flag para el template: usuario de sesion vs config real."""
+    import frappe
+
+    from qp_supplier_front.infrastructure.adapters.master_setup_source import (
+        RealMasterSetupSource,
+    )
+
+    return is_configured_super_approver(
+        RealMasterSetupSource().super_approvers(), frappe.session.user
+    )
+
+
 def get_assigned_sync_lines_filters(
     user_roles, user, assigned_line_names_fn, filters=None
 ):

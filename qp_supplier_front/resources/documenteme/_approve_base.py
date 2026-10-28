@@ -50,8 +50,14 @@ from qp_supplier_front.uses_cases.documenteme.home_delivery import (
     get_delivery_comment,
     resolve_delivery,
 )
+from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
+    parse_purchase_orders,
+)
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
     unconsumed_receipts,
+)
+from qp_supplier_front.uses_cases.documenteme.super_approval import (
+    STATE_SUPER_APPROVAL,
 )
 
 ALLOWED_ROLES = {"Administrador Documenteme", "Administrador Sede Documenteme"}
@@ -60,6 +66,13 @@ ALLOWED_ROLES = {"Administrador Documenteme", "Administrador Sede Documenteme"}
 def _has_permission(user_roles):
     active = get_active_role(user_roles)
     return active in ALLOWED_ROLES
+
+
+def _session_user():
+    try:
+        return frappe.session.user
+    except Exception:
+        return None
 
 
 def _make_now():
@@ -92,6 +105,7 @@ def get_docs(doc_names):
             "nvfac_stot",
             "nvfac_viva",
             "nvpro_nomb",
+            "document_sync_line",
             "qp_ref_invoice",
             "qp_ref_date_start",
             "qp_ref_date_end",
@@ -194,27 +208,40 @@ def get_lines(doc):
 
 
 def get_lines_from_receipts(purchase_order, receipt_names=None):
-    """Lineas desde los Purchase Receipt Items de una OC (codigo ya BC).
+    """Lineas desde los Purchase Receipt Items de una o varias OC.
+
+    `purchase_order` puede traer varias OC separadas por coma. El `order_no`
+    de cada linea se deriva del `qp_supplier_oc` del recibo (no del string
+    completo), para que cada linea lleve su propia OC al payload.
 
     Con receipt_names se restringe a SOLO esos recibos (seleccion manual del
     banco); sin el parametro conserva el comportamiento original (todos los
-    recibos de la OC).
+    recibos de las OC).
     """
-    if not purchase_order:
+    purchase_orders = parse_purchase_orders(purchase_order)
+    if not purchase_orders:
         return []
+    filters = {"qp_supplier_oc": purchase_orders[0]}
+    if len(purchase_orders) > 1:
+        filters = {"qp_supplier_oc": ["in", purchase_orders]}
     receipts = frappe.get_all(
         "Purchase Receipt",
-        filters={"qp_supplier_oc": purchase_order},
-        pluck="name",
+        filters=filters,
+        fields=["name", "qp_supplier_oc"],
     )
+    oc_by_receipt = {
+        row.get("name"): row.get("qp_supplier_oc") or ""
+        for row in receipts
+    }
+    names = list(oc_by_receipt)
     if receipt_names is not None:
         wanted = set(receipt_names)
-        receipts = [name for name in receipts if name in wanted]
-    if not receipts:
+        names = [name for name in names if name in wanted]
+    if not names:
         return []
     items = frappe.get_all(
         "Purchase Receipt Item",
-        filters={"parent": ["in", receipts], "parenttype": "Purchase Receipt"},
+        filters={"parent": ["in", names], "parenttype": "Purchase Receipt"},
         fields=["parent", "item_code", "qty", "rate", "idx", "uom"],
         order_by="parent, idx",
     )
@@ -226,7 +253,7 @@ def get_lines_from_receipts(purchase_order, receipt_names=None):
             "idx": item.get("idx") or 0,
             "uom": item.get("uom") or "",
             "receiving_no": item.get("parent") or "",
-            "order_no": purchase_order,
+            "order_no": oc_by_receipt.get(item.get("parent")) or "",
         }
         for item in items
     ]
@@ -237,16 +264,24 @@ def get_lines_from_purchase_order(purchase_order):
 
     Se usa cuando la factura tiene OC pero aun no tiene recepciones: el
     payload lleva la informacion de la OC (NoPedido) y NoRecepcion vacio.
+    Con varias OC cada linea conserva la suya.
     """
-    if not purchase_order:
+    purchase_orders = parse_purchase_orders(purchase_order)
+    if not purchase_orders:
         return []
+    filters = {
+        "parent": purchase_orders[0],
+        "parenttype": "Purchase Order",
+    }
+    if len(purchase_orders) > 1:
+        filters = {
+            "parent": ["in", purchase_orders],
+            "parenttype": "Purchase Order",
+        }
     items = frappe.get_all(
         "Purchase Order Item",
-        filters={
-            "parent": purchase_order,
-            "parenttype": "Purchase Order",
-        },
-        fields=["item_code", "qty", "rate", "idx", "uom"],
+        filters=filters,
+        fields=["parent", "item_code", "qty", "rate", "idx", "uom"],
         order_by="idx",
     )
     return [
@@ -257,7 +292,7 @@ def get_lines_from_purchase_order(purchase_order):
             "idx": item.get("idx") or 0,
             "uom": item.get("uom") or "",
             "receiving_no": "",
-            "order_no": purchase_order,
+            "order_no": item.get("parent") or purchase_orders[0],
         }
         for item in items
     ]
@@ -430,18 +465,31 @@ def po_supplier_match(doc):
 
 
 def get_headquarter(purchase_order):
-    if not purchase_order:
-        return ""
-    return frappe.db.get_value("Purchase Order", purchase_order, "qp_headquarter") or ""
+    """Sede de las OC. Con varias OC solo se devuelve una sede si coinciden;
+    si difieren (o no hay) se devuelve vacio para no forzar una sola sede."""
+    headquarters = _dedupe([
+        frappe.db.get_value("Purchase Order", order, "qp_headquarter") or ""
+        for order in parse_purchase_orders(purchase_order)
+    ])
+    headquarters = [headquarter for headquarter in headquarters if headquarter]
+    return headquarters[0] if len(headquarters) == 1 else ""
+
+
+def _dedupe(items):
+    unique = []
+    for item in (items or []):
+        if item and item not in unique:
+            unique.append(item)
+    return unique
 
 
 def receipts_total(purchase_order):
-    """Suma del total de Purchase Receipt por OC (delega en el adapter)."""
+    """Suma del total de Purchase Receipt por las OC (delega en el adapter)."""
     return _adapter_get_receipt_total(purchase_order, frappe_module=frappe)
 
 
 def receipt_bank(purchase_order):
-    """Banco de recepciones (name, amount, date, qp_invoice) por OC."""
+    """Banco de recepciones (name, amount, date, qp_invoice) por las OC."""
     return _adapter_get_receipt_bank(purchase_order, frappe_module=frappe)
 
 
@@ -526,24 +574,40 @@ def get_po_dates(purchase_order):
     Alimenta fechaRequerida/fechaPrometida de las lineas GP (todas iguales).
     Retorna (None, None) si la OC no existe o no tiene los campos.
     """
-    if not purchase_order:
+    orders = parse_purchase_orders(purchase_order)
+    if not orders:
         return None, None
     row = frappe.db.get_value(
-        "Purchase Order", purchase_order,
+        "Purchase Order", orders[0],
         ["transaction_date", "schedule_date"], as_dict=True,
     ) or {}
     return row.get("transaction_date"), row.get("schedule_date")
 
 
 def get_po_items_for_gp(purchase_order):
-    """Items de la OC con idx (noLineaRecepcion) para los productos GP."""
-    if not purchase_order:
+    """Items de las OC con idx (noLineaRecepcion) para los productos GP."""
+    orders = parse_purchase_orders(purchase_order)
+    if not orders:
         return []
-    return frappe.get_all(
+    filters = {"parent": orders[0], "parenttype": "Purchase Order"}
+    if len(orders) > 1:
+        filters = {
+            "parent": ["in", orders],
+            "parenttype": "Purchase Order",
+        }
+    items = frappe.get_all(
         "Purchase Order Item",
-        filters={"parent": purchase_order, "parenttype": "Purchase Order"},
-        fields=["item_code", "idx", "uom"],
-        order_by="idx",
+        filters=filters,
+        fields=["parent", "item_code", "idx", "uom"],
+        order_by="parent, idx",
+    )
+    position = {order: index for index, order in enumerate(orders)}
+    return sorted(
+        items,
+        key=lambda item: (
+            position.get(item.get("parent"), len(position)),
+            item.get("idx") or 0,
+        ),
     )
 
 
@@ -1132,6 +1196,79 @@ def mark_error(doc, error):
     insert_alert(doc.get("name"), error, _make_now(), alert_type="ErrorUrgente")
 
 
+def get_super_approvers():
+    """Configuracion de superaprobadores del MasterSetup (modo real)."""
+    from qp_supplier_front.infrastructure.adapters.master_setup_source import (
+        RealMasterSetupSource,
+    )
+    return RealMasterSetupSource(frappe_module=frappe).super_approvers()
+
+
+def _assign_supervisors(doc, supervisors):
+    sync_line = doc.get("document_sync_line") or doc.get("nvfac_nume")
+    if not sync_line or not supervisors:
+        return
+    if not frappe.db.exists("qp_SP_DocumentSyncLine", sync_line):
+        return
+    from qp_supplier_front.resources.documenteme.auto_assign import (
+        add_assignees,
+    )
+    add_assignees(sync_line, supervisors)
+
+
+def mark_pending_super(doc, classification, requested_by, now):
+    """Marca la factura "Por Autorizacion" y la asigna a los superaprobadores.
+
+    Persiste la diferencia detectada y el usuario que intento aprobar, deja
+    la transicion en el timeline y agrega a todos los superaprobadores
+    elegibles como asignados de la linea de sincronizacion.
+    """
+    from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+        RealTimelineAdapter,
+    )
+
+    fields = {
+        "qp_super_difference_amount": classification.get("difference_amount"),
+        "qp_super_difference_percentage": classification.get(
+            "difference_percentage"
+        ),
+        "qp_super_requested_by": requested_by,
+    }
+    name = doc.get("name")
+    adapter = RealTimelineAdapter(frappe_module=frappe)
+    current = frappe.db.get_value(
+        "qp_SP_DocumentDetail", name, "nvfac_esta"
+    )
+    if current != STATE_SUPER_APPROVAL:
+        adapter.set_state(
+            name, STATE_SUPER_APPROVAL, extra_fields=fields,
+            user=requested_by, now=now,
+        )
+    else:
+        frappe.db.set_value("qp_SP_DocumentDetail", name, fields)
+
+    try:
+        _assign_supervisors(doc, classification.get("supervisors"))
+    except Exception:
+        frappe.log_error(
+            message=frappe.get_traceback(),
+            title="Asignar superaprobadores documenteme",
+        )
+    insert_alert(
+        name,
+        "Requiere autorizacion del super aprobador. Diferencia: monto {0}, "
+        "{1}%.".format(
+            classification.get("difference_amount"),
+            round(classification.get("difference_percentage") or 0, 2),
+        ),
+        now,
+        alert_type="Alerta",
+    )
+
+    doc.update(fields)
+    doc["nvfac_esta"] = STATE_SUPER_APPROVAL
+
+
 def mark_duplicate_registered(doc, error, now):
     """Marca una factura duplicada como creada en BC y detiene el reintento.
 
@@ -1491,6 +1628,15 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
                 or send_purchase_invoice_request
     cb = components.get("approve_callbacks") or {}
     data = components.get("data")
+    super_approvers_fn = (
+        components.get("super_approvers_fn")
+        or cb.get("super_approvers_fn")
+    )
+    mark_pending_super_fn = (
+        components.get("mark_pending_super_fn")
+        or cb.get("mark_pending_super_fn")
+    )
+    current_user = cb.get("current_user_fn", _session_user)()
     is_service_supplier_fn = None
     resolve_supplier_rule_fn = None
     if backend == "GP":
@@ -1576,6 +1722,9 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
             None if backend == "GP" else make_delivery_order_predicate(data)
         ),
         cash_without_po_blocks=(backend != "GP"),
+        super_approvers_fn=super_approvers_fn,
+        mark_pending_super_fn=mark_pending_super_fn,
+        current_user=current_user,
     )
 
     on_batch_approved = components["on_batch_approved_fn"]
@@ -1726,24 +1875,33 @@ def collect_document_violations(doc_names, backend="BC"):
 
 
 def _active_invoice_count(purchase_order, data=None):
-    """Numero de facturas documenteme activas (E/V/T) de una orden de compra.
+    """Numero de facturas documenteme activas (E/V/T) que comparten alguna OC.
 
-    Se usa para el caso relajado de auto-aplicacion de recepciones: la OC
-    debe estar asociada a una sola factura activa.
+    Se usa para el caso relajado de auto-aplicacion de recepciones: las OC de
+    la factura deben estar asociadas a una sola factura activa. Como una
+    factura puede traer varias OC, se comparan los conjuntos de OC en Python.
     """
-    filters = {
-        "nvfac_orde": purchase_order,
-        "nvfac_esta": ["in", list(ANALYSIS_STATES)],
-    }
-    if data is not None:
-        rows = data.get_all(
-            "qp_SP_DocumentDetail", filters=filters, fields=["name"]
+    orders = parse_purchase_orders(purchase_order)
+    if not orders:
+        return 0
+    get_all = data.get_all if data is not None else frappe.get_all
+    candidates = {}
+    for order in orders:
+        filters = {
+            "nvfac_esta": ["in", list(ANALYSIS_STATES)],
+            "nvfac_orde": ["like", "%{0}%".format(order)],
+        }
+        rows = get_all(
+            "qp_SP_DocumentDetail", filters=filters,
+            fields=["name", "nvfac_orde"],
         )
-    else:
-        rows = frappe.get_all(
-            "qp_SP_DocumentDetail", filters=filters, fields=["name"]
-        )
-    return len(rows or [])
+        for row in (rows or []):
+            candidates[row.get("name")] = row
+    wanted = set(orders)
+    return len([
+        row for row in candidates.values()
+        if wanted.intersection(parse_purchase_orders(row.get("nvfac_orde")))
+    ])
 
 
 def _build_manual_receipt_selection(doc_names, backend="BC"):
@@ -1854,6 +2012,25 @@ def run_approve(doc_names_raw, send_request_fn=None, force=False, backend="BC"):
             for err in errors
         )
         response(500, "Error al aprobar: {}".format(detail), result)
+        return
+
+    pending_super = result.get("pending_super") or []
+    if pending_super:
+        approved = result.get("approved") or []
+        if approved:
+            message = (
+                "Factura(s) aprobada(s). {} pendiente(s) de autorización del "
+                "super aprobador.".format(len(pending_super))
+            )
+        else:
+            difference = pending_super[0].get("difference_amount") or 0
+            message = (
+                "Documento está preparado. Pero requiere aprobación del "
+                "administrador debido a una diferencia de {}.".format(
+                    frappe.utils.fmt_money(difference)
+                )
+            )
+        response(200, message, result)
         return
 
     response(200, "Factura(s) aprobada(s) correctamente", result)

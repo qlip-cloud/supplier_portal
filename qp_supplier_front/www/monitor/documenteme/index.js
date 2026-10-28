@@ -105,9 +105,11 @@ $(document).ready(function () {
                     });
                 }
                 var serverErrors = (response.data && response.data.errors) || [];
-                if (serverErrors.length > 0) {
+                var pendingSuper = (response.data && response.data.pending_super) || [];
+                if (serverErrors.length > 0 || pendingSuper.length > 0) {
                     // Refrescar la lista: las facturas con error (ya existe en BC,
-                    // fallo de BC) cambian de estado y/o dejan alertas en el servidor.
+                    // fallo de BC) o pendientes de superaprobacion cambian de estado
+                    // y/o dejan alertas en el servidor.
                     window.filter_init();
                 }
             };
@@ -281,6 +283,7 @@ $(document).ready(function () {
         "BCC": "Creada en BC",
         "PA": "En proceso de aprobaci\u00f3n",
         "PR": "En proceso de rechazo",
+        "PSA": "Por Autorización",
         "SR": "Sin referencia",
         "T": ""
     };
