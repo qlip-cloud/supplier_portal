@@ -6,20 +6,31 @@ from qp_supplier_front.services.enrich_document_list import enrich_document_list
 from qp_supplier_front.services.documenteme_access import (
     get_assigned_sync_lines_filters,
     get_assigned_sync_line_names,
+    is_configured_super_approver,
     is_sede_documenteme,
-)
-from qp_supplier_front.uses_cases.documents.sync_all_whitelist import (
-    refresh_documents,
 )
 from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.services.flow_config import get_sync_backend
+
+
+def _super_config_rows(bundle):
+    if bundle.get("data") is not None:
+        from qp_supplier_front.simulation.master_setup_source import (
+            MemoryMasterSetupSource,
+        )
+        return MemoryMasterSetupSource(
+            bundle.get("_simulation_store")
+        ).super_approvers()
+    from qp_supplier_front.infrastructure.adapters.master_setup_source import (
+        RealMasterSetupSource,
+    )
+    return RealMasterSetupSource().super_approvers()
 
 
 def get_context(context):
     context.no_cache = True
 
     context.simulation_mode = runtime.is_simulation_enabled()
-    context.sync_result = refresh_documents()
     query_params = frappe.request.args
     supplier_id = query_params.get("supplier")
     context.supplier_id = supplier_id
@@ -34,7 +45,12 @@ def get_context(context):
     context.is_sede_documenteme = is_sede_documenteme(user_roles)
     context.documenteme_backend = get_sync_backend()
 
-    data = runtime.resolve().get("data")
+    bundle = runtime.resolve()
+    data = bundle.get("data")
+    context.can_super_approve = is_configured_super_approver(
+        _super_config_rows(bundle),
+        frappe.session.user,
+    )
 
     key = "documenteme_sales_invoices"
     doctype = "qp_SP_DocumentDetail"

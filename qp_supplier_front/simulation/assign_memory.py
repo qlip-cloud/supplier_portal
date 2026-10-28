@@ -37,7 +37,7 @@ def _has_assigned_users(store, sync_line):
 def _candidates(store, doc_names=None):
     filters = {
         "nvfac_ueve": ["is", "not set"],
-        "nvfac_esta": ["not in", ["BCC", "PA", "PR", "A", "R"]],
+        "nvfac_esta": ["not in", ["PSA", "BCC", "PA", "PR", "A", "R"]],
     }
     if doc_names:
         filters["name"] = ["in", list(doc_names)]

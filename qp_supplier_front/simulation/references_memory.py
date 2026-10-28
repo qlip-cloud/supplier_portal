@@ -11,10 +11,14 @@ se siembran para que approve/assign/reject tengan input.
 """
 
 
+from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
+    parse_purchase_orders,
+)
+
+
 def memory_po_exists(store, purchase_order):
-    if not purchase_order:
-        return False
-    return store.exists("qp_SP_PurchaseOrder", purchase_order)
+    orders = parse_purchase_orders(purchase_order)
+    return any(store.exists("qp_SP_PurchaseOrder", order) for order in orders)
 
 
 def memory_po_belongs_to_supplier(store, purchase_order, tax_id):
@@ -23,17 +27,17 @@ def memory_po_belongs_to_supplier(store, purchase_order, tax_id):
     Si la OC sembrada no trae `supplier` (seeds legados) no se puede validar:
     se devuelve True para no alterar el comportamiento del modo simulador.
     """
-    if not purchase_order:
+    orders = parse_purchase_orders(purchase_order)
+    if not orders:
         return False
-    if not store.exists("qp_SP_PurchaseOrder", purchase_order):
-        return False
-    po_supplier = store.get_value(
-        "qp_SP_PurchaseOrder", purchase_order, "supplier"
-    )
-    if not po_supplier:
-        return True
     invoice_supplier = memory_get_supplier_by_tax_id(store, tax_id)
-    return po_supplier == invoice_supplier
+    for order in orders:
+        if not store.exists("qp_SP_PurchaseOrder", order):
+            continue
+        po_supplier = store.get_value("qp_SP_PurchaseOrder", order, "supplier")
+        if not po_supplier or po_supplier == invoice_supplier:
+            return True
+    return False
 
 
 def memory_po_supplier_match(store, doc):
@@ -46,20 +50,16 @@ def memory_po_supplier_match(store, doc):
 
 
 def memory_receipts_total(store, purchase_order):
-    """Total de recepciones por OC (None si no hay)."""
-    rows = store.query("qp_SP_PurchaseReceipt",
-                       filters={"qp_supplier_oc": purchase_order})
+    """Total de recepciones de una o varias OC (None si no hay)."""
+    rows = _receipts_for_orders(store, parse_purchase_orders(purchase_order))
     if not rows:
         return None
     return sum(float(row.get("total") or 0) for row in rows)
 
 
 def memory_get_receipt_bank(store, purchase_order):
-    """Banco de recepciones (name, amount, date, qp_invoice) por OC."""
-    if not purchase_order:
-        return []
-    rows = store.query("qp_SP_PurchaseReceipt",
-                       filters={"qp_supplier_oc": purchase_order})
+    """Banco de recepciones (name, amount, date, qp_invoice) de las OC."""
+    rows = _receipts_for_orders(store, parse_purchase_orders(purchase_order))
     return [
         {
             "name": row.get("name"),
@@ -70,6 +70,21 @@ def memory_get_receipt_bank(store, purchase_order):
         }
         for row in rows
     ]
+
+
+def _receipts_for_orders(store, orders):
+    rows = []
+    seen = set()
+    for order in (orders or []):
+        for row in store.query(
+                "qp_SP_PurchaseReceipt",
+                filters={"qp_supplier_oc": order}):
+            name = row.get("name")
+            if name in seen:
+                continue
+            seen.add(name)
+            rows.append(row)
+    return rows
 
 
 def _unit_value(row):
@@ -92,10 +107,10 @@ def memory_get_receipt_bank_for_invoice(store, purchase_order, invoice_number):
     Recibos no reclamados + los reclamados por ESTA factura; los reclamados
     por otras facturas se excluyen (no visibles ni seleccionables).
     """
-    if not purchase_order or not invoice_number:
+    orders = parse_purchase_orders(purchase_order)
+    if not orders or not invoice_number:
         return []
-    rows = store.query("qp_SP_PurchaseReceipt",
-                       filters={"qp_supplier_oc": purchase_order})
+    rows = _receipts_for_orders(store, orders)
     result = []
     for row in rows:
         owner = row.get("qp_invoice")
@@ -166,9 +181,12 @@ def memory_release_receipts(store, doc, receipt_names):
 
 
 def memory_get_headquarter(store, purchase_order):
-    if not purchase_order:
-        return ""
-    return store.get_value("qp_SP_PurchaseOrder", purchase_order, "qp_headquarter") or ""
+    headquarters = [
+        store.get_value("qp_SP_PurchaseOrder", order, "qp_headquarter") or ""
+        for order in parse_purchase_orders(purchase_order)
+    ]
+    headquarters = [value for value in headquarters if value]
+    return headquarters[0] if len(set(headquarters)) == 1 else ""
 
 
 def memory_get_delivery_types(store):
@@ -212,9 +230,10 @@ def memory_get_po_dates(store, purchase_order):
 
     Retorna (None, None) si la OC no existe o no tiene los campos sembrados.
     """
-    if not purchase_order:
+    orders = parse_purchase_orders(purchase_order)
+    if not orders:
         return None, None
-    row = store.get("qp_SP_PurchaseOrder", purchase_order) or {}
+    row = store.get("qp_SP_PurchaseOrder", orders[0]) or {}
     return row.get("transaction_date"), row.get("schedule_date")
 
 
@@ -555,19 +574,20 @@ def memory_get_nc_devolution_excess(store, doc):
 
 
 def _memory_gp_lines_from_receipts(store, purchase_order):
-    """Items de las recepciones de una OC (codigo ya BC), espejo real."""
-    if not purchase_order:
+    """Items de las recepciones de una o varias OC (codigo ya BC)."""
+    orders = parse_purchase_orders(purchase_order)
+    if not orders:
         return []
-    receipts = store.query(
-        "qp_SP_PurchaseReceipt",
-        filters={"qp_supplier_oc": purchase_order},
-        pluck="name",
-    )
-    if not receipts:
+    receipts = _receipts_for_orders(store, orders)
+    oc_by_receipt = {
+        row.get("name"): row.get("qp_supplier_oc") or ""
+        for row in receipts
+    }
+    if not oc_by_receipt:
         return []
     items = store.query(
         "qp_SP_PurchaseReceiptItem",
-        filters={"parent": ["in", receipts],
+        filters={"parent": ["in", list(oc_by_receipt)],
                  "parenttype": "Purchase Receipt"},
         fields=["parent", "item_code", "qty", "rate", "idx", "uom"],
         order_by="parent, idx",
@@ -580,7 +600,7 @@ def _memory_gp_lines_from_receipts(store, purchase_order):
             "idx": item.get("idx") or 0,
             "uom": item.get("uom") or "",
             "receiving_no": item.get("parent") or "",
-            "order_no": purchase_order,
+            "order_no": oc_by_receipt.get(item.get("parent")) or "",
         }
         for item in items
     ]

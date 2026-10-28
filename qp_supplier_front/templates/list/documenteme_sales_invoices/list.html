@@ -12,6 +12,7 @@
     "BCC": "status-default",
     "PA": "status-progress",
     "PR": "status-progress",
+    "PSA": "status-progress",
     "SR": "status-open",
     "T": "status-default"
 } -%}
@@ -24,6 +25,7 @@
     "BCC": "Creada en BC",
     "PA": "En proceso de aprobación",
     "PR": "En proceso de rechazo",
+    "PSA": "Por Autorización",
     "SR": "Sin referencia",
     "T": ""
 } -%}
@@ -32,7 +34,7 @@
 {% for row in documenteme_sales_invoices %}
 <tr class="card-header" data-toggle="collapse" data-target="#detail-{{ row.name.replace(':', '_') }}" aria-expanded="false">
     <td class="text-center">
-        <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()" {% if row.nvfac_esta in ["A", "R", "BCC", "PA", "PR", "SR"] %}disabled{% endif %}>
+        <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()" {% if row.nvfac_esta in ["A", "R", "BCC", "PA", "PR", "SR"] or (row.nvfac_esta == "PSA" and not can_super_approve) %}disabled{% endif %}>
     </td>
     <td>{{ row.nvpro_ndoc }}</td>
     <td>{{ row.nvpro_nomb or "" }}</td>
@@ -159,12 +161,49 @@
                 <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Orden de compra</h5>
                 <div style="color:#8a9099;font-size:12px;margin-bottom:8px">
                     {% if row.ordenes_compra %}
-                    <select style="border:none;background:transparent;color:#004D90;font-size:12px">
-                        {% for oc in row.ordenes_compra %}<option>{{ oc }}</option>{% endfor %}
-                    </select>
+                    <span style="color:#004D90;font-weight:bold">{{ row.ordenes_compra | join(", ") }}</span>
                     {% else %}<span>-</span>{% endif %}
                 </div>
-                {% if row.productos_orden_compra %}
+                {% if row.ordenes_compra_detalle %}
+                    {% for oc in row.ordenes_compra_detalle %}
+                    <div class="oc-products-group" style="margin-bottom:10px">
+                        <div class="oc-group-title" style="color:#004D90;font-size:12px;font-weight:bold;margin:4px 0">OC: {{ oc.numero }}</div>
+                        {% if oc.productos %}
+                        <table class="table inner-table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>UDM</th>
+                                    <th>Cantidad</th>
+                                    <th>Valor unitario</th>
+                                    <th>Valor total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in oc.productos %}
+                                <tr{% if p.precio_difiere %} data-precio-grupo="{{ p.precio_grupo }}"{% endif %}>
+                                    <td>{{ p.codigo }}</td>
+                                    <td>{{ p.udm }}</td>
+                                    <td>{{ p.cantidad }}</td>
+                                    <td>
+                                        <div style="display:flex;align-items:center;width:100%">
+                                            {% if p.precio_difiere %}
+                                            <span class="material-symbols-outlined price-mismatch-icon" style="font-size:12px;color:#dc3545;line-height:1;margin:0;cursor:help" data-precio-grupo="{{ p.precio_grupo }}" title="El precio unitario difiere de la factura">info</span>
+                                            {% endif %}
+                                            <span style="margin-left:auto;text-align:right;white-space:nowrap">{{ frappe.utils.fmt_money(p.valor_unitario, currency="COP") }}</span>
+                                        </div>
+                                    </td>
+                                    <td>{{ frappe.utils.fmt_money(p.valor_total, currency="COP") }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div style="color:#8a9099;font-size:12px">Sin datos</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                {% elif row.productos_orden_compra %}
                 <table class="table inner-table">
                     <thead>
                         <tr>
@@ -202,7 +241,11 @@
                 <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Recepción</h5>
                 {% if row.recepciones_detalle %}
                 <div class="receipt-bank" data-doc="{{ row.name }}" data-stot="{{ row.nvfac_stot or 0 }}">
-                    {% for rb in row.recepciones_detalle %}
+                    {% for group in row.recepciones_detalle_por_oc %}
+                    {% if group.recibos %}
+                    <div class="receipt-oc-group">
+                        <div class="receipt-oc-title" style="color:#004D90;font-size:12px;font-weight:bold;margin:6px 0 4px 0">OC: {{ group.numero }}</div>
+                    {% for rb in group.recibos %}
                     <div class="receipt-item">
                         <div class="receipt-header" data-toggle="collapse"
                             data-target="#receipt-products-{{ rb.name.replace(':', '_') }}" aria-expanded="false">
@@ -214,6 +257,7 @@
                                     onclick="event.stopPropagation()"
                                     onchange="window.renderReceiptBankFor && renderReceiptBankFor(this)">
                                 <span class="receipt-label">{{ rb.etiqueta }}</span>
+                                {% if rb.oc %}<span class="receipt-oc badge" style="font-size:10px;margin-left:6px">{{ rb.oc }}</span>{% endif %}
                             </span>
                             <span class="receipt-center">{{ frappe.utils.formatdate(rb.fecha, "dd-MM-yyyy") if rb.fecha else "-" }}</span>
                             <span class="receipt-right">
@@ -252,6 +296,9 @@
                             </div>
                         </div>
                     </div>
+                    {% endfor %}
+                    </div>
+                    {% endif %}
                     {% endfor %}
                     {% if not row.hide_unselected_recibos %}
                     <div class="receipt-selection-summary" style="font-size:12px;margin:8px 0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center">

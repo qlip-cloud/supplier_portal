@@ -13,6 +13,10 @@ que la propia vista no cambia: con data presente usa el adaptador de memoria,
 sin data usa el real.
 """
 
+from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
+    parse_purchase_orders,
+)
+
 
 def enrich_document_detail(document, data=None, references=None):
     """Enriquece el detalle de un documento con referencias inyectadas.
@@ -26,11 +30,14 @@ def enrich_document_detail(document, data=None, references=None):
     purchase_order_number = document.get("nvfac_orde") or ""
 
     document["ordenes_compra"] = []
+    document["ordenes_compra_detalle"] = []
     document["recepciones"] = []
+    document["recepciones_por_oc"] = []
     document["productos_orden_compra"] = []
     document["productos_recepcion"] = []
     document["banco_recepciones"] = []
     document["recepciones_detalle"] = []
+    document["recepciones_detalle_por_oc"] = []
     document["hide_unselected_recibos"] = False
 
     _enrich_alerts(document, data)
@@ -38,15 +45,23 @@ def enrich_document_detail(document, data=None, references=None):
     _enrich_conversation(document, data)
     _enrich_factura_interna(document, data)
 
-    if purchase_order_number and _po_belongs_to_invoice(
-            _resolve_references(data, references), document,
-            purchase_order_number):
-        _enrich_purchase_orders(document, purchase_order_number, references, data)
-        _enrich_purchase_receipts(document, purchase_order_number, references, data)
-        _enrich_receipt_bank(document, purchase_order_number, references, data)
-        _enrich_receipts_detail(document, purchase_order_number, references, data)
+    refs = _resolve_references(data, references)
+    valid_orders = [
+        order for order in parse_purchase_orders(purchase_order_number)
+        if _po_belongs_to_invoice(refs, document, order)
+    ]
+    if valid_orders:
+        _enrich_purchase_orders(
+            document, purchase_order_number, valid_orders, references, data)
+        _enrich_purchase_receipts(
+            document, purchase_order_number, valid_orders, references, data)
+        _enrich_receipt_bank(
+            document, purchase_order_number, valid_orders, references, data)
+        _enrich_receipts_detail(
+            document, purchase_order_number, valid_orders, references, data)
         _enrich_price_mismatch(document, references, data)
-        _update_status_if_fully_paid(document, data, references=references)
+        _update_status_if_fully_paid(
+            document, data, references=references, purchase_orders=valid_orders)
 
 
 def _resolve_references(data, references):
@@ -211,13 +226,30 @@ def _po_belongs_to_invoice(refs, document, purchase_order_number):
     return bool(belongs(purchase_order_number, document.get("nvpro_ndoc")))
 
 
-def _enrich_purchase_orders(document, purchase_order_number, references=None,
-                            data=None):
-    refs = _resolve_references(data, references)
-    items = refs.po_items(purchase_order_number)
+def _enrich_purchase_orders(document, purchase_order_number, valid_orders=None,
+                            references=None, data=None):
+    """OC validas de la factura (una o varias) y sus productos.
 
-    document["ordenes_compra"] = [purchase_order_number]
-    document["productos_orden_compra"] = build_po_products(items)
+    `ordenes_compra` conserva la lista de numeros; `ordenes_compra_detalle`
+    agrupa los productos por OC para la tabla del front. Los productos
+    combinados alimentan la comparacion de precios.
+    """
+    refs = _resolve_references(data, references)
+    orders = (
+        list(valid_orders) if valid_orders is not None
+        else parse_purchase_orders(purchase_order_number)
+    )
+
+    detail = []
+    combined = []
+    for order in orders:
+        products = build_po_products(refs.po_items(order))
+        combined += products
+        detail.append({"numero": order, "productos": products})
+
+    document["ordenes_compra"] = orders
+    document["ordenes_compra_detalle"] = detail
+    document["productos_orden_compra"] = combined
 
 
 def build_po_products(items):
@@ -327,16 +359,18 @@ def _enrich_price_mismatch(document, references=None, data=None):
     )
 
 
-def _enrich_purchase_receipts(document, purchase_order_number, references=None,
-                              data=None):
+def _enrich_purchase_receipts(document, purchase_order_number, valid_orders=None,
+                              references=None, data=None):
     refs = _resolve_references(data, references)
-    # Solo los recibos asignados/procesados con ESTA factura (qp_invoice ==
-    # nvfac_nume); el resto de la OC que no forma parte de la factura no se
-    # muestra.
-    receipts = refs.receipts_for(
-        purchase_order_number,
-        qp_invoice=document.get("nvfac_nume"),
+    orders = (
+        list(valid_orders) if valid_orders is not None
+        else parse_purchase_orders(purchase_order_number)
     )
+    # Solo los recibos asignados/procesados con ESTA factura (qp_invoice ==
+    # nvfac_nume); el resto de las OC que no forma parte de la factura no se
+    # muestra. Se agregan todas las OC (pool compartido).
+    receipts = _receipts_by_order(
+        refs, orders, qp_invoice=document.get("nvfac_nume"))
 
     receipt_names = [
         receipt.get("name")
@@ -347,9 +381,36 @@ def _enrich_purchase_receipts(document, purchase_order_number, references=None,
         receipt.get("supplier_delivery_note") or receipt.get("name")
         for receipt in receipts
     ]
+    document["recepciones_por_oc"] = [
+        {
+            "numero": order,
+            "recepciones": [
+                receipt.get("supplier_delivery_note") or receipt.get("name")
+                for receipt in receipts
+                if receipt.get("oc") == order
+            ],
+        }
+        for order in orders
+    ]
 
     items = refs.receipt_items_for(receipt_names)
     document["productos_recepcion"] = build_receipt_products(items)
+
+
+def _receipts_by_order(refs, orders, qp_invoice=None):
+    """Recibos de varias OC, sin duplicar y anotando la OC de cada uno."""
+    receipts = []
+    seen = set()
+    for order in (orders or []):
+        for receipt in (refs.receipts_for(order, qp_invoice=qp_invoice) or []):
+            name = receipt.get("name")
+            if name in seen:
+                continue
+            seen.add(name)
+            row = dict(receipt)
+            row["oc"] = order
+            receipts.append(row)
+    return receipts
 
 
 def build_receipt_products(items):
@@ -368,25 +429,29 @@ def build_receipt_products(items):
 DEFINITIVE_VIEW_STATES = ("BCC", "PA", "PR", "A", "R")
 
 
-def _enrich_receipt_bank(document, purchase_order_number, references=None,
-                         data=None):
+def _enrich_receipt_bank(document, purchase_order_number, valid_orders=None,
+                         references=None, data=None):
     """Banco de recepciones visible para la seleccion manual de la factura.
 
+    Es un pool compartido entre TODAS las OC de la factura:
     - Estado no definitivo: se listan los recibos reclamables (no reclamados
       + los reclamados por esta factura) con checkbox.
     - Estado definitivo: solo se muestran los recibos reclamados por la
       factura, sin checkbox (hide_unselected_recibos = True oculta los no
       seleccionados).
+    Cada fila incluye la OC (`oc`) a la que pertenece el recibo.
     """
     refs = _resolve_references(data, references)
+    orders = (
+        list(valid_orders) if valid_orders is not None
+        else parse_purchase_orders(purchase_order_number)
+    )
     invoice_number = document.get("nvfac_nume")
     definitive = document.get("nvfac_esta") in DEFINITIVE_VIEW_STATES
     document["hide_unselected_recibos"] = definitive
 
     if definitive:
-        claimed = refs.receipts_for(
-            purchase_order_number, qp_invoice=invoice_number
-        )
+        claimed = _receipts_by_order(refs, orders, qp_invoice=invoice_number)
         document["banco_recepciones"] = [
             {
                 "name": receipt.get("name"),
@@ -394,38 +459,60 @@ def _enrich_receipt_bank(document, purchase_order_number, references=None,
                 "date": receipt.get("posting_date"),
                 "claimed_by_me": True,
                 "selectable": False,
+                "oc": receipt.get("oc"),
             }
             for receipt in claimed
         ]
         return
 
-    document["banco_recepciones"] = refs.bank_for_invoice(
-        purchase_order_number, invoice_number
-    )
+    bank = []
+    seen = set()
+    for order in orders:
+        for receipt in (refs.bank_for_invoice(order, invoice_number) or []):
+            name = receipt.get("name")
+            if name in seen:
+                continue
+            seen.add(name)
+            row = dict(receipt)
+            row["oc"] = order
+            bank.append(row)
+    document["banco_recepciones"] = bank
 
 
-def _enrich_receipts_detail(document, purchase_order_number, references=None,
-                            data=None):
-    """Detalle unificado por recepcion: cabecera (banco) + productos agrupados.
+def _enrich_receipts_detail(document, purchase_order_number, valid_orders=None,
+                            references=None, data=None):
+    """Detalle unificado por recepcion: cabecera + productos agrupados.
 
-    Construye document['recepciones_detalle'] con una entrada por recibo
-    visible (las mismas filas de banco_recepciones), cada una con la etiqueta
-    del recibo y la tabla de SUS productos.
+    En estados definitivos se muestran solo los recibos reclamados por la
+    factura (igual que el banco). En el resto se muestran TODAS las recepciones
+    de las OC validas, marcando si son reclamables/estan tomadas por otra
+    factura. Cada recibo lleva su OC (`oc`).
     """
+    refs = _resolve_references(data, references)
+    orders = (
+        list(valid_orders) if valid_orders is not None
+        else parse_purchase_orders(purchase_order_number)
+    )
+    definitive = document.get("nvfac_esta") in DEFINITIVE_VIEW_STATES
     bank = document.get("banco_recepciones") or []
-    if not bank:
+    bank_by_name = {row.get("name"): row for row in bank}
+
+    if definitive:
+        rows = list(bank)
+        labels = {
+            receipt.get("name"): receipt
+            for receipt in _receipts_by_order(refs, orders)
+        }
+    else:
+        rows = _receipts_by_order(refs, orders)
+        labels = {row.get("name"): row for row in rows}
+
+    if not rows:
         document["recepciones_detalle"] = []
+        document["recepciones_detalle_por_oc"] = []
         return
 
-    refs = _resolve_references(data, references)
-    receipts = refs.receipts_for(purchase_order_number)
-    labels = {
-        receipt.get("name"):
-            receipt.get("supplier_delivery_note") or receipt.get("name")
-        for receipt in receipts
-    }
-
-    names = [row.get("name") for row in bank]
+    names = [row.get("name") for row in rows]
     items = refs.receipt_items_for(names)
     products = build_receipt_products(items)
 
@@ -433,25 +520,39 @@ def _enrich_receipts_detail(document, purchase_order_number, references=None,
     for item, product in zip(items, products):
         products_by_receipt.setdefault(item.get("parent"), []).append(product)
 
-    document["recepciones_detalle"] = [
+    detail = []
+    for row in rows:
+        name = row.get("name")
+        receipt = labels.get(name) or {}
+        bank_row = bank_by_name.get(name) or {}
+        detail.append({
+            "name": name,
+            "etiqueta": receipt.get("supplier_delivery_note") or name,
+            "fecha": row.get("date") or receipt.get("posting_date"),
+            "monto": (row.get("amount") if row.get("amount") is not None
+                      else receipt.get("total")) or 0,
+            "claimed_by_me": bank_row.get("claimed_by_me", False),
+            "selectable": bank_row.get("selectable", False),
+            "oc": row.get("oc") or receipt.get("oc") or "",
+            "productos": products_by_receipt.get(name, []),
+        })
+
+    document["recepciones_detalle"] = detail
+    document["recepciones_detalle_por_oc"] = [
         {
-            "name": row.get("name"),
-            "etiqueta": labels.get(row.get("name")) or row.get("name"),
-            "fecha": row.get("date"),
-            "monto": row.get("amount") or 0,
-            "claimed_by_me": row.get("claimed_by_me"),
-            "selectable": row.get("selectable", False),
-            "productos": products_by_receipt.get(row.get("name"), []),
+            "numero": order,
+            "recibos": [row for row in detail if row.get("oc") == order],
         }
-        for row in bank
+        for order in orders
     ]
 
 
-def _update_status_if_fully_paid(document, data=None, references=None):
+def _update_status_if_fully_paid(document, data=None, references=None,
+                                 purchase_orders=None):
     """Marca en "V" una factura cubierta por una combinacion exacta de
     recepciones no consumidas (banco). Lee el banco via el adaptador de
     referencias (in-memory en simulacion, frappe en real) y respeta los
-    estados definitivos/en proceso."""
+    estados definitivos/en proceso. El banco es un pool de TODAS las OC."""
     refs = _resolve_references(data, references)
 
     from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
@@ -460,15 +561,26 @@ def _update_status_if_fully_paid(document, data=None, references=None):
     )
 
     document_total = document.get("nvfac_stot") or 0
-    purchase_order_number = document.get("nvfac_orde")
+    orders = (
+        list(purchase_orders) if purchase_orders is not None
+        else parse_purchase_orders(document.get("nvfac_orde"))
+    )
 
-    if document.get("nvfac_esta") in ("A", "R", "V", "BCC", "PA", "PR"):
+    if document.get("nvfac_esta") in ("A", "R", "V", "PSA", "BCC", "PA", "PR"):
         return
 
-    if not purchase_order_number:
+    if not orders:
         return
 
-    bank = refs.receipt_bank_for(purchase_order_number)
+    bank = []
+    seen = set()
+    for order in orders:
+        for receipt in (refs.receipt_bank_for(order) or []):
+            name = receipt.get("name")
+            if name in seen:
+                continue
+            seen.add(name)
+            bank.append(receipt)
 
     # Seleccion manual en curso: la factura queda a la espera de que el
     # usuario complete y aplique; el flujo automatico no la promueve a "V".

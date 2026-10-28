@@ -13,6 +13,8 @@
     "auto_approve",
     "documenteme_simulation",
     "documenteme_backend",
+    "section_break_super_approval",
+    "super_approvers",
     "delivery_items",
     "collection_invoices_simulation",
     "sede_source_doctype",
@@ -86,6 +88,18 @@
      "label": "Backend de creación de facturas",
      "description": "Backend de origen de las peticiones de creación de factura al aprobar (BC o GP). Es el valor predeterminado del selector manual de aprobación.",
      "options": "BC\nGP"
+    },
+    {
+     "fieldname": "section_break_super_approval",
+     "fieldtype": "Section Break",
+     "label": "Super aprobadores"
+    },
+    {
+     "fieldname": "super_approvers",
+     "fieldtype": "Table",
+     "label": "Super aprobadores",
+     "options": "qp_SP_SuperApprover",
+     "description": "Umbral: diferencia desde la cual se requiere autorización. Límite: máximo que el superaprobador puede autorizar (0 o vacío = sin límite)."
     },
     {
      "fieldname": "delivery_items",
@@ -184,7 +198,7 @@
 "index_web_pages_for_search": 1,
   "issingle": 1,
   "links": [],
-   "modified": "2026-10-22 00:00:00.000000",
+   "modified": "2026-10-27 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_MasterSetup",

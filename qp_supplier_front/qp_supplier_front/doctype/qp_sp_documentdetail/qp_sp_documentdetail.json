@@ -27,6 +27,9 @@
      "qp_event_pending_code",
      "qp_event_next_at",
      "qp_event_attempts",
+    "qp_super_difference_amount",
+    "qp_super_difference_percentage",
+    "qp_super_requested_by",
 "nvfac_rfec",
     "nvfac_orde",
     "nvfac_rece",
@@ -186,6 +189,25 @@
      "fieldname": "qp_event_attempts",
      "fieldtype": "Int",
      "label": "Intentos fallidos de evento"
+    },
+    {
+     "fieldname": "qp_super_difference_amount",
+     "fieldtype": "Currency",
+     "label": "Diferencia por autorización (monto)",
+     "read_only": 1
+    },
+    {
+     "fieldname": "qp_super_difference_percentage",
+     "fieldtype": "Percent",
+     "label": "Diferencia por autorización (%)",
+     "read_only": 1
+    },
+    {
+     "fieldname": "qp_super_requested_by",
+     "fieldtype": "Link",
+     "label": "Solicitada por",
+     "options": "User",
+     "read_only": 1
     },
    {
     "fieldname": "nvfac_rfec",
@@ -377,7 +399,7 @@
   ],
   "index_web_pages_for_search": 1,
   "links": [],
-   "modified": "2026-10-15 12:00:00.000000",
+   "modified": "2026-10-27 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DocumentDetail",

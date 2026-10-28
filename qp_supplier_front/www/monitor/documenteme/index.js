@@ -105,9 +105,11 @@ $(document).ready(function () {
                     });
                 }
                 var serverErrors = (response.data && response.data.errors) || [];
-                if (serverErrors.length > 0) {
+                var pendingSuper = (response.data && response.data.pending_super) || [];
+                if (serverErrors.length > 0 || pendingSuper.length > 0) {
                     // Refrescar la lista: las facturas con error (ya existe en BC,
-                    // fallo de BC) cambian de estado y/o dejan alertas en el servidor.
+                    // fallo de BC) o pendientes de superaprobacion cambian de estado
+                    // y/o dejan alertas en el servidor.
                     window.filter_init();
                 }
             };
@@ -281,6 +283,7 @@ $(document).ready(function () {
         "BCC": "Creada en BC",
         "PA": "En proceso de aprobaci\u00f3n",
         "PR": "En proceso de rechazo",
+        "PSA": "Por Autorización",
         "SR": "Sin referencia",
         "T": ""
     };
@@ -932,9 +935,92 @@ $(document).ready(function () {
         assignTargetDoc = null;
     });
 
+    var SYNC_POLL_MS = 3000;
+    var SYNC_POLL_MAX = 200;
+    var syncPollCancelled = false;
+
+    // Libera un lock colgado (crash/worker caido) sin esperar el TTL.
+    function unlockSyncAndReload() {
+        syncPollCancelled = true;
+        petition_get_data({}, "qp_supplier_front.uses_cases.documents.sync_all_whitelist.unlock_documents_sync", function () {
+            window.filter_init();
+            frappe.msgprint("Sincronizaci\u00f3n desbloqueada. Puede actualizar de nuevo.");
+        });
+    }
+
+    // Espera a que termine la sincronizacion de otro usuario y recarga la lista.
+    function pollSyncStatus(attempts) {
+        if (syncPollCancelled) {
+            return;
+        }
+        if (attempts >= SYNC_POLL_MAX) {
+            window.filter_init();
+            frappe.msgprint({
+                title: "Sincronizaci\u00f3n en curso",
+                message: "La sincronizaci\u00f3n sigue tomada. Si qued\u00f3 colgada, puede liberarla manualmente.",
+                primary_action: {
+                    label: "Desbloquear",
+                    action: unlockSyncAndReload
+                }
+            });
+            return;
+        }
+        petition_get_data({}, "qp_supplier_front.uses_cases.documents.sync_all_whitelist.get_documents_sync_status", function (status) {
+            if (status && status.locked) {
+                setTimeout(function () { pollSyncStatus(attempts + 1); }, SYNC_POLL_MS);
+                return;
+            }
+            window.filter_init();
+            frappe.msgprint("Sincronizaci\u00f3n completada.");
+        });
+    }
+
+    // Espera a que termine la aprobacion en segundo plano y recarga la lista.
+    function pollBackgroundApproval(attempts) {
+        if (attempts >= SYNC_POLL_MAX) {
+            window.filter_init();
+            return;
+        }
+        petition_get_data({}, "qp_supplier_front.resources.documenteme.auto_approve.get_auto_approve_job_status", function (status) {
+            if (status && status.pending) {
+                setTimeout(function () { pollBackgroundApproval(attempts + 1); }, SYNC_POLL_MS);
+                return;
+            }
+            window.filter_init();
+            if (status && status.waiting_worker) {
+                frappe.msgprint({
+                    title: "Aprobaci\u00f3n pendiente",
+                    message: "La sincronizaci\u00f3n termin\u00f3, pero no hay worker activo: "
+                        + "la aprobaci\u00f3n qued\u00f3 en cola. Inicie el worker o reintente.",
+                    primary_action: {
+                        label: "Reintentar",
+                        action: retryBackgroundApproval
+                    }
+                });
+                return;
+            }
+            frappe.msgprint("Procesamiento en segundo plano completado.");
+        });
+    }
+
+    // Reencola la aprobacion cuando el job quedo colgado sin worker.
+    function retryBackgroundApproval() {
+        petition_get_data({}, "qp_supplier_front.resources.documenteme.auto_approve.retry_auto_approve", function (response) {
+            if (response && (response.enqueued > 0 || response.already_queued)) {
+                frappe.msgprint("Aprobaci\u00f3n reencolada.");
+                pollBackgroundApproval(0);
+                return;
+            }
+            if (response && response.error) {
+                frappe.msgprint(response.error);
+            }
+        });
+    }
+
     $("#refresh_filter_list").off("click");
     $("#refresh_filter_list").on("click", function () {
         var $btn = $(this);
+        syncPollCancelled = false;
         $btn.prop("disabled", true);
 
         frappe.confirm(
@@ -957,9 +1043,31 @@ $(document).ready(function () {
                         $(".filter-list.date").removeAttr("min").removeAttr("max");
                         $("select.filter-list").val("0");
                         window.filter_init();
-                        frappe.msgprint("Sincronizaci\u00f3n completada.");
+                        if (response.enqueued > 0 || response.already_queued) {
+                            frappe.msgprint(
+                                response.already_queued
+                                    ? "Sincronizaci\u00f3n completada. Ya hay una "
+                                        + "aprobaci\u00f3n en curso; las nuevas facturas "
+                                        + "se procesar\u00e1n al terminar."
+                                    : "Sincronizaci\u00f3n completada. Procesando "
+                                        + response.enqueued + " factura(s) en segundo plano."
+                            );
+                            pollBackgroundApproval(0);
+                        } else {
+                            frappe.msgprint("Sincronizaci\u00f3n completada.");
+                        }
                     } else if (response && response.skipped) {
-                        frappe.msgprint("Ya hay una sincronizaci\u00f3n en curso.");
+                        frappe.msgprint({
+                            title: "Sincronizaci\u00f3n en curso",
+                            message: "Ya hay una sincronizaci\u00f3n en curso. La lista se "
+                                + "actualizar\u00e1 cuando termine. Si qued\u00f3 colgada, "
+                                + "puede liberarla manualmente.",
+                            primary_action: {
+                                label: "Desbloquear",
+                                action: unlockSyncAndReload
+                            }
+                        });
+                        pollSyncStatus(0);
                     } else {
                         frappe.msgprint(response && response.error ? response.error : "Error en la sincronizaci\u00f3n de facturas.");
                     }
@@ -1146,6 +1254,7 @@ $(document).ready(function () {
             "BCC": "Creada en GP",
             "PA": "En proceso de aprobaci\u00f3n",
             "PR": "En proceso de rechazo",
+            "PSA": "Por Autorización",
             "SR": "Sin referencia",
             "T": ""
         };

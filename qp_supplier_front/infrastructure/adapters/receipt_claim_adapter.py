@@ -25,39 +25,51 @@ Reglas:
 """
 
 
+from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
+    parse_purchase_orders,
+)
+
+
 def get_bank_for_invoice(purchase_order_number, invoice_number,
                          frappe_module=None):
     """Banco de recepciones disponible para la seleccion manual de una factura.
 
     Retorna filas {name, amount, date, qp_invoice, claimed_by_me, selectable}
-    con los recibos de la OC que ESTA factura puede ver/controlar.
+    con los recibos de TODAS las OC de la factura que ESTA factura puede
+    ver/controlar (pool compartido entre OC).
     """
     if frappe_module is None:
         import frappe as frappe_module
 
-    if not purchase_order_number or not invoice_number:
+    orders = parse_purchase_orders(purchase_order_number)
+    if not orders or not invoice_number:
         return []
 
-    receipts = frappe_module.get_all(
-        "Purchase Receipt",
-        filters={"qp_supplier_oc": purchase_order_number},
-        fields=["name", "total", "total_qty", "posting_date", "qp_invoice"],
-    )
-
     rows = []
-    for receipt in receipts:
-        owner = receipt.get("qp_invoice")
-        if owner and owner != invoice_number:
-            continue
-        rows.append({
-            "name": receipt.get("name"),
-            "amount": receipt.get("total") or 0,
-            "date": receipt.get("posting_date"),
-            "qp_invoice": owner,
-            "claimed_by_me": owner == invoice_number,
-            "selectable": True,
-            "unit_value": _unit_value(receipt),
-        })
+    seen = set()
+    for order in orders:
+        receipts = frappe_module.get_all(
+            "Purchase Receipt",
+            filters={"qp_supplier_oc": order},
+            fields=["name", "total", "total_qty", "posting_date", "qp_invoice"],
+        )
+        for receipt in receipts:
+            name = receipt.get("name")
+            if name in seen:
+                continue
+            owner = receipt.get("qp_invoice")
+            if owner and owner != invoice_number:
+                continue
+            seen.add(name)
+            rows.append({
+                "name": name,
+                "amount": receipt.get("total") or 0,
+                "date": receipt.get("posting_date"),
+                "qp_invoice": owner,
+                "claimed_by_me": owner == invoice_number,
+                "selectable": True,
+                "unit_value": _unit_value(receipt),
+            })
     return rows
 
 

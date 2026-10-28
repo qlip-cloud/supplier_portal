@@ -11,7 +11,7 @@ Ejecutar con: python -m pytest qp_supplier_front/tests/test_sync_all_by_company.
 import sys
 import unittest
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import qp_supplier_front.uses_cases.documents.sync_all_whitelist as saw
 import qp_supplier_front.resources.documenteme.auto_reject as arrej
@@ -157,12 +157,23 @@ class TestRefreshDocuments(unittest.TestCase):
             p.start()
             self.addCleanup(p.stop)
 
-    def test_refresh_documents_no_usa_lock_global(self):
+    def test_refresh_documents_toma_lock_global(self):
         with patch.object(saw, "sync_lock") as lock_mock:
+            lock_mock.acquire.return_value = {"token": "tok"}
             result = saw.refresh_documents()
         self.assertTrue(result["success"])
         self.assertTrue(self.sync_calls)
-        lock_mock.acquire.assert_not_called()
+        lock_mock.acquire.assert_called_once_with(saw.DOCUMENTS_LOCK_DOMAIN)
+        lock_mock.release.assert_called_once_with(
+            saw.DOCUMENTS_LOCK_DOMAIN, "tok")
+
+    def test_refresh_documents_omite_si_lock_ocupado(self):
+        with patch.object(saw, "sync_lock") as lock_mock:
+            lock_mock.acquire.return_value = None
+            result = saw.refresh_documents()
+        self.assertTrue(result["skipped"])
+        self.assertFalse(self.sync_calls)
+        lock_mock.release.assert_not_called()
 
     def test_refresh_lanza_rechazo_en_fondo_con_nuevos(self):
         saw.refresh_documents()
@@ -383,6 +394,7 @@ class TestRunAutoRejectSync(unittest.TestCase):
             receipt_for_po_fn=arrej.receipt_for_po,
             doc_names=["F1"],
             po_supplier_match_fn=arrej._po_supplier_match,
+            is_delivery_fn=ANY,
         )
         schedule.assert_called_once_with("F1", http_fn=None, enqueue=False)
         self.frappe_mock.enqueue.assert_not_called()

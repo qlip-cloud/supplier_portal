@@ -10,6 +10,10 @@ pero sin tocar la base de datos real.
 import base64
 import json
 
+from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
+    parse_purchase_orders,
+)
+
 LINE_FIELDS = [
     "nvfac_cont", "nvtip_docu", "nvfac_nume", "nvfac_cufe", "nvpro_nomb",
     "nvpro_ndoc", "nvfac_fech", "nvmon_codi", "nvfac_totp", "nvfac_esta",
@@ -196,7 +200,7 @@ def _memory_apply_nc_sync_fields(store, doc, attached_list):
         doc["qp_ref_date_end"] = end
 
     current = doc.get("nvfac_esta") or "T"
-    if current in ("SR", "BCC", "PA", "A", "R"):
+    if current in ("SR", "PSA", "BCC", "PA", "A", "R"):
         return doc
     if document_reference:
         doc["qp_ref_invoice"] = document_reference
@@ -357,8 +361,8 @@ APPOINT_DOC_FIELDS = [
     "name", "nvfac_nume", "nvpro_ndoc", "nvfac_fech", "nvfac_cufe",
     "nvtip_docu", "nvfac_fpag", "nvfac_orde", "nvfac_rece", "nvfac_totp",
     "nvfac_esta", "nvfac_ueve", "nvfac_conv", "nvmon_codi", "nvfac_stot",
-    "nvfac_viva", "nvpro_nomb", "qp_ref_invoice", "qp_ref_date_start",
-    "qp_ref_date_end",
+    "nvfac_viva", "nvpro_nomb", "document_sync_line", "qp_ref_invoice",
+    "qp_ref_date_start", "qp_ref_date_end",
 ]
 
 
@@ -433,18 +437,23 @@ def memory_get_lines(store, doc):
 
 
 def _memory_bc_receipt_lines(store, purchase_order):
-    if not purchase_order:
+    orders = parse_purchase_orders(purchase_order)
+    if not orders:
         return []
     receipts = store.query(
         "qp_SP_PurchaseReceipt",
-        filters={"qp_supplier_oc": purchase_order},
-        pluck="name",
+        filters={"qp_supplier_oc": ["in", orders]},
+        fields=["name", "qp_supplier_oc"],
     )
-    if not receipts:
+    oc_by_receipt = {
+        row.get("name"): row.get("qp_supplier_oc") or ""
+        for row in receipts
+    }
+    if not oc_by_receipt:
         return []
     items = store.query(
         "qp_SP_PurchaseReceiptItem",
-        filters={"parent": ["in", receipts],
+        filters={"parent": ["in", list(oc_by_receipt)],
                  "parenttype": "Purchase Receipt"},
         fields=["parent", "item_code", "qty", "rate", "idx", "uom"],
         order_by="parent, idx",
@@ -457,20 +466,22 @@ def _memory_bc_receipt_lines(store, purchase_order):
             "idx": item.get("idx") or 0,
             "uom": item.get("uom") or "",
             "receiving_no": item.get("parent") or "",
-            "order_no": purchase_order,
+            "order_no": oc_by_receipt.get(item.get("parent")) or "",
         }
         for item in items
     ]
 
 
 def _memory_bc_po_lines(store, purchase_order):
-    if not purchase_order:
+    orders = parse_purchase_orders(purchase_order)
+    if not orders:
         return []
     items = store.query(
         "qp_SP_PurchaseOrderItem",
-        filters={"parent": purchase_order,
+        filters={"parent": ["in", orders],
                  "parenttype": "Purchase Order"},
-        fields=["item_code", "qty", "rate", "qp_unit_cost", "idx", "uom"],
+        fields=["parent", "item_code", "qty", "rate", "qp_unit_cost", "idx",
+                "uom"],
         order_by="idx",
     )
     return [
@@ -481,7 +492,7 @@ def _memory_bc_po_lines(store, purchase_order):
             "idx": item.get("idx") or 0,
             "uom": item.get("uom") or "",
             "receiving_no": "",
-            "order_no": purchase_order,
+            "order_no": item.get("parent") or "",
         }
         for item in items
     ]
@@ -555,6 +566,65 @@ def memory_mark_error(store, doc, error):
         "message": error or "",
         "creation": _now_str(),
     })
+
+
+def memory_get_super_approvers(store):
+    """Configuracion de superaprobadores sembrada en el MasterSetup."""
+    from qp_supplier_front.simulation.master_setup_source import (
+        MemoryMasterSetupSource,
+    )
+    return MemoryMasterSetupSource(store).super_approvers()
+
+
+def memory_mark_pending_super(store, doc, classification, requested_by, now):
+    """Marca la factura "Por Autorizacion" y asigna a los superaprobadores."""
+    from qp_supplier_front.simulation.assign_memory import _add_assignees
+    from qp_supplier_front.uses_cases.documenteme.super_approval import (
+        STATE_SUPER_APPROVAL,
+    )
+
+    name = doc.get("name")
+    fields = {
+        "qp_super_difference_amount": classification.get("difference_amount"),
+        "qp_super_difference_percentage": classification.get(
+            "difference_percentage"
+        ),
+        "qp_super_requested_by": requested_by,
+    }
+    current = store.get_value(
+        "qp_SP_DocumentDetail", name, "nvfac_esta"
+    )
+    if current != STATE_SUPER_APPROVAL:
+        _memory_timeline(store).set_state(
+            name, STATE_SUPER_APPROVAL, extra_fields=fields,
+            user=requested_by, now=now,
+        )
+    else:
+        for field, value in fields.items():
+            store.set_value("qp_SP_DocumentDetail", name, field, value)
+
+    sync_line = doc.get("document_sync_line") or doc.get("nvfac_nume")
+    if sync_line and store.exists("qp_SP_DocumentSyncLine", sync_line):
+        _add_assignees(
+            store, sync_line, classification.get("supervisors") or []
+        )
+
+    store.insert("qp_SP_Alert", {
+        "parent": name,
+        "message": (
+            "Requiere autorizacion del super aprobador. Diferencia: monto "
+            "{0}, {1}%.".format(
+                classification.get("difference_amount"),
+                round(classification.get("difference_percentage") or 0, 2),
+            )
+        ),
+        "alert_type": "Alerta",
+        "status": "Abierta",
+        "creation": now or _now_str(),
+    })
+
+    doc.update(fields)
+    doc["nvfac_esta"] = STATE_SUPER_APPROVAL
 
 
 def memory_consume_receipts(store, doc, receipt_names):

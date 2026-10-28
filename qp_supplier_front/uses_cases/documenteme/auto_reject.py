@@ -42,6 +42,9 @@ from qp_supplier_front.uses_cases.documenteme.conversion import is_credit_note
 from qp_supplier_front.uses_cases.documenteme.home_delivery import (
     is_home_delivery,
 )
+from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
+    parse_purchase_orders,
+)
 
 REJECT_PENDING_STATES = qp_supplier_front.uses_cases.documenteme.reject_retry.REJECT_PENDING_STATES
 
@@ -80,28 +83,32 @@ def get_reject_motive(rule):
     return DEFAULT_MOTIVES.get(rule.get("rule_code"), DEFAULT_MOTIVES[RULE_NO_PO])
 
 
-def has_po_match(invoice, po_exists_fn, po_supplier_match_fn=None):
-    """True si la OC de la factura existe Y pertenece al mismo proveedor.
+def _order_matches_supplier(invoice, order, po_supplier_match_fn):
+    if po_supplier_match_fn is None:
+        return True
+    probe = dict(invoice)
+    probe["nvfac_orde"] = order
+    return bool(po_supplier_match_fn(probe))
 
-    po_supplier_match_fn (opcional) valida ademas que el proveedor de la OC
-    coincida con el de la factura; sin el callback se conserva el
-    comportamiento por numero de orden (solo existencia).
+
+def has_po_match(invoice, po_exists_fn, po_supplier_match_fn=None):
+    """True si al menos una OC de la factura existe Y es del proveedor.
+
+    `nvfac_orde` puede traer varias OC separadas por coma; se considera
+    valida la factura cuando cualquiera de ellas es valida. Sin callback de
+    proveedor se conserva el comportamiento por numero de orden.
     """
-    purchase_order = invoice.get("nvfac_orde")
-    if not purchase_order:
-        return False
-    if not po_exists_fn(purchase_order):
-        return False
-    if po_supplier_match_fn is not None and not po_supplier_match_fn(invoice):
-        return False
-    return True
+    orders = parse_purchase_orders(invoice.get("nvfac_orde"))
+    return any(
+        po_exists_fn(order)
+        and _order_matches_supplier(invoice, order, po_supplier_match_fn)
+        for order in orders
+    )
 
 
 def has_receipt_match(invoice, receipt_for_po_fn):
-    purchase_order = invoice.get("nvfac_orde")
-    if not purchase_order:
-        return False
-    return receipt_for_po_fn(purchase_order) is not None
+    orders = parse_purchase_orders(invoice.get("nvfac_orde"))
+    return any(receipt_for_po_fn(order) is not None for order in orders)
 
 
 def should_auto_reject(po_match, receipt_match, rule_code):

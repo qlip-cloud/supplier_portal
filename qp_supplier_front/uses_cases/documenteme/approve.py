@@ -14,6 +14,8 @@ Modelo de estados (tabla de estatus actual):
 - "BCC": Creada en BC (tras crear la factura en BC, esperando confirmacion).
 - "PA": En proceso de Aprobacion en documenteme.
 - "PR": En proceso de Rechazo en documenteme.
+- "PSA": Por Autorizacion (diferencia factura/recepciones que solo puede
+  aprobar un superaprobador configurado).
 - Analisis: toda factura no definitiva que cumpla la regla
   factura - orden - recepcion y la suma de montos pasa a estado "V".
 - Creacion en BC: las facturas en "V" se envian a BC (en lote, un solo payload
@@ -36,6 +38,10 @@ from qp_supplier_front.uses_cases.documenteme.conversion import (
     is_cash_invoice,
     is_credit_note,
 )
+from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
+    header_purchase_order,
+    parse_purchase_orders,
+)
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
     DEFAULT_EPSILON,
     MAX_INVOICES_PER_OC_GROUP,
@@ -48,6 +54,12 @@ from qp_supplier_front.uses_cases.documenteme.receipt_selection import (
     classify_selection,
     sum_selected,
     validate_apply,
+)
+from qp_supplier_front.uses_cases.documenteme.super_approval import (
+    STATE_SUPER_APPROVAL,
+    classify as classify_super_approval,
+    is_super_approver,
+    normalize_rows,
 )
 
 FINAL_STATES = ("A", "R")
@@ -83,14 +95,17 @@ def _po_found(doc, po_exists_fn, po_supplier_match_fn=None):
     una OC de otro proveedor no se encuentra (misma ruta que una OC
     inexistente). Sin el callback se conserva la comprobacion por numero.
     """
-    purchase_order = doc.get("nvfac_orde")
-    if not purchase_order:
+    purchase_orders = parse_purchase_orders(doc.get("nvfac_orde"))
+    if not purchase_orders:
         return False
     if po_supplier_match_fn is not None:
-        return bool(po_supplier_match_fn(doc))
+        return any(
+            _order_is_valid(doc, order, po_exists_fn, po_supplier_match_fn)
+            for order in purchase_orders
+        )
     if po_exists_fn is None:
         return True
-    return bool(po_exists_fn(purchase_order))
+    return any(po_exists_fn(order) for order in purchase_orders)
 
 
 def _no_receipts_warning(purchase_order):
@@ -185,8 +200,16 @@ def _receipt_for_po_from_bank(receipt_bank_fn):
         return lambda purchase_order: None
 
     def receipt_for_po(purchase_order):
-        bank = receipt_bank_fn(purchase_order) or []
-        unconsumed = [r for r in bank if not r.get("qp_invoice")]
+        banks = [
+            receipt_bank_fn(order) or []
+            for order in parse_purchase_orders(purchase_order)
+        ]
+        unconsumed = [
+            receipt
+            for bank in banks
+            for receipt in bank
+            if not receipt.get("qp_invoice")
+        ]
         if not unconsumed:
             return None
         return sum(float(r.get("amount") or 0) for r in unconsumed)
@@ -323,10 +346,12 @@ def get_registrable_warnings(doc, po_exists_fn, receipt_bank_fn, resolve_rule_fn
     if not purchase_order:
         return [_no_order_warning()]
 
-    if not _po_found(doc, po_exists_fn, po_supplier_match_fn):
+    valid_orders = _valid_purchase_orders(
+        doc, po_exists_fn, po_supplier_match_fn)
+    if not valid_orders:
         return [_order_not_exists_warning(purchase_order)]
 
-    bank = receipt_bank_fn(purchase_order) or []
+    bank = _pool_receipts(receipt_bank_fn, valid_orders)
     if not unconsumed_receipts(bank):
         return [_no_receipts_warning(purchase_order)]
 
@@ -468,9 +493,11 @@ def collect_selection_violations(docs, po_exists_fn, receipt_bank_fn,
         purchase_order = doc.get("nvfac_orde")
         if not purchase_order:
             continue
-        if not _po_found(doc, po_exists_fn, po_supplier_match_fn):
+        valid_orders = _valid_purchase_orders(
+            doc, po_exists_fn, po_supplier_match_fn)
+        if not valid_orders:
             continue
-        bank = receipt_bank_fn(purchase_order) or [] if receipt_bank_fn else []
+        bank = _pool_receipts(receipt_bank_fn, valid_orders)
         invoice_number = doc.get("nvfac_nume")
         invoice_total = doc.get("nvfac_stot") or 0
         applied = _applied_receipts(bank, invoice_number)
@@ -779,6 +806,7 @@ def consolidate_gp_lines(detail_lines, homologation_map, oc_items=None,
         if oc_item:
             line["idx"] = int(oc_item.get("idx") or 0)
             line["uom"] = oc_item.get("uom") or ""
+            line["order_no"] = oc_item.get("parent") or line.get("order_no") or ""
     return lines, missing
 
 
@@ -914,7 +942,7 @@ def build_gp_invoice(doc, lines, headquarter, tipo_factura_doc=GP_TIPO_ENVIO_FAC
         "subtotal": doc.get("nvfac_stot") or 0,
         "comentario": "",
         "moneda": doc.get("nvmon_codi") or "COP",
-        "numeroPord": doc.get("nvfac_orde") or "",
+        "numeroPord": header_purchase_order(doc.get("nvfac_orde")),
         "dimensionSetLines": [],
         "vendorInvoiceLine": [
             build_gp_vendor_invoice_line(
@@ -975,7 +1003,7 @@ def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar"):
         "vendorNumber": doc.get("nvpro_ndoc"),
         "puntofacturacion": puntofacturacion,
         "NoFacturaProveedor": doc.get("nvfac_nume"),
-        "NoPedidoProveedor": doc.get("nvfac_orde") or "",
+        "NoPedidoProveedor": header_purchase_order(doc.get("nvfac_orde")),
         "Categoria": "",
         "SubCategoria": "",
         "Cufe": doc.get("nvfac_cufe") or "",
@@ -1265,6 +1293,88 @@ def _scalar_bank_fn(receipts_total_fn):
     return bank_fn
 
 
+def _order_is_valid(doc, order, po_exists_fn, po_supplier_match_fn):
+    """True si una OC concreta existe y pertenece al proveedor de la factura."""
+    if po_exists_fn is not None and not po_exists_fn(order):
+        return False
+    if po_supplier_match_fn is not None:
+        probe = dict(doc)
+        probe["nvfac_orde"] = order
+        return bool(po_supplier_match_fn(probe))
+    return True
+
+
+def _valid_purchase_orders(doc, po_exists_fn, po_supplier_match_fn):
+    """OC del documento que existen y pertenecen al proveedor."""
+    return [
+        order for order in parse_purchase_orders((doc or {}).get("nvfac_orde"))
+        if _order_is_valid(doc, order, po_exists_fn, po_supplier_match_fn)
+    ]
+
+
+def _credit_components(credit_docs):
+    """Agrupa facturas de credito que comparten al menos una OC.
+
+    Las OC de una misma factura pueden ser varias; para que dos facturas que
+    comparten una OC no consuman el mismo recibo por separado, se agrupan en
+    componentes conexas y se empaqueta el banco una sola vez por componente.
+
+    credit_docs: [(doc, [oc, ...])]. Retorna [{"orders": [...], "docs": [...]}]
+    en el orden de primera aparicion.
+    """
+    parent = {}
+
+    def find(value):
+        root = value
+        while parent[root] != root:
+            root = parent[root]
+        while parent[value] != root:
+            parent[value], value = root, parent[value]
+        return root
+
+    def union(left, right):
+        left_root = find(left)
+        right_root = find(right)
+        if left_root != right_root:
+            parent[right_root] = left_root
+
+    for _doc, orders in credit_docs:
+        for order in orders:
+            parent.setdefault(order, order)
+        for order in orders[1:]:
+            union(orders[0], order)
+
+    components = {}
+    component_order = []
+    for doc, orders in credit_docs:
+        root = find(orders[0])
+        if root not in components:
+            components[root] = {"orders": [], "docs": []}
+            component_order.append(root)
+        component = components[root]
+        for order in orders:
+            if order not in component["orders"]:
+                component["orders"].append(order)
+        component["docs"].append(doc)
+    return [components[root] for root in component_order]
+
+
+def _pool_receipts(receipt_bank_fn, orders):
+    """Un banco con las recepciones de varias OC, sin duplicar por nombre."""
+    if receipt_bank_fn is None:
+        return []
+    pooled = []
+    seen = set()
+    for order in (orders or []):
+        for receipt in (receipt_bank_fn(order) or []):
+            name = receipt.get("name")
+            if name in seen:
+                continue
+            seen.add(name)
+            pooled.append(receipt)
+    return pooled
+
+
 def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve_rule_fn=None,
                            is_service_supplier_fn=None, resolve_supplier_rule_fn=None,
                            po_supplier_match_fn=None, is_home_delivery_fn=None,
@@ -1294,8 +1404,7 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
     valid = []
     errors = []
     allocation = {}
-    credit_order = []
-    credit_groups = {}
+    credit_docs = []
 
     for doc in (docs or []):
         blocker = get_registrable_blockers(doc)
@@ -1347,35 +1456,37 @@ def _allocate_registrables(docs, po_exists_fn, receipt_bank_fn, epsilon, resolve
             else:
                 valid.append(doc)
             continue
-        purchase_order = doc.get("nvfac_orde")
-        if not purchase_order:
+        purchase_orders = parse_purchase_orders(doc.get("nvfac_orde"))
+        if not purchase_orders:
             errors.append({
                 "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": _no_order_warning(),
             })
             continue
-        if not _po_found(doc, po_exists_fn, po_supplier_match_fn):
+        valid_orders = [
+            order for order in purchase_orders
+            if _order_is_valid(doc, order, po_exists_fn, po_supplier_match_fn)
+        ]
+        if not valid_orders:
             errors.append({
                 "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
-                "error": _order_not_exists_warning(purchase_order),
+                "error": _order_not_exists_warning(doc.get("nvfac_orde")),
             })
             continue
-        if purchase_order not in credit_groups:
-            credit_groups[purchase_order] = []
-            credit_order.append(purchase_order)
-        credit_groups[purchase_order].append(doc)
+        credit_docs.append((doc, valid_orders))
 
-    for purchase_order in credit_order:
-        group = credit_groups[purchase_order]
-        bank = receipt_bank_fn(purchase_order) or []
+    for component in _credit_components(credit_docs):
+        group = component["docs"]
+        orders = component["orders"]
+        bank = _pool_receipts(receipt_bank_fn, orders)
         if not unconsumed_receipts(bank):
             for doc in group:
                 errors.append({
                     "name": doc.get("name"),
                     "nvfac_nume": doc.get("nvfac_nume"),
-                    "error": _no_receipts_warning(purchase_order),
+                    "error": _no_receipts_warning(", ".join(orders)),
                 })
             continue
         packed = pack_oc_group(
@@ -1504,16 +1615,18 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon,
                 "error": _no_order_warning(),
             })
             continue
-        if not _po_found(doc, po_exists_fn, po_supplier_match_fn):
+        valid_orders = _valid_purchase_orders(
+            doc, po_exists_fn, po_supplier_match_fn)
+        if not valid_orders:
             errors.append({
                 "name": doc.get("name"),
                 "nvfac_nume": doc.get("nvfac_nume"),
                 "error": _order_not_exists_warning(purchase_order),
             })
             continue
+        bank = _pool_receipts(receipt_bank_fn, valid_orders)
         receipt_names = ((selected_receipts or {}).get(doc.get("name")) or [])
         if not receipt_names:
-            bank = receipt_bank_fn(purchase_order) or [] if receipt_bank_fn else []
             if unconsumed_receipts(bank):
                 errors.append({
                     "name": doc.get("name"),
@@ -1533,8 +1646,7 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon,
                 })
             continue
         bank = _bank_available_for_invoice(
-            receipt_bank_fn(purchase_order) or [] if receipt_bank_fn else [],
-            doc.get("nvfac_nume"),
+            bank, doc.get("nvfac_nume")
         )
         ok, error, classification = validate_apply(
             doc, receipt_names, bank, epsilon
@@ -1555,6 +1667,154 @@ def _allocate_selected(docs, selected_receipts, receipt_bank_fn, epsilon,
             receipt for receipt in bank if receipt.get("name") in names
         ]
     return valid, errors, allocation
+
+
+def _super_applies(doc, is_service_supplier_fn=None, is_home_delivery_fn=None):
+    """True si la factura entra en el gate de superaprobacion.
+
+    Solo facturas de credito con orden de compra: se excluyen notas credito,
+    contado, proveedores de servicio y home delivery.
+    """
+    if is_credit_note(doc.get("nvtip_docu")):
+        return False
+    if is_cash_invoice(doc.get("nvfac_conv")):
+        return False
+    if is_service_supplier_fn is not None and is_service_supplier_fn(doc):
+        return False
+    if is_home_delivery_fn is not None and is_home_delivery_fn(doc):
+        return False
+    return bool(doc.get("nvfac_orde"))
+
+
+def _super_receipts(doc, allocation, receipt_bank_fn, po_exists_fn=None,
+                    po_supplier_match_fn=None):
+    """Recepciones con las que se calcula la diferencia de la factura.
+
+    Con asignacion (automatica o seleccion manual) se usan las recepciones
+    asignadas; si no, el banco de la orden de compra.
+    """
+    matched = (allocation or {}).get(doc.get("name"))
+    if matched is not None:
+        return matched
+    if receipt_bank_fn is None:
+        return []
+    invoice_number = doc.get("nvfac_nume")
+    valid_orders = _valid_purchase_orders(
+        doc, po_exists_fn, po_supplier_match_fn)
+    bank = _pool_receipts(receipt_bank_fn, valid_orders)
+    return [
+        receipt for receipt in bank
+        if not receipt.get("qp_invoice")
+        or receipt.get("qp_invoice") == invoice_number
+    ]
+
+
+def _relax_super_state(docs, configured_super):
+    """Deja pasar la validacion una factura PSA cuando el usuario es super.
+
+    Los estados no registrables bloquean la aprobacion. Un superaprobador
+    configurado debe poder re-aprobar una factura "Por Autorizacion", asi que
+    se valida como si estuviera lista ("V"); la elegibilidad por umbrales se
+    comprueba despues con la diferencia real.
+    """
+    if not configured_super:
+        return docs
+    relaxed = []
+    for doc in docs:
+        if doc.get("nvfac_esta") == STATE_SUPER_APPROVAL:
+            copy = dict(doc)
+            copy["nvfac_esta"] = "V"
+            relaxed.append(copy)
+            continue
+        relaxed.append(doc)
+    return relaxed
+
+
+def _super_difference_message(info):
+    return "monto {0}, porcentaje {1}%".format(
+        info.get("difference_amount"),
+        round(info.get("difference_percentage") or 0, 2),
+    )
+
+
+def _split_pending_super(valid, allocation, receipt_bank_fn, rows, current_user,
+                         configured_super, errors, mark_error_fn,
+                         mark_pending_super_fn, now,
+                         is_service_supplier_fn=None,
+                         is_home_delivery_fn=None,
+                         po_exists_fn=None,
+                         po_supplier_match_fn=None):
+    """Separa las facturas que requieren autorizacion de un superaprobador.
+
+    - Si la diferencia no alcanza el primer umbral, la factura sigue normal.
+    - Si el usuario actual es un superaprobador elegible, se aprueba.
+    - Si ningun superaprobador cubre la diferencia, bloqueo duro.
+    - Si el usuario es un superaprobador configurado pero la diferencia
+      excede su limite, error (no puede autorizarla).
+    - Si es un usuario normal, la factura pasa a "Por Autorizacion" (PSA) y
+      se asigna a todos los superaprobadores elegibles.
+    """
+    if not rows:
+        return valid, []
+
+    remaining = []
+    pending = []
+    for doc in valid:
+        if not _super_applies(
+            doc, is_service_supplier_fn, is_home_delivery_fn
+        ):
+            remaining.append(doc)
+            continue
+
+        receipts = _super_receipts(
+            doc, allocation, receipt_bank_fn,
+            po_exists_fn=po_exists_fn,
+            po_supplier_match_fn=po_supplier_match_fn,
+        )
+        if not receipts:
+            remaining.append(doc)
+            continue
+
+        info = classify_super_approval(
+            rows, doc.get("nvfac_stot"), receipts, user=current_user
+        )
+        if not info.get("requires_super_approval") or info.get("authorized"):
+            remaining.append(doc)
+            continue
+
+        if configured_super:
+            _record_error(
+                errors, mark_error_fn, doc,
+                "La diferencia ({0}) excede el limite del superaprobador."
+                .format(_super_difference_message(info)),
+            )
+            continue
+
+        if info.get("blocked"):
+            _record_error(
+                errors, mark_error_fn, doc,
+                "Ningun superaprobador cubre la diferencia ({0}).".format(
+                    _super_difference_message(info)
+                ),
+            )
+            continue
+
+        if mark_pending_super_fn is not None:
+            try:
+                mark_pending_super_fn(doc, info, current_user, now)
+            except Exception as error:
+                _record_error(errors, mark_error_fn, doc, str(error))
+                continue
+
+        pending.append({
+            "name": doc.get("name"),
+            "nvfac_nume": doc.get("nvfac_nume"),
+            "difference_amount": info.get("difference_amount"),
+            "difference_percentage": info.get("difference_percentage"),
+            "supervisors": info.get("supervisors") or [],
+        })
+
+    return remaining, pending
 
 
 def approve_documents(
@@ -1585,6 +1845,9 @@ def approve_documents(
     po_supplier_match_fn=None,
     is_home_delivery_fn=None,
     cash_without_po_blocks=False,
+    super_approvers_fn=None,
+    mark_pending_super_fn=None,
+    current_user=None,
 ):
     """Aprueba en lote las facturas: un solo envio a BC con array.
 
@@ -1613,11 +1876,20 @@ def approve_documents(
        facturas realmente persistidas). Las que fallan (o duplicadas) no
        consumen y se registran via mark_error_fn / mark_duplicate_registered_fn.
 
-    Retorna {"approved": [...], "errors": [...], "unregistrable": [...]}.
-    "unregistrable" lista docs que estaban en "V" y fallaron la regla
-    OC - recepcion - montos (para que el flujo automatico los devuelva a "E").
+    Retorna {"approved": [...], "errors": [...], "unregistrable": [...],
+    "pending_super": [...]}. "unregistrable" lista docs que estaban en "V" y
+    fallaron la regla OC - recepcion - montos (para que el flujo automatico
+    los devuelva a "E"). "pending_super" lista las facturas que quedaron en
+    "PSA" (Por Autorizacion) esperando a un superaprobador: no se envian a BC
+    ni se consumen sus recepciones.
     """
     docs = get_docs_fn(doc_names)
+
+    super_rows = normalize_rows(
+        super_approvers_fn() if super_approvers_fn is not None else []
+    )
+    configured_super = is_super_approver(super_rows, current_user)
+    docs = _relax_super_state(docs, configured_super)
 
     if selected_receipts is not None:
         valid, errors, allocation = _allocate_selected(
@@ -1656,10 +1928,24 @@ def approve_documents(
         )
         allocation = {}
 
+    valid, pending_super = _split_pending_super(
+        valid, allocation, receipt_bank_fn, super_rows, current_user,
+        configured_super, errors, mark_error_fn, mark_pending_super_fn, now,
+        is_service_supplier_fn=is_service_supplier_fn,
+        is_home_delivery_fn=is_home_delivery_fn,
+        po_exists_fn=po_exists_fn,
+        po_supplier_match_fn=po_supplier_match_fn,
+    )
+
     unregistrable = plan_unregistrable(docs, errors, force=force)
 
     if not valid:
-        return {"approved": [], "errors": errors, "unregistrable": unregistrable}
+        return {
+            "approved": [],
+            "errors": errors,
+            "unregistrable": unregistrable,
+            "pending_super": pending_super,
+        }
 
     if build_invoice_fn is None:
         build_invoice_fn = _build_invoice
@@ -1683,7 +1969,12 @@ def approve_documents(
         payload.append(build_invoice_fn(doc, lines, headquarter))
 
     if not payload:
-        return {"approved": [], "errors": errors, "unregistrable": unregistrable}
+        return {
+            "approved": [],
+            "errors": errors,
+            "unregistrable": unregistrable,
+            "pending_super": pending_super,
+        }
 
     try:
         response, status = send_request_fn(
@@ -1693,13 +1984,23 @@ def approve_documents(
     except Exception as e:
         for doc in payload_docs:
             _record_error(errors, mark_error_fn, doc, str(e))
-        return {"approved": [], "errors": errors, "unregistrable": unregistrable}
+        return {
+            "approved": [],
+            "errors": errors,
+            "unregistrable": unregistrable,
+            "pending_super": pending_super,
+        }
 
     if is_error_response(response, status):
         message = get_error_message(response)
         for doc in payload_docs:
             _record_error(errors, mark_error_fn, doc, message)
-        return {"approved": [], "errors": errors, "unregistrable": unregistrable}
+        return {
+            "approved": [],
+            "errors": errors,
+            "unregistrable": unregistrable,
+            "pending_super": pending_super,
+        }
 
     invoice_results = parse_doc_numbers_fn(response)
 
@@ -1744,4 +2045,9 @@ def approve_documents(
 
     commit_fn()
 
-    return {"approved": approved, "errors": errors, "unregistrable": unregistrable}
+    return {
+        "approved": approved,
+        "errors": errors,
+        "unregistrable": unregistrable,
+        "pending_super": pending_super,
+    }
