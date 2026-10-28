@@ -8,9 +8,6 @@ from qp_supplier_front.services.documenteme_access import (
     get_assigned_sync_line_names,
     is_sede_documenteme,
 )
-from qp_supplier_front.uses_cases.documents.sync_all_whitelist import (
-    refresh_documents,
-)
 from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.services.flow_config import get_sync_backend
 
@@ -19,7 +16,6 @@ def get_context(context):
     context.no_cache = True
 
     context.simulation_mode = runtime.is_simulation_enabled()
-    context.sync_result = refresh_documents()
     query_params = frappe.request.args
     supplier_id = query_params.get("supplier")
     context.supplier_id = supplier_id

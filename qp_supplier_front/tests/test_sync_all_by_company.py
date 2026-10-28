@@ -157,12 +157,23 @@ class TestRefreshDocuments(unittest.TestCase):
             p.start()
             self.addCleanup(p.stop)
 
-    def test_refresh_documents_no_usa_lock_global(self):
+    def test_refresh_documents_toma_lock_global(self):
         with patch.object(saw, "sync_lock") as lock_mock:
+            lock_mock.acquire.return_value = {"token": "tok"}
             result = saw.refresh_documents()
         self.assertTrue(result["success"])
         self.assertTrue(self.sync_calls)
-        lock_mock.acquire.assert_not_called()
+        lock_mock.acquire.assert_called_once_with(saw.DOCUMENTS_LOCK_DOMAIN)
+        lock_mock.release.assert_called_once_with(
+            saw.DOCUMENTS_LOCK_DOMAIN, "tok")
+
+    def test_refresh_documents_omite_si_lock_ocupado(self):
+        with patch.object(saw, "sync_lock") as lock_mock:
+            lock_mock.acquire.return_value = None
+            result = saw.refresh_documents()
+        self.assertTrue(result["skipped"])
+        self.assertFalse(self.sync_calls)
+        lock_mock.release.assert_not_called()
 
     def test_refresh_lanza_rechazo_en_fondo_con_nuevos(self):
         saw.refresh_documents()

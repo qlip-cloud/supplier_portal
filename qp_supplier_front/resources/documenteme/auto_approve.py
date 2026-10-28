@@ -20,6 +20,8 @@ decide simulacion aqui. Si el facade es in-memory el job corre inline (el
 store no cruza workers).
 """
 
+import time
+
 import frappe
 
 from qp_supplier_front.resources.documenteme import runtime
@@ -46,6 +48,29 @@ from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILO
 AUTO_APPROVE_JOB_METHOD = (
     "qp_supplier_front.resources.documenteme.auto_approve.approve_batch_job"
 )
+AUTO_APPROVE_STATUS_KEY = "documenteme_auto_approve_status"
+
+
+def _set_status(**values):
+    """Guarda el progreso del job en cache (efimero, para el polling del front)."""
+    try:
+        frappe.cache().set_value(
+            AUTO_APPROVE_STATUS_KEY, values, expires_in_sec=3600)
+    except Exception:
+        pass
+
+
+def get_auto_approve_status():
+    try:
+        return frappe.cache().get_value(AUTO_APPROVE_STATUS_KEY) or {}
+    except Exception:
+        return {}
+
+
+@frappe.whitelist()
+def get_auto_approve_job_status():
+    """Estado del ultimo job de auto-aprobacion (running/total/done)."""
+    return get_auto_approve_status()
 
 
 def _data():
@@ -270,6 +295,10 @@ def run_auto_approve(enqueue=True, doc_names=None):
         return {"approved": [], "errors": [], "skipped": False}
 
     if enqueue and (data is None or not data.is_in_memory):
+        _set_status(
+            running=True, queued=True, total=len(doc_names), done=0,
+            started_at=time.time(),
+        )
         frappe.enqueue(
             AUTO_APPROVE_JOB_METHOD,
             doc_names=doc_names,
@@ -295,25 +324,39 @@ def run_auto_approve(enqueue=True, doc_names=None):
 
 
 def approve_batch_job(doc_names):
-    result = approve_documents_core(
-        doc_names, backend=_resolve_backend()
+    started_at = time.time()
+    _set_status(
+        running=True, queued=False, total=len(doc_names), done=0,
+        started_at=started_at,
     )
-    data = _data()
-    _demote_unregistrable(result, data)
-    if data is None:
-        frappe.db.commit()
-    else:
-        data.commit()
-
-    for err in result.get("errors", []):
-        frappe.log_error(
-            message="Factura {}: {}".format(
-                err.get("nvfac_nume"), err.get("error")
-            ),
-            title="Auto approve - error",
+    result = {}
+    try:
+        result = approve_documents_core(
+            doc_names, backend=_resolve_backend()
         )
+        data = _data()
+        _demote_unregistrable(result, data)
+        if data is None:
+            frappe.db.commit()
+        else:
+            data.commit()
 
-    return result
+        for err in result.get("errors", []):
+            frappe.log_error(
+                message="Factura {}: {}".format(
+                    err.get("nvfac_nume"), err.get("error")
+                ),
+                title="Auto approve - error",
+            )
+
+        return result
+    finally:
+        _set_status(
+            running=False, queued=False, total=len(doc_names),
+            done=len(doc_names), started_at=started_at,
+            finished_at=time.time(),
+            approved=len(result.get("approved", [])),
+        )
 
 
 def _demote_unregistrable(result, data):
