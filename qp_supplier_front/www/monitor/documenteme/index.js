@@ -932,6 +932,43 @@ $(document).ready(function () {
         assignTargetDoc = null;
     });
 
+    var SYNC_POLL_MS = 3000;
+    var SYNC_POLL_MAX = 200;
+
+    // Espera a que termine la sincronizacion de otro usuario y recarga la lista.
+    function pollSyncStatus(attempts) {
+        if (attempts >= SYNC_POLL_MAX) {
+            window.filter_init();
+            return;
+        }
+        petition_get_data({}, "qp_supplier_front.uses_cases.documents.sync_all_whitelist.get_documents_sync_status", function (status) {
+            if (status && status.locked) {
+                setTimeout(function () { pollSyncStatus(attempts + 1); }, SYNC_POLL_MS);
+                return;
+            }
+            window.filter_init();
+            frappe.msgprint("Sincronizaci\u00f3n completada.");
+        });
+    }
+
+    // Espera a que termine la aprobacion en segundo plano y recarga la lista.
+    function pollBackgroundApproval(attempts) {
+        if (attempts >= SYNC_POLL_MAX) {
+            window.filter_init();
+            return;
+        }
+        petition_get_data({}, "qp_supplier_front.resources.documenteme.auto_approve.get_auto_approve_job_status", function (status) {
+            if (status && status.running) {
+                setTimeout(function () { pollBackgroundApproval(attempts + 1); }, SYNC_POLL_MS);
+                return;
+            }
+            if (attempts > 0) {
+                window.filter_init();
+                frappe.msgprint("Procesamiento en segundo plano completado.");
+            }
+        });
+    }
+
     $("#refresh_filter_list").off("click");
     $("#refresh_filter_list").on("click", function () {
         var $btn = $(this);
@@ -957,9 +994,21 @@ $(document).ready(function () {
                         $(".filter-list.date").removeAttr("min").removeAttr("max");
                         $("select.filter-list").val("0");
                         window.filter_init();
-                        frappe.msgprint("Sincronizaci\u00f3n completada.");
+                        if (response.enqueued > 0) {
+                            frappe.msgprint(
+                                "Sincronizaci\u00f3n completada. Procesando "
+                                + response.enqueued + " factura(s) en segundo plano."
+                            );
+                            pollBackgroundApproval(0);
+                        } else {
+                            frappe.msgprint("Sincronizaci\u00f3n completada.");
+                        }
                     } else if (response && response.skipped) {
-                        frappe.msgprint("Ya hay una sincronizaci\u00f3n en curso.");
+                        frappe.msgprint(
+                            "Ya hay una sincronizaci\u00f3n en curso. La lista se "
+                            + "actualizar\u00e1 cuando termine."
+                        );
+                        pollSyncStatus(0);
                     } else {
                         frappe.msgprint(response && response.error ? response.error : "Error en la sincronizaci\u00f3n de facturas.");
                     }

@@ -203,6 +203,26 @@ def is_locked(domain):
         return False
 
 
+def get_status(domain):
+    """Retorna el payload del lock vigente, o None si esta libre o vencido.
+
+    Sirve para que el front consulte si hay una sincronizacion en curso sin
+    intentar adquirir el lock.
+    """
+    try:
+        c = frappe_cache()
+        key = _key(domain)
+        raw = c.get(key)
+        if raw is None:
+            return None
+        payload = _decode(raw)
+        if payload is None or _is_expired(payload):
+            return None
+        return payload
+    except Exception:
+        return None
+
+
 def wait_for(domain, timeout=300):
     """
     Espera hasta obtener el lock (para jobs full manuales que deben correr).

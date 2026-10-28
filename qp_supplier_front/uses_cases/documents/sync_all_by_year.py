@@ -50,13 +50,15 @@ def get_companies_by_tax_id(tax_id):
 
 @frappe.whitelist()
 def sync_all_by_year(year, tax_id=None):
-    if not sync_lock.acquire(DOCUMENTS_LOCK_DOMAIN):
+    lock = sync_lock.acquire(DOCUMENTS_LOCK_DOMAIN)
+    if not lock:
         return {
             "success": False,
             "skipped": True,
             "error": "Ya hay una sincronización en curso",
         }
 
+    token = lock.get("token")
     try:
         chunks = generate_date_chunks(int(year))
 
@@ -83,6 +85,7 @@ def sync_all_by_year(year, tax_id=None):
                         nvfac_fini=nvfac_fini,
                         nvfac_ffin=nvfac_ffin,
                     )
+                    sync_lock.heartbeat(DOCUMENTS_LOCK_DOMAIN, token)
 
                 created_names.extend(sync_detail(
                     get_uncompleted_lines_fn=get_uncompleted_lines,
@@ -92,6 +95,8 @@ def sync_all_by_year(year, tax_id=None):
                     mark_line_completed_fn=mark_line_completed,
                     commit_fn=lambda: frappe.db.commit(),
                     get_company_tax_id_fn=get_log_company_tax_id,
+                    heartbeat_fn=lambda: sync_lock.heartbeat(
+                        DOCUMENTS_LOCK_DOMAIN, token),
                 ) or [])
             except Exception as chunk_error:
                 frappe.db.rollback()
@@ -143,4 +148,4 @@ def sync_all_by_year(year, tax_id=None):
         frappe.log_error(frappe.get_traceback(), "sync_all_by_year")
         return {"success": False, "error": "Internal error"}
     finally:
-        sync_lock.release(DOCUMENTS_LOCK_DOMAIN)
+        sync_lock.release(DOCUMENTS_LOCK_DOMAIN, token)

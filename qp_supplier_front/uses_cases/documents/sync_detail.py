@@ -14,12 +14,15 @@ def sync_detail(
     mark_line_completed_fn,
     commit_fn,
     get_company_tax_id_fn=None,
+    heartbeat_fn=None,
 ):
     lines = get_uncompleted_lines_fn()
 
     created_names = []
 
     for line in lines:
+        if heartbeat_fn:
+            heartbeat_fn()
         nvpro_ndoc = line.get("nvpro_ndoc")
         nvfac_esta = line.get("nvfac_esta")
         nvfac_nume = line.get("nvfac_nume")

@@ -50,16 +50,18 @@ def _seed_simulation_scenario():
 
 
 def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
-                    doc_names=None):
+                    doc_names=None, heartbeat_fn=None):
     """Fase SINCRONA del flujo documenteme (no depende de workers).
 
     Genera primero las alertas de estatus no definitivo (>48h): solo leen
     qp_SP_DocumentDetail e insertan en la child table qp_SP_Alert, asi que
     se ejecutan aunque el sync posterior falle (red, permisos o workers).
-    Luego descarga lineas + detalles (trae las facturas), asigna y aprueba
-    de forma sincrona. NO lanza el auto-rechazo aqui.
+    Luego descarga lineas + detalles (trae las facturas), asigna y encola la
+    aprobacion en segundo plano. NO lanza el auto-rechazo aqui.
 
-    Retorna {"created": [..], "approved": [..]}.
+    `heartbeat_fn` renueva el lease del lock global durante fases largas.
+
+    Retorna {"created": [..], "approved": [..], "enqueued": int}.
     """
     run_documenteme_stale_status_alerts()
 
@@ -79,6 +81,8 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
             nvfac_fini=nvfac_fini,
             nvfac_ffin=nvfac_ffin,
         )
+        if heartbeat_fn:
+            heartbeat_fn()
 
     created_names = sync_detail(
         get_uncompleted_lines_fn=persist["get_uncompleted_lines"],
@@ -88,6 +92,7 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
         mark_line_completed_fn=persist["mark_line_completed"],
         commit_fn=lambda: frappe.db.commit(),
         get_company_tax_id_fn=persist["get_log_company_tax_id"],
+        heartbeat_fn=heartbeat_fn,
     )
 
     created_names = created_names or []
@@ -97,6 +102,7 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
     return {
         "created": created_names,
         "approved": (approve_result or {}).get("approved") or [],
+        "enqueued": (approve_result or {}).get("enqueued") or 0,
     }
 
 
@@ -146,7 +152,7 @@ def run_documenteme_auto_reject(doc_names=None):
 
 def run_documenteme_auto_approve(doc_names=None):
     try:
-        result = run_auto_approve(enqueue=False, doc_names=doc_names)
+        result = run_auto_approve(enqueue=True, doc_names=doc_names)
         frappe.db.commit()
         return result
 
@@ -177,18 +183,22 @@ def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
     nvfac_fini = nvfac_fini if nvfac_fini is not None else get_default_nvfac_fini()
     nvfac_ffin = nvfac_ffin if nvfac_ffin is not None else get_default_nvfac_ffin()
 
-    if not sync_lock.acquire(DOCUMENTS_LOCK_DOMAIN):
+    lock = sync_lock.acquire(DOCUMENTS_LOCK_DOMAIN)
+    if not lock:
         return {
             "success": False,
             "skipped": True,
             "error": "Ya hay una sincronización en curso",
         }
 
+    token = lock.get("token")
+    heartbeat_fn = lambda: sync_lock.heartbeat(DOCUMENTS_LOCK_DOMAIN, token)
     try:
         sync_result = _sync_documents(
             nvfac_esta=nvfac_esta,
             nvfac_fini=nvfac_fini,
             nvfac_ffin=nvfac_ffin,
+            heartbeat_fn=heartbeat_fn,
         )
         created_names = sync_result["created"]
         reject_result = _launch_reject(created_names)
@@ -199,29 +209,43 @@ def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
             "created_count": len(created_names),
             "rejected": (reject_result or {}).get("rejected") or [],
             "approved": sync_result["approved"],
+            "enqueued": sync_result.get("enqueued", 0),
         }
     except Exception as e:
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "sync_all")
         return {"success": False, "error": "Internal error"}
     finally:
-        sync_lock.release(DOCUMENTS_LOCK_DOMAIN)
+        sync_lock.release(DOCUMENTS_LOCK_DOMAIN, token)
 
 
 @frappe.whitelist()
 def refresh_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
-    """Refresco manual (boton) — SIEMPRE trae facturas.
+    """Refresco manual (boton) — single-flight por lock global.
 
-    Descarga de forma sincrona SIN tomar el lock global (para que, aunque
-    el cron este corriendo, el usuario siempre pueda traer las facturas
-    nuevas). Luego asigna, aprueba y lanza el auto-rechazo en segundo plano
-    sobre las facturas nuevas.
+    Solo un refresco corre a la vez (el cron y otros usuarios comparten el
+    mismo lock `documents`). Si ya hay uno en curso, responde `skipped` de
+    inmediato en lugar de solapar descargas y escrituras.
+
+    Descarga y asigna de forma sincrona; la aprobacion se encola en segundo
+    plano para responder rapido. El auto-rechazo tambien se encola.
     """
+    lock = sync_lock.acquire(DOCUMENTS_LOCK_DOMAIN)
+    if not lock:
+        return {
+            "success": False,
+            "skipped": True,
+            "error": "Ya hay una sincronización en curso",
+        }
+
+    token = lock.get("token")
+    heartbeat_fn = lambda: sync_lock.heartbeat(DOCUMENTS_LOCK_DOMAIN, token)
     try:
         sync_result = _sync_documents(
             nvfac_esta=nvfac_esta,
             nvfac_fini=nvfac_fini,
             nvfac_ffin=nvfac_ffin,
+            heartbeat_fn=heartbeat_fn,
         )
         created_names = sync_result["created"]
         # Siempre lanza el rechazo en fondo (encola), aunque ya haya otro job.
@@ -233,8 +257,25 @@ def refresh_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
             "created_count": len(created_names),
             "rejected": (reject_result or {}).get("rejected") or [],
             "approved": sync_result["approved"],
+            "enqueued": sync_result.get("enqueued", 0),
         }
     except Exception as e:
         frappe.db.rollback()
         frappe.log_error(frappe.get_traceback(), "refresh_documents")
         return {"success": False, "error": "Internal error"}
+    finally:
+        sync_lock.release(DOCUMENTS_LOCK_DOMAIN, token)
+
+
+@frappe.whitelist()
+def get_documents_sync_status():
+    """Estado del lock global de sincronizacion (para el polling del front)."""
+    status = sync_lock.get_status(DOCUMENTS_LOCK_DOMAIN)
+    if not status:
+        return {"locked": False}
+    return {
+        "locked": True,
+        "started_at": status.get("started_at"),
+        "expires_at": status.get("expires_at"),
+        "owner": status.get("owner"),
+    }
