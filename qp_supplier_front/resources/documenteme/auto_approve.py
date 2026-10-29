@@ -20,6 +20,7 @@ decide simulacion aqui. Si el facade es in-memory el job corre inline (el
 store no cruza workers).
 """
 
+import json
 import time
 import uuid
 
@@ -52,6 +53,7 @@ AUTO_APPROVE_QUEUE_TIMEOUT = 2 * 60
 AUTO_APPROVE_PENDING_KEY = "documenteme_auto_approve_pending"
 AUTO_APPROVE_LOCK_KEY = "documenteme_auto_approve_lock"
 AUTO_APPROVE_LOCK_TTL = 60 * 60
+AUTO_APPROVE_LOCK_STALE = 5 * 60
 
 
 def _set_status(job_id=None, force=False, **values):
@@ -114,11 +116,64 @@ def _merge_pending(doc_names):
     return names
 
 
-def _acquire_job_lock(token):
-    """Lock del job: solo un approve_batch_job procesa a la vez (fail-open)."""
+def _lock_key():
+    """Clave del lock con prefijo de sitio (no compartir entre sites del bench)."""
     try:
-        return bool(frappe.cache().set(
-            AUTO_APPROVE_LOCK_KEY, token, nx=True, ex=AUTO_APPROVE_LOCK_TTL))
+        return frappe.cache().make_key(AUTO_APPROVE_LOCK_KEY)
+    except Exception:
+        return AUTO_APPROVE_LOCK_KEY
+
+
+def _read_job_lock():
+    try:
+        raw = frappe.cache().get(_lock_key())
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        payload = json.loads(raw) if raw else {}
+        return payload if isinstance(payload, dict) else {}
+    except Exception:
+        return {}
+
+
+def _is_job_lock_stale(payload):
+    """Sin heartbeat por `AUTO_APPROVE_LOCK_STALE` se asume huerfano."""
+    updated_at = payload.get("updated_at") or 0
+    return (time.time() - updated_at) > AUTO_APPROVE_LOCK_STALE
+
+
+def _acquire_job_lock(token):
+    """Lock del job: solo un approve_batch_job procesa a la vez (fail-open).
+
+    El valor es JSON (token + updated_at) para poder robar un lock huerfano
+    cuando el worker murio sin liberarlo (no se espera la hora del TTL).
+    """
+    try:
+        cache = frappe.cache()
+        key = _lock_key()
+        payload = json.dumps({"token": token, "updated_at": time.time()})
+        if cache.set(key, payload, nx=True, ex=AUTO_APPROVE_LOCK_TTL):
+            return True
+        if not _is_job_lock_stale(_read_job_lock()):
+            return False
+        cache.delete(key)
+        return bool(cache.set(key, payload, nx=True, ex=AUTO_APPROVE_LOCK_TTL))
+    except Exception:
+        return True
+
+
+def _touch_job_lock(token):
+    """Renueva el lock mientras el job sigue vivo (evita robos por stale)."""
+    try:
+        cache = frappe.cache()
+        key = _lock_key()
+        if _read_job_lock().get("token") != token:
+            return False
+        cache.set(
+            key,
+            json.dumps({"token": token, "updated_at": time.time()}),
+            ex=AUTO_APPROVE_LOCK_TTL,
+        )
+        return True
     except Exception:
         return True
 
@@ -126,8 +181,10 @@ def _acquire_job_lock(token):
 def _release_job_lock(token):
     try:
         cache = frappe.cache()
-        if cache.get(AUTO_APPROVE_LOCK_KEY) == token:
-            cache.delete(AUTO_APPROVE_LOCK_KEY)
+        key = _lock_key()
+        if _read_job_lock().get("token") != token:
+            return
+        cache.delete(key)
     except Exception:
         pass
 
@@ -478,7 +535,14 @@ def approve_batch_job(doc_names, job_id=None):
     token = job_id or uuid.uuid4().hex
     if not in_memory and not _acquire_job_lock(token):
         # Otro job esta procesando: fusionar y salir (evita el doble envio a BC).
+        # El estado se cierra con guarda de job_id: si el job en curso es de
+        # este mismo site su estado no se pisa; si el lock es huerfano (nuestro
+        # job_id) se libera al front para que no quede esperando al worker.
         _add_pending(doc_names)
+        _set_status(
+            job_id=job_id, running=False, queued=False,
+            finished_at=time.time(), skipped_locked=True,
+        )
         return {"approved": [], "errors": [], "skipped": True}
 
     result = {"approved": [], "errors": []}
@@ -491,6 +555,8 @@ def approve_batch_job(doc_names, job_id=None):
                 names if in_memory else _merge_pending(names))
             if not names:
                 break
+            if not in_memory:
+                _touch_job_lock(token)
             _set_status(
                 job_id=job_id, running=True, queued=False, total=len(names),
                 done=0, started_at=started_at, queued_at=None,
