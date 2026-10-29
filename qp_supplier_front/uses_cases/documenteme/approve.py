@@ -625,12 +625,12 @@ def build_bc_comment(receiving_no, comment="", attachment_url=""):
     return ":".join(("ALERTA", receiving_label, attachment_url, comment))
 
 
-def _build_vendor_invoice_line(line, idx="10000", comment="", attachment_url=""):
+def _build_vendor_invoice_line(line, comment="", attachment_url=""):
     return {
         "NoProducto": line.get("item_code") or "",
         "cantidad": line.get("qty") or 0,
         "Precio": line.get("rate") or 0,
-        "NoLineaRecepcion": idx,
+        "NoLineaRecepcion": str(line.get("idx") or ""),
         "NoRecepcion": line.get("receiving_no") or "",
         "NoPedido": line.get("order_no") or "",
         "Comentarios": build_bc_comment(
@@ -1014,10 +1014,10 @@ def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar"):
             {"code": "TERCERO", "valueCode": doc.get("nvpro_ndoc")}
         ],
         "vendorInvoiceLine": [
-            _build_vendor_invoice_line(line, idx=str((i+1) * 10000),
+            _build_vendor_invoice_line(line,
                                        comment=bc_comment,
                                        attachment_url=bc_comment_url)
-            for i, line in enumerate(lines or [])
+            for line in (lines or [])
         ],
     }
 
@@ -1130,8 +1130,9 @@ def build_payload(docs, get_lines_fn, get_headquarter_fn, build_invoice_fn=None)
 
     Cada linea se origina de las recepciones (Purchase Receipt / Item) o de
     las lineas de la factura del proveedor homologadas (contado sin recibo).
-    NoLineaRecepcion es el idx de la linea. El headquarter (sede/almacen) se
-    resuelve por OC via el callback inyectado.
+    NoLineaRecepcion es el numero de linea de la recepcion (idx del item); se
+    repite sin problema entre recepciones distintas. El headquarter (sede/almacen)
+    se resuelve por OC via el callback inyectado.
 
     get_lines_fn recibe el doc y retorna (lines, error); si error no es vacio
     la factura se omite del payload. build_invoice_fn permite adaptar el punto

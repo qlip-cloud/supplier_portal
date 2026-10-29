@@ -97,7 +97,7 @@ def _golden_invoice(no_factura_proveedor, cufe, almacen="HQ01"):
                 "NoProducto": "M000455",
                 "cantidad": 10,
                 "Precio": 5000.0,
-                "NoLineaRecepcion": "10000",
+                "NoLineaRecepcion": "1",
                 "NoRecepcion": "R108349",
                 "NoPedido": "45238",
                 "Comentario": "Recepcion R108349",

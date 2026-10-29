@@ -149,6 +149,28 @@ class TestMultiOcHeader(unittest.TestCase):
         invoice = _build_invoice(self._doc("OC1"), [], "")
         self.assertEqual(invoice["NoPedidoProveedor"], "OC1")
 
+    def test_linea_recepcion_por_recibo_y_repetible(self):
+        lines = [
+            {"item_code": "I1", "qty": 1, "rate": 100, "idx": 10000,
+             "receiving_no": "R1", "order_no": "OC1"},
+            {"item_code": "I2", "qty": 1, "rate": 200, "idx": 10000,
+             "receiving_no": "R2", "order_no": "OC2"},
+        ]
+        invoice = _build_invoice(self._doc("OC1, OC2"), lines, "")
+        payload_lines = invoice["vendorInvoiceLine"]
+        self.assertEqual(
+            [line["NoLineaRecepcion"] for line in payload_lines],
+            ["10000", "10000"],
+        )
+        self.assertEqual(
+            [line["NoRecepcion"] for line in payload_lines],
+            ["R1", "R2"],
+        )
+        self.assertEqual(
+            [line["NoPedido"] for line in payload_lines],
+            ["OC1", "OC2"],
+        )
+
 
 class _DoubleOcRefs(object):
 
