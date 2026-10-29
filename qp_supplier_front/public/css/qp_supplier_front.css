@@ -37,7 +37,7 @@ html {
 .dm-toolbar {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
 }
 
@@ -70,14 +70,24 @@ html {
     display: flex;
     flex: 0 1 auto;
     flex-wrap: wrap;
+    align-items: center;
+    /* matches .form-control height so the buttons stay level with the first filter row */
+    min-height: 38px;
     gap: 8px;
     margin-left: auto;
 }
 
 .dm-toolbar-actions .btn {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     white-space: nowrap;
     font-size: 0.7em;
+}
+
+@media (max-width: 991.98px) {
+    .dm-toolbar-actions {
+        flex: 1 1 100%;
+        margin-left: 0;
+    }
 }
 
 @media (max-width: 767.98px) {
@@ -91,11 +101,6 @@ html {
         flex: 1 1 calc(50% - 8px);
         min-width: 0;
         max-width: none;
-    }
-
-    .dm-toolbar-actions {
-        flex: 1 1 100%;
-        margin-left: 0;
     }
 }
 .custom-title{
