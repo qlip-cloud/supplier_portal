@@ -598,6 +598,45 @@ def _update_status_if_fully_paid(document, data=None, references=None,
             RealTimelineAdapter,
         )
         RealTimelineAdapter().set_state(document.get("name"), "V")
+        _enqueue_auto_approve(document.get("name"))
     else:
         data.timeline.set_state(document.get("name"), "V")
     document["nvfac_esta"] = "V"
+
+
+def _enqueue_auto_approve(document_name):
+    if not document_name:
+        return
+    import frappe
+    from qp_supplier_front.resources.documenteme.auto_approve import (
+        is_auto_approve_enabled,
+    )
+
+    try:
+        if not is_auto_approve_enabled():
+            return
+    except Exception:
+        return
+
+    key = "documenteme_auto_approve_promoted:{0}".format(document_name)
+    try:
+        if frappe.cache().get_value(key):
+            return
+        frappe.cache().set_value(key, 1, expires_in_sec=60)
+    except Exception:
+        pass
+
+    try:
+        frappe.enqueue(
+            "qp_supplier_front.resources.documenteme.auto_approve.auto_approve_now",
+            queue="long",
+            timeout=14400,
+            job_name="auto approve promoted invoice",
+            enqueue_after_commit=True,
+            doc_names=[document_name],
+        )
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "documenteme auto approve promoted",
+        )

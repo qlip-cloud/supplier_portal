@@ -467,6 +467,10 @@ def run_auto_approve(enqueue=True, doc_names=None, force=False):
     }
 
 
+def auto_approve_now(doc_names=None):
+    return run_auto_approve(enqueue=False, doc_names=doc_names)
+
+
 def approve_batch_job(doc_names, job_id=None):
     started_at = time.time()
     data = _data()

@@ -274,6 +274,15 @@ class TestRunAutoApprove(_WithData, unittest.TestCase):
         frappe_mock.enqueue.assert_called_once()
 
 
+class TestAutoApproveNow(unittest.TestCase):
+
+    def test_ejecuta_inline_con_los_docs_recibidos(self):
+        with patch.object(infra, "run_auto_approve", return_value={}) as run:
+            infra.auto_approve_now(["DOC1", "DOC2"])
+
+        run.assert_called_once_with(enqueue=False, doc_names=["DOC1", "DOC2"])
+
+
 class TestApproveBatchJob(_WithData, unittest.TestCase):
 
     def test_aprueba_y_loguea_errores(self):
