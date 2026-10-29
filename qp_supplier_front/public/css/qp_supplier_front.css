@@ -32,6 +32,72 @@ html {
 .row-line {
     margin: 0 0 2% 0;
 }
+
+/* documenteme filter toolbar: filters and actions wrap without overlapping */
+.dm-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.dm-toolbar-filters {
+    display: flex;
+    flex: 1 1 480px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.dm-filter {
+    flex: 1 1 150px;
+    min-width: 110px;
+    max-width: 260px;
+}
+
+.dm-filter-date {
+    flex: 1 1 160px;
+}
+
+.dm-filter-status {
+    flex: 0 1 160px;
+    min-width: 130px;
+    max-width: 160px;
+}
+
+.dm-toolbar-actions {
+    display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.dm-toolbar-actions .btn {
+    flex: 1 1 auto;
+    white-space: nowrap;
+    font-size: 0.7em;
+}
+
+@media (max-width: 767.98px) {
+    .dm-toolbar-filters {
+        flex: 1 1 100%;
+    }
+
+    .dm-filter,
+    .dm-filter-date,
+    .dm-filter-status {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 0;
+        max-width: none;
+    }
+
+    .dm-toolbar-actions {
+        flex: 1 1 100%;
+        margin-left: 0;
+    }
+}
 .custom-title{
     font-family: 'Open Sans';
     font-weight: 600;

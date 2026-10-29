@@ -21,54 +21,55 @@
 
         <div class="row row-line">
             <div class="col-12">
-                <div class="d-flex flex-wrap align-items-center">
-                    <div style="flex:1 1 150px; min-width:120px; max-width:260px; margin:0 8px 8px 0;">
-                        <input type="text" autocomplete="off"
-                            class="input-with-feedback form-control floating-input bold filter-list" maxlength="140"
-                            data-fieldtype="Data" data-doctype="Issue" id="nvpro_ndoc" placeholder="NIT">
+                <div class="dm-toolbar">
+                    <div class="dm-toolbar-filters">
+                        <div class="dm-filter">
+                            <input type="text" autocomplete="off"
+                                class="input-with-feedback form-control floating-input bold filter-list" maxlength="140"
+                                data-fieldtype="Data" data-doctype="Issue" id="nvpro_ndoc" placeholder="NIT">
+                        </div>
+                        <div class="dm-filter">
+                            <input type="text" autocomplete="off"
+                                class="input-with-feedback form-control floating-input bold filter-list" maxlength="140"
+                                data-fieldtype="Data" data-doctype="Issue" id="nvfac_nume" placeholder="Factura">
+                        </div>
+                        <div class="dm-filter dm-filter-date">
+                            <input type="date" autocomplete="off"
+                                class="input-with-feedback form-control bold filter-list date" id="start_date"
+                                data-placeholder="Fecha inicio" data-date_key="{{ date_key }}">
+                        </div>
+                        <div class="dm-filter dm-filter-date">
+                            <input type="date" autocomplete="off"
+                                class="input-with-feedback form-control bold filter-list date" id="end_date"
+                                data-placeholder="Fecha fin" data-date_key="{{ date_key }}">
+                        </div>
+                        <div class="dm-filter dm-filter-status">
+                            <select class="form-control filter-list" name="status" id="nvfac_esta" data-label="Estado"
+                                data-fieldtype="Select">
+                                <option value="0" selected="selected" class="custom-option">Estado</option>
+                                <option value="A">Aprobado</option>
+                                <option value="E">Registrado</option>
+                                <option value="V">Lista para Registro</option>
+                                <option value="R">Rechazada</option>
+                                <option value="BCC">Creada en BC</option>
+                                <option value="PA">En proceso de aprobación</option>
+                                <option value="PR">En proceso de rechazo</option>
+                                <option value="PSA">Por Autorización</option>
+                                <option value="SR">Sin referencia</option>
+                            </select>
+                        </div>
                     </div>
-                    <div style="flex:1 1 150px; min-width:120px; max-width:260px; margin:0 8px 8px 0;">
-                        <input type="text" autocomplete="off"
-                            class="input-with-feedback form-control floating-input bold filter-list" maxlength="140"
-                            data-fieldtype="Data" data-doctype="Issue" id="nvfac_nume" placeholder="Factura">
-                    </div>
-                    <div style="flex:1 1 160px; min-width:140px; max-width:260px; margin:0 8px 8px 0;">
-                        <input type="date" autocomplete="off"
-                            class="input-with-feedback form-control bold filter-list date" id="start_date"
-                            data-placeholder="Fecha inicio" data-date_key="{{ date_key }}">
-                    </div>
-                    <div style="flex:1 1 160px; min-width:140px; max-width:260px; margin:0 8px 8px 0;">
-                        <input type="date" autocomplete="off"
-                            class="input-with-feedback form-control bold filter-list date" id="end_date"
-                            data-placeholder="Fecha fin" data-date_key="{{ date_key }}">
-                    </div>
-                    <div style="flex:0 1 150px; min-width:110px; margin:0 8px 8px 0;">
-                        <select class="form-control filter-list" name="status" id="nvfac_esta" data-label="Estado"
-                            data-fieldtype="Select">
-                            <option value="0" selected="selected" class="custom-option">Estado</option>
-                            <option value="A">Aprobado</option>
-                            <option value="E">Registrado</option>
-                            <option value="V">Lista para Registro</option>
-                            <option value="R">Rechazada</option>
-                            <option value="BCC">Creada en BC</option>
-                            <option value="PA">En proceso de aprobación</option>
-                            <option value="PR">En proceso de rechazo</option>
-                            <option value="PSA">Por Autorización</option>
-                            <option value="SR">Sin referencia</option>
-                        </select>
-                    </div>
-                    <div class="d-flex justify-content-end"
-                        style="flex:0 1 320px; min-width:260px; margin:0 0 8px auto; padding-left:24px;">
+                    <div class="dm-toolbar-actions">
                         {% if not is_sede_documenteme %}
-                        <button type="button" class="btn btn-primary btn-sm rounded mr-2" id="assign-document" title="Asignar"
-                            style="flex:1 1 0; white-space:nowrap; font-size:0.7em;">Asignar</button>
+                        <button type="button" class="btn btn-primary btn-sm rounded" id="assign-document"
+                            title="Asignar">Asignar</button>
                         {% endif %}
-                        <button type="button" class="btn btn-danger btn-sm rounded mr-2" id="reject-document" title="Rechazar"
-                            style="flex:1 1 0; white-space:nowrap; font-size:0.7em;">Rechazar</button>
-                        <button type="button" class="btn btn-success btn-sm rounded mr-2" id="approve-document" title="Aprobar"
-                            style="flex:1 1 0; white-space:nowrap; font-size:0.7em;">Aprobar</button>
-                        <button type="button" class="btn btn-primary btn-sm rounded" id="refresh_filter_list" title="Actualizar"
-                            style="flex:1 1 0; white-space:nowrap; font-size:0.7em;">Actualizar</button>
+                        <button type="button" class="btn btn-danger btn-sm rounded" id="reject-document"
+                            title="Rechazar">Rechazar</button>
+                        <button type="button" class="btn btn-success btn-sm rounded" id="approve-document"
+                            title="Aprobar">Aprobar</button>
+                        <button type="button" class="btn btn-primary btn-sm rounded" id="refresh_filter_list"
+                            title="Actualizar">Actualizar</button>
                     </div>
                 </div>
             </div>
