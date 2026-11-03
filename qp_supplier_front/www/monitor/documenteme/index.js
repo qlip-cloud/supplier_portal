@@ -939,10 +939,36 @@ $(document).ready(function () {
     var SYNC_POLL_MAX = 200;
     var syncPollCancelled = false;
 
+    // El desbloqueo manual solo se ofrece al Administrator; el backend
+    // tambien valida el permiso.
+    function canUnlockSync() {
+        return $("#refresh_filter_list").attr("data-is-administrator") === "1";
+    }
+
+    // Mensaje de sincronizacion en curso. El boton "Desbloquear" solo
+    // aparece para el Administrator.
+    function syncBusyDialog(text) {
+        var dialog = {
+            title: "Sincronizaci\u00f3n en curso",
+            message: text
+        };
+        if (canUnlockSync()) {
+            dialog.primary_action = {
+                label: "Desbloquear",
+                action: unlockSyncAndReload
+            };
+        }
+        return dialog;
+    }
+
     // Libera un lock colgado (crash/worker caido) sin esperar el TTL.
     function unlockSyncAndReload() {
         syncPollCancelled = true;
-        petition_get_data({}, "qp_supplier_front.uses_cases.documents.sync_all_whitelist.unlock_documents_sync", function () {
+        petition_get_data({}, "qp_supplier_front.uses_cases.documents.sync_all_whitelist.unlock_documents_sync", function (response) {
+            if (!response || response.success === false) {
+                frappe.msgprint((response && response.error) || "No tiene permiso para desbloquear la sincronizaci\u00f3n.");
+                return;
+            }
             window.filter_init();
             frappe.msgprint("Sincronizaci\u00f3n desbloqueada. Puede actualizar de nuevo.");
         });
@@ -955,14 +981,9 @@ $(document).ready(function () {
         }
         if (attempts >= SYNC_POLL_MAX) {
             window.filter_init();
-            frappe.msgprint({
-                title: "Sincronizaci\u00f3n en curso",
-                message: "La sincronizaci\u00f3n sigue tomada. Si qued\u00f3 colgada, puede liberarla manualmente.",
-                primary_action: {
-                    label: "Desbloquear",
-                    action: unlockSyncAndReload
-                }
-            });
+            frappe.msgprint(syncBusyDialog(
+                "La sincronizaci\u00f3n sigue en curso. Actualice la lista cuando termine."
+            ));
             return;
         }
         petition_get_data({}, "qp_supplier_front.uses_cases.documents.sync_all_whitelist.get_documents_sync_status", function (status) {
@@ -1057,16 +1078,10 @@ $(document).ready(function () {
                             frappe.msgprint("Sincronizaci\u00f3n completada.");
                         }
                     } else if (response && response.skipped) {
-                        frappe.msgprint({
-                            title: "Sincronizaci\u00f3n en curso",
-                            message: "Ya hay una sincronizaci\u00f3n en curso. La lista se "
-                                + "actualizar\u00e1 cuando termine. Si qued\u00f3 colgada, "
-                                + "puede liberarla manualmente.",
-                            primary_action: {
-                                label: "Desbloquear",
-                                action: unlockSyncAndReload
-                            }
-                        });
+                        frappe.msgprint(syncBusyDialog(
+                            "Ya hay una sincronizaci\u00f3n en curso. La lista se "
+                                + "actualizar\u00e1 cuando termine."
+                        ));
                         pollSyncStatus(0);
                     } else {
                         frappe.msgprint(response && response.error ? response.error : "Error en la sincronizaci\u00f3n de facturas.");

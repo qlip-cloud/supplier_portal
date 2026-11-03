@@ -272,7 +272,16 @@ def refresh_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
 
 @frappe.whitelist()
 def unlock_documents_sync():
-    """Desbloqueo manual del sync global (lock colgado sin worker/crash)."""
+    """Desbloqueo manual del sync global (lock colgado sin worker/crash).
+
+    Solo el usuario Administrator puede liberar el lock a mano: los demas
+    usuarios deben esperar a que el lease venza o se libere solo.
+    """
+    if frappe.session.user != "Administrator":
+        return {
+            "success": False,
+            "error": "No tiene permiso para desbloquear la sincronización",
+        }
     sync_lock.force_release(DOCUMENTS_LOCK_DOMAIN)
     return {"success": True, "locked": False}
 

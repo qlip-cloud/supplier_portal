@@ -450,5 +450,30 @@ class TestRunAutoApproveSync(unittest.TestCase):
         self.assertEqual(result["enqueued"], 1)
 
 
+class TestUnlockDocumentsSyncPermissions(unittest.TestCase):
+    """El desbloqueo manual solo lo puede ejecutar el usuario Administrator."""
+
+    def setUp(self):
+        self.frappe_mock = MagicMock()
+        self.patch = patch.object(saw, "frappe", self.frappe_mock)
+        self.patch.start()
+        self.addCleanup(self.patch.stop)
+
+    def test_no_administrador_no_libera_el_lock(self):
+        self.frappe_mock.session.user = "user@example.com"
+        with patch.object(saw, "sync_lock") as lock_mock:
+            result = saw.unlock_documents_sync()
+        lock_mock.force_release.assert_not_called()
+        self.assertFalse(result["success"])
+        self.assertTrue(result["error"])
+
+    def test_administrador_libera_el_lock(self):
+        self.frappe_mock.session.user = "Administrator"
+        with patch.object(saw, "sync_lock") as lock_mock:
+            result = saw.unlock_documents_sync()
+        lock_mock.force_release.assert_called_once_with(saw.DOCUMENTS_LOCK_DOMAIN)
+        self.assertTrue(result["success"])
+
+
 if __name__ == "__main__":
     unittest.main()

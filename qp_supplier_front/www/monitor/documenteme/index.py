@@ -42,6 +42,7 @@ def get_context(context):
     user_roles = frappe.get_roles()
     context.active_role = get_active_role(user_roles)
     context.is_documenteme_admin = context.active_role is not None
+    context.is_administrator = frappe.session.user == "Administrator"
     context.is_sede_documenteme = is_sede_documenteme(user_roles)
     context.documenteme_backend = get_sync_backend()
 
