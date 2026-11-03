@@ -128,22 +128,22 @@ class TestResolveDeliveryItem(unittest.TestCase):
 
 class TestBuildHomeDeliveryLine(unittest.TestCase):
 
-    def test_acumula_cantidad_y_subtotal(self):
+    def test_consolida_subtotal_con_cantidad_1(self):
         lines = [
             _detail(2, 100, 200),
             _detail(3, 50, 150),
         ]
         line = build_home_delivery_line(lines, "HD-ITEM")
         self.assertEqual(line["item_code"], "HD-ITEM")
-        self.assertEqual(line["qty"], 5)
-        self.assertEqual(line["rate"], 70)
+        self.assertEqual(line["qty"], 1)
+        self.assertEqual(line["rate"], 350)
         self.assertEqual(line["receiving_no"], "")
         self.assertEqual(line["order_no"], "")
 
     def test_subtotal_con_fallback_a_cantidad_por_valor(self):
         line = build_home_delivery_line([_detail(4, 25)], "HD-ITEM")
-        self.assertEqual(line["qty"], 4)
-        self.assertEqual(line["rate"], 25)
+        self.assertEqual(line["qty"], 1)
+        self.assertEqual(line["rate"], 100)
 
     def test_sin_producto_configurado(self):
         self.assertIsNone(build_home_delivery_line([_detail(1, 10)], ""))

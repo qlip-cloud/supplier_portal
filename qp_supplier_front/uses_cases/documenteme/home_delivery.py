@@ -8,8 +8,9 @@ Una factura de delivery llega sin orden de compra ni recepcion reales: el
 campo `nvfac_orde` trae un codigo configurado en `qp_SP_DeliveryType`
 (por ejemplo `entregapaciente009`). Como no hay productos homologados, la
 factura se envia a BC con UNA sola linea usando el producto configurado en
-el proveedor o, en su defecto, en `qp_SP_MasterSetup.delivery_items`; se
-acumulan la cantidad y el subtotal de todas las lineas de la factura.
+el proveedor o, en su defecto, en `qp_SP_MasterSetup.delivery_items`; la
+linea lleva cantidad 1 y el subtotal consolidado de todas las lineas de la
+factura.
 
 Sin imports a Frappe: las funciones son puras y reutilizables por el flujo
 real y por la simulacion.
@@ -112,12 +113,12 @@ def resolve_delivery(doc, delivery_types, supplier_items, master_items):
 def build_home_delivery_line(detail_lines, item_code):
     """Linea unica consolidada para una factura de home delivery.
 
-    Acumula la cantidad (`nvdet_tcan`) y el subtotal (`nvdet_stot`, con
-    fallback a cantidad * valor unitario) de todas las lineas de la factura.
-    El precio unitario se deriva del subtotal acumulado entre la cantidad.
+    Consolida el subtotal (`nvdet_stot`, con fallback a cantidad * valor
+    unitario) de todas las lineas de la factura en UNA sola linea con
+    cantidad 1; el precio unitario es el subtotal consolidado.
 
     Retorna None si no hay producto configurado o si la factura no tiene
-    lineas de detalle.
+    lineas de detalle con datos.
     """
     if not item_code:
         return None
@@ -125,8 +126,8 @@ def build_home_delivery_line(detail_lines, item_code):
     if not lines:
         return None
 
-    qty = 0.0
     subtotal = 0.0
+    has_data = False
     for line in lines:
         line_qty = _as_float(line.get("nvdet_tcan"))
         raw_subtotal = line.get("nvdet_stot")
@@ -135,16 +136,16 @@ def build_home_delivery_line(detail_lines, item_code):
             if raw_subtotal is not None
             else line_qty * _as_float(line.get("nvdet_valo"))
         )
-        qty += line_qty
+        if line_qty or line_subtotal:
+            has_data = True
         subtotal += line_subtotal
 
-    if not qty and not subtotal:
+    if not has_data:
         return None
-    effective_qty = qty or 1.0
     return {
         "item_code": item_code,
-        "qty": effective_qty,
-        "rate": subtotal / effective_qty,
+        "qty": 1,
+        "rate": subtotal,
         "idx": 0,
         "uom": "",
         "receiving_no": "",

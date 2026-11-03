@@ -194,8 +194,8 @@ class TestSimApproveInMemory(unittest.TestCase):
         self.assertEqual(len(invoice["vendorInvoiceLine"]), 1)
         line = invoice["vendorInvoiceLine"][0]
         self.assertEqual(line["NoProducto"], "HD-ITEM")
-        self.assertEqual(line["cantidad"], 5)
-        self.assertEqual(line["Precio"], 70000)
+        self.assertEqual(line["cantidad"], 1)
+        self.assertEqual(line["Precio"], 350000)
         self.assertEqual(line["NoPedido"], "")
         self.assertEqual(line["NoLineaRecepcion"], "10000")
         self.assertIn("Factura de home delivery", line["Comentarios"])
