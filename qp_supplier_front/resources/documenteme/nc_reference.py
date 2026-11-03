@@ -75,10 +75,27 @@ def _resolve_reference_pi(doc_name, invoice_number):
     """
     from qp_supplier_front.resources.documenteme._approve_base import (
         get_referenced_pi,
+        get_referenced_pi_bc,
     )
 
     if not invoice_number:
         return None
+    if _backend() == "BC":
+        pi = get_referenced_pi_bc(str(invoice_number))
+        if not pi:
+            return None
+        if (pi.get("qp_sync_flow") or "").upper() != "BC":
+            return None
+        if frappe.db.get_value(
+            "qp_SP_DocumentDetail", pi.get("name"), "nvtip_docu"
+        ) == "C":
+            return None
+        doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
+        supplier = get_supplier_by_tax_id(doc.get("nvpro_ndoc"))
+        if supplier and pi.get("supplier") and pi.get("supplier") != supplier:
+            return None
+        return pi
+
     pi = get_referenced_pi(str(invoice_number))
     if not pi:
         return None
@@ -89,6 +106,16 @@ def _resolve_reference_pi(doc_name, invoice_number):
     if gp_tipo not in (1, 2):
         return None
     return pi
+
+
+def _backend():
+    """Backend documenteme (BC/GP) resuelto de forma perezosa."""
+    from qp_supplier_front.resources.documenteme.approve import resolve_backend
+
+    try:
+        return resolve_backend()
+    except Exception:
+        return "BC"
 
 
 @frappe.whitelist()
@@ -128,28 +155,27 @@ def get_reference_candidates(doc_name, start=None, end=None):
             return
 
         supplier = get_supplier_by_tax_id(doc.get("nvpro_ndoc"))
+        backend = _backend()
         invoices = []
         if supplier:
+            filters = {
+                "supplier": supplier,
+                "registration_date": ["between", [start, end]],
+            }
+            if backend == "GP":
+                filters["gp_tipo_factura_doc"] = ["in", ["1", "2"]]
+            else:
+                filters["qp_sync_flow"] = "BC"
             invoices = frappe.get_all(
                 "qp_SP_PurchaseInvoice",
-                filters={
-                    "supplier": supplier,
-                    "gp_tipo_factura_doc": ["in", ["1", "2"]],
-                    "registration_date": ["between", [start, end]],
-                },
+                filters=filters,
                 fields=[
                     "name", "invoice_id", "nvfac_nume", "detail",
                     "registration_date", "subtotal", "status",
+                    "qp_sync_flow",
                 ],
                 order_by="registration_date desc",
             )
-            # El valor a guardar como referencia es el numero de factura del
-            # proveedor (nvfac_nume o detail); invoice_id es el numero interno.
-            for row in invoices:
-                row["referencia"] = (
-                    row.get("nvfac_nume") or row.get("detail")
-                    or row.get("name") or ""
-                )
 
             # Estado documenteme de la factura referenciada: el nombre de la PI
             # coincide con el documento documenteme que la origino.
@@ -158,14 +184,41 @@ def get_reference_candidates(doc_name, start=None, end=None):
                 est_rows = frappe.get_all(
                     "qp_SP_DocumentDetail",
                     filters={"name": ["in", list(pis_by_name)]},
-                    fields=["name", "nvfac_esta"],
+                    fields=["name", "nvfac_esta", "nvtip_docu"],
                 )
             else:
                 est_rows = []
-            est_by_name = {r.get("name"): (r.get("nvfac_esta") or "")
-                           for r in (est_rows or [])}
+            est_by_name = {
+                r.get("name"): (r.get("nvfac_esta") or "")
+                for r in (est_rows or [])
+            }
+            nc_names = {
+                r.get("name") for r in (est_rows or [])
+                if (r.get("nvtip_docu") or "") == "C"
+            }
             for row in invoices:
                 row["nvfac_esta"] = est_by_name.get(row.get("name")) or ""
+
+            if backend == "BC":
+                # La referencia BC es el numero de documento de BC
+                # (invoice_id); las NC no son candidatas validas.
+                invoices = [
+                    row for row in (invoices or [])
+                    if row.get("name") not in nc_names
+                ]
+                for row in invoices:
+                    row["referencia"] = (
+                        row.get("invoice_id") or row.get("nvfac_nume")
+                        or row.get("detail") or row.get("name") or ""
+                    )
+            else:
+                # GP: el valor a guardar es el numero de factura del proveedor
+                # (nvfac_nume o detail); invoice_id es el numero interno.
+                for row in invoices:
+                    row["referencia"] = (
+                        row.get("nvfac_nume") or row.get("detail")
+                        or row.get("name") or ""
+                    )
 
         response(200, "ok", {"start": start, "end": end, "invoices": invoices})
 

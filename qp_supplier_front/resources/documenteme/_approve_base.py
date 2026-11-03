@@ -11,6 +11,10 @@ automatico (resources/documenteme/auto_approve.py).
 import frappe
 from frappe import parse_json
 
+from qp_supplier_front.constant.endpoint import (
+    CREATE_PURCHASE_NC,
+    CREATE_PURCHASE_ORDER,
+)
 from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
     get_receipt_bank as _adapter_get_receipt_bank,
     get_receipt_total as _adapter_get_receipt_total,
@@ -42,6 +46,9 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
 from qp_supplier_front.uses_cases.documenteme.conversion import (
     is_cash_invoice,
     is_credit_note,
+)
+from qp_supplier_front.uses_cases.documenteme.credit_note_bc import (
+    resolve_credit_note_lines,
 )
 from qp_supplier_front.uses_cases.documenteme.home_delivery import (
     HOME_DELIVERY_COMMENT,
@@ -187,8 +194,14 @@ def get_lines(doc):
     - Si la OC tiene recepciones: se usan los Purchase Receipt Items (codigo
       ya BC).
     - Si no hay recepciones pero hay OC: se usan los Purchase Order Items.
+    - Nota Credito (`nvtip_docu == "C"`): los productos salen de las
+      recepciones/OC de la factura de compra referenciada (ver
+      get_lines_bc_nc); las cantidades/precios salen del detalle de la NC.
     - Sin OC ni recepciones: error (salvo delivery).
     """
+    if is_credit_note(doc.get("nvtip_docu")):
+        return get_lines_bc_nc(doc)
+
     delivery = get_delivery_context(doc)
     if delivery is not None:
         return get_delivery_lines(doc, delivery)
@@ -296,6 +309,152 @@ def get_lines_from_purchase_order(purchase_order):
         }
         for item in items
     ]
+
+
+def get_nc_detail_lines(document_name):
+    """Lineas del detalle de una Nota Credito (normalizadas).
+
+    La NC trae sus propios productos/cantidades/precios; la recepcion u orden
+    de cada linea (nvdet_rece/nvdet_orde) se usa para acotar el banco de la
+    factura de referencia.
+    """
+    rows = frappe.get_all(
+        "qp_SP_DetailLine",
+        filters={
+            "parent": document_name,
+            "parenttype": "qp_SP_DocumentDetail",
+        },
+        fields=[
+            "nvpro_codi", "nvdet_desc", "nvdet_tcan", "nvdet_valo",
+            "nvdet_rece", "nvdet_orde", "idx",
+        ],
+        order_by="idx asc",
+    )
+    return [
+        {
+            "item_code": row.get("nvpro_codi") or "",
+            "description": row.get("nvdet_desc") or "",
+            "qty": row.get("nvdet_tcan") or 0,
+            "rate": row.get("nvdet_valo") or 0,
+            "receipt": row.get("nvdet_rece") or "",
+            "order": row.get("nvdet_orde") or "",
+        }
+        for row in (rows or [])
+    ]
+
+
+def get_referenced_pi_bc(reference):
+    """qp_SP_PurchaseInvoice de BC referenciada por su numero BC.
+
+    Para BC la referencia guardada en qp_ref_invoice es el invoice_id
+    (Document_No que devolvio BC), no el numero de factura del proveedor.
+    """
+    if not reference:
+        return None
+    return frappe.db.get_value(
+        "qp_SP_PurchaseInvoice",
+        {"invoice_id": reference},
+        [
+            "name", "invoice_id", "nvfac_nume", "purchase_order_id",
+            "supplier", "qp_sync_flow",
+        ],
+        as_dict=True,
+    )
+
+
+def get_reference_bank_bc(pi):
+    """Banco de productos de la factura de referencia (BC).
+
+    Prefiere las recepciones aplicadas a la referencia (qp_invoice ==
+    nvfac_nume) y, si no hay, las lineas de su orden de compra. Los productos
+    ya son codigos BC (sin homologacion).
+    """
+    reference_number = (pi or {}).get("nvfac_nume") or ""
+    receipts = frappe.get_all(
+        "Purchase Receipt",
+        filters={"qp_invoice": reference_number},
+        fields=["name", "qp_supplier_oc"],
+    ) if reference_number else []
+    if receipts:
+        oc_by_receipt = {
+            row.get("name"): row.get("qp_supplier_oc") or ""
+            for row in receipts
+        }
+        items = frappe.get_all(
+            "Purchase Receipt Item",
+            filters={
+                "parent": ["in", list(oc_by_receipt)],
+                "parenttype": "Purchase Receipt",
+            },
+            fields=[
+                "parent", "item_code", "item_name", "description", "qty", "idx",
+            ],
+            order_by="parent, idx",
+        )
+        return [
+            {
+                "item_code": item.get("item_code") or "",
+                "item_name": item.get("item_name") or "",
+                "description": item.get("description") or "",
+                "qty": item.get("qty") or 0,
+                "receiving_no": item.get("parent") or "",
+                "order_no": oc_by_receipt.get(item.get("parent")) or "",
+            }
+            for item in items
+        ]
+
+    purchase_order = (pi or {}).get("purchase_order_id") or ""
+    if not purchase_order:
+        return []
+    items = frappe.get_all(
+        "Purchase Order Item",
+        filters={
+            "parent": purchase_order,
+            "parenttype": "Purchase Order",
+        },
+        fields=["item_code", "item_name", "description", "qty", "idx"],
+        order_by="idx",
+    )
+    return [
+        {
+            "item_code": item.get("item_code") or "",
+            "item_name": item.get("item_name") or "",
+            "description": item.get("description") or "",
+            "qty": item.get("qty") or 0,
+            "receiving_no": "",
+            "order_no": purchase_order,
+        }
+        for item in items
+    ]
+
+
+def get_lines_bc_nc(doc):
+    """Lineas BC de una Nota Credito (productos de la referencia).
+
+    Retorna (lines, error). Las notas de proveedor de servicio no usan este
+    flujo en BC; sin referencia asignada (o sin referencia BC valida) la NC no
+    se envia.
+    """
+    if is_service_supplier_doc(doc):
+        return [], (
+            "Las notas credito de proveedor de servicio no se envian por el "
+            "flujo de BC"
+        )
+    reference = doc.get("qp_ref_invoice") or ""
+    if not reference:
+        return [], (
+            "La nota credito no tiene una factura de compra de referencia "
+            "asignada"
+        )
+    pi = get_referenced_pi_bc(reference)
+    if not pi:
+        return [], (
+            "No se encontro la factura de compra referenciada por la nota "
+            "credito"
+        )
+    return resolve_credit_note_lines(
+        get_nc_detail_lines(doc.get("name")), get_reference_bank_bc(pi)
+    )
 
 
 def _delivery_error(delivery):
@@ -1298,8 +1457,15 @@ def mark_duplicate_registered(doc, error, now):
 
 
 def send_purchase_invoice_request(endpoint_code, payload):
+    target = (
+        "qp_middleware.qp_middleware.service.purchase_invoice.credit_note."
+        "create_credit_notes"
+        if endpoint_code == CREATE_PURCHASE_NC
+        else "qp_middleware.qp_middleware.service.purchase_invoice.sync."
+        "create_purchase_invoices"
+    )
     response = frappe.call(
-        "qp_middleware.qp_middleware.service.purchase_invoice.sync.create_purchase_invoices",
+        target,
         payload=payload,
         endpoint_code=endpoint_code,
     )
@@ -1639,6 +1805,7 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
     current_user = cb.get("current_user_fn", _session_user)()
     is_service_supplier_fn = None
     resolve_supplier_rule_fn = None
+    endpoint_for_doc_fn = None
     if backend == "GP":
         # Con recepciones asignadas (tipo 1 en credito) la ruta GP tambien debe
         # aplicar la regla del precio (coincide con la OC/recepcion -> precio de
@@ -1681,6 +1848,11 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         if build_invoice_fn is None:
             build_invoice_fn = make_invoice_builder("documenteme")
         build_invoice_fn = _with_bc_comment(build_invoice_fn, data)
+        endpoint_for_doc_fn = lambda doc: (
+            CREATE_PURCHASE_NC
+            if is_credit_note(doc.get("nvtip_docu"))
+            else CREATE_PURCHASE_ORDER
+        )
     sync_flow = "GP" if backend == "GP" else "BC"
     persist_invoice_fn = cb.get("persist_invoice_fn")
     if persist_invoice_fn is None:
@@ -1714,6 +1886,7 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         resolve_rule_fn=cb.get("resolve_rule_fn", _resolve_rule),
         selected_receipts=selected_receipts,
         build_invoice_fn=build_invoice_fn,
+        endpoint_for_doc_fn=endpoint_for_doc_fn,
         is_service_supplier_fn=is_service_supplier_fn,
         resolve_supplier_rule_fn=resolve_supplier_rule_fn,
         get_lines_for_receipts_fn=get_lines_for_receipts_fn,
