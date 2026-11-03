@@ -11,10 +11,7 @@ automatico (resources/documenteme/auto_approve.py).
 import frappe
 from frappe import parse_json
 
-from qp_supplier_front.constant.endpoint import (
-    CREATE_PURCHASE_NC,
-    CREATE_PURCHASE_ORDER,
-)
+from qp_supplier_front.constant.endpoint import CREATE_PURCHASE_NC
 from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
     get_receipt_bank as _adapter_get_receipt_bank,
     get_receipt_total as _adapter_get_receipt_total,
@@ -41,6 +38,7 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     collect_selection_violations,
     invoice_matches_lines,
     make_invoice_builder,
+    resolve_endpoint_code,
     resolve_nc_tipo_for_doc,
 )
 from qp_supplier_front.uses_cases.documenteme.conversion import (
@@ -1846,12 +1844,13 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         get_lines_fn = cb.get("get_lines_fn", get_lines)
         build_invoice_fn = cb.get("build_invoice_fn")
         if build_invoice_fn is None:
-            build_invoice_fn = make_invoice_builder("documenteme")
+            build_invoice_fn = make_invoice_builder(
+                "documenteme", no_receipt=True
+            )
         build_invoice_fn = _with_bc_comment(build_invoice_fn, data)
-        endpoint_for_doc_fn = lambda doc: (
-            CREATE_PURCHASE_NC
-            if is_credit_note(doc.get("nvtip_docu"))
-            else CREATE_PURCHASE_ORDER
+        is_delivery_order = make_delivery_order_predicate(data)
+        endpoint_for_doc_fn = lambda doc: resolve_endpoint_code(
+            doc, is_delivery_order
         )
     sync_flow = "GP" if backend == "GP" else "BC"
     persist_invoice_fn = cb.get("persist_invoice_fn")
@@ -1892,7 +1891,7 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         get_lines_for_receipts_fn=get_lines_for_receipts_fn,
         po_supplier_match_fn=cb.get("po_supplier_match_fn", po_supplier_match),
         is_home_delivery_fn=(
-            None if backend == "GP" else make_delivery_order_predicate(data)
+            None if backend == "GP" else is_delivery_order
         ),
         cash_without_po_blocks=(backend != "GP"),
         super_approvers_fn=super_approvers_fn,
