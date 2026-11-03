@@ -291,6 +291,36 @@ class TestBuildPayload(unittest.TestCase):
             ["10000", "10000"],
         )
 
+    def test_no_linea_recepcion_sin_recibo_usa_consecutivo_propio(self):
+        def _no_receipts(purchase_order):
+            return [
+                _line(name="LINE1", idx=1, receiving_no="", order_no="45238"),
+                _line(name="LINE2", idx=2, receiving_no="", order_no="45238"),
+            ], ""
+
+        payload = build_payload([_doc()], _no_receipts, self._get_headquarter)
+        lines = payload[0]["vendorInvoiceLine"]
+        self.assertEqual(
+            [line["NoLineaRecepcion"] for line in lines],
+            ["10000", "20000"],
+        )
+        self.assertEqual([line["NoRecepcion"] for line in lines], ["", ""])
+
+    def test_no_linea_recepcion_delivery_usa_consecutivo_propio(self):
+        def _delivery(purchase_order):
+            return [_line(
+                name="HD",
+                item_code="HD-ITEM",
+                idx=0,
+                receiving_no="",
+                order_no="",
+            )], ""
+
+        payload = build_payload([_doc()], _delivery, self._get_headquarter)
+        line = payload[0]["vendorInvoiceLine"][0]
+        self.assertEqual(line["NoLineaRecepcion"], "10000")
+        self.assertEqual(line["NoRecepcion"], "")
+
     def test_cufe_desde_el_doc(self):
         docs = [_doc(nvfac_cufe="CUFE123")]
         payload = build_payload(docs, self._get_lines, self._get_headquarter)
