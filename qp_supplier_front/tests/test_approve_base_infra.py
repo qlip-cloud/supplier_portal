@@ -17,6 +17,10 @@ from unittest.mock import MagicMock, patch
 sys.modules["frappe"] = MagicMock()
 
 from qp_supplier_front.resources.documenteme import _approve_base as infra  # noqa: E402
+from qp_supplier_front.constant.endpoint import (  # noqa: E402
+    CREATE_PURCHASE_NORECEIPT,
+    CREATE_PURCHASE_ORDER,
+)
 
 
 class TestGetHeadquarter(unittest.TestCase):
@@ -290,6 +294,97 @@ class TestBuildManualReceiptSelection(unittest.TestCase):
         selection, claimed = self._run(docs, bank, names=["DOC1", "DOC2"])
         self.assertEqual(selection, {})
         self.assertEqual(claimed, [])
+
+
+class TestApproveDocumentsCoreEndpointWiring(unittest.TestCase):
+    """El core BC cablea endpoint y builder del endpoint sin recepcion."""
+
+    def _capture(self, backend="BC"):
+        captured = {}
+        bundle = {
+            "data": None,
+            "approve_callbacks": {"current_user_fn": lambda: "Administrator"},
+            "on_batch_approved_fn": None,
+        }
+
+        def fake_approve_documents(doc_names, **kwargs):
+            captured.update(kwargs)
+            return {"approved": [], "errors": [], "unregistrable": [],
+                    "pending_super": []}
+
+        def fake_delivery_predicate(data=None):
+            return lambda doc: bool(doc.get("is_delivery"))
+
+        with patch.object(infra.runtime, "resolve", lambda: bundle):
+            with patch.object(infra, "make_delivery_order_predicate",
+                              fake_delivery_predicate):
+                with patch.object(
+                    infra, "get_bc_comment_entry",
+                    lambda doc, data=None: {
+                        "message": "", "attachment_file_url": ""
+                    },
+                ):
+                    with patch.object(infra, "get_delivery_type",
+                                      lambda doc, data=None: None):
+                        with patch.object(infra, "approve_documents",
+                                          side_effect=fake_approve_documents):
+                            infra.approve_documents_core(
+                                ["DOC1"], backend=backend, force=True
+                            )
+        return captured
+
+    def test_delivery_usa_endpoint_sin_recepcion(self):
+        kwargs = self._capture()
+        endpoint = kwargs["endpoint_for_doc_fn"]
+        self.assertEqual(
+            endpoint({"nvfac_orde": "", "is_delivery": True}),
+            CREATE_PURCHASE_NORECEIPT,
+        )
+
+    def test_factura_sin_oc_usa_endpoint_sin_recepcion(self):
+        kwargs = self._capture()
+        self.assertEqual(
+            kwargs["endpoint_for_doc_fn"]({"nvfac_orde": ""}),
+            CREATE_PURCHASE_NORECEIPT,
+        )
+
+    def test_factura_con_oc_conserva_endpoint_historico(self):
+        kwargs = self._capture()
+        self.assertEqual(
+            kwargs["endpoint_for_doc_fn"]({"nvfac_orde": "OC-1"}),
+            CREATE_PURCHASE_ORDER,
+        )
+
+    def test_nota_credito_conserva_endpoint_historico(self):
+        kwargs = self._capture()
+        self.assertEqual(
+            kwargs["endpoint_for_doc_fn"]({"nvfac_orde": "OC-1",
+                                           "nvtip_docu": "C"}),
+            CREATE_PURCHASE_ORDER,
+        )
+
+    def test_builder_documenteme_emite_payload_sin_recepcion(self):
+        kwargs = self._capture()
+        with patch.object(
+            infra, "get_bc_comment_entry",
+            lambda doc, data=None: {
+                "message": "", "attachment_file_url": ""
+            },
+        ), patch.object(infra, "get_delivery_type",
+                        lambda doc, data=None: None):
+            invoice = kwargs["build_invoice_fn"](
+                {
+                    "nvfac_fech": "2026-11-03 00:00:00",
+                    "nvpro_ndoc": "900162414",
+                    "nvfac_nume": "FV-001",
+                    "nvfac_orde": "",
+                },
+                [{"item_code": "DEL-01", "qty": 1, "rate": 200000.0}],
+                "",
+            )
+        self.assertEqual(invoice["DocumentType"], "Invoice")
+        self.assertNotIn("NoPedidoProveedor", invoice)
+        self.assertNotIn("NoRecepcion", invoice["vendorInvoiceLine"][0])
 
 
 if __name__ == "__main__":

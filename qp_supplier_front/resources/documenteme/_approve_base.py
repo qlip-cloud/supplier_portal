@@ -37,6 +37,7 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     collect_selection_violations,
     invoice_matches_lines,
     make_invoice_builder,
+    resolve_endpoint_code,
     resolve_nc_tipo_for_doc,
 )
 from qp_supplier_front.uses_cases.documenteme.conversion import (
@@ -1639,6 +1640,7 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
     current_user = cb.get("current_user_fn", _session_user)()
     is_service_supplier_fn = None
     resolve_supplier_rule_fn = None
+    endpoint_for_doc_fn = None
     if backend == "GP":
         # Con recepciones asignadas (tipo 1 en credito) la ruta GP tambien debe
         # aplicar la regla del precio (coincide con la OC/recepcion -> precio de
@@ -1679,8 +1681,14 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         get_lines_fn = cb.get("get_lines_fn", get_lines)
         build_invoice_fn = cb.get("build_invoice_fn")
         if build_invoice_fn is None:
-            build_invoice_fn = make_invoice_builder("documenteme")
+            build_invoice_fn = make_invoice_builder(
+                "documenteme", no_receipt=True
+            )
         build_invoice_fn = _with_bc_comment(build_invoice_fn, data)
+        is_delivery_order = make_delivery_order_predicate(data)
+        endpoint_for_doc_fn = lambda doc: resolve_endpoint_code(
+            doc, is_delivery_order
+        )
     sync_flow = "GP" if backend == "GP" else "BC"
     persist_invoice_fn = cb.get("persist_invoice_fn")
     if persist_invoice_fn is None:
@@ -1714,12 +1722,13 @@ def approve_documents_core(doc_names, send_request_fn=None, force=False,
         resolve_rule_fn=cb.get("resolve_rule_fn", _resolve_rule),
         selected_receipts=selected_receipts,
         build_invoice_fn=build_invoice_fn,
+        endpoint_for_doc_fn=endpoint_for_doc_fn,
         is_service_supplier_fn=is_service_supplier_fn,
         resolve_supplier_rule_fn=resolve_supplier_rule_fn,
         get_lines_for_receipts_fn=get_lines_for_receipts_fn,
         po_supplier_match_fn=cb.get("po_supplier_match_fn", po_supplier_match),
         is_home_delivery_fn=(
-            None if backend == "GP" else make_delivery_order_predicate(data)
+            None if backend == "GP" else is_delivery_order
         ),
         cash_without_po_blocks=(backend != "GP"),
         super_approvers_fn=super_approvers_fn,

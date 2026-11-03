@@ -27,7 +27,10 @@ Sirve tanto para la aprobacion manual (recurso approve) como para la
 automatica (recurso auto_approve), replicando el patron del rechazo.
 """
 
-from qp_supplier_front.constant.endpoint import CREATE_PURCHASE_ORDER
+from qp_supplier_front.constant.endpoint import (
+    CREATE_PURCHASE_NORECEIPT,
+    CREATE_PURCHASE_ORDER,
+)
 from qp_supplier_front.uses_cases.documenteme.auto_reject import (
     RULE_NO_ACTION,
     has_po_match,
@@ -1010,7 +1013,87 @@ def homologate_lines(detail_lines, homologation_map, order_no="", receiving_no="
     return lines, missing_codes
 
 
-def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar"):
+def _build_no_receipt_line(line, comment="", attachment_url=""):
+    """Linea del endpoint create_purchase_noreceipt (sin pedido ni recibo)."""
+    return {
+        "NoProducto": line.get("item_code") or "",
+        "cantidad": line.get("qty") or 0,
+        "Precio": line.get("rate") or 0,
+        "Type": line.get("type") or "Item",
+        "Comentarios": build_bc_comment(
+            line.get("receiving_no"), comment, attachment_url
+        ),
+    }
+
+
+def _build_no_receipt_invoice(doc, lines, headquarter=None,
+                              puntofacturacion="estandar"):
+    """Payload BC del endpoint create_purchase_noreceipt.
+
+    Se usa en facturas sin OC ni recepcion (home delivery). El endpoint tiene
+    un contrato estricto: NO admite ``NoPedidoProveedor`` en la cabecera ni
+    ``NoRecepcion``/``NoLineaRecepcion``/``NoPedido`` en las lineas.
+    """
+    invoice_date = _to_date(doc.get("nvfac_fech"))
+    bc_comment = doc.get("qp_bc_comment") or ""
+    bc_comment_url = doc.get("qp_bc_comment_url") or ""
+    return {
+        "DocumentType": "Invoice",
+        "invoiceDate": invoice_date,
+        "postingDate": invoice_date,
+        "vendorNumber": doc.get("nvpro_ndoc"),
+        "puntofacturacion": puntofacturacion,
+        "NoFacturaProveedor": doc.get("nvfac_nume"),
+        "Categoria": "",
+        "SubCategoria": "",
+        "Cufe": doc.get("nvfac_cufe") or "",
+        "Almacen": "",
+        "tipoFacturaDoc": "Estándar",
+        "formaPago": "",
+        "NoFacturaAfectada": "",
+        "dimensionSetLines": [
+            {"code": "TERCERO", "valueCode": doc.get("nvpro_ndoc")}
+        ],
+        "vendorInvoiceLine": [
+            _build_no_receipt_line(
+                line, comment=bc_comment, attachment_url=bc_comment_url
+            )
+            for line in (lines or [])
+        ],
+    }
+
+
+def resolve_endpoint_code(doc, is_delivery_fn=None):
+    """Endpoint BC de una factura del lote.
+
+    - Sin OC ni recepcion (delivery o factura sin orden) ->
+      ``create_purchase_noreceipt``.
+    - Con OC, y las notas credito (que conservan el flujo historico) ->
+      ``create_purchase_order``.
+
+    ``is_delivery_fn`` identifica el delivery, cuyo ``nvfac_orde`` es un
+    marcador y no una orden de compra real.
+    """
+    doc = doc or {}
+    if is_credit_note(doc.get("nvtip_docu")):
+        return CREATE_PURCHASE_ORDER
+    if callable(is_delivery_fn) and is_delivery_fn(doc):
+        return CREATE_PURCHASE_NORECEIPT
+    if not parse_purchase_orders(doc.get("nvfac_orde") or ""):
+        return CREATE_PURCHASE_NORECEIPT
+    return CREATE_PURCHASE_ORDER
+
+
+def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar",
+                   no_receipt=False):
+    if (
+        no_receipt
+        and not is_credit_note(doc.get("nvtip_docu"))
+        and not parse_purchase_orders(doc.get("nvfac_orde") or "")
+    ):
+        return _build_no_receipt_invoice(
+            doc, lines, headquarter, puntofacturacion=puntofacturacion
+        )
     invoice_date = _to_date(doc.get("nvfac_fech"))
     bc_comment = doc.get("qp_bc_comment") or ""
     bc_comment_url = doc.get("qp_bc_comment_url") or ""
@@ -1116,12 +1199,16 @@ def make_gp_invoice_builder(resolve_tipo_fn=None, get_oc_dates_fn=None,
     return build
 
 
-def make_invoice_builder(origin, backend="BC", **kwargs):
+def make_invoice_builder(origin, backend="BC", no_receipt=False, **kwargs):
     """Adaptador del builder de facturas segun el flujo de origen y backend.
 
     - Documenteme y el flujo de cuentas de cobro (collection) comparten el core
       de aprobacion pero envian un punto de facturacion BC distinto: "estandar"
       contra "DS SOPORTE".
+    - no_receipt=True habilita el payload del endpoint
+      create_purchase_noreceipt para las facturas sin OC (home delivery). Solo
+      documenteme lo activa: collection siempre tiene OC y usa el endpoint
+      historico.
     - backend="GP" devuelve el builder GP (build_gp_invoice): misma firma
       (doc, lines, headquarter) con la forma del endpoint alpla. El origin no
       aplica al GP (puntofacturacion vacio).
@@ -1139,7 +1226,8 @@ def make_invoice_builder(origin, backend="BC", **kwargs):
 
     def build(doc, lines, headquarter):
         return _build_invoice(
-            doc, lines, headquarter, puntofacturacion=puntofacturacion
+            doc, lines, headquarter, puntofacturacion=puntofacturacion,
+            no_receipt=no_receipt,
         )
 
     return build
@@ -1839,8 +1927,61 @@ def _split_pending_super(valid, allocation, receipt_bank_fn, rows, current_user,
     return remaining, pending
 
 
-def approve_documents(
-    doc_names,
+def _group_payload(payload_docs, payload, endpoint_for_doc_fn):
+    """Agrupa el payload por endpoint_code conservando el orden original.
+
+    Sin endpoint_for_doc_fn devuelve un solo grupo con el endpoint historico
+    (create_purchase_order), de modo que el camino de facturas no cambia.
+    """
+    if endpoint_for_doc_fn is None:
+        return [{
+            "endpoint": CREATE_PURCHASE_ORDER,
+            "indexes": list(range(len(payload_docs))),
+            "payload": list(payload),
+        }]
+    groups_by_endpoint = {}
+    for index, doc in enumerate(payload_docs):
+        endpoint = endpoint_for_doc_fn(doc)
+        group = groups_by_endpoint.get(endpoint)
+        if group is None:
+            group = {"endpoint": endpoint, "indexes": [], "payload": []}
+            groups_by_endpoint[endpoint] = group
+        group["indexes"].append(index)
+        group["payload"].append(payload[index])
+    return list(groups_by_endpoint.values())
+
+
+def _send_grouped_payloads(groups, send_request_fn, parse_doc_numbers_fn):
+    """Envia cada grupo a su endpoint y alinea los resultados al lote original.
+
+    Un fallo de un grupo no cancela los demas: sus facturas quedan con error
+    y las del resto siguen su curso. El llamador procesa los resultados con la
+    misma logica que un lote de un solo endpoint.
+    """
+    total = sum(len(group["indexes"]) for group in groups)
+    results = [None] * total
+    for group in groups:
+        try:
+            response, status = send_request_fn(
+                endpoint_code=group["endpoint"],
+                payload=group["payload"],
+            )
+        except Exception as error:
+            for index in group["indexes"]:
+                results[index] = {"doc_number": None, "error": str(error)}
+            continue
+        if is_error_response(response, status):
+            message = get_error_message(response)
+            for index in group["indexes"]:
+                results[index] = {"doc_number": None, "error": message}
+            continue
+        parsed = parse_doc_numbers_fn(response)
+        for position, index in enumerate(group["indexes"]):
+            results[index] = _invoice_result_at(parsed, position)
+    return results
+
+
+def approve_documents(    doc_names,
     get_docs_fn,
     get_lines_fn,
     get_headquarter_fn,
@@ -1861,6 +2002,7 @@ def approve_documents(
     epsilon=DEFAULT_EPSILON,
     selected_receipts=None,
     build_invoice_fn=None,
+    endpoint_for_doc_fn=None,
     is_service_supplier_fn=None,
     resolve_supplier_rule_fn=None,
     get_lines_for_receipts_fn=None,
@@ -1998,33 +2140,42 @@ def approve_documents(
             "pending_super": pending_super,
         }
 
-    try:
-        response, status = send_request_fn(
-            endpoint_code=CREATE_PURCHASE_ORDER,
-            payload=payload,
+    groups = _group_payload(payload_docs, payload, endpoint_for_doc_fn)
+    if len(groups) <= 1:
+        endpoint_code = (
+            groups[0]["endpoint"] if groups else CREATE_PURCHASE_ORDER
         )
-    except Exception as e:
-        for doc in payload_docs:
-            _record_error(errors, mark_error_fn, doc, str(e))
-        return {
-            "approved": [],
-            "errors": errors,
-            "unregistrable": unregistrable,
-            "pending_super": pending_super,
-        }
+        try:
+            response, status = send_request_fn(
+                endpoint_code=endpoint_code,
+                payload=payload,
+            )
+        except Exception as e:
+            for doc in payload_docs:
+                _record_error(errors, mark_error_fn, doc, str(e))
+            return {
+                "approved": [],
+                "errors": errors,
+                "unregistrable": unregistrable,
+                "pending_super": pending_super,
+            }
 
-    if is_error_response(response, status):
-        message = get_error_message(response)
-        for doc in payload_docs:
-            _record_error(errors, mark_error_fn, doc, message)
-        return {
-            "approved": [],
-            "errors": errors,
-            "unregistrable": unregistrable,
-            "pending_super": pending_super,
-        }
+        if is_error_response(response, status):
+            message = get_error_message(response)
+            for doc in payload_docs:
+                _record_error(errors, mark_error_fn, doc, message)
+            return {
+                "approved": [],
+                "errors": errors,
+                "unregistrable": unregistrable,
+                "pending_super": pending_super,
+            }
 
-    invoice_results = parse_doc_numbers_fn(response)
+        invoice_results = parse_doc_numbers_fn(response)
+    else:
+        invoice_results = _send_grouped_payloads(
+            groups, send_request_fn, parse_doc_numbers_fn
+        )
 
     approved = []
     for idx, doc in enumerate(payload_docs):
