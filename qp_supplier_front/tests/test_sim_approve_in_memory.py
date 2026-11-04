@@ -190,14 +190,16 @@ class TestSimApproveInMemory(unittest.TestCase):
 
         self.assertEqual(len(result["approved"]), 1)
         invoice = captured["payload"][0]
-        self.assertEqual(invoice["NoPedidoProveedor"], "")
+        self.assertEqual(invoice["DocumentType"], "Invoice")
+        self.assertNotIn("NoPedidoProveedor", invoice)
         self.assertEqual(len(invoice["vendorInvoiceLine"]), 1)
         line = invoice["vendorInvoiceLine"][0]
         self.assertEqual(line["NoProducto"], "HD-ITEM")
         self.assertEqual(line["cantidad"], 1)
         self.assertEqual(line["Precio"], 350000)
-        self.assertEqual(line["NoPedido"], "")
-        self.assertEqual(line["NoLineaRecepcion"], "10000")
+        self.assertEqual(line["Type"], "Item")
+        self.assertNotIn("NoPedido", line)
+        self.assertNotIn("NoLineaRecepcion", line)
         self.assertIn("Factura de home delivery", line["Comentarios"])
 
     def test_internal_delivery_prioriza_producto_del_proveedor(self):
@@ -222,10 +224,11 @@ class TestSimApproveInMemory(unittest.TestCase):
 
         self.assertEqual(len(result["approved"]), 1)
         invoice = captured["payload"][0]
-        self.assertEqual(invoice["NoPedidoProveedor"], "")
+        self.assertEqual(invoice["DocumentType"], "Invoice")
+        self.assertNotIn("NoPedidoProveedor", invoice)
         line = invoice["vendorInvoiceLine"][0]
         self.assertEqual(line["NoProducto"], "SUP-INT")
-        self.assertEqual(line["NoLineaRecepcion"], "10000")
+        self.assertNotIn("NoLineaRecepcion", line)
         self.assertIn("Factura de internal delivery", line["Comentarios"])
 
     def test_delivery_sin_producto_configurado_deja_error_explicito(self):

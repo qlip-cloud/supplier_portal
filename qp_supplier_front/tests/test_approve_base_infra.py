@@ -241,7 +241,10 @@ class TestBuildManualReceiptSelection(unittest.TestCase):
             },
         }
         frappe_mock = MagicMock()
-        frappe_mock.get_all.return_value = [{}] * active_count
+        frappe_mock.get_all.return_value = [
+            {"name": "ACT{}".format(index), "nvfac_orde": "PO1"}
+            for index in range(active_count)
+        ]
         with patch.object(infra.runtime, "resolve", lambda: bundle), \
                 patch.object(infra, "frappe", frappe_mock):
             selection = infra._build_manual_receipt_selection(
@@ -355,12 +358,12 @@ class TestApproveDocumentsCoreEndpointWiring(unittest.TestCase):
             CREATE_PURCHASE_ORDER,
         )
 
-    def test_nota_credito_conserva_endpoint_historico(self):
+    def test_nota_credito_usa_endpoint_sin_recepcion(self):
         kwargs = self._capture()
         self.assertEqual(
             kwargs["endpoint_for_doc_fn"]({"nvfac_orde": "OC-1",
                                            "nvtip_docu": "C"}),
-            CREATE_PURCHASE_ORDER,
+            CREATE_PURCHASE_NORECEIPT,
         )
 
     def test_builder_documenteme_emite_payload_sin_recepcion(self):

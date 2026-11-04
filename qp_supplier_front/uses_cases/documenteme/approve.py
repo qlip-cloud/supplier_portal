@@ -1030,27 +1030,34 @@ def _build_no_receipt_invoice(doc, lines, headquarter=None,
                               puntofacturacion="estandar"):
     """Payload BC del endpoint create_purchase_noreceipt.
 
-    Se usa en facturas sin OC ni recepcion (home delivery). El endpoint tiene
-    un contrato estricto: NO admite ``NoPedidoProveedor`` en la cabecera ni
-    ``NoRecepcion``/``NoLineaRecepcion``/``NoPedido`` en las lineas.
+    Se usa en facturas sin OC ni recepcion (home delivery y facturas sin
+    orden). El endpoint tiene un contrato estricto: NO admite
+    ``NoPedidoProveedor`` en la cabecera ni ``NoRecepcion``/
+    ``NoLineaRecepcion``/``NoPedido`` en las lineas. ``DocumentType``
+    distingue la factura ("Invoice") de la nota credito ("Credit Memo"); en
+    la nota credito el punto de facturacion y el tipo van vacios y la factura
+    afectada viaja en ``NoFacturaAfectada``.
     """
     invoice_date = _to_date(doc.get("nvfac_fech"))
+    is_nc = is_credit_note(doc.get("nvtip_docu"))
     bc_comment = doc.get("qp_bc_comment") or ""
     bc_comment_url = doc.get("qp_bc_comment_url") or ""
     return {
-        "DocumentType": "Invoice",
+        "DocumentType": "Credit Memo" if is_nc else "Invoice",
         "invoiceDate": invoice_date,
         "postingDate": invoice_date,
         "vendorNumber": doc.get("nvpro_ndoc"),
-        "puntofacturacion": puntofacturacion,
+        "puntofacturacion": "" if is_nc else puntofacturacion,
         "NoFacturaProveedor": doc.get("nvfac_nume"),
         "Categoria": "",
         "SubCategoria": "",
         "Cufe": doc.get("nvfac_cufe") or "",
         "Almacen": "",
-        "tipoFacturaDoc": "Estándar",
+        "tipoFacturaDoc": "" if is_nc else "Estándar",
         "formaPago": "",
-        "NoFacturaAfectada": "",
+        "NoFacturaAfectada": (
+            (doc.get("qp_ref_invoice") or "") if is_nc else ""
+        ),
         "dimensionSetLines": [
             {"code": "TERCERO", "valueCode": doc.get("nvpro_ndoc")}
         ],
@@ -1066,17 +1073,16 @@ def _build_no_receipt_invoice(doc, lines, headquarter=None,
 def resolve_endpoint_code(doc, is_delivery_fn=None):
     """Endpoint BC de una factura del lote.
 
-    - Sin OC ni recepcion (delivery o factura sin orden) ->
-      ``create_purchase_noreceipt``.
-    - Con OC, y las notas credito (que conservan el flujo historico) ->
-      ``create_purchase_order``.
+    - Nota credito y facturas sin OC ni recepcion (delivery o factura sin
+      orden) -> ``create_purchase_noreceipt`` (mismo servicio y JSON).
+    - Con OC -> ``create_purchase_order`` (flujo historico).
 
     ``is_delivery_fn`` identifica el delivery, cuyo ``nvfac_orde`` es un
     marcador y no una orden de compra real.
     """
     doc = doc or {}
     if is_credit_note(doc.get("nvtip_docu")):
-        return CREATE_PURCHASE_ORDER
+        return CREATE_PURCHASE_NORECEIPT
     if callable(is_delivery_fn) and is_delivery_fn(doc):
         return CREATE_PURCHASE_NORECEIPT
     if not parse_purchase_orders(doc.get("nvfac_orde") or ""):
@@ -1086,11 +1092,11 @@ def resolve_endpoint_code(doc, is_delivery_fn=None):
 
 def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar",
                    no_receipt=False):
-    if (
-        no_receipt
-        and not is_credit_note(doc.get("nvtip_docu"))
-        and not parse_purchase_orders(doc.get("nvfac_orde") or "")
-    ):
+    if is_credit_note(doc.get("nvtip_docu")):
+        return _build_no_receipt_invoice(
+            doc, lines, headquarter, puntofacturacion=puntofacturacion
+        )
+    if no_receipt and not parse_purchase_orders(doc.get("nvfac_orde") or ""):
         return _build_no_receipt_invoice(
             doc, lines, headquarter, puntofacturacion=puntofacturacion
         )
@@ -1981,7 +1987,8 @@ def _send_grouped_payloads(groups, send_request_fn, parse_doc_numbers_fn):
     return results
 
 
-def approve_documents(    doc_names,
+def approve_documents(
+    doc_names,
     get_docs_fn,
     get_lines_fn,
     get_headquarter_fn,

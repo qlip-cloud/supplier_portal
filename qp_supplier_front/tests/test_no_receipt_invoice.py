@@ -6,7 +6,7 @@ Facturas BC sin orden de compra ni recepcion (home delivery y facturas sin
 OC) que se crean con el endpoint `create_purchase_noreceipt`.
 
 Cubre:
-- Payload estricto del endpoint nuevo (Invoice).
+- Payload estricto del endpoint nuevo (Invoice / Credit Memo).
 - Resolucion del endpoint por documento (noreceipt / order / nc).
 - Que las facturas con OC conserven el payload y el endpoint historicos.
 
@@ -110,18 +110,23 @@ class TestNoReceiptPayload(unittest.TestCase):
             "ALERTA::https://x/files/a.pdf:Factura de home delivery",
         )
 
-    def test_nota_credito_conserva_payload_historico(self):
+    def test_credit_memo(self):
         doc = {
             "nvfac_fech": "2026-11-03 00:00:00",
             "nvpro_ndoc": "900162414",
             "nvfac_nume": "NC-001",
             "nvfac_cufe": "",
             "nvtip_docu": "C",
-            "nvfac_orde": "",
+            "qp_ref_invoice": "FC70071",
         }
-        invoice = _build_invoice(doc, DELIVERY_LINES, "", no_receipt=True)
-        self.assertIn("NoPedidoProveedor", invoice)
-        self.assertNotIn("DocumentType", invoice)
+        invoice = _build_no_receipt_invoice(doc, DELIVERY_LINES, "")
+        self.assertEqual(set(invoice.keys()), INVOICE_KEYS)
+        self.assertEqual(invoice["DocumentType"], "Credit Memo")
+        self.assertEqual(invoice["puntofacturacion"], "")
+        self.assertEqual(invoice["tipoFacturaDoc"], "")
+        self.assertEqual(invoice["NoFacturaAfectada"], "FC70071")
+        self.assertEqual(invoice["NoFacturaProveedor"], "NC-001")
+        self.assertEqual(invoice["vendorInvoiceLine"][0]["Type"], "Item")
 
     def test_sin_no_receipt_conserva_payload_actual(self):
         doc = dict(DELIVERY_DOC)
@@ -197,13 +202,14 @@ class TestResolveEndpointCode(unittest.TestCase):
             CREATE_PURCHASE_ORDER,
         )
 
-    def test_nota_credito_conserva_endpoint_historico(self):
+    def test_nota_credito_usa_noreceipt(self):
         doc = {"nvfac_orde": "", "nvtip_docu": "C"}
         self.assertEqual(
-            resolve_endpoint_code(doc, None), CREATE_PURCHASE_ORDER
+            resolve_endpoint_code(doc, None), CREATE_PURCHASE_NORECEIPT
         )
         self.assertEqual(
-            resolve_endpoint_code(doc, lambda d: True), CREATE_PURCHASE_ORDER
+            resolve_endpoint_code(doc, lambda d: True),
+            CREATE_PURCHASE_NORECEIPT,
         )
 
 
