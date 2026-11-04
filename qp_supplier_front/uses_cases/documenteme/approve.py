@@ -28,7 +28,6 @@ automatica (recurso auto_approve), replicando el patron del rechazo.
 """
 
 from qp_supplier_front.constant.endpoint import (
-    CREATE_PURCHASE_NC,
     CREATE_PURCHASE_NORECEIPT,
     CREATE_PURCHASE_ORDER,
 )
@@ -1014,42 +1013,6 @@ def homologate_lines(detail_lines, homologation_map, order_no="", receiving_no="
     return lines, missing_codes
 
 
-def _build_credit_note(doc, lines, headquarter=None):
-    """Payload BC de una Nota Credito (endpoint create_purchase_nc).
-
-    La NC no lleva pedido ni recepcion en la cabecera: referencia la factura
-    afectada por su numero BC (``qp_ref_invoice`` = invoice_id de la PI) y
-    toma los productos de las lineas de recepcion/OC de esa referencia. El
-    campo ``Type`` va fijo en "Item" por contrato del endpoint.
-    """
-    invoice_date = _to_date(doc.get("nvfac_fech"))
-    return {
-        "invoiceDate": invoice_date,
-        "postingDate": invoice_date,
-        "vendorNumber": doc.get("nvpro_ndoc"),
-        "NoNotaCreditoProveedor": doc.get("nvfac_nume"),
-        "Categoria": "",
-        "SubCategoria": "",
-        "Cufe": doc.get("nvfac_cufe") or "",
-        "Almacen": "",
-        "formaPago": "",
-        "NoFacturaAfectada": doc.get("qp_ref_invoice") or "",
-        "dimensionSetLines": [
-            {"code": "TERCERO", "valueCode": doc.get("nvpro_ndoc")}
-        ],
-        "vendorInvoiceLine": [
-            {
-                "NoProducto": line.get("item_code") or "",
-                "cantidad": line.get("qty") or 0,
-                "Precio": line.get("rate") or 0,
-                "Type": line.get("type") or "Item",
-                "Comentarios": "",
-            }
-            for line in (lines or [])
-        ],
-    }
-
-
 def _build_no_receipt_line(line, comment="", attachment_url=""):
     """Linea del endpoint create_purchase_noreceipt (sin pedido ni recibo)."""
     return {
@@ -1110,9 +1073,8 @@ def _build_no_receipt_invoice(doc, lines, headquarter=None,
 def resolve_endpoint_code(doc, is_delivery_fn=None):
     """Endpoint BC de una factura del lote.
 
-    - Nota credito -> ``create_purchase_nc`` (flujo actual).
-    - Sin OC ni recepcion (delivery o factura sin orden) ->
-      ``create_purchase_noreceipt``.
+    - Nota credito y facturas sin OC ni recepcion (delivery o factura sin
+      orden) -> ``create_purchase_noreceipt`` (mismo servicio y JSON).
     - Con OC -> ``create_purchase_order`` (flujo historico).
 
     ``is_delivery_fn`` identifica el delivery, cuyo ``nvfac_orde`` es un
@@ -1120,7 +1082,7 @@ def resolve_endpoint_code(doc, is_delivery_fn=None):
     """
     doc = doc or {}
     if is_credit_note(doc.get("nvtip_docu")):
-        return CREATE_PURCHASE_NC
+        return CREATE_PURCHASE_NORECEIPT
     if callable(is_delivery_fn) and is_delivery_fn(doc):
         return CREATE_PURCHASE_NORECEIPT
     if not parse_purchase_orders(doc.get("nvfac_orde") or ""):
@@ -1131,7 +1093,9 @@ def resolve_endpoint_code(doc, is_delivery_fn=None):
 def _build_invoice(doc, lines, headquarter, puntofacturacion="estandar",
                    no_receipt=False):
     if is_credit_note(doc.get("nvtip_docu")):
-        return _build_credit_note(doc, lines, headquarter)
+        return _build_no_receipt_invoice(
+            doc, lines, headquarter, puntofacturacion=puntofacturacion
+        )
     if no_receipt and not parse_purchase_orders(doc.get("nvfac_orde") or ""):
         return _build_no_receipt_invoice(
             doc, lines, headquarter, puntofacturacion=puntofacturacion

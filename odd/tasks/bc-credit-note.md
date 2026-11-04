@@ -6,9 +6,9 @@ Branch: develop-notested. Delivery: ask-on-risk. Tests: python -m unittest (per 
 
 - S1: Incorporate NC handling for the BC backend ("debemos incorporar el manejo de nc para bc").
 - S2: Reuse the GP reference-invoice selection philosophy ("vamos a utilizar la misma filosofia de seleccion de referencia para la nota de credito").
-- S3: Send the NC payload with the provided SOAP shape: `invoiceDate`, `postingDate`, `vendorNumber`, `NoNotaCreditoProveedor` (= NC number `nvfac_nume`), `Categoria`, `SubCategoria`, `Cufe`, `Almacen`, `formaPago`, `NoFacturaAfectada`, `dimensionSetLines` (`TERCERO`), lines with `NoProducto`, `cantidad`, `Precio`, `Type` hardcoded `"Item"`, `Comentarios`.
-- S4: endpoint_code = `create_purchase_nc` (renombrado desde `crear_nota_credito_compra` en el commit `557935d`).
-- S5: `NoFacturaAfectada` is the BC invoice number of the reference (`qp_SP_PurchaseInvoice.invoice_id`).
+- S3: Send the NC with the unified `create_purchase_noreceipt` shape: `DocumentType: "Credit Memo"`, `invoiceDate`, `postingDate`, `vendorNumber`, `puntofacturacion: ""`, `NoFacturaProveedor` (= NC number `nvfac_nume`), `tipoFacturaDoc: ""`, `Categoria`, `SubCategoria`, `Cufe`, `Almacen`, `formaPago`, `NoFacturaAfectada`, `dimensionSetLines` (`TERCERO`), lines with `NoProducto`, `cantidad`, `Precio`, `Type` hardcoded `"Item"`, `Comentarios`.
+- S4: endpoint_code = `create_purchase_noreceipt` para la NC (mismo servicio/JSON que las facturas sin OC). `create_purchase_nc` queda configurado pero sin uso.
+- S5: `NoFacturaAfectada` is the BC `confirmation_id` of the reference (`qp_SP_PurchaseInvoiceBC.confirmation_id`, ej. `FC70071`).
 - S6: `NoProducto` comes from the reference invoice reception/OC lines ("NoProducto: se usa la recepcion / oc de la factura referencia").
 - S7: Mixed approval batch (invoices + NC) is allowed because it is the same service ("si es el mismo servicio").
 - S8: BC service-supplier NC is out of scope ("no el proceso de bc es distinto").
@@ -36,7 +36,7 @@ Branch: develop-notested. Delivery: ask-on-risk. Tests: python -m unittest (per 
 
 ## Operational step (not code)
 
-- Create `qp_md_Endpoint` `create_purchase_nc` with the `soap_template` of `FacturasNCCompraWS` (provided by the user), the correct service `url`, and the same `setup` as `create_purchase_order`. The endpoint URL is site data and was not provided.
+- `create_purchase_noreceipt` must exist with the unified `soap_template` (it does on davita.qa). `create_purchase_nc` is still configured on davita.qa (`Codeunit/CrearNotaCreditoCompra`) but the NC no longer uses it.
 
 ## Log
 
@@ -44,3 +44,5 @@ Branch: develop-notested. Delivery: ask-on-risk. Tests: python -m unittest (per 
 - L2: "NoFacturaAfectada: el numero de factura afectada es el numero de la factura referencia / NoProducto: se usa la recepcion / oc de la factura referencia / Lote mixto: si es el mismo servicio / Proveedor de servicio: no el proceso de bc es distinto / Exceso / banco de devoluciones: no tiene nada q ver con gp / Candidatas de referencia: solo de bc / Respuesta del endpoint si / Alcance del repo qp_middleware: no entiendo q tiene q ver con middleware".
 - L3: User confirms BC number (`invoice_id`) is expected; line data may be taken from the reference receipt/OC as needed; middleware is an isolated process and must not interfere with documenteme.
 - L4: "unificalo con el cambio del otro agente, ese cambio lo pedi yo" → final endpoint_code `create_purchase_nc` (commit `557935d`, pedido por el usuario). Se alineó el default del middleware y este documento.
+- L5: "el json de nota de credito fue modificado ... este es el nuevo json por eso tienes ese cambio en develop-notested / tendrias q evaluar nuevamente el json para generar el mapeo". Nuevo payload NC: `DocumentType: "Credit Memo"`, `puntofacturacion: ""`, `NoFacturaProveedor` (= número NC), `tipoFacturaDoc: ""`, `NoFacturaAfectada` (= número BC de la referencia). Se reutiliza `_build_no_receipt_invoice` y se elimina `_build_credit_note`.
+- L6: "la nota de credito usara el mismo enpoint_code create_purchase_noreceipt / crea una factura de tes, y toma las q ya existen y cambiale el proveedor a uno q si coincida / usaremos el confirmation_id". NC -> `create_purchase_noreceipt`; referencia = `confirmation_id`; datos QA preparados en davita.qa.

@@ -5,7 +5,7 @@ test_bc_credit_note.py
 Pruebas del flujo BC de notas credito (nucleo puro):
 
 - credit_note_bc.resolve_credit_note_lines (emparejamiento NC vs recepcion/OC).
-- _build_credit_note (payload del endpoint create_purchase_nc).
+- Payload unificado del endpoint create_purchase_noreceipt (DocumentType Credit Memo).
 - Agrupacion por endpoint del lote mixto (facturas + NC).
 
 Ejecutar con:
@@ -14,7 +14,7 @@ Ejecutar con:
 import unittest
 
 from qp_supplier_front.constant.endpoint import (
-    CREATE_PURCHASE_NC,
+    CREATE_PURCHASE_NORECEIPT,
     CREATE_PURCHASE_ORDER,
 )
 from qp_supplier_front.uses_cases.documenteme.approve import (
@@ -101,11 +101,14 @@ class TestBuildCreditNote(unittest.TestCase):
         lines = [{"item_code": "OP0080", "qty": 1, "rate": 200000.0,
                   "type": "Item"}]
         invoice = _build_invoice(doc, lines, "")
+        self.assertEqual(invoice["DocumentType"], "Credit Memo")
         self.assertEqual(invoice["invoiceDate"], "2026-10-28")
         self.assertEqual(invoice["vendorNumber"], "900162414")
-        self.assertEqual(invoice["NoNotaCreditoProveedor"], "EjemploYD")
+        self.assertEqual(invoice["puntofacturacion"], "")
+        self.assertEqual(invoice["NoFacturaProveedor"], "EjemploYD")
+        self.assertEqual(invoice["tipoFacturaDoc"], "")
         self.assertEqual(invoice["NoFacturaAfectada"], "FC70065")
-        self.assertNotIn("NoFacturaProveedor", invoice)
+        self.assertNotIn("NoNotaCreditoProveedor", invoice)
         self.assertNotIn("NoPedidoProveedor", invoice)
         self.assertEqual(invoice["dimensionSetLines"][0]["code"], "TERCERO")
         line = invoice["vendorInvoiceLine"][0]
@@ -118,7 +121,7 @@ class TestEndpointGrouping(unittest.TestCase):
 
     def _endpoint(self, doc):
         return (
-            CREATE_PURCHASE_NC if doc.get("nvtip_docu") == "C"
+            CREATE_PURCHASE_NORECEIPT if doc.get("nvtip_docu") == "C"
             else CREATE_PURCHASE_ORDER
         )
 
@@ -137,7 +140,7 @@ class TestEndpointGrouping(unittest.TestCase):
         self.assertEqual(
             by_endpoint[CREATE_PURCHASE_ORDER]["payload"], ["p-f1", "p-f2"]
         )
-        self.assertEqual(by_endpoint[CREATE_PURCHASE_NC]["indexes"], [1])
+        self.assertEqual(by_endpoint[CREATE_PURCHASE_NORECEIPT]["indexes"], [1])
 
     def test_sin_mapeador_es_un_solo_grupo(self):
         groups = _group_payload([{"name": "f1"}], ["p"], None)
@@ -148,7 +151,7 @@ class TestEndpointGrouping(unittest.TestCase):
         groups = [
             {"endpoint": CREATE_PURCHASE_ORDER, "indexes": [0, 2],
              "payload": ["p0", "p2"]},
-            {"endpoint": CREATE_PURCHASE_NC, "indexes": [1],
+            {"endpoint": CREATE_PURCHASE_NORECEIPT, "indexes": [1],
              "payload": ["p1"]},
         ]
         calls = []
@@ -213,7 +216,7 @@ class TestEndpointGrouping(unittest.TestCase):
             calls,
             [
                 (CREATE_PURCHASE_ORDER, ["f1"]),
-                (CREATE_PURCHASE_NC, ["nc1"]),
+                (CREATE_PURCHASE_NORECEIPT, ["nc1"]),
             ],
         )
         self.assertEqual(

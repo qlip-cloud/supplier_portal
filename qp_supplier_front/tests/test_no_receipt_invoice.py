@@ -16,7 +16,6 @@ Ejecutar con:
 import unittest
 
 from qp_supplier_front.constant.endpoint import (
-    CREATE_PURCHASE_NC,
     CREATE_PURCHASE_NORECEIPT,
     CREATE_PURCHASE_ORDER,
 )
@@ -203,13 +202,14 @@ class TestResolveEndpointCode(unittest.TestCase):
             CREATE_PURCHASE_ORDER,
         )
 
-    def test_nota_credito_usa_su_endpoint(self):
+    def test_nota_credito_usa_noreceipt(self):
         doc = {"nvfac_orde": "", "nvtip_docu": "C"}
         self.assertEqual(
-            resolve_endpoint_code(doc, None), CREATE_PURCHASE_NC
+            resolve_endpoint_code(doc, None), CREATE_PURCHASE_NORECEIPT
         )
         self.assertEqual(
-            resolve_endpoint_code(doc, lambda d: True), CREATE_PURCHASE_NC
+            resolve_endpoint_code(doc, lambda d: True),
+            CREATE_PURCHASE_NORECEIPT,
         )
 
 

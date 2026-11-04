@@ -200,17 +200,29 @@ def get_reference_candidates(doc_name, start=None, end=None):
                 row["nvfac_esta"] = est_by_name.get(row.get("name")) or ""
 
             if backend == "BC":
-                # La referencia BC es el numero de documento de BC
-                # (invoice_id); las NC no son candidatas validas.
+                # La referencia BC es el confirmation_id (FC...) que BC
+                # devuelve al confirmar la factura; las NC no son candidatas
+                # validas y las PI sin confirmacion tampoco.
+                confirmation_rows = frappe.get_all(
+                    "qp_SP_PurchaseInvoiceBC",
+                    filters={"purchase_invoice": ["in", list(pis_by_name)]},
+                    fields=["purchase_invoice", "confirmation_id"],
+                ) if pis_by_name else []
+                confirmation_by_pi = {
+                    row.get("purchase_invoice"): row.get("confirmation_id")
+                    for row in (confirmation_rows or [])
+                    if row.get("confirmation_id")
+                }
                 invoices = [
                     row for row in (invoices or [])
-                    if row.get("name") not in nc_names
+                    if row.get("name") in confirmation_by_pi
+                    and row.get("name") not in nc_names
                 ]
                 for row in invoices:
-                    row["referencia"] = (
-                        row.get("invoice_id") or row.get("nvfac_nume")
-                        or row.get("detail") or row.get("name") or ""
+                    row["confirmation_id"] = (
+                        confirmation_by_pi.get(row.get("name")) or ""
                     )
+                    row["referencia"] = row.get("confirmation_id")
             else:
                 # GP: el valor a guardar es el numero de factura del proveedor
                 # (nvfac_nume o detail); invoice_id es el numero interno.

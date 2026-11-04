@@ -342,21 +342,32 @@ def get_nc_detail_lines(document_name):
 
 
 def get_referenced_pi_bc(reference):
-    """qp_SP_PurchaseInvoice de BC referenciada por su numero BC.
+    """qp_SP_PurchaseInvoice de BC referenciada por su confirmation_id.
 
-    Para BC la referencia guardada en qp_ref_invoice es el invoice_id
-    (Document_No que devolvio BC), no el numero de factura del proveedor.
+    Para BC la referencia guardada en qp_ref_invoice es el ``confirmation_id``
+    (el numero FC... que BC devuelve al confirmar la factura), no el
+    ``invoice_id`` interno (0025...). Se deja un fallback por invoice_id para
+    referencias guardadas con el criterio anterior.
     """
     if not reference:
         return None
-    return frappe.db.get_value(
-        "qp_SP_PurchaseInvoice",
-        {"invoice_id": reference},
-        [
-            "name", "invoice_id", "nvfac_nume", "purchase_order_id",
-            "supplier", "qp_sync_flow",
-        ],
+    fields = [
+        "name", "invoice_id", "detail", "nvfac_nume",
+        "purchase_order_id", "supplier", "qp_sync_flow",
+    ]
+    bc_reference = frappe.db.get_value(
+        "qp_SP_PurchaseInvoiceBC",
+        {"confirmation_id": reference},
+        ["purchase_invoice"],
         as_dict=True,
+    )
+    pi_name = (bc_reference or {}).get("purchase_invoice")
+    if pi_name:
+        return frappe.db.get_value(
+            "qp_SP_PurchaseInvoice", {"name": pi_name}, fields, as_dict=True
+        )
+    return frappe.db.get_value(
+        "qp_SP_PurchaseInvoice", {"invoice_id": reference}, fields, as_dict=True
     )
 
 
@@ -367,7 +378,7 @@ def get_reference_bank_bc(pi):
     nvfac_nume) y, si no hay, las lineas de su orden de compra. Los productos
     ya son codigos BC (sin homologacion).
     """
-    reference_number = (pi or {}).get("nvfac_nume") or ""
+    reference_number = (pi or {}).get("detail") or (pi or {}).get("nvfac_nume") or ""
     receipts = frappe.get_all(
         "Purchase Receipt",
         filters={"qp_invoice": reference_number},
