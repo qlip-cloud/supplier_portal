@@ -46,7 +46,7 @@ from qp_supplier_front.uses_cases.documenteme.conversion import (
     is_credit_note,
 )
 from qp_supplier_front.uses_cases.documenteme.credit_note_bc import (
-    resolve_credit_note_lines,
+    build_receipt_lines,
 )
 from qp_supplier_front.uses_cases.documenteme.home_delivery import (
     HOME_DELIVERY_COMMENT,
@@ -396,7 +396,8 @@ def get_reference_bank_bc(pi):
                 "parenttype": "Purchase Receipt",
             },
             fields=[
-                "parent", "item_code", "item_name", "description", "qty", "idx",
+                "parent", "item_code", "item_name", "description", "qty",
+                "rate", "idx",
             ],
             order_by="parent, idx",
         )
@@ -406,6 +407,7 @@ def get_reference_bank_bc(pi):
                 "item_name": item.get("item_name") or "",
                 "description": item.get("description") or "",
                 "qty": item.get("qty") or 0,
+                "rate": item.get("rate") or 0,
                 "receiving_no": item.get("parent") or "",
                 "order_no": oc_by_receipt.get(item.get("parent")) or "",
             }
@@ -421,7 +423,7 @@ def get_reference_bank_bc(pi):
             "parent": purchase_order,
             "parenttype": "Purchase Order",
         },
-        fields=["item_code", "item_name", "description", "qty", "idx"],
+        fields=["item_code", "item_name", "description", "qty", "rate", "idx"],
         order_by="idx",
     )
     return [
@@ -430,6 +432,7 @@ def get_reference_bank_bc(pi):
             "item_name": item.get("item_name") or "",
             "description": item.get("description") or "",
             "qty": item.get("qty") or 0,
+            "rate": item.get("rate") or 0,
             "receiving_no": "",
             "order_no": purchase_order,
         }
@@ -438,7 +441,12 @@ def get_reference_bank_bc(pi):
 
 
 def get_lines_bc_nc(doc):
-    """Lineas BC de una Nota Credito (productos de la referencia).
+    """Lineas BC de una Nota Credito (recepciones/OC de la referencia).
+
+    Pedido de negocio: el payload usa las lineas de la recepcion de la factura
+    referenciada y, si no tiene recepciones, las de su orden de compra. No se
+    homologa ni se consolida por producto. Si se pidiera una linea por
+    producto de la NC, usar credit_note_bc.resolve_credit_note_lines.
 
     Retorna (lines, error). Las notas de proveedor de servicio no usan este
     flujo en BC; sin referencia asignada (o sin referencia BC valida) la NC no
@@ -461,9 +469,11 @@ def get_lines_bc_nc(doc):
             "No se encontro la factura de compra referenciada por la nota "
             "credito"
         )
-    return resolve_credit_note_lines(
-        get_nc_detail_lines(doc.get("name")), get_reference_bank_bc(pi)
-    )
+    bank = get_reference_bank_bc(pi)
+    # Solicitado por negocio: lineas de la recepcion/OC de la referencia.
+    # Alternativa (una linea por producto de la NC):
+    #   resolve_credit_note_lines(get_nc_detail_lines(doc.get("name")), bank)
+    return build_receipt_lines(bank)
 
 
 def _delivery_error(delivery):

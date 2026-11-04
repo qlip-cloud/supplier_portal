@@ -24,6 +24,7 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     approve_documents,
 )
 from qp_supplier_front.uses_cases.documenteme.credit_note_bc import (
+    build_receipt_lines,
     resolve_credit_note_lines,
 )
 
@@ -72,6 +73,25 @@ class TestResolveCreditNoteLines(unittest.TestCase):
         self.assertEqual(error, "")
         self.assertEqual([line["item_code"] for line in lines], ["OP-A", "OP-B"])
 
+    def test_consolida_recepciones_del_mismo_producto(self):
+        lines, error = resolve_credit_note_lines(
+            [{"item_code": "0001", "description": "0001 Producto generico 1",
+              "qty": 1, "rate": 500000}],
+            [
+                {"item_code": "OP0116",
+                 "item_name": "OP-ELEMENTOS ASEO Y CAFETERIA IVA 19",
+                 "qty": 150, "receiving_no": "R112258"},
+                {"item_code": "OP0116",
+                 "item_name": "OP-ELEMENTOS ASEO Y CAFETERIA IVA 19",
+                 "qty": 50, "receiving_no": "R112260"},
+            ],
+        )
+        self.assertEqual(error, "")
+        self.assertEqual(lines[0]["item_code"], "OP0116")
+        self.assertEqual(lines[0]["qty"], 1)
+        self.assertEqual(lines[0]["rate"], 500000)
+        self.assertEqual(lines[0]["type"], "Item")
+
     def test_error_si_es_ambiguo(self):
         lines, error = resolve_credit_note_lines(
             [{"item_code": "Z", "qty": 1, "rate": 10}],
@@ -84,6 +104,26 @@ class TestResolveCreditNoteLines(unittest.TestCase):
         lines, error = resolve_credit_note_lines(
             [{"item_code": "A", "qty": 1, "rate": 10}], []
         )
+        self.assertEqual(lines, [])
+        self.assertIn("no tiene recepciones", error)
+
+
+class TestBuildReceiptLines(unittest.TestCase):
+
+    def test_usa_las_lineas_de_la_recepcion_sin_consolidar(self):
+        lines, error = build_receipt_lines([
+            {"item_code": "OP0116", "qty": 150, "rate": 5792},
+            {"item_code": "OP0116", "qty": 50, "rate": 2129},
+        ])
+        self.assertEqual(error, "")
+        self.assertEqual([line["item_code"] for line in lines],
+                         ["OP0116", "OP0116"])
+        self.assertEqual([line["qty"] for line in lines], [150, 50])
+        self.assertEqual([line["rate"] for line in lines], [5792, 2129])
+        self.assertTrue(all(line["type"] == "Item" for line in lines))
+
+    def test_sin_banco_devuelve_error(self):
+        lines, error = build_receipt_lines([])
         self.assertEqual(lines, [])
         self.assertIn("no tiene recepciones", error)
 
