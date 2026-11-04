@@ -83,6 +83,32 @@ html {
     font-size: 0.7em;
 }
 
+/* documenteme: estado continuo de actualizacion (sync + aprobacion en fondo) */
+.dm-sync-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    color: #003666;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.dm-sync-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 54, 102, 0.25);
+    border-top-color: #003666;
+    border-radius: 50%;
+    animation: dm-sync-spin 0.8s linear infinite;
+}
+
+@keyframes dm-sync-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 @media (max-width: 991.98px) {
     .dm-toolbar-actions {
         flex: 1 1 100%;

@@ -224,9 +224,16 @@ def _is_job_pending():
 def retry_auto_approve():
     """Fuerza un nuevo encolado cuando no hay worker (estado queued colgado).
 
-    Si un job esta corriendo de verdad no se encola otro; el job en curso
-    tomara las facturas acumuladas en la siguiente vuelta.
+    Solo el Administrator puede reintentar: es una accion operativa y no debe
+    exponerse a cualquier usuario del portal.
     """
+    if frappe.session.user != "Administrator":
+        return {
+            "approved": [],
+            "errors": [],
+            "skipped": True,
+            "error": "No tiene permiso para reintentar la aprobación",
+        }
     status = get_auto_approve_status()
     if status.get("running"):
         return {
@@ -257,8 +264,16 @@ def _with_pending(status):
 
 @frappe.whitelist()
 def get_auto_approve_job_status():
-    """Estado del ultimo job de auto-aprobacion (running/queued/done)."""
-    return _with_pending(get_auto_approve_status())
+    """Estado minimo del ultimo job de auto-aprobacion para el polling.
+
+    No expone job_id, conteos ni marcas de tiempo internas: el front solo
+    necesita saber si sigue pendiente y si quedo a la espera de un worker.
+    """
+    status = _with_pending(get_auto_approve_status())
+    return {
+        "pending": bool(status.get("pending")),
+        "waiting_worker": bool(status.get("waiting_worker")),
+    }
 
 
 def _data():

@@ -939,9 +939,35 @@ $(document).ready(function () {
     var SYNC_POLL_MAX = 200;
     var syncPollCancelled = false;
 
-    // El desbloqueo manual solo se ofrece al Administrator; el backend
-    // tambien valida el permiso.
-    function canUnlockSync() {
+    var URL_DOCUMENTS_SYNC_STATUS = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.get_documents_sync_status";
+    var URL_REFRESH_DOCUMENTS = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.refresh_documents";
+    var URL_UNLOCK_DOCUMENTS_SYNC = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.unlock_documents_sync";
+    var URL_AUTO_APPROVE_STATUS = "qp_supplier_front.resources.documenteme.auto_approve.get_auto_approve_job_status";
+    var URL_AUTO_APPROVE_RETRY = "qp_supplier_front.resources.documenteme.auto_approve.retry_auto_approve";
+
+    // Un solo estado continuo: la barra sigue visible desde el click hasta que
+    // terminan el sync y la aprobacion en segundo plano. No se recarga la
+    // lista a mitad de camino (eso hacia que pareciera terminado y reiniciara).
+    function setSyncProgress(text) {
+        $("#refresh_filter_list").prop("disabled", true);
+        $("#sync-progress-text").text(text || "Actualizando...");
+        $("#sync-progress").css("display", "flex");
+    }
+
+    function clearSyncProgress() {
+        $("#sync-progress").hide();
+        $("#refresh_filter_list").prop("disabled", false);
+    }
+
+    function finishRefresh() {
+        clearSyncProgress();
+        window.filter_init();
+        frappe.msgprint("Actualizaci\u00f3n completada.");
+    }
+
+    // Las acciones operativas (desbloquear el sync, reintentar la aprobacion)
+    // solo se ofrecen al Administrator; el backend tambien valida el permiso.
+    function canManageSync() {
         return $("#refresh_filter_list").attr("data-is-administrator") === "1";
     }
 
@@ -952,7 +978,7 @@ $(document).ready(function () {
             title: "Sincronizaci\u00f3n en curso",
             message: text
         };
-        if (canUnlockSync()) {
+        if (canManageSync()) {
             dialog.primary_action = {
                 label: "Desbloquear",
                 action: unlockSyncAndReload
@@ -964,74 +990,104 @@ $(document).ready(function () {
     // Libera un lock colgado (crash/worker caido) sin esperar el TTL.
     function unlockSyncAndReload() {
         syncPollCancelled = true;
-        petition_get_data({}, "qp_supplier_front.uses_cases.documents.sync_all_whitelist.unlock_documents_sync", function (response) {
+        petition_get_data({}, URL_UNLOCK_DOCUMENTS_SYNC, function (response) {
             if (!response || response.success === false) {
                 frappe.msgprint((response && response.error) || "No tiene permiso para desbloquear la sincronizaci\u00f3n.");
                 return;
             }
+            clearSyncProgress();
             window.filter_init();
             frappe.msgprint("Sincronizaci\u00f3n desbloqueada. Puede actualizar de nuevo.");
         });
     }
 
-    // Espera a que termine la sincronizacion de otro usuario y recarga la lista.
+    // Espera a que termine la sincronizacion de otro usuario. Cuando el lock
+    // se libera puede quedar una aprobacion en segundo plano: se continua con
+    // ese estado antes de dar la actualizacion por terminada.
     function pollSyncStatus(attempts) {
         if (syncPollCancelled) {
             return;
         }
         if (attempts >= SYNC_POLL_MAX) {
+            clearSyncProgress();
             window.filter_init();
-            frappe.msgprint(syncBusyDialog(
-                "La sincronizaci\u00f3n sigue en curso. Actualice la lista cuando termine."
-            ));
+            if (canManageSync()) {
+                frappe.msgprint(syncBusyDialog(
+                    "La sincronizaci\u00f3n sigue en curso. Actualice la lista cuando termine."
+                ));
+            } else {
+                frappe.msgprint("La actualizaci\u00f3n est\u00e1 tardando m\u00e1s de lo normal. "
+                    + "Vuelva a intentarlo en unos minutos.");
+            }
             return;
         }
-        petition_get_data({}, "qp_supplier_front.uses_cases.documents.sync_all_whitelist.get_documents_sync_status", function (status) {
+        setSyncProgress("Actualizando facturas...");
+        petition_get_data({}, URL_DOCUMENTS_SYNC_STATUS, function (status) {
             if (status && status.locked) {
                 setTimeout(function () { pollSyncStatus(attempts + 1); }, SYNC_POLL_MS);
                 return;
             }
-            window.filter_init();
-            frappe.msgprint("Sincronizaci\u00f3n completada.");
+            petition_get_data({}, URL_AUTO_APPROVE_STATUS, function (approval) {
+                if (approval && approval.pending) {
+                    pollBackgroundApproval(0);
+                    return;
+                }
+                finishRefresh();
+            });
         });
     }
 
-    // Espera a que termine la aprobacion en segundo plano y recarga la lista.
+    // Espera la aprobacion en segundo plano manteniendo el estado continuo. Al
+    // usuario no se le muestra mecanica interna (worker, cola, conteos): solo
+    // un mensaje generico de actualizacion en curso.
     function pollBackgroundApproval(attempts) {
         if (attempts >= SYNC_POLL_MAX) {
+            clearSyncProgress();
             window.filter_init();
+            frappe.msgprint("La actualizaci\u00f3n est\u00e1 tardando m\u00e1s de lo normal. "
+                + "Vuelva a intentarlo en unos minutos.");
             return;
         }
-        petition_get_data({}, "qp_supplier_front.resources.documenteme.auto_approve.get_auto_approve_job_status", function (status) {
+        petition_get_data({}, URL_AUTO_APPROVE_STATUS, function (status) {
             if (status && status.pending) {
+                setSyncProgress("Actualizando facturas...");
                 setTimeout(function () { pollBackgroundApproval(attempts + 1); }, SYNC_POLL_MS);
                 return;
             }
-            window.filter_init();
+            clearSyncProgress();
             if (status && status.waiting_worker) {
-                frappe.msgprint({
-                    title: "Aprobaci\u00f3n pendiente",
-                    message: "La sincronizaci\u00f3n termin\u00f3, pero no hay worker activo: "
-                        + "la aprobaci\u00f3n qued\u00f3 en cola. Inicie el worker o reintente.",
-                    primary_action: {
-                        label: "Reintentar",
-                        action: retryBackgroundApproval
-                    }
-                });
+                window.filter_init();
+                if (canManageSync()) {
+                    frappe.msgprint({
+                        title: "Actualizaci\u00f3n pendiente",
+                        message: "La aprobaci\u00f3n autom\u00e1tica no tiene worker activo: "
+                            + "el job qued\u00f3 en cola. Inicie el worker o reintente.",
+                        primary_action: {
+                            label: "Reintentar",
+                            action: retryBackgroundApproval
+                        }
+                    });
+                    return;
+                }
+                frappe.msgprint("La actualizaci\u00f3n est\u00e1 tardando m\u00e1s de lo normal. "
+                    + "Vuelva a intentarlo en unos minutos.");
                 return;
             }
-            frappe.msgprint("Procesamiento en segundo plano completado.");
+            window.filter_init();
+            frappe.msgprint("Actualizaci\u00f3n completada.");
         });
     }
 
     // Reencola la aprobacion cuando el job quedo colgado sin worker.
     function retryBackgroundApproval() {
-        petition_get_data({}, "qp_supplier_front.resources.documenteme.auto_approve.retry_auto_approve", function (response) {
+        setSyncProgress("Reencolando aprobaci\u00f3n...");
+        petition_get_data({}, URL_AUTO_APPROVE_RETRY, function (response) {
             if (response && (response.enqueued > 0 || response.already_queued)) {
                 frappe.msgprint("Aprobaci\u00f3n reencolada.");
                 pollBackgroundApproval(0);
                 return;
             }
+            clearSyncProgress();
             if (response && response.error) {
                 frappe.msgprint(response.error);
             }
@@ -1051,41 +1107,41 @@ $(document).ready(function () {
                 var savedOnClick = overlayEl.onclick;
                 overlayEl.onclick = null;
                 overlayEl.style.display = "block";
+                setSyncProgress("Actualizando facturas...");
 
-                var url = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.refresh_documents";
+                var url = URL_REFRESH_DOCUMENTS;
 
                 var callresponse = (response) => {
                     overlayEl.onclick = savedOnClick;
                     overlayEl.style.display = "none";
-                    $btn.prop("disabled", false);
                     if (response && response.success) {
                         $(".filter-list").not("select").val("");
                         $(".filter-list.filter-check").val("0");
                         $(".filter-list.date").removeAttr("min").removeAttr("max");
                         $("select.filter-list").val("0");
-                        window.filter_init();
                         if (response.enqueued > 0 || response.already_queued) {
-                            frappe.msgprint(
-                                response.already_queued
-                                    ? "Sincronizaci\u00f3n completada. Ya hay una "
-                                        + "aprobaci\u00f3n en curso; las nuevas facturas "
-                                        + "se procesar\u00e1n al terminar."
-                                    : "Sincronizaci\u00f3n completada. Procesando "
-                                        + response.enqueued + " factura(s) en segundo plano."
-                            );
+                            // Un solo estado continuo: no se recarga la lista
+                            // hasta que termina la aprobacion en segundo plano.
+                            setSyncProgress("Actualizando facturas...");
                             pollBackgroundApproval(0);
-                        } else {
-                            frappe.msgprint("Sincronizaci\u00f3n completada.");
+                            return;
                         }
-                    } else if (response && response.skipped) {
-                        frappe.msgprint(syncBusyDialog(
-                            "Ya hay una sincronizaci\u00f3n en curso. La lista se "
-                                + "actualizar\u00e1 cuando termine."
-                        ));
-                        pollSyncStatus(0);
-                    } else {
-                        frappe.msgprint(response && response.error ? response.error : "Error en la sincronizaci\u00f3n de facturas.");
+                        finishRefresh();
+                        return;
                     }
+                    if (response && response.skipped) {
+                        setSyncProgress("Actualizando facturas...");
+                        if (canManageSync()) {
+                            frappe.msgprint(syncBusyDialog(
+                                "Ya hay una sincronizaci\u00f3n en curso. La lista se "
+                                    + "actualizar\u00e1 cuando termine."
+                            ));
+                        }
+                        pollSyncStatus(0);
+                        return;
+                    }
+                    clearSyncProgress();
+                    frappe.msgprint(response && response.error ? response.error : "Error en la sincronizaci\u00f3n de facturas.");
                 };
 
                 petition_get_data({}, url, callresponse);

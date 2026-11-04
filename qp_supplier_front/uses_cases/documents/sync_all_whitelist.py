@@ -288,13 +288,9 @@ def unlock_documents_sync():
 
 @frappe.whitelist()
 def get_documents_sync_status():
-    """Estado del lock global de sincronizacion (para el polling del front)."""
-    status = sync_lock.get_status(DOCUMENTS_LOCK_DOMAIN)
-    if not status:
-        return {"locked": False}
-    return {
-        "locked": True,
-        "started_at": status.get("started_at"),
-        "expires_at": status.get("expires_at"),
-        "owner": status.get("owner"),
-    }
+    """Estado del lock global de sincronizacion (para el polling del front).
+
+    Solo expone si hay una sincronizacion en curso. El front no necesita (y no
+    debe recibir) el dueno, las fechas ni los detalles internos del lock.
+    """
+    return {"locked": bool(sync_lock.get_status(DOCUMENTS_LOCK_DOMAIN))}
