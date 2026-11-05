@@ -9,7 +9,9 @@ tests se inyecta un DataFacade que delega en el frappe mock de cada caso.
 Frappe se inyecta en sys.modules como mock (sin base de datos).
 Ejecutar con: python -m pytest qp_supplier_front/tests/test_auto_approve.py -v
 """
+import json
 import sys
+import time
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -150,7 +152,7 @@ class TestPromoteEligibleToV(_WithData, unittest.TestCase):
         promoted = infra.promote_eligible_to_v()
         self.assertEqual(promoted, [])
 
-    def test_promueve_contado_sin_oc_ni_recibos(self):
+    def test_no_promueve_contado_sin_oc_ni_recibos(self):
         frappe_mock = MagicMock()
         frappe_mock.get_all.return_value = [
             _doc(name="DOC1", nvfac_esta="E", nvfac_orde=None,
@@ -161,10 +163,8 @@ class TestPromoteEligibleToV(_WithData, unittest.TestCase):
             patch.object(infra, "receipt_bank", return_value=_bank(None)),
         ])
         promoted = infra.promote_eligible_to_v()
-        self.assertEqual(promoted, ["DOC1"])
-        frappe_mock.db.set_value.assert_called_once_with(
-            "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "V"
-        )
+        self.assertEqual(promoted, [])
+        frappe_mock.db.set_value.assert_not_called()
 
     def test_solo_quien_obtiene_reparto_se_promueve(self):
         frappe_mock = MagicMock()
@@ -240,19 +240,58 @@ class TestRunAutoApprove(_WithData, unittest.TestCase):
         ])
         result = infra.run_auto_approve()
         self.assertEqual(result["enqueued"], 2)
-        frappe_mock.enqueue.assert_called_once_with(
-            infra.AUTO_APPROVE_JOB_METHOD,
-            doc_names=["DOC1", "DOC2"],
-            queue="long",
-            timeout=14400,
-            job_name="auto approve documents",
-        )
+        args, kwargs = frappe_mock.enqueue.call_args
+        self.assertEqual(args[0], infra.AUTO_APPROVE_JOB_METHOD)
+        self.assertEqual(kwargs["doc_names"], ["DOC1", "DOC2"])
+        self.assertEqual(kwargs["queue"], "long")
+        self.assertEqual(kwargs["timeout"], 14400)
+        self.assertEqual(kwargs["job_name"], "auto approve documents")
+        self.assertTrue(kwargs["job_id"])
+
+    def test_no_encola_si_ya_hay_job_pendiente(self):
+        frappe_mock = MagicMock()
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "is_auto_approve_enabled", return_value=True),
+            patch.object(infra, "promote_eligible_to_v", return_value=[]),
+            patch.object(infra, "get_v_doc_names", return_value=["DOC1"]),
+            patch.object(infra, "_is_job_pending", return_value=True),
+            patch.object(infra, "_add_pending"),
+        ])
+        result = infra.run_auto_approve()
+        self.assertTrue(result["already_queued"])
+        self.assertEqual(result["enqueued"], 0)
+        frappe_mock.enqueue.assert_not_called()
+
+    def test_force_encola_aunque_haya_job_pendiente(self):
+        frappe_mock = MagicMock()
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "is_auto_approve_enabled", return_value=True),
+            patch.object(infra, "promote_eligible_to_v", return_value=[]),
+            patch.object(infra, "get_v_doc_names", return_value=["DOC1"]),
+            patch.object(infra, "_is_job_pending", return_value=True),
+        ])
+        result = infra.run_auto_approve(force=True)
+        self.assertEqual(result["enqueued"], 1)
+        frappe_mock.enqueue.assert_called_once()
+
+
+class TestAutoApproveNow(unittest.TestCase):
+
+    def test_ejecuta_inline_con_los_docs_recibidos(self):
+        with patch.object(infra, "run_auto_approve", return_value={}) as run:
+            infra.auto_approve_now(["DOC1", "DOC2"])
+
+        run.assert_called_once_with(enqueue=False, doc_names=["DOC1", "DOC2"])
 
 
 class TestApproveBatchJob(_WithData, unittest.TestCase):
 
     def test_aprueba_y_loguea_errores(self):
         frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            {"name": "DOC1", "nvfac_esta": "V", "nvfac_ueve": None},
+            {"name": "DOC2", "nvfac_esta": "V", "nvfac_ueve": None},
+        ]
         self._ctx(frappe_mock, extra=[
             patch.object(infra, "approve_documents_core", side_effect=(
                 lambda doc_names, **kwargs: {
@@ -273,6 +312,9 @@ class TestApproveBatchJob(_WithData, unittest.TestCase):
 
     def test_degrada_unregistrable_a_e(self):
         frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            {"name": "DOC1", "nvfac_esta": "V", "nvfac_ueve": None},
+        ]
         self._ctx(frappe_mock, extra=[
             patch.object(infra, "approve_documents_core", return_value={
                 "approved": [],
@@ -294,6 +336,65 @@ class TestApproveBatchJob(_WithData, unittest.TestCase):
             "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "E"
         )
         frappe_mock.db.commit.assert_called()
+
+
+class TestApproveBatchJobDedup(_WithData, unittest.TestCase):
+
+    def test_omite_docs_que_ya_no_estan_en_v(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            {"name": "DOC1", "nvfac_esta": "V", "nvfac_ueve": None},
+            {"name": "DOC2", "nvfac_esta": "BCC", "nvfac_ueve": None},
+        ]
+        with patch.object(infra, "frappe", frappe_mock), \
+             patch.object(infra.runtime, "resolve",
+                          return_value=_bundle_for(frappe_mock)), \
+             patch.object(infra, "approve_documents_core",
+                          return_value={"approved": [], "errors": []}) as approve:
+            infra.approve_batch_job(["DOC1", "DOC2"])
+        self.assertEqual(approve.call_args[0][0], ["DOC1"])
+
+    def test_sin_lock_fusiona_y_sale(self):
+        frappe_mock = MagicMock()
+        with patch.object(infra, "frappe", frappe_mock), \
+             patch.object(infra.runtime, "resolve",
+                          return_value=_bundle_for(frappe_mock)), \
+             patch.object(infra, "_acquire_job_lock", return_value=False), \
+             patch.object(infra, "_add_pending") as add_pending, \
+             patch.object(infra, "approve_documents_core") as approve:
+            result = infra.approve_batch_job(["DOC1"])
+        self.assertTrue(result["skipped"])
+        approve.assert_not_called()
+        add_pending.assert_called_once_with(["DOC1"])
+
+
+class TestJobStatus(unittest.TestCase):
+
+    def test_running_es_pending(self):
+        status = infra._with_pending({"running": True, "queued": False})
+        self.assertTrue(status["pending"])
+        self.assertFalse(status["waiting_worker"])
+
+    def test_queued_reciente_es_pending(self):
+        status = infra._with_pending({
+            "running": False, "queued": True, "queued_at": time.time(),
+        })
+        self.assertTrue(status["pending"])
+        self.assertFalse(status["waiting_worker"])
+
+    def test_queued_vencido_espera_worker(self):
+        status = infra._with_pending({
+            "running": False,
+            "queued": True,
+            "queued_at": time.time() - infra.AUTO_APPROVE_QUEUE_TIMEOUT - 1,
+        })
+        self.assertFalse(status["pending"])
+        self.assertTrue(status["waiting_worker"])
+
+    def test_sin_estado_no_queda_pendiente(self):
+        status = infra._with_pending({})
+        self.assertFalse(status["pending"])
+        self.assertFalse(status["waiting_worker"])
 
 
 class TestApproveDocumentsCoreWiring(unittest.TestCase):
@@ -326,6 +427,107 @@ class TestApproveDocumentsCoreWiring(unittest.TestCase):
         self.assertIs(captured["mark_error_fn"], base.mark_error)
         self.assertIn("resolve_rule_fn", captured)
         self.assertIs(captured["resolve_rule_fn"], base._resolve_rule)
+
+
+class _FakeCache(object):
+    """Cache redis-like: `get` devuelve bytes (como redis sin decode)."""
+
+    def __init__(self):
+        self.store = {}
+        self.values = {}
+
+    def make_key(self, key, user=None, shared=False):
+        return ("develop|" + key).encode("utf-8")
+
+    def set(self, key, value, nx=False, ex=None):
+        if nx and key in self.store:
+            return None
+        self.store[key] = value
+        return True
+
+    def get(self, key):
+        value = self.store.get(key)
+        if value is None or isinstance(value, bytes):
+            return value
+        return value.encode("utf-8")
+
+    def delete(self, key):
+        self.store.pop(key, None)
+
+    def get_value(self, key, user=None, expires=False):
+        return self.values.get(key)
+
+    def set_value(self, key, val, user=None, expires_in_sec=None):
+        self.values[key] = val
+
+
+class TestJobLock(unittest.TestCase):
+
+    def _patch_cache(self, cache):
+        frappe_mock = MagicMock()
+        frappe_mock.cache.return_value = cache
+        return patch.object(infra, "frappe", frappe_mock)
+
+    def test_liberar_releasea_el_lock(self):
+        cache = _FakeCache()
+        with self._patch_cache(cache):
+            self.assertTrue(infra._acquire_job_lock("tok-1"))
+            infra._release_job_lock("tok-1")
+        self.assertEqual(cache.store, {})
+
+    def test_lock_vigente_bloquea_a_otro_job(self):
+        cache = _FakeCache()
+        with self._patch_cache(cache):
+            self.assertTrue(infra._acquire_job_lock("tok-1"))
+            self.assertFalse(infra._acquire_job_lock("tok-2"))
+            infra._release_job_lock("tok-2")
+        self.assertEqual(len(cache.store), 1)
+
+    def test_lock_huerfano_se_roba(self):
+        cache = _FakeCache()
+        cache.set(
+            cache.make_key(infra.AUTO_APPROVE_LOCK_KEY),
+            json.dumps({
+                "token": "viejo",
+                "updated_at": time.time() - infra.AUTO_APPROVE_LOCK_STALE - 1,
+            }),
+        )
+        with self._patch_cache(cache):
+            self.assertTrue(infra._acquire_job_lock("tok-nuevo"))
+        self.assertIn('"tok-nuevo"', cache.store[
+            cache.make_key(infra.AUTO_APPROVE_LOCK_KEY)])
+
+    def test_touch_renueva_y_no_roba(self):
+        cache = _FakeCache()
+        with self._patch_cache(cache):
+            self.assertTrue(infra._acquire_job_lock("tok-1"))
+            self.assertTrue(infra._touch_job_lock("tok-1"))
+            self.assertFalse(infra._touch_job_lock("tok-2"))
+            self.assertFalse(infra._acquire_job_lock("tok-3"))
+
+
+class TestLockedJobClosesStatus(unittest.TestCase):
+    """Si otro job tiene el lock, no queda `queued` esperando al worker."""
+
+    def test_job_bloqueado_cierra_estado(self):
+        cache = _FakeCache()
+        frappe_mock = MagicMock()
+        frappe_mock.cache.return_value = cache
+        with patch.object(infra, "frappe", frappe_mock), \
+             patch.object(infra.runtime, "resolve",
+                          return_value=_bundle_for(frappe_mock)), \
+             patch.object(infra, "_acquire_job_lock", return_value=False), \
+             patch.object(infra, "_add_pending") as add_pending, \
+             patch.object(infra, "approve_documents_core") as approve:
+            result = infra.approve_batch_job(["DOC1"])
+            status = infra.get_auto_approve_status()
+
+        self.assertTrue(result["skipped"])
+        approve.assert_not_called()
+        add_pending.assert_called_once_with(["DOC1"])
+        self.assertFalse(status.get("queued"))
+        self.assertFalse(status.get("running"))
+        self.assertTrue(status.get("skipped_locked"))
 
 
 if __name__ == "__main__":

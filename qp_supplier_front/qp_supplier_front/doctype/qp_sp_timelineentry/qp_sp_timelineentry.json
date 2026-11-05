@@ -10,9 +10,12 @@
   "old_state",
   "new_state",
   "entry_by",
-  "entry_date",
-  "send_to_bc"
- ],
+   "entry_date",
+   "send_to_bc",
+   "attachment_file_id",
+   "attachment_file_url",
+   "attachment_file_name"
+  ],
  "fields": [
   {
    "fieldname": "entry_type",
@@ -54,12 +57,28 @@
    "fieldname": "send_to_bc",
    "fieldtype": "Check",
    "label": "Enviar a BC"
+  },
+  {
+   "fieldname": "attachment_file_id",
+   "fieldtype": "Link",
+   "label": "Archivo adjunto",
+   "options": "File"
+  },
+  {
+   "fieldname": "attachment_file_url",
+   "fieldtype": "Data",
+   "label": "URL del adjunto"
+  },
+  {
+   "fieldname": "attachment_file_name",
+   "fieldtype": "Data",
+   "label": "Nombre del adjunto"
   }
- ],
+  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-10-15 10:00:00",
+ "modified": "2026-10-19 21:30:00",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_TimelineEntry",

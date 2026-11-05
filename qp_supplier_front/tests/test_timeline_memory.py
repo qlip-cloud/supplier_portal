@@ -181,6 +181,50 @@ class TestMemoryTimelineAdapter(unittest.TestCase):
         self.adapter.set_bc_comment("D1", entry["name"], True)
         self.assertEqual(self.adapter.get_bc_comment("D1"), "c1")
 
+    def test_add_comment_con_adjunto(self):
+        _seed_doc(self.store)
+        self.adapter.add_comment(
+            "D1", "nota", attachment_file_id="F1",
+            attachment_file_url="/files/a.pdf", attachment_file_name="a.pdf",
+        )
+        comment = self.adapter.get_comments("D1")[0]
+        self.assertEqual(comment["attachment_file_id"], "F1")
+        self.assertEqual(comment["attachment_file_url"], "/files/a.pdf")
+        self.assertEqual(comment["attachment_file_name"], "a.pdf")
+
+    def test_set_comment_attachment_reemplaza_y_quita(self):
+        _seed_doc(self.store)
+        entry = self.adapter.add_comment("D1", "nota")
+        self.adapter.set_comment_attachment(
+            "D1", entry["name"], file_id="F1",
+            file_url="/files/a.pdf", file_name="a.pdf",
+        )
+        comment = self.adapter.get_comments("D1")[0]
+        self.assertEqual(comment["attachment_file_url"], "/files/a.pdf")
+
+        self.adapter.set_comment_attachment("D1", entry["name"])
+        comment = self.adapter.get_comments("D1")[0]
+        self.assertEqual(comment["attachment_file_url"], "")
+        self.assertEqual(comment["attachment_file_id"], "")
+
+    def test_get_bc_comment_entry_con_adjunto(self):
+        _seed_doc(self.store)
+        entry = self.adapter.add_comment(
+            "D1", "nota", attachment_file_url="/files/a.pdf",
+        )
+        self.adapter.set_bc_comment("D1", entry["name"], True)
+        self.assertEqual(
+            self.adapter.get_bc_comment_entry("D1"),
+            {"message": "nota", "attachment_file_url": "/files/a.pdf"},
+        )
+
+    def test_get_bc_comment_entry_vacio(self):
+        _seed_doc(self.store)
+        self.assertEqual(
+            self.adapter.get_bc_comment_entry("D1"),
+            {"message": "", "attachment_file_url": ""},
+        )
+
 
 class TestMemoryIntegration(unittest.TestCase):
 

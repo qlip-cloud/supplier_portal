@@ -13,6 +13,7 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     FINAL_STATES,
     _allocate_registrables,
     approve_documents,
+    build_bc_comment,
     build_payload,
     collect_registrable_violations,
     get_error_message,
@@ -261,18 +262,64 @@ class TestBuildPayload(unittest.TestCase):
         self.assertEqual(line["NoProducto"], "M000455")
         self.assertEqual(line["cantidad"], 10)
         self.assertEqual(line["Precio"], 5000.0)
-        self.assertEqual(line["NoLineaRecepcion"], "10000")
+        self.assertEqual(line["NoLineaRecepcion"], "1")
         self.assertEqual(line["NoRecepcion"], "R108349")
         self.assertEqual(line["NoPedido"], "45238")
         self.assertEqual(line["Comentarios"], "Recepcion R108349")
 
-    def test_no_linea_recepcion_se_incrementa_por_factura(self):
+    def test_no_linea_recepcion_usa_el_idx_del_item(self):
         payload = build_payload([_doc()], self._multi_lines, self._get_headquarter)
+        lines = payload[0]["vendorInvoiceLine"]
+        self.assertEqual(
+            [line["NoLineaRecepcion"] for line in lines],
+            ["2", "5"],
+        )
+
+    def test_no_linea_recepcion_se_repite_entre_recepciones(self):
+        def _two_receipts(purchase_order):
+            return [
+                _line(name="LINE1", idx=10000, receiving_no="R1"),
+                _line(name="LINE2", idx=10000, receiving_no="R2"),
+            ], ""
+
+        payload = build_payload(
+            [_doc()], _two_receipts, self._get_headquarter
+        )
+        lines = payload[0]["vendorInvoiceLine"]
+        self.assertEqual(
+            [line["NoLineaRecepcion"] for line in lines],
+            ["10000", "10000"],
+        )
+
+    def test_no_linea_recepcion_sin_recibo_usa_consecutivo_propio(self):
+        def _no_receipts(purchase_order):
+            return [
+                _line(name="LINE1", idx=1, receiving_no="", order_no="45238"),
+                _line(name="LINE2", idx=2, receiving_no="", order_no="45238"),
+            ], ""
+
+        payload = build_payload([_doc()], _no_receipts, self._get_headquarter)
         lines = payload[0]["vendorInvoiceLine"]
         self.assertEqual(
             [line["NoLineaRecepcion"] for line in lines],
             ["10000", "20000"],
         )
+        self.assertEqual([line["NoRecepcion"] for line in lines], ["", ""])
+
+    def test_no_linea_recepcion_delivery_usa_consecutivo_propio(self):
+        def _delivery(purchase_order):
+            return [_line(
+                name="HD",
+                item_code="HD-ITEM",
+                idx=0,
+                receiving_no="",
+                order_no="",
+            )], ""
+
+        payload = build_payload([_doc()], _delivery, self._get_headquarter)
+        line = payload[0]["vendorInvoiceLine"][0]
+        self.assertEqual(line["NoLineaRecepcion"], "10000")
+        self.assertEqual(line["NoRecepcion"], "")
 
     def test_cufe_desde_el_doc(self):
         docs = [_doc(nvfac_cufe="CUFE123")]
@@ -309,7 +356,7 @@ class TestBuildPayload(unittest.TestCase):
         )
         self.assertEqual(
             payload[0]["vendorInvoiceLine"][0]["Comentarios"],
-            "Recepcion R108349::Entregar en bodega 2",
+            "ALERTA:Recepcion R108349::Entregar en bodega 2",
         )
 
     def test_comentario_bc_en_todas_las_lineas(self):
@@ -319,14 +366,46 @@ class TestBuildPayload(unittest.TestCase):
         )
         self.assertEqual(
             [line["Comentarios"] for line in payload[0]["vendorInvoiceLine"]],
-            ["Recepcion R108349::Urgente", "Recepcion R108349::Urgente"],
+            ["ALERTA:Recepcion R108349::Urgente",
+             "ALERTA:Recepcion R108349::Urgente"],
         )
 
     def test_comentario_bc_sin_recepcion(self):
         lines = lambda po: ([_line(receiving_no="")], "")
         payload = build_payload([_doc(qp_bc_comment="Solo nota")], lines,
                                 self._get_headquarter)
-        self.assertEqual(payload[0]["vendorInvoiceLine"][0]["Comentarios"], "Solo nota")
+        self.assertEqual(payload[0]["vendorInvoiceLine"][0]["Comentarios"],
+                         "ALERTA:::Solo nota")
+
+
+class TestBuildBcComment(unittest.TestCase):
+
+    def test_sin_comentario_ni_adjunto_conserva_recepcion(self):
+        self.assertEqual(build_bc_comment("R108349"), "Recepcion R108349")
+
+    def test_sin_comentario_ni_adjunto_sin_recepcion_es_vacio(self):
+        self.assertEqual(build_bc_comment(""), "")
+
+    def test_comentario_y_adjunto_con_recepcion(self):
+        self.assertEqual(
+            build_bc_comment("R108349", "Revisar", "https://x/files/a.pdf"),
+            "ALERTA:Recepcion R108349:https://x/files/a.pdf:Revisar",
+        )
+
+    def test_solo_adjunto_con_recepcion(self):
+        self.assertEqual(
+            build_bc_comment("R108349", "", "https://x/files/a.pdf"),
+            "ALERTA:Recepcion R108349:https://x/files/a.pdf:",
+        )
+
+    def test_solo_comentario_sin_recepcion(self):
+        self.assertEqual(build_bc_comment("", "Solo nota"), "ALERTA:::Solo nota")
+
+    def test_adjunto_sin_recepcion(self):
+        self.assertEqual(
+            build_bc_comment("", "nota", "https://x/files/a.pdf"),
+            "ALERTA::https://x/files/a.pdf:nota",
+        )
 
 
 class TestIsErrorResponse(unittest.TestCase):

@@ -97,19 +97,32 @@ def get_timeline(doc_name):
         response(500, "Error al obtener el historial: {}".format(str(error)))
 
 
+def _clean_attachment(value):
+    return str(value or "").strip()
+
+
 @frappe.whitelist()
-def add_comment(doc_name, comment, send_to_bc=None):
+def add_comment(doc_name, comment, send_to_bc=None, attachment_file_id=None,
+                attachment_file_url=None, attachment_file_name=None):
     try:
         if not doc_name:
             response(400, "Falta el documento")
             return
         comment = str(comment or "").strip()
-        if not comment:
+        attachment_file_id = _clean_attachment(attachment_file_id)
+        attachment_file_url = _clean_attachment(attachment_file_url)
+        attachment_file_name = _clean_attachment(attachment_file_name)
+        if not comment and not attachment_file_url:
             response(400, "El comentario no puede estar vac\u00edo")
             return
         data = runtime.resolve().get("data")
         adapter = _timeline(data)
-        entry = adapter.add_comment(doc_name, comment)
+        entry = adapter.add_comment(
+            doc_name, comment,
+            attachment_file_id=attachment_file_id,
+            attachment_file_url=attachment_file_url,
+            attachment_file_name=attachment_file_name,
+        )
         if _as_bool(send_to_bc) and _can_send_to_bc(data, doc_name):
             adapter.set_bc_comment(doc_name, entry.get("name"), True)
         if data is not None:
@@ -208,6 +221,48 @@ def set_bc_comment(doc_name, entry_name, flag):
     except Exception as error:
         frappe.db.rollback()
         response(500, "Error al marcar el comentario: {}".format(str(error)))
+
+
+@frappe.whitelist()
+def set_comment_attachment(doc_name, entry_name, attachment_file_id=None,
+                           attachment_file_url=None, attachment_file_name=None):
+    """Reemplaza (o quita) el adjunto de un comentario existente.
+
+    Permite adjuntar/cambiar un archivo a un comentario aunque no este marcado
+    "Enviar a BC". Solo aplica con backend BC y mientras la factura no haya
+    sido creada en BC (estados E/V). Con los tres parametros vacios se quita el
+    adjunto.
+    """
+    try:
+        if not doc_name or not entry_name:
+            response(400, "Faltan datos del comentario")
+            return
+        data = runtime.resolve().get("data")
+        if not _can_send_to_bc(data, doc_name):
+            response(400, "La factura ya no permite adjuntar archivos")
+            return
+        adapter = _timeline(data)
+        adapter.set_comment_attachment(
+            doc_name, entry_name,
+            file_id=_clean_attachment(attachment_file_id),
+            file_url=_clean_attachment(attachment_file_url),
+            file_name=_clean_attachment(attachment_file_name),
+        )
+        if data is not None:
+            data.commit()
+        else:
+            frappe.db.commit()
+        response(
+            200,
+            "Adjunto actualizado correctamente",
+            data={
+                "comments": adapter.get_comments(doc_name),
+                "can_send_to_bc": True,
+            },
+        )
+    except Exception as error:
+        frappe.db.rollback()
+        response(500, "Error al actualizar el adjunto: {}".format(str(error)))
 
 
 @frappe.whitelist()

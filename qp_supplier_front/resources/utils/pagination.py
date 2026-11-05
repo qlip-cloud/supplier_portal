@@ -6,6 +6,7 @@ from qp_supplier_front.services.enrich_document_detail import enrich_document_de
 from qp_supplier_front.services.documenteme_access import (
     get_assigned_sync_lines_filters,
     get_assigned_sync_line_names,
+    can_super_approve_current_user,
     is_sede_documenteme,
 )
 from qp_supplier_front.services.flow_config import get_sync_backend
@@ -17,6 +18,7 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
         msg = "Los datos han sido paginados correctamente"
         
         parsed_filters = json.loads(filters) if filters else {}
+        can_super_approve = False
         
         if doctype == "qp_SP_DocumentDetail":
             base_filters = {}
@@ -25,6 +27,7 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
                 frappe.get_roles(), frappe.session.user, get_assigned_sync_line_names, base_filters
             )
             pagination = get_paginated_filtered(int(page), doctype, order_by, base_filters)
+            can_super_approve = can_super_approve_current_user()
 
             for doc in pagination:
                 doc["detail_lines"] = frappe.get_all(
@@ -88,7 +91,8 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
         template = frappe.render_template(f"qp_supplier_front/templates/list/{key}/list.html", {
                     key: pagination, "doctype_detail":doctype_detail, "key": key, "doctype": doctype,
                     "is_sede_documenteme": is_sede_documenteme(frappe.get_roles()),
-                    "documenteme_backend": get_sync_backend()
+                    "documenteme_backend": get_sync_backend(),
+                    "can_super_approve": can_super_approve
                 })
         
         response(200,  msg, template)

@@ -65,6 +65,30 @@ class TestBuildOrderRecords(unittest.TestCase):
         self.assertEqual(doc[10], "Administrator")
         self.assertEqual(doc[11], "Administrator")
 
+    def test_doc_totals_sum_item_amounts(self):
+        strategy = make_strategy()
+        order = make_order(products=[
+            {"itemnmbr": "ITM-1", "qtyOrder": 5, "unitCost": 100, "extdCost": "500"},
+            {"itemnmbr": "ITM-2", "qtyOrder": 2, "unitCost": 20, "extdCost": "40"},
+        ])
+        docs, items, errors, doc_errors = build_order_records(
+            [order], {"ITM-1": {}, "ITM-2": {}}, self.now, self.company, strategy
+        )
+        doc = docs["OC-1:SUP-1"]
+        self.assertEqual(doc[12], 540)
+        self.assertEqual(doc[14], 540)
+        self.assertEqual(doc[20], 2)
+
+    def test_doc_without_valid_items_has_zero_totals(self):
+        strategy = make_strategy()
+        docs, items, errors, doc_errors = build_order_records(
+            [make_order()], {}, self.now, self.company, strategy
+        )
+        doc = docs["OC-1:SUP-1"]
+        self.assertEqual(doc[12], 0)
+        self.assertEqual(doc[14], 0)
+        self.assertEqual(doc[20], 0)
+
     def test_item_tuple_mapping(self):
         strategy = make_strategy()
         docs, items, errors, doc_errors = build_order_records(

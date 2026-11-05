@@ -50,3 +50,10 @@ class MemoryMasterSetupSource(object):
 
     def sede_source_doctype(self):
         return self._value("sede_source_doctype") or DEFAULT_SEDE_SOURCE
+
+    def super_approvers(self):
+        from qp_supplier_front.infrastructure.adapters.master_setup_source import (
+            super_approver_row,
+        )
+        rows = self._value("super_approvers") or []
+        return [super_approver_row(row) for row in rows]

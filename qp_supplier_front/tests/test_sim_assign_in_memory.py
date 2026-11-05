@@ -131,6 +131,75 @@ class TestSimAssignRolesInMemory(unittest.TestCase):
         self.assertEqual(emails, ["rol@sim.local"])
 
 
+class TestSimAssignReceiptPreferenceInMemory(unittest.TestCase):
+
+    def _seed_store(self):
+        store = MemoryStore()
+        seeds.seed_oc_type(store, "COMPRA")
+        for email in ("ambos@sim.local", "con@sim.local", "sin@sim.local"):
+            seeds.seed_user(store, email)
+        seeds.seed_assignment_config(
+            store, "CFG-PREF", oc_type="COMPRA", headquarter="",
+            user_emails=["ambos@sim.local", "con@sim.local", "sin@sim.local"],
+            user_preferences={
+                "ambos@sim.local": "Ambos",
+                "con@sim.local": "Con Recepcion",
+                "sin@sim.local": "Sin Recepcion",
+            },
+        )
+        return store
+
+    def _assigned_users(self, store, line):
+        return sorted(store.query(
+            "qp_SP_SyncLineAssignedUser",
+            filters={"parent": line},
+            pluck="user",
+        ))
+
+    def test_assignee_emails_filtra_por_preferencia(self):
+        store = self._seed_store()
+
+        self.assertEqual(
+            assign_memory._assignee_emails(
+                store, "COMPRA", "", has_receipt=True),
+            ["ambos@sim.local", "con@sim.local"],
+        )
+        self.assertEqual(
+            assign_memory._assignee_emails(
+                store, "COMPRA", "", has_receipt=False),
+            ["ambos@sim.local", "sin@sim.local"],
+        )
+        self.assertEqual(
+            assign_memory._assignee_emails(store, "COMPRA", ""),
+            ["ambos@sim.local", "con@sim.local", "sin@sim.local"],
+        )
+
+    def test_run_auto_assign_asigna_segun_recepcion(self):
+        store = self._seed_store()
+        seeds.seed_purchase_order(
+            store, "PO-CON", headquarter="", oc_type="COMPRA")
+        seeds.seed_purchase_order(
+            store, "PO-SIN", headquarter="", oc_type="COMPRA")
+        seeds.seed_purchase_receipt(store, "REC-CON", "PO-CON", 100)
+        _seed_doc(store, "PREF-CON", "E", "PO-CON", 1000, "2")
+        _seed_doc(store, "PREF-SIN", "E", "PO-SIN", 1000, "2")
+
+        assigned = assign_memory.run_auto_assign(store)
+
+        self.assertEqual(sorted(assigned), [
+            "{}:PREF-CON".format(SIM_NIT),
+            "{}:PREF-SIN".format(SIM_NIT),
+        ])
+        self.assertEqual(
+            self._assigned_users(store, "{}:PREF-CON".format(SIM_NIT)),
+            ["ambos@sim.local", "con@sim.local"],
+        )
+        self.assertEqual(
+            self._assigned_users(store, "{}:PREF-SIN".format(SIM_NIT)),
+            ["ambos@sim.local", "sin@sim.local"],
+        )
+
+
 class TestMemoryPoSupplierMatch(unittest.TestCase):
 
     def setUp(self):

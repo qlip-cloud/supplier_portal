@@ -105,9 +105,11 @@ $(document).ready(function () {
                     });
                 }
                 var serverErrors = (response.data && response.data.errors) || [];
-                if (serverErrors.length > 0) {
+                var pendingSuper = (response.data && response.data.pending_super) || [];
+                if (serverErrors.length > 0 || pendingSuper.length > 0) {
                     // Refrescar la lista: las facturas con error (ya existe en BC,
-                    // fallo de BC) cambian de estado y/o dejan alertas en el servidor.
+                    // fallo de BC) o pendientes de superaprobacion cambian de estado
+                    // y/o dejan alertas en el servidor.
                     window.filter_init();
                 }
             };
@@ -252,6 +254,8 @@ $(document).ready(function () {
     // =====================================================================
     var timelineDocName = null;
     var timelineCanSendToBc = false;
+    var timelineNewAttachment = null;
+    var timelineChangeEntry = null;
 
     var TIMELINE_TYPE_META = {
         creacion: {
@@ -279,6 +283,7 @@ $(document).ready(function () {
         "BCC": "Creada en BC",
         "PA": "En proceso de aprobaci\u00f3n",
         "PR": "En proceso de rechazo",
+        "PSA": "Por Autorización",
         "SR": "Sin referencia",
         "T": ""
     };
@@ -310,6 +315,79 @@ $(document).ready(function () {
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#39;");
+    }
+
+    // Sube un archivo como File publico (is_private=0) para que la URL sea
+    // consultable sin login (BC la recibe en el comentario).
+    function uploadPublicFile(file) {
+        return new Promise(function (resolve, reject) {
+            if (!file) {
+                resolve(null);
+                return;
+            }
+            var formData = new FormData();
+            formData.append("file", file);
+            formData.append("is_private", "0");
+            fetch("/api/method/upload_file", {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "X-Frappe-CSRF-Token": frappe.csrf_token
+                }
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error("upload_failed");
+                }
+                return response.json();
+            }).then(function (data) {
+                var message = (data && data.message) || {};
+                resolve({
+                    file_id: message.name || "",
+                    file_url: message.file_url || "",
+                    file_name: message.file_name || file.name
+                });
+            }).catch(reject);
+        });
+    }
+
+    function attachmentIcon(icon, title, cls, entryName, color) {
+        return "<a href=\"#\" class=\"" + cls + "\" data-entry=\"" + escapeHtml(entryName || "") +
+            "\" title=\"" + title + "\" style=\"color:" + color + ";margin-left:8px;text-decoration:none\">" +
+            "<span class=\"material-symbols-outlined\" style=\"font-size:16px;vertical-align:middle\">" +
+            icon + "</span></a>";
+    }
+
+    function renderAttachmentControls(entry, canSendToBc) {
+        var url = entry.attachment_file_url || "";
+        var name = entry.attachment_file_name || "";
+        var entryName = entry.name || "";
+        var icons = "";
+        if (url) {
+            icons += "<a href=\"" + escapeHtml(url) + "\" target=\"_blank\" rel=\"noopener\" " +
+                "title=\"Ver adjunto\" style=\"color:#004D90;margin-left:8px;text-decoration:none\">" +
+                "<span class=\"material-symbols-outlined\" style=\"font-size:16px;vertical-align:middle\">visibility</span></a>";
+        }
+        if (canSendToBc) {
+            var changeLabel = url ? "Cambiar archivo" : "Adjuntar archivo";
+            icons += "<a href=\"#\" class=\"comment-attachment-change\" data-entry=\"" +
+                escapeHtml(entryName) + "\" title=\"" + changeLabel +
+                "\" style=\"color:#6c757d;margin-left:8px;text-decoration:none\">" +
+                "<span class=\"material-symbols-outlined\" style=\"font-size:16px;vertical-align:middle\">" +
+                (url ? "swap_horiz" : "attach_file") + "</span> " + changeLabel + "</a>";
+            if (url) {
+                icons += attachmentIcon(
+                    "close", "Quitar adjunto",
+                    "comment-attachment-remove", entryName, "#dc3545"
+                );
+            }
+        }
+        if (!url && !canSendToBc) {
+            return "";
+        }
+        var label = name
+            ? "<span style=\"color:#8a9099\">" + escapeHtml(name) + "</span>"
+            : "";
+        return "<div style=\"margin-top:3px;font-size:11px\">" + label + icons + "</div>";
     }
 
     function renderTimelineEntry(entry, canSendToBc) {
@@ -347,6 +425,9 @@ $(document).ready(function () {
             : "<div style=\"color:#8a9099;font-size:11px;margin-top:3px\">" +
                 escapeHtml(entry.entry_by || "") + " &middot; " + formatTimelineDate(entry.entry_date) +
                 "</div>";
+        var attachControls = isComment
+            ? renderAttachmentControls(entry, canSendToBc)
+            : "";
         var body = "<div class=\"timeline-entry\">" +
             "<span class=\"timeline-dot\" style=\"border-color:" + color + "\">" +
             "<span class=\"material-symbols-outlined\" style=\"color:" + color + "\">" + meta.icon + "</span>" +
@@ -354,6 +435,7 @@ $(document).ready(function () {
             "<div style=\"font-size:13px\">" +
             "<div style=\"color:#333;font-weight:bold;font-size:12px;margin-bottom:2px\">" + titleLine + bcCheck + "</div>" +
             "<div style=\"color:#444;white-space:pre-wrap;word-break:break-word\">" + message + "</div>" +
+            attachControls +
             footer +
             "</div></div>";
         return body;
@@ -380,6 +462,33 @@ $(document).ready(function () {
         }
     }
 
+    function resetNewAttachment() {
+        timelineNewAttachment = null;
+        $("#timeline_new_attachment_input").val("");
+        $("#timeline_new_attachment_name").text("");
+        $("#timeline_new_attachment_remove").hide();
+        updateConfirmCommentButton();
+    }
+
+    function updateConfirmCommentButton() {
+        var hasText = String($("#timeline_comment_text").val() || "").trim() !== "";
+        var hasAttachment = !!timelineNewAttachment;
+        $("#confirm-timeline-comment").prop(
+            "disabled", !timelineDocName || !(hasText || hasAttachment)
+        );
+    }
+
+    // "Enviar a BC" marcado por defecto si ningun comentario lo esta (solo un
+    // comentario puede viajar a BC a la vez).
+    function updateDefaultBcCheckbox(comments) {
+        var hasMarked = (comments || []).some(function (comment) {
+            return !!comment.send_to_bc;
+        });
+        $("#timeline_send_to_bc").prop(
+            "checked", timelineCanSendToBc && !hasMarked
+        );
+    }
+
     function loadConversation(docName, callback) {
         petition_get_data({
             doc_name: docName
@@ -387,8 +496,10 @@ $(document).ready(function () {
             if (response.status === 200) {
                 timelineCanSendToBc = !!(response.data && response.data.can_send_to_bc);
                 renderCommentList(response.data.comments, timelineCanSendToBc);
-                $("#timeline_send_to_bc").prop("checked", false);
+                updateDefaultBcCheckbox(response.data.comments);
                 $("#timeline_send_to_bc_wrapper").toggle(timelineCanSendToBc);
+                $("#timeline_attachment_wrapper").toggle(timelineCanSendToBc);
+                resetNewAttachment();
                 var unread = response.data.unread_count || 0;
                 $("#timeline_unread_hint").text(
                     unread > 0 ? unread + " comentario(s) sin leer" : ""
@@ -424,6 +535,7 @@ $(document).ready(function () {
         $("#timeline_comment_text").val("");
         $("#confirm-timeline-comment").prop("disabled", true);
         $("#timeline_unread_hint").text("");
+        resetNewAttachment();
         loadConversation(timelineDocName, function () {
             $("#timeline_invoice_modal").modal("show");
             markConversationRead(timelineDocName);
@@ -431,34 +543,121 @@ $(document).ready(function () {
     });
 
     $("#timeline_comment_text").on("input", function () {
-        $("#confirm-timeline-comment").prop(
-            "disabled",
-            String($(this).val() || "").trim() === ""
+        updateConfirmCommentButton();
+    });
+
+    // Adjunto del nuevo comentario: seleccion / quitar.
+    $("#timeline_attach_trigger").on("click", function (event) {
+        event.preventDefault();
+        $("#timeline_new_attachment_input").trigger("click");
+    });
+
+    $("#timeline_new_attachment_input").on("change", function () {
+        timelineNewAttachment = (this.files && this.files[0]) || null;
+        $("#timeline_new_attachment_name").text(
+            timelineNewAttachment ? timelineNewAttachment.name : ""
         );
+        $("#timeline_new_attachment_remove").toggle(!!timelineNewAttachment);
+        updateConfirmCommentButton();
+    });
+
+    $("#timeline_new_attachment_remove").on("click", function (event) {
+        event.preventDefault();
+        resetNewAttachment();
     });
 
     $("#confirm-timeline-comment").on("click", function () {
         var comment = String($("#timeline_comment_text").val() || "").trim();
-        if (!timelineDocName || !comment) {
+        if (!timelineDocName || (!comment && !timelineNewAttachment)) {
             return;
         }
         $("#confirm-timeline-comment").prop("disabled", true);
+        var attachment = timelineNewAttachment;
 
+        uploadPublicFile(attachment).then(function (file) {
+            petition_get_data({
+                doc_name: timelineDocName,
+                comment: comment,
+                send_to_bc: JSON.stringify(
+                    timelineCanSendToBc && $("#timeline_send_to_bc").is(":checked")
+                ),
+                attachment_file_id: file ? file.file_id : "",
+                attachment_file_url: file ? file.file_url : "",
+                attachment_file_name: file ? file.file_name : ""
+            }, "qp_supplier_front.resources.documenteme.timeline.add_comment", function (response) {
+                if (response.status === 200) {
+                    $("#timeline_comment_text").val("");
+                    resetNewAttachment();
+                    renderCommentList(response.data, timelineCanSendToBc);
+                    updateDefaultBcCheckbox(response.data);
+                    updateCommentButton(timelineDocName, false);
+                } else {
+                    updateConfirmCommentButton();
+                    frappe.msgprint(response.msg || "Error al agregar comentario");
+                }
+            });
+        }).catch(function () {
+            updateConfirmCommentButton();
+            frappe.msgprint("Error al subir el archivo adjunto");
+        });
+    });
+
+    // Cambiar / quitar el adjunto de un comentario existente (aunque no este
+    // marcado "Enviar a BC"). El archivo se sube como publico y se reemplaza.
+    $(document).on("click", ".comment-attachment-change", function (event) {
+        event.preventDefault();
+        timelineChangeEntry = $(this).data("entry");
+        $("#timeline_change_attachment_input").val("").trigger("click");
+    });
+
+    $("#timeline_change_attachment_input").on("change", function () {
+        var entryName = timelineChangeEntry;
+        var file = (this.files && this.files[0]) || null;
+        $("#timeline_change_attachment_input").val("");
+        timelineChangeEntry = null;
+        if (!timelineDocName || !entryName || !file) {
+            return;
+        }
+        uploadPublicFile(file).then(function (uploaded) {
+            petition_get_data({
+                doc_name: timelineDocName,
+                entry_name: entryName,
+                attachment_file_id: uploaded ? uploaded.file_id : "",
+                attachment_file_url: uploaded ? uploaded.file_url : "",
+                attachment_file_name: uploaded ? uploaded.file_name : ""
+            }, "qp_supplier_front.resources.documenteme.timeline.set_comment_attachment", function (response) {
+                if (response.status === 200) {
+                    timelineCanSendToBc = !!(response.data && response.data.can_send_to_bc);
+                    renderCommentList(response.data.comments, timelineCanSendToBc);
+                } else {
+                    frappe.msgprint(response.msg || "Error al actualizar el adjunto");
+                    loadConversation(timelineDocName);
+                }
+            });
+        }).catch(function () {
+            frappe.msgprint("Error al subir el archivo adjunto");
+        });
+    });
+
+    $(document).on("click", ".comment-attachment-remove", function (event) {
+        event.preventDefault();
+        var entryName = $(this).data("entry");
+        if (!timelineDocName || !entryName) {
+            return;
+        }
         petition_get_data({
             doc_name: timelineDocName,
-            comment: comment,
-            send_to_bc: JSON.stringify(
-                timelineCanSendToBc && $("#timeline_send_to_bc").is(":checked")
-            )
-        }, "qp_supplier_front.resources.documenteme.timeline.add_comment", function (response) {
+            entry_name: entryName,
+            attachment_file_id: "",
+            attachment_file_url: "",
+            attachment_file_name: ""
+        }, "qp_supplier_front.resources.documenteme.timeline.set_comment_attachment", function (response) {
             if (response.status === 200) {
-                $("#timeline_comment_text").val("");
-                $("#timeline_send_to_bc").prop("checked", false);
-                renderCommentList(response.data, timelineCanSendToBc);
-                updateCommentButton(timelineDocName, false);
+                timelineCanSendToBc = !!(response.data && response.data.can_send_to_bc);
+                renderCommentList(response.data.comments, timelineCanSendToBc);
             } else {
-                $("#confirm-timeline-comment").prop("disabled", false);
-                frappe.msgprint(response.msg || "Error al agregar comentario");
+                frappe.msgprint(response.msg || "Error al quitar el adjunto");
+                loadConversation(timelineDocName);
             }
         });
     });
@@ -481,6 +680,7 @@ $(document).ready(function () {
             if (response.status === 200) {
                 timelineCanSendToBc = !!(response.data && response.data.can_send_to_bc);
                 renderCommentList(response.data.comments, timelineCanSendToBc);
+                updateDefaultBcCheckbox(response.data.comments);
             } else {
                 frappe.msgprint(response.msg || "Error al marcar el comentario");
                 loadConversation(timelineDocName);
@@ -491,6 +691,8 @@ $(document).ready(function () {
     $("#timeline_invoice_modal").on("hidden.bs.modal", function () {
         timelineDocName = null;
         timelineCanSendToBc = false;
+        timelineChangeEntry = null;
+        resetNewAttachment();
     });
 
     // =====================================================================
@@ -733,9 +935,169 @@ $(document).ready(function () {
         assignTargetDoc = null;
     });
 
+    var SYNC_POLL_MS = 3000;
+    var SYNC_POLL_MAX = 200;
+    var syncPollCancelled = false;
+
+    var URL_DOCUMENTS_SYNC_STATUS = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.get_documents_sync_status";
+    var URL_REFRESH_DOCUMENTS = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.refresh_documents";
+    var URL_UNLOCK_DOCUMENTS_SYNC = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.unlock_documents_sync";
+    var URL_AUTO_APPROVE_STATUS = "qp_supplier_front.resources.documenteme.auto_approve.get_auto_approve_job_status";
+    var URL_AUTO_APPROVE_RETRY = "qp_supplier_front.resources.documenteme.auto_approve.retry_auto_approve";
+
+    // Un solo estado continuo: la barra sigue visible desde el click hasta que
+    // terminan el sync y la aprobacion en segundo plano. No se recarga la
+    // lista a mitad de camino (eso hacia que pareciera terminado y reiniciara).
+    function setSyncProgress(text) {
+        $("#refresh_filter_list").prop("disabled", true);
+        $("#sync-progress-text").text(text || "Actualizando...");
+        $("#sync-progress").css("display", "flex");
+    }
+
+    function clearSyncProgress() {
+        $("#sync-progress").hide();
+        $("#refresh_filter_list").prop("disabled", false);
+    }
+
+    function finishRefresh() {
+        clearSyncProgress();
+        window.filter_init();
+        frappe.msgprint("Actualizaci\u00f3n completada.");
+    }
+
+    // Las acciones operativas (desbloquear el sync, reintentar la aprobacion)
+    // solo se ofrecen al Administrator; el backend tambien valida el permiso.
+    function canManageSync() {
+        return $("#refresh_filter_list").attr("data-is-administrator") === "1";
+    }
+
+    // Mensaje de sincronizacion en curso. El boton "Desbloquear" solo
+    // aparece para el Administrator.
+    function syncBusyDialog(text) {
+        var dialog = {
+            title: "Sincronizaci\u00f3n en curso",
+            message: text
+        };
+        if (canManageSync()) {
+            dialog.primary_action = {
+                label: "Desbloquear",
+                action: unlockSyncAndReload
+            };
+        }
+        return dialog;
+    }
+
+    // Libera un lock colgado (crash/worker caido) sin esperar el TTL.
+    function unlockSyncAndReload() {
+        syncPollCancelled = true;
+        petition_get_data({}, URL_UNLOCK_DOCUMENTS_SYNC, function (response) {
+            if (!response || response.success === false) {
+                frappe.msgprint((response && response.error) || "No tiene permiso para desbloquear la sincronizaci\u00f3n.");
+                return;
+            }
+            clearSyncProgress();
+            window.filter_init();
+            frappe.msgprint("Sincronizaci\u00f3n desbloqueada. Puede actualizar de nuevo.");
+        });
+    }
+
+    // Espera a que termine la sincronizacion de otro usuario. Cuando el lock
+    // se libera puede quedar una aprobacion en segundo plano: se continua con
+    // ese estado antes de dar la actualizacion por terminada.
+    function pollSyncStatus(attempts) {
+        if (syncPollCancelled) {
+            return;
+        }
+        if (attempts >= SYNC_POLL_MAX) {
+            clearSyncProgress();
+            window.filter_init();
+            if (canManageSync()) {
+                frappe.msgprint(syncBusyDialog(
+                    "La sincronizaci\u00f3n sigue en curso. Actualice la lista cuando termine."
+                ));
+            } else {
+                frappe.msgprint("La actualizaci\u00f3n est\u00e1 tardando m\u00e1s de lo normal. "
+                    + "Vuelva a intentarlo en unos minutos.");
+            }
+            return;
+        }
+        setSyncProgress("Actualizando facturas...");
+        petition_get_data({}, URL_DOCUMENTS_SYNC_STATUS, function (status) {
+            if (status && status.locked) {
+                setTimeout(function () { pollSyncStatus(attempts + 1); }, SYNC_POLL_MS);
+                return;
+            }
+            petition_get_data({}, URL_AUTO_APPROVE_STATUS, function (approval) {
+                if (approval && approval.pending) {
+                    pollBackgroundApproval(0);
+                    return;
+                }
+                finishRefresh();
+            });
+        });
+    }
+
+    // Espera la aprobacion en segundo plano manteniendo el estado continuo. Al
+    // usuario no se le muestra mecanica interna (worker, cola, conteos): solo
+    // un mensaje generico de actualizacion en curso.
+    function pollBackgroundApproval(attempts) {
+        if (attempts >= SYNC_POLL_MAX) {
+            clearSyncProgress();
+            window.filter_init();
+            frappe.msgprint("La actualizaci\u00f3n est\u00e1 tardando m\u00e1s de lo normal. "
+                + "Vuelva a intentarlo en unos minutos.");
+            return;
+        }
+        petition_get_data({}, URL_AUTO_APPROVE_STATUS, function (status) {
+            if (status && status.pending) {
+                setSyncProgress("Actualizando facturas...");
+                setTimeout(function () { pollBackgroundApproval(attempts + 1); }, SYNC_POLL_MS);
+                return;
+            }
+            clearSyncProgress();
+            if (status && status.waiting_worker) {
+                window.filter_init();
+                if (canManageSync()) {
+                    frappe.msgprint({
+                        title: "Actualizaci\u00f3n pendiente",
+                        message: "La aprobaci\u00f3n autom\u00e1tica no tiene worker activo: "
+                            + "el job qued\u00f3 en cola. Inicie el worker o reintente.",
+                        primary_action: {
+                            label: "Reintentar",
+                            action: retryBackgroundApproval
+                        }
+                    });
+                    return;
+                }
+                frappe.msgprint("La actualizaci\u00f3n est\u00e1 tardando m\u00e1s de lo normal. "
+                    + "Vuelva a intentarlo en unos minutos.");
+                return;
+            }
+            window.filter_init();
+            frappe.msgprint("Actualizaci\u00f3n completada.");
+        });
+    }
+
+    // Reencola la aprobacion cuando el job quedo colgado sin worker.
+    function retryBackgroundApproval() {
+        setSyncProgress("Reencolando aprobaci\u00f3n...");
+        petition_get_data({}, URL_AUTO_APPROVE_RETRY, function (response) {
+            if (response && (response.enqueued > 0 || response.already_queued)) {
+                frappe.msgprint("Aprobaci\u00f3n reencolada.");
+                pollBackgroundApproval(0);
+                return;
+            }
+            clearSyncProgress();
+            if (response && response.error) {
+                frappe.msgprint(response.error);
+            }
+        });
+    }
+
     $("#refresh_filter_list").off("click");
     $("#refresh_filter_list").on("click", function () {
         var $btn = $(this);
+        syncPollCancelled = false;
         $btn.prop("disabled", true);
 
         frappe.confirm(
@@ -745,25 +1107,41 @@ $(document).ready(function () {
                 var savedOnClick = overlayEl.onclick;
                 overlayEl.onclick = null;
                 overlayEl.style.display = "block";
+                setSyncProgress("Actualizando facturas...");
 
-                var url = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.refresh_documents";
+                var url = URL_REFRESH_DOCUMENTS;
 
                 var callresponse = (response) => {
                     overlayEl.onclick = savedOnClick;
                     overlayEl.style.display = "none";
-                    $btn.prop("disabled", false);
                     if (response && response.success) {
                         $(".filter-list").not("select").val("");
                         $(".filter-list.filter-check").val("0");
                         $(".filter-list.date").removeAttr("min").removeAttr("max");
                         $("select.filter-list").val("0");
-                        window.filter_init();
-                        frappe.msgprint("Sincronizaci\u00f3n completada.");
-                    } else if (response && response.skipped) {
-                        frappe.msgprint("Ya hay una sincronizaci\u00f3n en curso.");
-                    } else {
-                        frappe.msgprint(response && response.error ? response.error : "Error en la sincronizaci\u00f3n de facturas.");
+                        if (response.enqueued > 0 || response.already_queued) {
+                            // Un solo estado continuo: no se recarga la lista
+                            // hasta que termina la aprobacion en segundo plano.
+                            setSyncProgress("Actualizando facturas...");
+                            pollBackgroundApproval(0);
+                            return;
+                        }
+                        finishRefresh();
+                        return;
                     }
+                    if (response && response.skipped) {
+                        setSyncProgress("Actualizando facturas...");
+                        if (canManageSync()) {
+                            frappe.msgprint(syncBusyDialog(
+                                "Ya hay una sincronizaci\u00f3n en curso. La lista se "
+                                    + "actualizar\u00e1 cuando termine."
+                            ));
+                        }
+                        pollSyncStatus(0);
+                        return;
+                    }
+                    clearSyncProgress();
+                    frappe.msgprint(response && response.error ? response.error : "Error en la sincronizaci\u00f3n de facturas.");
                 };
 
                 petition_get_data({}, url, callresponse);
@@ -947,6 +1325,7 @@ $(document).ready(function () {
             "BCC": "Creada en GP",
             "PA": "En proceso de aprobaci\u00f3n",
             "PR": "En proceso de rechazo",
+            "PSA": "Por Autorización",
             "SR": "Sin referencia",
             "T": ""
         };

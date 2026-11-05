@@ -35,8 +35,15 @@ from qp_supplier_front.uses_cases.documenteme.conversion import (
     is_cash_invoice,
     is_credit_note,
 )
+from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
+    parse_purchase_orders,
+)
 
 NO_APLICA = "No aplica"
+
+PREF_BOTH = "Ambos"
+PREF_WITH_RECEIPT = "Con Recepcion"
+PREF_WITHOUT_RECEIPT = "Sin Recepcion"
 
 
 def is_inventariable_oc_type(oc_type, oc_type_rows):
@@ -73,7 +80,7 @@ def _is_catch_all(row):
 
 def resolve_assignee_emails(
         oc_type, headquarter, oc_type_rows, assignment_rows,
-        roles_to_users_fn=None):
+        roles_to_users_fn=None, has_receipt=None):
     """Resuelve los emails destino para una factura.
 
     Las filas "No aplica" (oc_type = NO_APLICA) son wildcard: se asigna sin
@@ -83,6 +90,14 @@ def resolve_assignee_emails(
     roles_to_users_fn: callback opcional que recibe la lista de roles de las
     filas que hicieron match y devuelve los emails de los usuarios con esos
     roles (complemento de user_emails; _dedupe evita duplicados).
+
+    has_receipt: indica si el documento tiene recepcion (banco de recepciones
+    de su OC no vacio). Cuando es distinto de None se filtra el renglon de
+    USUARIOS por su preferencia (row["user_preferences"]): "Ambos" siempre
+    pasa, "Con Recepcion" solo si has_receipt, "Sin Recepcion" solo si no lo
+    tiene. Un email presente en varias filas pasa si alguna lo permite. Los
+    emails resueltos por roles no se filtran (los roles no tienen preferencia).
+    Con has_receipt=None no se filtra (comportamiento historico).
     """
     rows = assignment_rows or []
     wildcards = [row for row in rows if _is_wildcard(row)]
@@ -107,11 +122,7 @@ def resolve_assignee_emails(
                 if matcher(row, oc_type, headquarter)
             ] + wildcards
 
-    emails = [
-        email
-        for row in matching
-        for email in (row.get("user_emails") or [])
-    ]
+    emails = _user_emails(matching, has_receipt)
 
     roles = _dedupe([
         role
@@ -122,6 +133,54 @@ def resolve_assignee_emails(
         emails += (roles_to_users_fn(roles) or [])
 
     return _dedupe(emails)
+
+
+def _user_emails(rows, has_receipt):
+    """Emails del renglon de usuarios de las filas match, filtrados por la
+    preferencia de recepcion cuando has_receipt no es None.
+
+    Un mismo email puede aparecer en varias filas con preferencias distintas:
+    se considera elegible si al menos una fila lo permite (union).
+    """
+    if has_receipt is None:
+        return [
+            email
+            for row in rows
+            for email in (row.get("user_emails") or [])
+        ]
+
+    eligible = set()
+    for row in rows:
+        preferences = row.get("user_preferences") or {}
+        for email in (row.get("user_emails") or []):
+            if not email:
+                continue
+            if _preference_allows(preferences.get(email), has_receipt):
+                eligible.add(email)
+
+    return [
+        email
+        for row in rows
+        for email in (row.get("user_emails") or [])
+        if email in eligible
+    ]
+
+
+def _preference_allows(preference, has_receipt):
+    """True si la preferencia del usuario acepta un documento con/sin recibo.
+
+    Ausente, vacia o "Ambos" acepta cualquier documento. Un valor no
+    reconocido se trata como "Ambos" (fail-open, no pierde asignaciones).
+    """
+    if has_receipt is None:
+        return True
+
+    value = (preference or "").strip() or PREF_BOTH
+    if value == PREF_WITH_RECEIPT:
+        return bool(has_receipt)
+    if value == PREF_WITHOUT_RECEIPT:
+        return not has_receipt
+    return True
 
 
 def _dedupe(items):
@@ -181,6 +240,31 @@ def _service_supplier(invoice, is_service_supplier_fn):
     )
 
 
+def _pool_receipt_bank(get_receipt_bank_fn, orders):
+    """Recepciones de todas las OC de la factura, sin duplicar por nombre."""
+    pooled = []
+    seen = set()
+    for order in (orders or []):
+        for receipt in (get_receipt_bank_fn(order) or []):
+            name = receipt.get("name")
+            if name in seen:
+                continue
+            seen.add(name)
+            pooled.append(receipt)
+    return pooled
+
+
+def _order_is_valid(invoice, order, po_exists_fn, po_supplier_match_fn):
+    """True si la OC existe y pertenece al proveedor de la factura."""
+    if po_exists_fn is not None and not po_exists_fn(order):
+        return False
+    if po_supplier_match_fn is not None:
+        probe = dict(invoice)
+        probe["nvfac_orde"] = order
+        return bool(po_supplier_match_fn(probe))
+    return True
+
+
 def auto_assign(
     candidates_fn,
     get_oc_context_fn,
@@ -209,7 +293,14 @@ def auto_assign(
         if _service_supplier(invoice, is_service_supplier_fn):
             continue
 
-        bank = get_receipt_bank_fn(invoice.get("nvfac_orde"))
+        orders = parse_purchase_orders(invoice.get("nvfac_orde"))
+        valid_orders = [
+            order for order in orders
+            if _order_is_valid(
+                invoice, order, po_exists_fn, po_supplier_match_fn)
+        ]
+        bank = _pool_receipt_bank(get_receipt_bank_fn, valid_orders)
+        has_receipt = bool(bank)
 
         cash = is_cash_invoice(invoice.get("nvfac_conv"))
         if cash:
@@ -218,26 +309,34 @@ def auto_assign(
                 invoice,
                 resolve_rule_fn,
                 po_exists_fn,
-                lambda po: get_receipt_bank_fn(po) or None,
+                lambda po: _pool_receipt_bank(
+                    get_receipt_bank_fn, parse_purchase_orders(po)
+                ) or None,
                 po_supplier_match_fn=po_supplier_match_fn,
             ):
                 continue
         elif not should_auto_assign(invoice, bank, epsilon):
             continue
 
-        oc_context = get_oc_context_fn(invoice.get("nvfac_orde"))
-
-        if oc_context:
-            emails = resolve_emails_fn(
+        emails = []
+        found_context = False
+        for order in valid_orders:
+            oc_context = get_oc_context_fn(order)
+            if not oc_context:
+                continue
+            found_context = True
+            emails += resolve_emails_fn(
                 oc_context.get("oc_type"),
                 oc_context.get("headquarter"),
-            )
-        elif cash:
-            # Contado sin OC: destinatarios de la fila catch-all.
-            emails = resolve_emails_fn(None, None)
-        else:
+                has_receipt=has_receipt,
+            ) or []
+        # Contado sin OC: destinatarios de la fila catch-all.
+        if not orders and cash:
+            emails = resolve_emails_fn(None, None, has_receipt=has_receipt) or []
+        elif not found_context:
             continue
 
+        emails = _dedupe(emails)
         if not emails:
             continue
 

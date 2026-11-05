@@ -20,12 +20,17 @@ decide simulacion aqui. Si el facade es in-memory el job corre inline (el
 store no cruza workers).
 """
 
+import json
+import time
+import uuid
+
 import frappe
 
 from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.resources.documenteme._approve_base import (
     approve_documents_core,
     is_service_supplier_doc,
+    make_delivery_order_predicate,
     po_exists,
     po_supplier_match,
     receipt_bank,
@@ -43,6 +48,232 @@ from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILO
 AUTO_APPROVE_JOB_METHOD = (
     "qp_supplier_front.resources.documenteme.auto_approve.approve_batch_job"
 )
+AUTO_APPROVE_STATUS_KEY = "documenteme_auto_approve_status"
+AUTO_APPROVE_QUEUE_TIMEOUT = 2 * 60
+AUTO_APPROVE_PENDING_KEY = "documenteme_auto_approve_pending"
+AUTO_APPROVE_LOCK_KEY = "documenteme_auto_approve_lock"
+AUTO_APPROVE_LOCK_TTL = 60 * 60
+AUTO_APPROVE_LOCK_STALE = 5 * 60
+
+
+def _set_status(job_id=None, force=False, **values):
+    """Guarda el progreso del job en cache (efimero, para el polling del front).
+
+    Con `job_id`, un job viejo no puede pisar el estado de uno nuevo: si el
+    estado vigente pertenece a otro job, la escritura se ignora. `force=True`
+    se usa al encolar (el job nuevo reemplaza el estado anterior).
+    """
+    try:
+        cache = frappe.cache()
+        current = cache.get_value(AUTO_APPROVE_STATUS_KEY)
+        current = current if isinstance(current, dict) else {}
+        if job_id is not None:
+            if not force and current.get("job_id") not in (None, job_id):
+                return
+            values["job_id"] = job_id
+        cache.set_value(
+            AUTO_APPROVE_STATUS_KEY, values, expires_in_sec=3600)
+    except Exception:
+        pass
+
+
+def get_auto_approve_status():
+    try:
+        status = frappe.cache().get_value(AUTO_APPROVE_STATUS_KEY)
+        return status if isinstance(status, dict) else {}
+    except Exception:
+        return {}
+
+
+def _add_pending(doc_names):
+    """Acumula facturas que llegaron mientras habia un job pendiente."""
+    try:
+        cache = frappe.cache()
+        current = cache.get_value(AUTO_APPROVE_PENDING_KEY)
+        merged = set(current if isinstance(current, list) else [])
+        merged.update(doc_names or [])
+        cache.set_value(
+            AUTO_APPROVE_PENDING_KEY, sorted(merged), expires_in_sec=3600)
+    except Exception:
+        pass
+
+
+def _pop_pending():
+    try:
+        cache = frappe.cache()
+        pending = cache.get_value(AUTO_APPROVE_PENDING_KEY)
+        cache.delete(AUTO_APPROVE_PENDING_KEY)
+        return list(pending) if isinstance(pending, list) else []
+    except Exception:
+        return []
+
+
+def _merge_pending(doc_names):
+    names = list(doc_names or [])
+    for name in _pop_pending():
+        if name not in names:
+            names.append(name)
+    return names
+
+
+def _lock_key():
+    """Clave del lock con prefijo de sitio (no compartir entre sites del bench)."""
+    try:
+        return frappe.cache().make_key(AUTO_APPROVE_LOCK_KEY)
+    except Exception:
+        return AUTO_APPROVE_LOCK_KEY
+
+
+def _read_job_lock():
+    try:
+        raw = frappe.cache().get(_lock_key())
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        payload = json.loads(raw) if raw else {}
+        return payload if isinstance(payload, dict) else {}
+    except Exception:
+        return {}
+
+
+def _is_job_lock_stale(payload):
+    """Sin heartbeat por `AUTO_APPROVE_LOCK_STALE` se asume huerfano."""
+    updated_at = payload.get("updated_at") or 0
+    return (time.time() - updated_at) > AUTO_APPROVE_LOCK_STALE
+
+
+def _acquire_job_lock(token):
+    """Lock del job: solo un approve_batch_job procesa a la vez (fail-open).
+
+    El valor es JSON (token + updated_at) para poder robar un lock huerfano
+    cuando el worker murio sin liberarlo (no se espera la hora del TTL).
+    """
+    try:
+        cache = frappe.cache()
+        key = _lock_key()
+        payload = json.dumps({"token": token, "updated_at": time.time()})
+        if cache.set(key, payload, nx=True, ex=AUTO_APPROVE_LOCK_TTL):
+            return True
+        if not _is_job_lock_stale(_read_job_lock()):
+            return False
+        cache.delete(key)
+        return bool(cache.set(key, payload, nx=True, ex=AUTO_APPROVE_LOCK_TTL))
+    except Exception:
+        return True
+
+
+def _touch_job_lock(token):
+    """Renueva el lock mientras el job sigue vivo (evita robos por stale)."""
+    try:
+        cache = frappe.cache()
+        key = _lock_key()
+        if _read_job_lock().get("token") != token:
+            return False
+        cache.set(
+            key,
+            json.dumps({"token": token, "updated_at": time.time()}),
+            ex=AUTO_APPROVE_LOCK_TTL,
+        )
+        return True
+    except Exception:
+        return True
+
+
+def _release_job_lock(token):
+    try:
+        cache = frappe.cache()
+        key = _lock_key()
+        if _read_job_lock().get("token") != token:
+            return
+        cache.delete(key)
+    except Exception:
+        pass
+
+
+def _filter_registrable(doc_names):
+    """Deja solo facturas listas para aprobar (V sin evento final)."""
+    names = [name for name in (doc_names or []) if name]
+    if not names:
+        return []
+    fields = ["name", "nvfac_esta", "nvfac_ueve"]
+    data = _data()
+    if data is None:
+        docs = frappe.get_all(
+            "qp_SP_DocumentDetail",
+            filters={"name": ["in", names]},
+            fields=fields,
+        )
+    else:
+        docs = data.get_all(
+            "qp_SP_DocumentDetail",
+            filters={"name": ["in", names]},
+            fields=fields,
+        )
+    ready = set(
+        doc.get("name") for doc in docs or []
+        if doc.get("nvfac_esta") == "V" and not doc.get("nvfac_ueve")
+    )
+    return [name for name in names if name in ready]
+
+
+def _is_job_pending():
+    status = get_auto_approve_status()
+    return bool(status.get("running") or status.get("queued"))
+
+
+@frappe.whitelist()
+def retry_auto_approve():
+    """Fuerza un nuevo encolado cuando no hay worker (estado queued colgado).
+
+    Solo el Administrator puede reintentar: es una accion operativa y no debe
+    exponerse a cualquier usuario del portal.
+    """
+    if frappe.session.user != "Administrator":
+        return {
+            "approved": [],
+            "errors": [],
+            "skipped": True,
+            "error": "No tiene permiso para reintentar la aprobación",
+        }
+    status = get_auto_approve_status()
+    if status.get("running"):
+        return {
+            "approved": [],
+            "errors": [],
+            "skipped": True,
+            "error": "Hay una aprobación en curso",
+        }
+    return run_auto_approve(enqueue=True, force=True)
+
+
+def _with_pending(status):
+    """Agrega `pending`/`waiting_worker` al estado del job.
+
+    `pending` es True mientras corre o esta en cola dentro del timeout. Si
+    sigue encolado pasado el timeout se asume que no hay worker activo y se
+    marca `waiting_worker`, para que el front no espere indefinidamente.
+    """
+    status = dict(status or {})
+    running = bool(status.get("running"))
+    queued = bool(status.get("queued"))
+    age = time.time() - (status.get("queued_at") or 0)
+    waiting_worker = queued and not running and age > AUTO_APPROVE_QUEUE_TIMEOUT
+    status["waiting_worker"] = bool(waiting_worker)
+    status["pending"] = bool(running or (queued and not waiting_worker))
+    return status
+
+
+@frappe.whitelist()
+def get_auto_approve_job_status():
+    """Estado minimo del ultimo job de auto-aprobacion para el polling.
+
+    No expone job_id, conteos ni marcas de tiempo internas: el front solo
+    necesita saber si sigue pendiente y si quedo a la espera de un worker.
+    """
+    status = _with_pending(get_auto_approve_status())
+    return {
+        "pending": bool(status.get("pending")),
+        "waiting_worker": bool(status.get("waiting_worker")),
+    }
 
 
 def _data():
@@ -176,11 +407,14 @@ def promote_eligible_to_v(doc_names=None, backend=None):
 
     is_service_supplier_fn = None
     resolve_supplier_rule_fn = None
+    is_home_delivery_fn = None
     if backend == "GP":
         is_service_supplier_fn = cb.get(
             "is_service_supplier_fn", is_service_supplier_doc)
         resolve_supplier_rule_fn = cb.get(
             "resolve_supplier_rule_fn", resolve_supplier_rule)
+    else:
+        is_home_delivery_fn = make_delivery_order_predicate(data)
 
     candidates = [
         doc
@@ -196,6 +430,8 @@ def promote_eligible_to_v(doc_names=None, backend=None):
         is_service_supplier_fn=is_service_supplier_fn,
         resolve_supplier_rule_fn=resolve_supplier_rule_fn,
         po_supplier_match_fn=po_supplier_match_fn,
+        is_home_delivery_fn=is_home_delivery_fn,
+        cash_without_po_blocks=(backend != "GP"),
     )
 
     promoted = []
@@ -250,7 +486,7 @@ def get_v_doc_names(doc_names=None):
     return [name for name in names if name not in claimed_positions]
 
 
-def run_auto_approve(enqueue=True, doc_names=None):
+def run_auto_approve(enqueue=True, doc_names=None, force=False):
     data = _data()
     if not is_auto_approve_enabled():
         return {"approved": [], "errors": [], "skipped": True}
@@ -262,9 +498,26 @@ def run_auto_approve(enqueue=True, doc_names=None):
         return {"approved": [], "errors": [], "skipped": False}
 
     if enqueue and (data is None or not data.is_in_memory):
+        if not force and _is_job_pending():
+            # Ya hay un job en cola/corriendo: no encolar otro, acumular.
+            _add_pending(doc_names)
+            return {
+                "approved": [],
+                "errors": [],
+                "skipped": False,
+                "enqueued": 0,
+                "already_queued": True,
+                "promoted": promoted,
+            }
+        job_id = uuid.uuid4().hex
+        _set_status(
+            job_id=job_id, force=True, running=False, queued=True,
+            total=len(doc_names), done=0, queued_at=time.time(),
+        )
         frappe.enqueue(
             AUTO_APPROVE_JOB_METHOD,
             doc_names=doc_names,
+            job_id=job_id,
             queue="long",
             timeout=14400,
             job_name="auto approve documents",
@@ -286,26 +539,82 @@ def run_auto_approve(enqueue=True, doc_names=None):
     }
 
 
-def approve_batch_job(doc_names):
-    result = approve_documents_core(
-        doc_names, backend=_resolve_backend()
-    )
+def auto_approve_now(doc_names=None):
+    return run_auto_approve(enqueue=False, doc_names=doc_names)
+
+
+def approve_batch_job(doc_names, job_id=None):
+    started_at = time.time()
     data = _data()
-    _demote_unregistrable(result, data)
-    if data is None:
-        frappe.db.commit()
-    else:
-        data.commit()
-
-    for err in result.get("errors", []):
-        frappe.log_error(
-            message="Factura {}: {}".format(
-                err.get("nvfac_nume"), err.get("error")
-            ),
-            title="Auto approve - error",
+    in_memory = data is not None and getattr(data, "is_in_memory", False)
+    token = job_id or uuid.uuid4().hex
+    if not in_memory and not _acquire_job_lock(token):
+        # Otro job esta procesando: fusionar y salir (evita el doble envio a BC).
+        # El estado se cierra con guarda de job_id: si el job en curso es de
+        # este mismo site su estado no se pisa; si el lock es huerfano (nuestro
+        # job_id) se libera al front para que no quede esperando al worker.
+        _add_pending(doc_names)
+        _set_status(
+            job_id=job_id, running=False, queued=False,
+            finished_at=time.time(), skipped_locked=True,
         )
+        return {"approved": [], "errors": [], "skipped": True}
 
-    return result
+    result = {"approved": [], "errors": []}
+    try:
+        names = list(doc_names or [])
+        while True:
+            # Re-filtrar en cada vuelta: descarta facturas ya aprobadas por un
+            # job previo y toma las que se acumularon mientras este corria.
+            names = _filter_registrable(
+                names if in_memory else _merge_pending(names))
+            if not names:
+                break
+            if not in_memory:
+                _touch_job_lock(token)
+            _set_status(
+                job_id=job_id, running=True, queued=False, total=len(names),
+                done=0, started_at=started_at, queued_at=None,
+            )
+            batch = approve_documents_core(
+                names, backend=_resolve_backend()
+            )
+            _merge_result(result, batch)
+            data = _data()
+            _demote_unregistrable(batch, data)
+            if data is None:
+                frappe.db.commit()
+            else:
+                data.commit()
+
+            for err in batch.get("errors", []):
+                frappe.log_error(
+                    message="Factura {}: {}".format(
+                        err.get("nvfac_nume"), err.get("error")
+                    ),
+                    title="Auto approve - error",
+                )
+            names = []
+
+        return result
+    finally:
+        _set_status(
+            job_id=job_id, running=False, queued=False,
+            done=len(result.get("approved", [])),
+            started_at=started_at,
+            finished_at=time.time(),
+            approved=len(result.get("approved", [])),
+        )
+        if not in_memory:
+            _release_job_lock(token)
+
+
+def _merge_result(target, batch):
+    if not batch:
+        return
+    for key in ("approved", "errors", "unregistrable"):
+        if batch.get(key):
+            target.setdefault(key, []).extend(batch.get(key))
 
 
 def _demote_unregistrable(result, data):

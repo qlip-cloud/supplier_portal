@@ -25,6 +25,11 @@ Reglas:
 """
 
 
+from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
+    parse_purchase_orders,
+)
+
+
 def raw_http(payload, url, headers, method, requests_module=None):
     """Envia un evento a documenteme y devuelve (respuesta, status_code).
 
@@ -77,12 +82,16 @@ def get_receipt_bank(purchase_order_number, frappe_module=None):
     if frappe_module is None:
         import frappe as frappe_module
 
-    if not purchase_order_number:
+    orders = parse_purchase_orders(purchase_order_number)
+    if not orders:
         return []
 
+    filters = {"qp_supplier_oc": orders[0]}
+    if len(orders) > 1:
+        filters = {"qp_supplier_oc": ["in", orders]}
     receipts = frappe_module.get_all(
         "Purchase Receipt",
-        filters={"qp_supplier_oc": purchase_order_number},
+        filters=filters,
         fields=["name", "total", "total_qty", "posting_date", "qp_invoice"],
     )
 

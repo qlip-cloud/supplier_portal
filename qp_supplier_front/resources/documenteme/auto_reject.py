@@ -64,6 +64,10 @@ def get_reject_config(master_setup=None):
 
 
 def run_auto_reject(http_fn=None, enqueue=True, doc_names=None):
+    from qp_supplier_front.resources.documenteme._approve_base import (
+        make_delivery_order_predicate,
+    )
+
     rejects = auto_reject_core(
         candidates_fn=get_candidates,
         resolve_rule_fn=resolve_rule,
@@ -71,6 +75,7 @@ def run_auto_reject(http_fn=None, enqueue=True, doc_names=None):
         receipt_for_po_fn=receipt_for_po,
         doc_names=doc_names,
         po_supplier_match_fn=_po_supplier_match,
+        is_delivery_fn=make_delivery_order_predicate(),
     )
 
     # Guard / kill-switch: los docs con retry deshabilitado no se envian.

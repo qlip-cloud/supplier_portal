@@ -13,6 +13,7 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock
 
 from qp_supplier_front.services.enrich_document_detail import (
+    _enqueue_auto_approve,
     build_alert_tooltip,
     build_po_products,
     build_receipt_products,
@@ -253,6 +254,36 @@ class TestEnrichDocumentDetail(unittest.TestCase):
             "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "V"
         )
 
+    @patch("qp_supplier_front.services.enrich_document_detail._enqueue_auto_approve")
+    def test_promocion_encola_auto_aprobacion(self, enqueue_mock):
+        frappe_mock = self._mock_frappe(
+            po_items=[],
+            receipts=[
+                {"name": "REC1:9001", "supplier_delivery_note": "REC1",
+                 "posting_date": "2026-07-16", "total": 600},
+                {"name": "REC2:9001", "supplier_delivery_note": "REC2",
+                 "posting_date": "2026-07-17", "total": 400},
+            ],
+        )
+        document = self._make_document(nvfac_orde="OC111", nvfac_totp=1000, nvfac_esta="E")
+        self._run(document, frappe_mock)
+
+        enqueue_mock.assert_called_once_with("DOC1")
+
+    @patch("qp_supplier_front.services.enrich_document_detail._enqueue_auto_approve")
+    def test_sin_promocion_no_encola_auto_aprobacion(self, enqueue_mock):
+        frappe_mock = self._mock_frappe(
+            po_items=[],
+            receipts=[
+                {"name": "REC1:9001", "supplier_delivery_note": "REC1",
+                 "posting_date": "2026-07-16", "total": 400},
+            ],
+        )
+        document = self._make_document(nvfac_orde="OC111", nvfac_totp=1000, nvfac_esta="E")
+        self._run(document, frappe_mock)
+
+        enqueue_mock.assert_not_called()
+
     def test_no_cambia_estado_cuando_total_recibos_no_cubre_total(self):
         frappe_mock = self._mock_frappe(
             po_items=[],
@@ -294,6 +325,44 @@ class TestEnrichDocumentDetail(unittest.TestCase):
 
         self.assertEqual(document["nvfac_esta"], "A")
         frappe_mock.db.set_value.assert_not_called()
+
+
+class TestEnqueueAutoApprove(unittest.TestCase):
+
+    def _run(self, enabled, cache_value=None):
+        frappe_mock = MagicMock()
+        frappe_mock.cache.return_value.get_value.return_value = cache_value
+        auto_approve_mock = MagicMock()
+        auto_approve_mock.is_auto_approve_enabled.return_value = enabled
+        with patch.dict(sys.modules, {
+            "frappe": frappe_mock,
+            "qp_supplier_front.resources.documenteme.auto_approve": auto_approve_mock,
+        }):
+            _enqueue_auto_approve("DOC1")
+        return frappe_mock
+
+    def test_encola_auto_aprobacion(self):
+        frappe_mock = self._run(True)
+
+        frappe_mock.enqueue.assert_called_once()
+        args, kwargs = frappe_mock.enqueue.call_args
+        self.assertEqual(
+            args[0],
+            "qp_supplier_front.resources.documenteme.auto_approve.auto_approve_now",
+        )
+        self.assertEqual(kwargs["doc_names"], ["DOC1"])
+        self.assertTrue(kwargs["enqueue_after_commit"])
+        frappe_mock.cache.return_value.set_value.assert_called_once()
+
+    def test_no_encola_si_auto_approve_esta_deshabilitado(self):
+        frappe_mock = self._run(False)
+
+        frappe_mock.enqueue.assert_not_called()
+
+    def test_no_encola_si_ya_fue_encolado(self):
+        frappe_mock = self._run(True, cache_value=1)
+
+        frappe_mock.enqueue.assert_not_called()
 
 
 class _DetailFakeRefs(object):

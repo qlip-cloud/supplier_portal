@@ -214,6 +214,7 @@ class TestLoadAssignmentRows(unittest.TestCase):
             "headquarter": "BOG",
             "oc_type": "01",
             "user_emails": ["a@x.com", "b@x.com"],
+            "user_preferences": {"a@x.com": None, "b@x.com": None},
             "user_roles": [],
         }])
 
@@ -229,6 +230,7 @@ class TestLoadAssignmentRows(unittest.TestCase):
             "headquarter": "CAL",
             "oc_type": "03",
             "user_emails": [],
+            "user_preferences": {},
             "user_roles": [],
         }])
 
@@ -245,6 +247,7 @@ class TestLoadAssignmentRows(unittest.TestCase):
             "headquarter": "BOG",
             "oc_type": "01",
             "user_emails": ["a@x.com", "b@x.com"],
+            "user_preferences": {"a@x.com": None, "b@x.com": None},
             "user_roles": ["Alpla Compras", "Alpla Finanzas"],
         }])
 
@@ -260,8 +263,36 @@ class TestLoadAssignmentRows(unittest.TestCase):
             "headquarter": "CAL",
             "oc_type": "No aplica",
             "user_emails": [],
+            "user_preferences": {},
             "user_roles": [],
         }])
+
+    def test_carga_preferencia_de_recepcion_del_child(self):
+        frappe_mock = MagicMock()
+
+        def _get_all(doctype, **kwargs):
+            if doctype == "qp_SP_OCType":
+                return [{"name": "01", "oc_type": "01 INFRAESTRUCTURA"}]
+            if doctype == "qp_SP_AssignmentConfig":
+                return [{"name": "CONF1", "headquarter": "BOG", "oc_type": "01"}]
+            if doctype == "qp_SP_AssignmentConfigUser":
+                return [
+                    {"user_email": "a@x.com", "receipt_preference": "Con Recepcion"},
+                    {"user_email": "b@x.com", "receipt_preference": "Sin Recepcion"},
+                    {"user_email": "c@x.com", "receipt_preference": "Ambos"},
+                ]
+            return []
+
+        frappe_mock.get_all.side_effect = _get_all
+
+        with patch.object(infra, "frappe", frappe_mock):
+            rows = infra._load_assignment_rows()
+
+        self.assertEqual(rows[0]["user_preferences"], {
+            "a@x.com": "Con Recepcion",
+            "b@x.com": "Sin Recepcion",
+            "c@x.com": "Ambos",
+        })
 
 
 class TestGetAssigneeEmails(unittest.TestCase):
@@ -276,10 +307,11 @@ class TestGetAssigneeEmails(unittest.TestCase):
         {"headquarter": "BOG", "oc_type": "03", "user_emails": ["c@x.com"]},
     ]
 
-    def _run(self, frappe_mock, oc_type, headquarter):
+    def _run(self, frappe_mock, oc_type, headquarter, has_receipt=None):
         with patch.object(infra, "frappe", frappe_mock), \
                 patch.object(infra, "_load_assignment_rows", return_value=self.ASSIGNMENT_ROWS):
-            return infra.get_assignee_emails(oc_type, headquarter)
+            return infra.get_assignee_emails(
+                oc_type, headquarter, has_receipt=has_receipt)
 
     def test_inventariable_sede_valida_retorna_emails(self):
         frappe_mock = MagicMock()
@@ -363,6 +395,48 @@ class TestGetAssigneeEmails(unittest.TestCase):
 
         self.assertEqual(emails, ["wild@x.com"])
         sede_exists_mock.assert_not_called()
+
+    def test_filtra_por_preferencia_con_recepcion(self):
+        rows = [
+            {"headquarter": "BOG", "oc_type": "01",
+             "user_emails": ["ambos@x.com", "con@x.com", "sin@x.com"],
+             "user_preferences": {
+                 "ambos@x.com": "Ambos",
+                 "con@x.com": "Con Recepcion",
+                 "sin@x.com": "Sin Recepcion",
+             },
+             "user_roles": []},
+        ]
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = self.OC_TYPE_ROWS
+
+        with patch.object(infra, "frappe", frappe_mock), \
+                patch.object(infra, "_load_assignment_rows", return_value=rows), \
+                patch.object(infra, "sede_exists", return_value=True):
+            emails = infra.get_assignee_emails("01", "BOG", has_receipt=True)
+
+        self.assertEqual(emails, ["ambos@x.com", "con@x.com"])
+
+    def test_filtra_por_preferencia_sin_recepcion(self):
+        rows = [
+            {"headquarter": "BOG", "oc_type": "01",
+             "user_emails": ["ambos@x.com", "con@x.com", "sin@x.com"],
+             "user_preferences": {
+                 "ambos@x.com": "Ambos",
+                 "con@x.com": "Con Recepcion",
+                 "sin@x.com": "Sin Recepcion",
+             },
+             "user_roles": []},
+        ]
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = self.OC_TYPE_ROWS
+
+        with patch.object(infra, "frappe", frappe_mock), \
+                patch.object(infra, "_load_assignment_rows", return_value=rows), \
+                patch.object(infra, "sede_exists", return_value=True):
+            emails = infra.get_assignee_emails("01", "BOG", has_receipt=False)
+
+        self.assertEqual(emails, ["ambos@x.com", "sin@x.com"])
 
 
 class TestResolveRoleUsers(unittest.TestCase):

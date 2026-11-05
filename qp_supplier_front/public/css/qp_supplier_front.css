@@ -32,6 +32,103 @@ html {
 .row-line {
     margin: 0 0 2% 0;
 }
+
+/* documenteme filter toolbar: filters and actions wrap without overlapping */
+.dm-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.dm-toolbar-filters {
+    display: flex;
+    flex: 1 1 480px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.dm-filter {
+    flex: 1 1 150px;
+    min-width: 110px;
+    max-width: 260px;
+}
+
+.dm-filter-date {
+    flex: 1 1 160px;
+}
+
+.dm-filter-status {
+    flex: 0 1 160px;
+    min-width: 130px;
+    max-width: 160px;
+}
+
+.dm-toolbar-actions {
+    display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    /* matches .form-control height so the buttons stay level with the first filter row */
+    min-height: 38px;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.dm-toolbar-actions .btn {
+    flex: 1 1 0;
+    white-space: nowrap;
+    font-size: 0.7em;
+}
+
+/* documenteme: estado continuo de actualizacion (sync + aprobacion en fondo) */
+.dm-sync-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    color: #003666;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.dm-sync-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 54, 102, 0.25);
+    border-top-color: #003666;
+    border-radius: 50%;
+    animation: dm-sync-spin 0.8s linear infinite;
+}
+
+@keyframes dm-sync-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 991.98px) {
+    .dm-toolbar-actions {
+        flex: 1 1 100%;
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .dm-toolbar-filters {
+        flex: 1 1 100%;
+    }
+
+    .dm-filter,
+    .dm-filter-date,
+    .dm-filter-status {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 0;
+        max-width: none;
+    }
+}
 .custom-title{
     font-family: 'Open Sans';
     font-weight: 600;

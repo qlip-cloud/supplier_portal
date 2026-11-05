@@ -26,6 +26,25 @@ DEFAULT_REJECT_MAX_ATTEMPTS = 5
 DEFAULT_REJECT_RETRY_INTERVAL = 60
 DEFAULT_REJECT_EVENT_DELAY = 60
 
+SUPER_APPROVER_FIELDS = (
+    "user",
+    "enabled",
+    "threshold_amount",
+    "limit_amount",
+    "threshold_percentage",
+    "limit_percentage",
+)
+
+
+def super_approver_row(row):
+    """Normaliza una fila (child doc o dict) a un dict plano."""
+    if isinstance(row, dict):
+        return {field: row.get(field) for field in SUPER_APPROVER_FIELDS}
+    if hasattr(row, "as_dict"):
+        data = row.as_dict()
+        return {field: data.get(field) for field in SUPER_APPROVER_FIELDS}
+    return {field: getattr(row, field, None) for field in SUPER_APPROVER_FIELDS}
+
 
 class RealMasterSetupSource(object):
     """Config de qp_SP_MasterSetup sobre frappe (modo real)."""
@@ -72,6 +91,23 @@ class RealMasterSetupSource(object):
         source = frappe.db.get_single_value(
             MASTER_SETUP_DOCTYPE, "sede_source_doctype")
         return source or DEFAULT_SEDE_SOURCE
+
+    def super_approvers(self):
+        """Filas de superaprobadores del single, sin depender de permisos."""
+        frappe = self._frappe_module()
+        try:
+            rows = frappe.get_all(
+                "qp_SP_SuperApprover",
+                filters={
+                    "parent": MASTER_SETUP_DOCTYPE,
+                    "parenttype": MASTER_SETUP_DOCTYPE,
+                },
+                fields=list(SUPER_APPROVER_FIELDS),
+                order_by="idx asc",
+            )
+        except Exception:
+            return []
+        return [super_approver_row(row) for row in (rows or [])]
 
 
 def resolve_master_setup_source(data=None, frappe_module=None):

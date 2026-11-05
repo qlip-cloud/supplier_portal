@@ -65,7 +65,8 @@ def get_invoice_detail_lines(document_name, frappe_module=None):
     """Retorna las lineas de detalle de la factura del proveedor.
 
     Devuelve una lista de dicts con los campos minimos que consume la
-    homologacion: nvpro_codi, nvuni_desc, nvdet_tcan, nvdet_valo.
+    homologacion y el builder de home delivery: nvpro_codi, nvuni_desc,
+    nvdet_tcan, nvdet_valo, nvdet_stot.
     """
     if frappe_module is None:
         import frappe as frappe_module
@@ -76,6 +77,7 @@ def get_invoice_detail_lines(document_name, frappe_module=None):
     return frappe_module.get_all(
         "qp_SP_DetailLine",
         filters={"parent": document_name, "parenttype": "qp_SP_DocumentDetail"},
-        fields=["nvpro_codi", "nvuni_desc", "nvdet_tcan", "nvdet_valo"],
+        fields=["nvpro_codi", "nvuni_desc", "nvdet_tcan", "nvdet_valo",
+                "nvdet_stot"],
         order_by="idx",
     )
