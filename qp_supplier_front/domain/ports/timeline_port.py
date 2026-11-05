@@ -1,0 +1,97 @@
+# -*- coding: utf-8 -*-
+"""
+timeline_port.py (domain - ports)
+==================================
+Contrato del timeline de facturas documenteme: lectura del historial y
+persistencia de entradas (comentarios, cambios de estado, creacion). La capa
+de recursos (resources/documenteme/timeline.py) y los puntos de transicion de
+estado dependen de ESTE contrato, no de Frappe ni del MemoryStore.
+
+Cada operacion tiene dos implementaciones:
+  - adaptador real: infrastructure/adapters/timeline_adapter.py
+    (RealTimelineAdapter, sobre frappe ORM).
+  - adaptador in-memory: simulation/timeline_memory.py
+    (MemoryTimelineAdapter, sobre simulation/store.MemoryStore).
+
+No hay clase abstracta por compatibilidad Python 3.6: las firmas documentadas
+son la referencia del contrato y ambos adaptadores deben cubrirlas.
+
+Metodos (doc_name = name del qp_SP_DocumentDetail):
+    get(doc_name) -> [entry]
+        Lista de entradas del timeline (filas qp_SP_TimelineEntry: creacion,
+        cambio de estado y comentarios), ordenada DESC por fecha (mas reciente
+        primero). No incluye los event_logs de documenteme (030/032/031/033).
+        Formato de entry en uses_cases/documenteme/timeline.py (dict con
+        type/message/old_state/new_state/entry_by/entry_date).
+
+    add_comment(doc_name, comment, user=None, now=None,
+                attachment_file_id="", attachment_file_url="",
+                attachment_file_name="") -> entry
+        Agrega una entrada de tipo comentario y retorna la entrada creada
+        (incluye name, el id de la fila, para poder marcarla como "Enviar a
+        BC"). user es el nombre del usuario; si no se pasa, el adaptador real
+        lo resuelve de la sesion y el de memoria usa "Administrator". Los
+        parametros de adjunto (uno por comentario, puede venir vacio) quedan
+        guardados en la fila.
+
+    set_state(doc_name, new_state, extra_fields=None, user=None, now=None,
+              old_state=None) -> entry|None
+        Aplica el cambio de estado (atomico) y registra la entrada "estado".
+        extra_fields permite fijar campos adicionales en el mismo save (p. ej.
+        {"qp_is_event_completed": 1}). old_state permite indicar el estado
+        previo cuando el origen ya lo actualizo (re-sync); si no se pasa, el
+        adaptador lo lee antes de escribir. Retorna None (no-op) si el estado
+        no cambia.
+
+    record_creation(doc_name, user=None, now=None) -> entry
+        Registra la entrada de creacion del documento (primera sincronizacion).
+        Normalmente se dispara desde el hook before_save del doctype.
+
+    get_comments(doc_name) -> [entry]
+        SOLO las entradas de tipo comentario (conversacion), ordenadas DESC
+        por fecha. El modal de conversaciones consume este metodo; las
+        entradas de creacion/estado viven en get() y se muestran en el modal
+        de alertas. Cada comentario incluye name (id de la fila), send_to_bc
+        (bool) para renderizar el check "Enviar a BC" y los campos del adjunto
+        (attachment_file_id, attachment_file_url, attachment_file_name) para
+        ver/cambiar el archivo desde el modal.
+
+    get_bc_comment(doc_name) -> str
+        Mensaje del comentario marcado como "Enviar a BC" (send_to_bc=1). Si no
+        hay ninguno marcado retorna "". Lo usa el armado del payload BC para
+        completar la key Comentarios de cada linea.
+
+    get_bc_comment_entry(doc_name) -> dict
+        Comentario marcado como "Enviar a BC" con su mensaje y URL de adjunto:
+        {"message": str, "attachment_file_url": str}. Si no hay ninguno
+        marcado retorna {"message": "", "attachment_file_url": ""}. Lo usa el
+        armado del payload BC para completar Comentarios (mensaje + link).
+
+    set_comment_attachment(doc_name, entry_name, file_id="", file_url="",
+                           file_name="") -> [entry]
+        Reemplaza (o quita, con valores vacios) el adjunto de un comentario.
+        Retorna la conversacion actualizada (get_comments). El archivo debe ser
+        un File publico de Frappe para que la URL sea consultable.
+
+    set_bc_comment(doc_name, entry_name, enabled) -> str
+        Marca/desmarca un comentario como "Enviar a BC". Solo puede haber uno a
+        la vez: al habilitar se limpian los demas comentarios del documento;
+        deshabilitar deja el documento sin comentario marcado. Retorna el
+        mensaje vigente (o ""). Se permite solo con backend BC y mientras la
+        factura no haya sido creada en BC (la validacion vive en la capa de
+        recursos).
+
+    mark_read(doc_name, user=None, now=None) -> None
+        Registra/actualiza la marca de lectura de un usuario en
+        qp_SP_TimelineRead (child de qp_SP_DocumentDetail). Si el usuario ya
+        tiene una fila, se actualiza su last_read; si no, se inserta.
+
+    unread_count(doc_name, user=None) -> int
+        Cantidad de comentarios NO leidos por el usuario: comentarios con
+        entry_date posterior a su last_read y que NO fueron escritos por el
+        propio usuario. Si el usuario no tiene last_read, todos los comentarios
+        ajenos cuentan como no leidos.
+
+    has_unread(doc_name, user=None) -> bool
+        True si hay comentarios no leidos para el usuario.
+"""

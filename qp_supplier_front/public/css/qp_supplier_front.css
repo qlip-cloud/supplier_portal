@@ -32,6 +32,103 @@ html {
 .row-line {
     margin: 0 0 2% 0;
 }
+
+/* documenteme filter toolbar: filters and actions wrap without overlapping */
+.dm-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.dm-toolbar-filters {
+    display: flex;
+    flex: 1 1 480px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.dm-filter {
+    flex: 1 1 150px;
+    min-width: 110px;
+    max-width: 260px;
+}
+
+.dm-filter-date {
+    flex: 1 1 160px;
+}
+
+.dm-filter-status {
+    flex: 0 1 160px;
+    min-width: 130px;
+    max-width: 160px;
+}
+
+.dm-toolbar-actions {
+    display: flex;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    /* matches .form-control height so the buttons stay level with the first filter row */
+    min-height: 38px;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.dm-toolbar-actions .btn {
+    flex: 1 1 0;
+    white-space: nowrap;
+    font-size: 0.7em;
+}
+
+/* documenteme: estado continuo de actualizacion (sync + aprobacion en fondo) */
+.dm-sync-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    color: #003666;
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+.dm-sync-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 54, 102, 0.25);
+    border-top-color: #003666;
+    border-radius: 50%;
+    animation: dm-sync-spin 0.8s linear infinite;
+}
+
+@keyframes dm-sync-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 991.98px) {
+    .dm-toolbar-actions {
+        flex: 1 1 100%;
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .dm-toolbar-filters {
+        flex: 1 1 100%;
+    }
+
+    .dm-filter,
+    .dm-filter-date,
+    .dm-filter-status {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 0;
+        max-width: none;
+    }
+}
 .custom-title{
     font-family: 'Open Sans';
     font-weight: 600;
@@ -145,32 +242,56 @@ label {
 /* Badges de estado */
 .status-badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 2px 10px;
     font-size: 10px;
     font-weight: bold;
     border-radius: 999px;
     text-transform: uppercase;
 }
 
+/* Badge de recibo de pago */
+.receipt-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    margin: 0 2px 2px 0;
+    font-size: 10px;
+    font-weight: bold;
+    border: 1px solid #6366f1;
+    color: #4338ca;
+    background-color: #eef2ff;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
 /* Colores personalizados */
 .status-open {
     border: 2px solid #3b82f6;
-    color: #3b82f6;
+    color: #1e40af;
+    background-color: #eff6ff;
 }
 
 .status-paid {
     border: 2px solid #22c55e;
-    color: #22c55e;
+    color: #166534;
+    background-color: #f0fdf4;
+}
+
+.status-ready {
+    border: 2px solid #f59e0b;
+    color: #92400e;
+    background-color: #fffbeb;
 }
 
 .status-cancelled {
     border: 2px solid #ef4444;
-    color: #ef4444;
+    color: #991b1b;
+    background-color: #fef2f2;
 }
 
 .status-default {
     border: 2px solid #d1d5db;
-    color: #d1d5db;
+    color: #6b7280;
+    background-color: #f9fafb;
 }
 
 .inner-table {
@@ -203,6 +324,15 @@ label {
     background-color: #FFF;
     color: #666A65;
     border-bottom: .5px solid #c8cdc7;
+}
+
+/* Discrepancia de precio factura vs orden de compra: resalta las filas
+   afectadas al pasar el cursor por el icono. El tamano/posicion del icono y
+   la alineacion del monto van inline en el template para no depender del
+   cache de este archivo. */
+tr.price-mismatch-highlight > td {
+    color: #dc3545 !important;
+    font-weight: bold;
 }
 input[type="date"]::before {
     content: attr(data-placeholder);
@@ -282,7 +412,7 @@ textarea {
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
-    z-index: 999;
+    z-index: 2000;
     display: none;
 }
 
@@ -301,11 +431,16 @@ textarea {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
-    z-index: 1000;
+    z-index: 2000;
 }
 
 .material-symbols-outlined {
     cursor: pointer;
+}
+
+.btn .material-symbols-outlined {
+    font-size: 20px;
+    vertical-align: middle;
 }
 
 #page-rfq .sidebar-column.col-sm-2,
@@ -389,4 +524,84 @@ textarea {
     100% {
         opacity: 0.4;
     }
+}
+
+.receipt-item {
+    border-bottom: .5px solid #c8cdc7;
+    margin-bottom: 0;
+    overflow: hidden;
+}
+
+.receipt-header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    background-color: #f5f5f5;
+    cursor: pointer;
+    user-select: none;
+}
+
+.receipt-header:hover {
+    background-color: #eceef0;
+}
+
+.receipt-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    justify-content: flex-start;
+}
+
+.receipt-label {
+    color: #004D90;
+    font-weight: bold;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.receipt-center {
+    color: #666A65;
+    font-size: 12px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.receipt-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    justify-content: flex-end;
+}
+
+.receipt-amount {
+    color: #666A65;
+    font-size: 12px;
+    white-space: nowrap;
+    text-align: right;
+}
+
+.receipt-chevron {
+    font-size: 16px;
+    vertical-align: middle;
+    color: #666A65;
+    transition: transform 0.2s;
+}
+
+.receipt-header[aria-expanded="true"] .receipt-chevron {
+    transform: rotate(180deg);
+}
+
+.receipt-card-body {
+    padding: 8px;
+}
+
+.receipt-products-table {
+    margin: 0;
 }

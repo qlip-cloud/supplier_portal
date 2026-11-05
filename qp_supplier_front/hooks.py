@@ -21,6 +21,10 @@ app_license = "MIT"
 web_include_css = "/assets/qp_supplier_front/css/qp_supplier_front.css"
 web_include_js = ["/assets/qp_supplier_front/js/qp_supplier_front.js", "/assets/qp_supplier_front/js/api_connection.js"]
 
+update_website_context = [
+    "qp_supplier_front.services.role_resolver.update_website_context"
+]
+
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "qp_supplier_front/public/scss/website"
 
@@ -93,22 +97,31 @@ doctype_js = {
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-#	}
-# }
+doc_events = {
+    "Sales Order": {
+        "before_insert": "qp_supplier_front.uses_cases.sales_order.set_name"
+    },
+    "Purchase Order": {
+        "before_insert": "qp_supplier_front.uses_cases.purchase_order.set_name"
+    },
+    "Purchase Receipt": {
+        "before_insert": "qp_supplier_front.uses_cases.receipts.set_name",
+        "after_insert": "qp_supplier_front.resources.documenteme.receipt_trigger.on_receipt_created"
+    },
+    "qp_SP_PurchaseInvoiceBC": {
+        "on_update": "qp_supplier_front.resources.documenteme.confirmation.on_purchase_invoice_bc_update"
+    },
+    "qp_SP_CollectionAccounts": {
+        "after_insert": "qp_supplier_front.resources.collection_accounts.collection_accounts.on_collection_account_insert"
+    },
+    "qp_SP_DocumentDetail": {
+        "before_save": "qp_supplier_front.resources.documenteme.timeline.on_document_before_save"
+    }
+}
 
-
-#doc_events = {
-# 	"Supplier": {
-# 		"before_save": "qp_supplier_front.uses_cases.information.complete.handler",
-#	}
-#}
-
-
+on_session_creation = [
+    "qp_supplier_front.redirect.login.on_session_creation_redirect"
+]
 
 get_website_user_home_page = "qp_supplier_front.redirect.login.get_home_page"
 
@@ -117,9 +130,27 @@ get_website_user_home_page = "qp_supplier_front.redirect.login.get_home_page"
 
 scheduler_events = {
  	"cron": {
+		"* * * * *": [
+			"qp_supplier_front.resources.documenteme.event_dispatch.dispatch_pending_events"
+		],
+		"0 6 * * *": [
+			"qp_supplier_front.uses_cases.documents.sync_all_whitelist.sync_all"
+		],
 		"0 12 * * *": [
 			"qp_supplier_front.taks.sync.all"
-		]
+		],
+		"0 1 * * *": [
+			"qp_supplier_front.uses_cases.purchase_invoice.sync_by_supplier.sync_incremental"
+		],
+		"0 0 * * *": [
+			"qp_supplier_front.uses_cases.payment_receipt.sync_by_supplier.sync_incremental"
+		],
+		"0 2 * * 6": [
+			"qp_supplier_front.uses_cases.payment_receipt.sync_by_supplier.sync_full_job"
+		],
+		"0 3 * * 6": [
+			"qp_supplier_front.uses_cases.purchase_invoice.sync_by_supplier.sync_full_job"
+		],
     },
  	"daily": [
     	"qp_supplier_front.uses_cases.information.tasks.daily"
@@ -202,7 +233,11 @@ fixtures = [
             "Bank Account-qp_routing_code",
             "Contact-qp_contact_type"
         ]]]
-    }
+    },
+    {"doctype": "Custom DocPerm", "filters": [
+        ["role", "=", "Customer"]
+    ]},
+    {"dt": "qp_SP_OCType"},
 ]
 
 before_request = [

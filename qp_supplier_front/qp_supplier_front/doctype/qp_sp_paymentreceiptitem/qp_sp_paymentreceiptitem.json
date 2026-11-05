@@ -1,0 +1,87 @@
+{
+ "actions": [],
+ "creation": "2025-07-22 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+   "qp_document_no_factura",
+   "qp_sequence",
+   "qp_amount",
+   "qp_external_document_no",
+   "qp_iva",
+   "qp_rete_fuente",
+   "qp_rete_ica",
+   "qp_rete_iva"
+  ],
+ "fields": [
+  {
+   "fieldname": "qp_document_no_factura",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Document No Factura"
+  },
+  {
+   "fieldname": "qp_sequence",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Sequence"
+  },
+  {
+   "fieldname": "qp_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Amount"
+  },
+   {
+    "fieldname": "qp_external_document_no",
+    "fieldtype": "Data",
+    "in_list_view": 1,
+    "in_preview": 1,
+    "label": "External Document No"
+   },
+   {
+    "fieldname": "qp_iva",
+    "fieldtype": "Currency",
+    "in_list_view": 1,
+    "in_preview": 1,
+    "label": "IVA"
+   },
+   {
+    "fieldname": "qp_rete_fuente",
+    "fieldtype": "Currency",
+    "in_list_view": 1,
+    "in_preview": 1,
+    "label": "ReteFuente"
+   },
+   {
+    "fieldname": "qp_rete_ica",
+    "fieldtype": "Currency",
+    "in_list_view": 1,
+    "in_preview": 1,
+    "label": "ReteICA"
+   },
+   {
+    "fieldname": "qp_rete_iva",
+    "fieldtype": "Currency",
+    "in_list_view": 1,
+    "in_preview": 1,
+    "label": "ReteIVA"
+   }
+  ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-30 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_PaymentReceiptItem",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

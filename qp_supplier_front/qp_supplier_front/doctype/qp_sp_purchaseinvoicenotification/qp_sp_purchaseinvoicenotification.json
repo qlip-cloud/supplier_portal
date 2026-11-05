@@ -1,0 +1,70 @@
+{
+ "actions": [],
+ "creation": "2026-09-03 15:30:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "notification_date",
+  "notification_type",
+  "notification_message",
+  "status",
+  "parent",
+  "parentfield",
+  "parenttype"
+ ],
+ "fields": [
+  {
+   "fieldname": "notification_date",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Notification Date"
+  },
+  {
+   "fieldname": "notification_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Notification Type",
+   "options": "Alerta\nErrorUrgente"
+  },
+  {
+   "fieldname": "notification_message",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Notification Message"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Abierta\nResuelta"
+  },
+  {
+   "fieldname": "parent",
+   "fieldtype": "Data",
+   "label": "Parent"
+  },
+  {
+   "fieldname": "parentfield",
+   "fieldtype": "Data",
+   "label": "parentfield"
+  },
+  {
+   "fieldname": "parenttype",
+   "fieldtype": "Data",
+   "label": "parenttype"
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-03 15:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_PurchaseInvoiceNotification",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

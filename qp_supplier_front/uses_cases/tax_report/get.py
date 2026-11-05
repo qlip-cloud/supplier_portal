@@ -139,7 +139,7 @@ def get_context_ica(certificates, withholding_id, supplier, party, fiscal_year, 
         
     for certificate in certificates:
         
-        city = get_city(certificate.get("taxDescription"))
+        city = get_city(certificate.get("taxDescription"), certificate.get("city"))
         
         if city not in cities:
             
@@ -155,8 +155,16 @@ def get_context_ica(certificates, withholding_id, supplier, party, fiscal_year, 
 
     return contexts
             
-def get_city(description):
+def get_city(description, fallback=None):
     
     parts = description.split("RETENCION ICA-")
 
-    return parts[1].split()[0]
+    if len(parts) > 1 and parts[1].split():
+        
+        return parts[1].split()[0]
+    
+    if fallback:
+        
+        return fallback
+    
+    return "SIN CIUDAD"

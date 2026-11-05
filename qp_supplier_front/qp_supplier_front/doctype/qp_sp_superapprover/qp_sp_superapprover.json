@@ -1,0 +1,78 @@
+{
+ "actions": [],
+ "creation": "2026-10-27 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "enabled",
+  "threshold_amount",
+  "limit_amount",
+  "column_break_amounts",
+  "threshold_percentage",
+  "limit_percentage"
+ ],
+ "fields": [
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_preview": 1,
+   "label": "Usuario",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Activo"
+  },
+  {
+   "fieldname": "threshold_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Umbral por monto",
+   "description": "Diferencia desde la cual el usuario normal ya no puede aprobar. 0 = criterio deshabilitado."
+  },
+  {
+   "fieldname": "limit_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Límite por monto",
+   "description": "Máximo que este superaprobador puede autorizar. 0 o vacío = sin límite."
+  },
+  {
+   "fieldname": "column_break_amounts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "threshold_percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Umbral por porcentaje",
+   "description": "Porcentaje de diferencia desde el cual se requiere autorización. 0 = criterio deshabilitado."
+  },
+  {
+   "fieldname": "limit_percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Límite por porcentaje",
+   "description": "Porcentaje máximo que este superaprobador puede autorizar. 0 o vacío = sin límite."
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_SuperApprover",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

@@ -1,0 +1,119 @@
+{
+ "actions": [],
+ "creation": "2025-07-22 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "qp_receipt_id",
+  "supplier",
+  "qp_supplier_name",
+  "qp_posting_date",
+  "qp_amount",
+  "qp_description",
+   "qp_sync_flow",
+    "qp_payment_type",
+    "qp_references",
+  "qp_is_error"
+ ],
+ "fields": [
+  {
+   "fieldname": "qp_receipt_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Receipt ID",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Supplier"
+  },
+  {
+   "fieldname": "qp_supplier_name",
+   "fieldtype": "Data",
+   "label": "Supplier Name"
+  },
+  {
+   "fieldname": "qp_posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Posting Date"
+  },
+  {
+   "fieldname": "qp_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount"
+  },
+  {
+   "fieldname": "qp_description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "default": "GP",
+   "fieldname": "qp_sync_flow",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Sync Flow",
+   "no_copy": 1,
+   "options": "GP\nBC"
+  },
+   {
+     "fieldname": "qp_payment_type",
+     "fieldtype": "Data",
+     "label": "Payment Type"
+    },
+    {
+   "fieldname": "qp_references",
+   "fieldtype": "Table",
+   "label": "References",
+   "options": "qp_SP_PaymentReceiptItem"
+  },
+  {
+   "default": "0",
+   "fieldname": "qp_is_error",
+   "fieldtype": "Check",
+   "label": "Is Error"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_PaymentReceipt",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Customer",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

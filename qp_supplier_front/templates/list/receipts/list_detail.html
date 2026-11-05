@@ -1,25 +1,30 @@
 <td colspan="4">
-
-
+    {% if list_detail %}
     <div class="row">
         <div class="col-lg-12">
             <table class="table inner-table">
                 <thead>
     
-                    <th class="text-left">Referencia</th>
-                    <th class="text-left">Documento</th>
-                    <th class="text-left">Secuencia</th>
-                    <th class="text-left">Monto</th>
+                    <th class="text-center">Referencia</th>
+                    <th class="text-center">Documento</th>
+                    <th class="text-center">Secuencia</th>
+                    <th class="text-center">Ret. Fuente</th>
+                    <th class="text-center">Ret. ICA</th>
+                    <th class="text-center">Ret. IVA</th>
+                    <th class="text-center">Monto</th>
     
                 </thead>
                 <tbody>
                     {% for reference in list_detail %}
     
                     <tr>
-                        <td class="">{{reference.qp_aptovcnm}}</td>
-                        <td class="text-left">{{reference.qp_aptodcnm}}</td>
-                        <td class="text-left">{{reference.qp_seq}}</td>
-                        <td class="text-left">{{frappe.format_value(reference.qp_appldamt, "Currency") }}</td>
+                        <td class="">{{reference.qp_document_no_factura}}</td>
+                        <td class="text-left">{{reference.qp_external_document_no}}</td>
+                        <td class="text-left">{{reference.qp_sequence}}</td>
+                        <td class="text-right">{{frappe.format_value(reference.qp_rete_fuente, "Currency") }}</td>
+                        <td class="text-right">{{frappe.format_value(reference.qp_rete_ica, "Currency") }}</td>
+                        <td class="text-right">{{frappe.format_value(reference.qp_rete_iva, "Currency") }}</td>
+                        <td class="text-right">{{frappe.format_value(reference.qp_amount, "Currency") }}</td>
     
                     </tr>
                     {% endfor %}
@@ -30,5 +35,11 @@
     </div>
 
     {% include "qp_supplier_front/templates/paginator/control.html" %}
-
+    {% else %}
+    <div class="row">
+        <div class="col-lg-12 text-center">
+            <span class="text-muted">No hay información disponible</span>
+        </div>
+    </div>
+    {% endif %}
 </td>

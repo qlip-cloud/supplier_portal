@@ -89,19 +89,19 @@ def get_document_types():
     
     list_permited = ["11", "12", "13", "21", "22", "31", "41", "42", "43"]
     
-    return frappe.get_list("qp_CO_IdType", filters = {"id_type_id":["in", list_permited]}, fields = ["name", "id_type_name"])
+    return frappe.get_all("qp_CO_IdType", filters = {"id_type_id":["in", list_permited]}, fields = ["name", "id_type_name"])
 
 def get_ciius():
     
-    return frappe.get_list("qp_CO_CIIU", fields = ["name", "ciiu_name"])
+    return frappe.get_all("qp_CO_CIIU", fields = ["name", "ciiu_name"])
 
 def get_regimes():
     
-    return frappe.get_list("qp_CO_TaxRegime", fields = ["name", "tax_regime_name"])
+    return frappe.get_all("qp_CO_TaxRegime", fields = ["name", "tax_regime_name"])
 
 def get_business_types():
     
-    return frappe.get_list("qp_CO_BusinessTypes", fields = ["name", "business_type_name"])
+    return frappe.get_all("qp_CO_BusinessTypes", fields = ["name", "business_type_name"])
 
 def has_recent_news():
     

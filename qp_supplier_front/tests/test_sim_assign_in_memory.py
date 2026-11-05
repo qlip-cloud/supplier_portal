@@ -1,0 +1,240 @@
+# -*- coding: utf-8 -*-
+"""
+test_sim_assign_in_memory.py
+=============================
+Asignacion automatica simulada en memoria: las facturas de credito con OC
+sin combinacion exacta de recepciones (banco) quedan asignadas a los usuarios
+de qp_SP_AssignmentConfig; las cubiertas y los contados (sin regla) no.
+
+Ejecutar con: python -m unittest qp_supplier_front.tests.test_sim_assign_in_memory -v
+"""
+import unittest
+
+from qp_supplier_front.simulation import assign_memory
+from qp_supplier_front.simulation import references_memory
+from qp_supplier_front.simulation import seeds
+from qp_supplier_front.simulation.store import MemoryStore
+
+SIM_NIT = "999999999"
+
+
+def _seed_doc(store, nume, estado, orde, stot, conv):
+    name = "{}:{}".format(SIM_NIT, nume)
+    store.insert("qp_SP_DocumentDetail", {
+        "name": name,
+        "nvfac_nume": nume,
+        "nvpro_ndoc": SIM_NIT,
+        "nvfac_esta": estado,
+        "nvfac_ueve": "",
+        "nvfac_orde": orde,
+        "nvfac_stot": stot,
+        "nvfac_totp": stot,
+        "nvfac_conv": conv,
+        "document_sync_line": name,
+    })
+    store.insert("qp_SP_DocumentSyncLine", {
+        "name": name,
+        "nvfac_nume": nume,
+        "assigned_to": None,
+        "is_completed": 1,
+    })
+
+
+class TestSimAssignInMemory(unittest.TestCase):
+
+    def setUp(self):
+        self.store = MemoryStore()
+        seeds.seed_scenario(self.store)
+        # Cubierta (no se asigna) y descubiertas (se asignan).
+        _seed_doc(self.store, "SIM-POB-0001", "E", "PO-POB-0001", 1000, "2")
+        _seed_doc(self.store, "SIM-POB-0003", "E", "PO-POB-0003", 2500, "2")
+        _seed_doc(self.store, "SIM-POC-0001", "E", "PO-POC-0001", 1000, "2")
+        # Contado con OC (no rompe no_po -> no se asigna) y contado sin OC
+        # (rompe no_po -> se asigna via catch-all).
+        _seed_doc(self.store, "SIM-FAC-0003", "E", "PO-SIM-0001", 400000, "1")
+        _seed_doc(self.store, "SIM-FAC-0004", "E", "", 600000, "1")
+
+    def test_asigna_solo_descubiertas(self):
+        assigned = assign_memory.run_auto_assign(self.store)
+        self.assertEqual(
+            sorted(assigned),
+            ["999999999:SIM-FAC-0004",
+             "999999999:SIM-POB-0003",
+             "999999999:SIM-POC-0001"],
+        )
+
+    def test_add_assignees_es_idempotente_y_agrega_child(self):
+        line = "999999999:SIM-POB-0003"
+        assign_memory.run_auto_assign(self.store)
+        assign_memory.run_auto_assign(self.store)
+        rows = self.store.query(
+            "qp_SP_SyncLineAssignedUser", filters={"parent": line})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["user"], seeds.ASSIGNEE_EMAIL)
+
+    def test_contado_cubierto_y_oc_cubierta_no_reciben_asignacion(self):
+        assign_memory.run_auto_assign(self.store)
+        for nume in ("SIM-POB-0003", "SIM-POC-0001", "SIM-FAC-0004"):
+            self.assertGreater(self.store.count(
+                "qp_SP_SyncLineAssignedUser",
+                filters={"parent": "{}:{}".format(SIM_NIT, nume)}), 0)
+        for nume in ("SIM-POB-0001", "SIM-FAC-0003"):
+            self.assertEqual(self.store.count(
+                "qp_SP_SyncLineAssignedUser",
+                filters={"parent": "{}:{}".format(SIM_NIT, nume)}), 0)
+
+
+class TestSimAssignRolesInMemory(unittest.TestCase):
+
+    def test_role_users_resuelve_por_rol_en_store(self):
+        store = MemoryStore()
+        store.insert("Has Role", {
+            "name": "HR-1",
+            "parent": "rol@sim.local",
+            "parenttype": "User",
+            "role": "ROL1",
+        })
+        store.insert("Has Role", {
+            "name": "HR-2",
+            "parent": "rol@sim.local",
+            "parenttype": "User",
+            "role": "ROL2",
+        })
+        self.assertEqual(assign_memory._role_users(store, ["ROL1"]), ["rol@sim.local"])
+        self.assertEqual(assign_memory._role_users(store, ["ROL3"]), [])
+        self.assertEqual(assign_memory._role_users(store, []), [])
+
+    def test_assignee_emails_wildcard_incluye_usuarios_por_rol(self):
+        store = MemoryStore()
+        store.insert("qp_SP_AssignmentConfig", {
+            "name": "C-NA", "oc_type": "No aplica", "headquarter": "",
+        })
+        store.insert("qp_SP_AssignmentConfigRole", {
+            "name": "R1",
+            "parent": "C-NA",
+            "parenttype": "qp_SP_AssignmentConfig",
+            "role": "ROL1",
+        })
+        store.insert("qp_SP_AssignmentConfigRole", {
+            "name": "R2",
+            "parent": "C-NA",
+            "parenttype": "qp_SP_AssignmentConfig",
+            "role": "ROL2",
+        })
+        store.insert("Has Role", {
+            "name": "HR-1",
+            "parent": "rol@sim.local",
+            "parenttype": "User",
+            "role": "ROL1",
+        })
+        emails = assign_memory._assignee_emails(store, None, None)
+        self.assertEqual(emails, ["rol@sim.local"])
+
+
+class TestSimAssignReceiptPreferenceInMemory(unittest.TestCase):
+
+    def _seed_store(self):
+        store = MemoryStore()
+        seeds.seed_oc_type(store, "COMPRA")
+        for email in ("ambos@sim.local", "con@sim.local", "sin@sim.local"):
+            seeds.seed_user(store, email)
+        seeds.seed_assignment_config(
+            store, "CFG-PREF", oc_type="COMPRA", headquarter="",
+            user_emails=["ambos@sim.local", "con@sim.local", "sin@sim.local"],
+            user_preferences={
+                "ambos@sim.local": "Ambos",
+                "con@sim.local": "Con Recepcion",
+                "sin@sim.local": "Sin Recepcion",
+            },
+        )
+        return store
+
+    def _assigned_users(self, store, line):
+        return sorted(store.query(
+            "qp_SP_SyncLineAssignedUser",
+            filters={"parent": line},
+            pluck="user",
+        ))
+
+    def test_assignee_emails_filtra_por_preferencia(self):
+        store = self._seed_store()
+
+        self.assertEqual(
+            assign_memory._assignee_emails(
+                store, "COMPRA", "", has_receipt=True),
+            ["ambos@sim.local", "con@sim.local"],
+        )
+        self.assertEqual(
+            assign_memory._assignee_emails(
+                store, "COMPRA", "", has_receipt=False),
+            ["ambos@sim.local", "sin@sim.local"],
+        )
+        self.assertEqual(
+            assign_memory._assignee_emails(store, "COMPRA", ""),
+            ["ambos@sim.local", "con@sim.local", "sin@sim.local"],
+        )
+
+    def test_run_auto_assign_asigna_segun_recepcion(self):
+        store = self._seed_store()
+        seeds.seed_purchase_order(
+            store, "PO-CON", headquarter="", oc_type="COMPRA")
+        seeds.seed_purchase_order(
+            store, "PO-SIN", headquarter="", oc_type="COMPRA")
+        seeds.seed_purchase_receipt(store, "REC-CON", "PO-CON", 100)
+        _seed_doc(store, "PREF-CON", "E", "PO-CON", 1000, "2")
+        _seed_doc(store, "PREF-SIN", "E", "PO-SIN", 1000, "2")
+
+        assigned = assign_memory.run_auto_assign(store)
+
+        self.assertEqual(sorted(assigned), [
+            "{}:PREF-CON".format(SIM_NIT),
+            "{}:PREF-SIN".format(SIM_NIT),
+        ])
+        self.assertEqual(
+            self._assigned_users(store, "{}:PREF-CON".format(SIM_NIT)),
+            ["ambos@sim.local", "con@sim.local"],
+        )
+        self.assertEqual(
+            self._assigned_users(store, "{}:PREF-SIN".format(SIM_NIT)),
+            ["ambos@sim.local", "sin@sim.local"],
+        )
+
+
+class TestMemoryPoSupplierMatch(unittest.TestCase):
+
+    def setUp(self):
+        self.store = MemoryStore()
+        self.store.insert("qp_SP_Supplier", {
+            "name": "S1", "tax_id": SIM_NIT}, name="S1")
+        self.store.insert("qp_SP_Supplier", {
+            "name": "S2", "tax_id": "OTHER"}, name="S2")
+
+    def _doc(self, po="OC1"):
+        return {"nvfac_orde": po, "nvpro_ndoc": SIM_NIT}
+
+    def _po(self, supplier):
+        self.store.insert("qp_SP_PurchaseOrder", {
+            "name": "OC1", "supplier": supplier}, name="OC1")
+
+    def test_mismo_proveedor(self):
+        self._po("S1")
+        self.assertTrue(references_memory.memory_po_supplier_match(
+            self.store, self._doc()))
+
+    def test_otro_proveedor(self):
+        self._po("S2")
+        self.assertFalse(references_memory.memory_po_supplier_match(
+            self.store, self._doc()))
+
+    def test_po_sin_supplier_no_bloquea(self):
+        self.store.insert("qp_SP_PurchaseOrder", {"name": "OC1"}, name="OC1")
+        self.assertTrue(references_memory.memory_po_supplier_match(
+            self.store, self._doc()))
+
+    def test_sin_oc(self):
+        self.assertFalse(references_memory.memory_po_supplier_match(
+            self.store, self._doc(po="")))
+
+
+if __name__ == "__main__":
+    unittest.main()

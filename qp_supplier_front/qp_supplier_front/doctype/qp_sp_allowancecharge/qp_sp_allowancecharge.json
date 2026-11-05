@@ -1,0 +1,71 @@
+{
+ "actions": [],
+ "creation": "2026-07-27 10:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "charge_indicator",
+  "reason_code",
+  "reason",
+  "multiplier_factor",
+  "amount",
+  "currency",
+  "base_amount"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "fieldname": "charge_indicator",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Charge Indicator"
+  },
+  {
+   "fieldname": "reason_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Reason Code"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Reason"
+  },
+  {
+   "fieldname": "multiplier_factor",
+   "fieldtype": "Float",
+   "label": "Multiplier Factor"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Currency"
+  },
+  {
+   "fieldname": "base_amount",
+   "fieldtype": "Currency",
+   "label": "Base Amount"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-27 16:14:36.124698",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_AllowanceCharge",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

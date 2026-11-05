@@ -1,0 +1,52 @@
+<style>
+    .notification-entry { position: relative; padding: 0 0 14px 34px; }
+    .notification-entry::before {
+        content: '';
+        position: absolute;
+        left: 12px; top: 22px; bottom: -2px;
+        width: 2px; background: #d0d4d8;
+    }
+    .notification-entry:last-child::before { display: none; }
+    .notification-dot {
+        position: absolute; left: 0; top: 0;
+        width: 26px; height: 26px; border-radius: 50%;
+        background: #fff; border: 2px solid #004D90;
+        display: inline-flex; align-items: center; justify-content: center;
+    }
+    .notification-dot .material-symbols-outlined { font-size: 14px; }
+</style>
+<div class="modal fade" id="notifications_invoice_modal" tabindex="-1" aria-labelledby="notifications_invoice_modal_label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="notifications_invoice_modal_label">Notificaciones y alertas</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="row row-line">
+                    <div class="col-lg-12">
+                        <h5 style="color:#dc3545;font-size:14px;font-weight:bold;margin:0 0 4px 0">
+                            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">warning</span>
+                            Alertas
+                        </h5>
+                        <div id="notification-alerts" style="max-height:220px;overflow-y:auto;padding:4px 2px;"></div>
+                    </div>
+                </div>
+                <div class="row row-line">
+                    <div class="col-lg-12">
+                        <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:12px 0 4px 0">Historial</h5>
+                        <div id="notification-summary" style="padding:2px 2px 6px 2px;"></div>
+                        <div id="notification-history" style="height:360px;overflow-y:auto;padding:8px 4px;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default btn-sm btn-modal-close" data-dismiss="modal">
+                    <span class="hidden-xs">Cerrar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
