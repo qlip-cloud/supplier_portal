@@ -1,5 +1,5 @@
 <td colspan="4">
-
+    {% if list_detail %}
     <div class="row">
         <div class="col-lg-12">
 
@@ -17,9 +17,9 @@
 
                     <tr>
                         <td>{{item.item_code}}</td>
-                        <td>{{item.qp_qty}}</td>
-                        <td>{{frappe.format_value(item.qp_unit_cost, "Currency")}}</td>
-                        <td>{{frappe.format_value(item.qp_extd_cost, "Currency")}}</td>
+                        <td>{{item.qp_qty or item.qty}}</td>
+                        <td>{{frappe.format_value(item.qp_unit_cost or item.rate, "Currency")}}</td>
+                        <td>{{frappe.format_value(item.qp_extd_cost or item.amount, "Currency")}}</td>
 
                     </tr>
                     {% endfor %}
@@ -30,5 +30,11 @@
     </div>
 
     {% include "qp_supplier_front/templates/paginator/control.html" %}
-
+    {% else %}
+    <div class="row">
+        <div class="col-lg-12 text-center">
+            <span class="text-muted">No hay información disponible</span>
+        </div>
+    </div>
+    {% endif %}
 </td>

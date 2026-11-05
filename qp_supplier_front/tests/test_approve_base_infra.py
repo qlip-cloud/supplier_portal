@@ -1,0 +1,394 @@
+# -*- coding: utf-8 -*-
+"""
+test_approve_base_infra.py
+==========================
+Pruebas unitarias para los callbacks de infraestructura nuevos de la
+aprobacion documenteme (resources/documenteme/_approve_base.py):
+  - get_headquarter: resuelve qp_headquarter de la Purchase Order vinculada.
+
+Frappe se inyecta en sys.modules como mock (sin base de datos).
+Ejecutar con: python -m pytest qp_supplier_front/tests/test_approve_base_infra.py -v
+"""
+import sys
+import unittest
+from contextlib import ExitStack
+from unittest.mock import MagicMock, patch
+
+sys.modules["frappe"] = MagicMock()
+
+from qp_supplier_front.resources.documenteme import _approve_base as infra  # noqa: E402
+from qp_supplier_front.constant.endpoint import (  # noqa: E402
+    CREATE_PURCHASE_NORECEIPT,
+    CREATE_PURCHASE_ORDER,
+)
+
+
+class TestGetHeadquarter(unittest.TestCase):
+
+    def _run(self, frappe_mock, purchase_order):
+        with patch.object(infra, "frappe", frappe_mock):
+            return infra.get_headquarter(purchase_order)
+
+    def test_sin_oc_retorna_cadena_vacia(self):
+        self.assertEqual(self._run(MagicMock(), ""), "")
+        self.assertEqual(self._run(MagicMock(), None), "")
+
+    def test_sin_oc_no_consulta_la_purchase_order(self):
+        frappe_mock = MagicMock()
+        self._run(frappe_mock, "")
+        frappe_mock.db.get_value.assert_not_called()
+
+    def test_con_oc_devuelve_qp_headquarter(self):
+        frappe_mock = MagicMock()
+        frappe_mock.db.get_value.return_value = "HQ01"
+        self.assertEqual(self._run(frappe_mock, "OC111"), "HQ01")
+        frappe_mock.db.get_value.assert_called_once_with(
+            "Purchase Order", "OC111", "qp_headquarter"
+        )
+
+    def test_headquarter_none_o_vacio_devuelve_cadena_vacia(self):
+        for value in (None, ""):
+            frappe_mock = MagicMock()
+            frappe_mock.db.get_value.return_value = value
+            self.assertEqual(self._run(frappe_mock, "OC111"), "")
+
+
+class TestMarkDuplicateRegistered(unittest.TestCase):
+
+    NOW = "2026-08-12 10:00:00"
+
+    ERROR = "Error Ya existe la factura de compra SETT0501165 para este proveedor"
+
+    def _patched(self, frappe_mock):
+        stack = ExitStack()
+        self.addCleanup(stack.close)
+        return {
+            "frappe": stack.enter_context(patch.object(infra, "frappe", frappe_mock)),
+            "resolve_open_alerts": stack.enter_context(patch.object(infra, "resolve_open_alerts")),
+            "insert_alert": stack.enter_context(patch.object(infra, "insert_alert")),
+            "persist_invoice": stack.enter_context(patch.object(infra, "persist_invoice")),
+            "mark_registered": stack.enter_context(patch.object(infra, "mark_registered")),
+        }
+
+    def test_marca_bcc_resuelve_y_alerta_con_error(self):
+        frappe_mock = MagicMock()
+        doc = {"name": "DOC1", "nvfac_nume": "FAC001"}
+        mocks = self._patched(frappe_mock)
+        infra.mark_duplicate_registered(doc, self.ERROR, self.NOW)
+
+        frappe_mock.db.set_value.assert_called_once_with(
+            "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "BCC"
+        )
+        self.assertEqual(doc["nvfac_esta"], "BCC")
+        mocks["resolve_open_alerts"].assert_called_once_with("DOC1")
+
+        mocks["insert_alert"].assert_called_once()
+        parent, message, now_arg = mocks["insert_alert"].call_args[0]
+        self.assertEqual(parent, "DOC1")
+        self.assertEqual(now_arg, self.NOW)
+        self.assertIn("se detuvo el reintento", message)
+        self.assertIn("No se pudo obtener el codigo BC", message)
+        self.assertIn(self.ERROR, message)
+
+    def test_no_crea_referencia_ni_marca_registrado(self):
+        frappe_mock = MagicMock()
+        doc = {"name": "DOC1", "nvfac_nume": "FAC001"}
+        mocks = self._patched(frappe_mock)
+        infra.mark_duplicate_registered(doc, self.ERROR, self.NOW)
+
+        mocks["persist_invoice"].assert_not_called()
+        mocks["mark_registered"].assert_not_called()
+
+
+class TestSanitizeMessage(unittest.TestCase):
+
+    def _sanitize(self, message):
+        from qp_supplier_front.services.utils import sanitize_message
+        return sanitize_message(message)
+
+    def test_compacta_saltos_de_linea_y_tabulaciones(self):
+        self.assertEqual(
+            self._sanitize("line1\nline2\t\ttab"),
+            "line1 line2 tab",
+        )
+
+    def test_elimina_caracteres_de_control_y_nul(self):
+        self.assertEqual(self._sanitize("a\x00b\x01c"), "abc")
+
+    def test_convierte_no_string(self):
+        self.assertEqual(self._sanitize(None), "")
+        self.assertEqual(self._sanitize({"k": "v"}), "{'k': 'v'}")
+
+    def test_acota_longitud(self):
+        self.assertEqual(len(self._sanitize("x" * 5000)), 2000)
+
+
+class TestInsertAlert(unittest.TestCase):
+
+    def _run(self, frappe_mock, message, alert_type="ErrorUrgente"):
+        from qp_supplier_front.resources.documenteme import _alerts
+        with patch.object(_alerts, "frappe", frappe_mock):
+            _alerts.insert_alert(
+                "DOC1", message, "2026-09-16 10:00:00", alert_type=alert_type
+            )
+
+    def test_no_levanta_si_el_insert_falla(self):
+        frappe_mock = MagicMock()
+        frappe_mock.generate_hash.return_value = "HASH1234"
+
+        def fail_on_insert(sql, *args, **kwargs):
+            if sql.upper().lstrip().startswith("INSERT"):
+                raise Exception("SQL 1064 boom")
+            return [(0,)]
+
+        frappe_mock.db.sql.side_effect = fail_on_insert
+        self._run(frappe_mock, 'mensaje con "quotes" y salto\n')
+        frappe_mock.log_error.assert_called_once()
+
+    def test_sanitiza_el_mensaje_persistido(self):
+        frappe_mock = MagicMock()
+        frappe_mock.generate_hash.return_value = "HASH1234"
+        injected = {}
+
+        def capture(sql, *args, **kwargs):
+            if sql.upper().lstrip().startswith("INSERT"):
+                injected["params"] = args[0]
+            return [(0,)]
+
+        frappe_mock.db.sql.side_effect = capture
+        self._run(frappe_mock, "line1\nline2\t\tJSON")
+        self.assertEqual(injected["params"][6], "line1 line2 JSON")
+
+
+class TestConsumeReceipts(unittest.TestCase):
+
+    def test_sql_guardado_filtra_solo_no_consumidas(self):
+        frappe_mock = MagicMock()
+        doc = {"name": "DOC1", "nvfac_nume": "FAC001"}
+        with patch.object(infra, "frappe", frappe_mock):
+            infra.consume_receipts(doc, ["R1", "R2"])
+
+        frappe_mock.db.sql.assert_called_once()
+        sql, params = frappe_mock.db.sql.call_args[0]
+
+        self.assertIn("UPDATE `tabPurchase Receipt`", sql)
+        self.assertIn("SET qp_invoice = %s", sql)
+        self.assertIn("WHERE name IN (%s, %s)", sql)
+        self.assertIn("AND (qp_invoice IS NULL OR qp_invoice = '')", sql)
+        self.assertEqual(params, ["FAC001", "R1", "R2"])
+
+    def test_con_mas_recepciones_genera_placeholder_por_recibo(self):
+        frappe_mock = MagicMock()
+        doc = {"name": "DOC1", "nvfac_nume": "FAC001"}
+        with patch.object(infra, "frappe", frappe_mock):
+            infra.consume_receipts(doc, ["R1", "R2", "R3", "R4"])
+
+        sql, params = frappe_mock.db.sql.call_args[0]
+        self.assertIn("WHERE name IN (%s, %s, %s, %s)", sql)
+        self.assertEqual(params, ["FAC001", "R1", "R2", "R3", "R4"])
+
+    def test_sin_recepciones_no_ejecuta_sql(self):
+        frappe_mock = MagicMock()
+        with patch.object(infra, "frappe", frappe_mock):
+            infra.consume_receipts({"name": "DOC1", "nvfac_nume": "FAC001"}, [])
+
+        frappe_mock.db.sql.assert_not_called()
+
+    def test_sin_nvfac_nume_no_ejecuta_sql(self):
+        frappe_mock = MagicMock()
+        with patch.object(infra, "frappe", frappe_mock):
+            infra.consume_receipts({"name": "DOC1"}, ["R1"])
+
+        frappe_mock.db.sql.assert_not_called()
+
+
+class TestBuildManualReceiptSelection(unittest.TestCase):
+
+    def _doc(self, **overrides):
+        data = {
+            "name": "DOC1",
+            "nvfac_nume": "FAC001",
+            "nvfac_orde": "PO1",
+            "nvfac_conv": "2",
+            "nvtip_docu": "F",
+            "nvfac_stot": 100,
+        }
+        data.update(overrides)
+        return data
+
+    @staticmethod
+    def _receipt(name, amount, qp_invoice=None):
+        return {"name": name, "amount": amount, "date": "2026-01-01",
+                "qp_invoice": qp_invoice}
+
+    def _run(self, docs, bank, active_count=1, service=False, names=None,
+             backend="BC"):
+        claimed = []
+
+        def claim(doc, names):
+            claimed.append((doc.get("name"), list(names)))
+            return []
+
+        bundle = {
+            "data": None,
+            "claim_receipts_fn": claim,
+            "approve_callbacks": {
+                "get_docs_fn": lambda requested: [
+                    doc for doc in docs if doc.get("name") in list(requested)
+                ],
+                "receipt_bank_fn": lambda po: bank,
+                "is_service_supplier_fn": lambda doc: service,
+            },
+        }
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            {"name": "ACT{}".format(index), "nvfac_orde": "PO1"}
+            for index in range(active_count)
+        ]
+        with patch.object(infra.runtime, "resolve", lambda: bundle), \
+                patch.object(infra, "frappe", frappe_mock):
+            selection = infra._build_manual_receipt_selection(
+                names or ["DOC1"], backend=backend
+            )
+        return selection, claimed
+
+    def test_usa_las_recepciones_aplicadas(self):
+        bank = [self._receipt("R1", 40, "FAC001"),
+                self._receipt("R2", 60, None)]
+        selection, claimed = self._run([self._doc()], bank)
+        self.assertEqual(selection, {"DOC1": ["R1"]})
+        self.assertEqual(claimed, [])
+
+    def test_caso_relajado_aplica_automaticamente(self):
+        bank = [self._receipt("R1", 100, None)]
+        selection, claimed = self._run([self._doc()], bank, active_count=1)
+        self.assertEqual(selection, {"DOC1": ["R1"]})
+        self.assertEqual(claimed, [("DOC1", ["R1"])])
+
+    def test_varias_recepciones_no_aplica_automaticamente(self):
+        bank = [self._receipt("R1", 40, None), self._receipt("R2", 60, None)]
+        selection, claimed = self._run([self._doc()], bank, active_count=1)
+        self.assertEqual(selection, {})
+        self.assertEqual(claimed, [])
+
+    def test_varias_facturas_no_aplica_automaticamente(self):
+        bank = [self._receipt("R1", 100, None)]
+        selection, claimed = self._run([self._doc()], bank, active_count=2)
+        self.assertEqual(selection, {})
+        self.assertEqual(claimed, [])
+
+    def test_relajado_excedido_aplica_automaticamente(self):
+        bank = [self._receipt("R1", 140, None)]
+        selection, claimed = self._run([self._doc()], bank, active_count=1)
+        self.assertEqual(selection, {"DOC1": ["R1"]})
+        self.assertEqual(claimed, [("DOC1", ["R1"])])
+
+    def test_proveedor_servicio_se_omite(self):
+        bank = [self._receipt("R1", 100, None)]
+        selection, claimed = self._run(
+            [self._doc()], bank, service=True, backend="GP")
+        self.assertEqual(selection, {})
+        self.assertEqual(claimed, [])
+
+    def test_contado_y_nota_credito_se_omiten(self):
+        bank = [self._receipt("R1", 100, None)]
+        docs = [self._doc(name="DOC1", nvfac_conv="1"),
+                self._doc(name="DOC2", nvtip_docu="C")]
+        selection, claimed = self._run(docs, bank, names=["DOC1", "DOC2"])
+        self.assertEqual(selection, {})
+        self.assertEqual(claimed, [])
+
+
+class TestApproveDocumentsCoreEndpointWiring(unittest.TestCase):
+    """El core BC cablea endpoint y builder del endpoint sin recepcion."""
+
+    def _capture(self, backend="BC"):
+        captured = {}
+        bundle = {
+            "data": None,
+            "approve_callbacks": {"current_user_fn": lambda: "Administrator"},
+            "on_batch_approved_fn": None,
+        }
+
+        def fake_approve_documents(doc_names, **kwargs):
+            captured.update(kwargs)
+            return {"approved": [], "errors": [], "unregistrable": [],
+                    "pending_super": []}
+
+        def fake_delivery_predicate(data=None):
+            return lambda doc: bool(doc.get("is_delivery"))
+
+        with patch.object(infra.runtime, "resolve", lambda: bundle):
+            with patch.object(infra, "make_delivery_order_predicate",
+                              fake_delivery_predicate):
+                with patch.object(
+                    infra, "get_bc_comment_entry",
+                    lambda doc, data=None: {
+                        "message": "", "attachment_file_url": ""
+                    },
+                ):
+                    with patch.object(infra, "get_delivery_type",
+                                      lambda doc, data=None: None):
+                        with patch.object(infra, "approve_documents",
+                                          side_effect=fake_approve_documents):
+                            infra.approve_documents_core(
+                                ["DOC1"], backend=backend, force=True
+                            )
+        return captured
+
+    def test_delivery_usa_endpoint_sin_recepcion(self):
+        kwargs = self._capture()
+        endpoint = kwargs["endpoint_for_doc_fn"]
+        self.assertEqual(
+            endpoint({"nvfac_orde": "", "is_delivery": True}),
+            CREATE_PURCHASE_NORECEIPT,
+        )
+
+    def test_factura_sin_oc_usa_endpoint_sin_recepcion(self):
+        kwargs = self._capture()
+        self.assertEqual(
+            kwargs["endpoint_for_doc_fn"]({"nvfac_orde": ""}),
+            CREATE_PURCHASE_NORECEIPT,
+        )
+
+    def test_factura_con_oc_conserva_endpoint_historico(self):
+        kwargs = self._capture()
+        self.assertEqual(
+            kwargs["endpoint_for_doc_fn"]({"nvfac_orde": "OC-1"}),
+            CREATE_PURCHASE_ORDER,
+        )
+
+    def test_nota_credito_usa_endpoint_sin_recepcion(self):
+        kwargs = self._capture()
+        self.assertEqual(
+            kwargs["endpoint_for_doc_fn"]({"nvfac_orde": "OC-1",
+                                           "nvtip_docu": "C"}),
+            CREATE_PURCHASE_NORECEIPT,
+        )
+
+    def test_builder_documenteme_emite_payload_sin_recepcion(self):
+        kwargs = self._capture()
+        with patch.object(
+            infra, "get_bc_comment_entry",
+            lambda doc, data=None: {
+                "message": "", "attachment_file_url": ""
+            },
+        ), patch.object(infra, "get_delivery_type",
+                        lambda doc, data=None: None):
+            invoice = kwargs["build_invoice_fn"](
+                {
+                    "nvfac_fech": "2026-11-03 00:00:00",
+                    "nvpro_ndoc": "900162414",
+                    "nvfac_nume": "FV-001",
+                    "nvfac_orde": "",
+                },
+                [{"item_code": "DEL-01", "qty": 1, "rate": 200000.0}],
+                "",
+            )
+        self.assertEqual(invoice["DocumentType"], "Invoice")
+        self.assertNotIn("NoPedidoProveedor", invoice)
+        self.assertNotIn("NoRecepcion", invoice["vendorInvoiceLine"][0])
+
+
+if __name__ == "__main__":
+    unittest.main()

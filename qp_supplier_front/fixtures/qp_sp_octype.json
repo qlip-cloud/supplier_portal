@@ -1,0 +1,146 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 1,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "01",
+  "oc_type": "01 INFRAESTRUCTURA"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 1,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "02",
+  "oc_type": "02 BIOMEDICO EQUIPOS"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "03",
+  "oc_type": "03 IT Y EQUIPOS ELECTRONICOS"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "04",
+  "oc_type": "04 PEOPLE SERVICES"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "05",
+  "oc_type": "05 LEGAL"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "06",
+  "oc_type": "06 ARRENDAMIENTOS Y SERVICIOS PUBLICOS"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "07",
+  "oc_type": "07 SERVICIOS MEDICOS"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "08",
+  "oc_type": "08 TRANSPORTES"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "09",
+  "oc_type": "09 SUMINISTROS"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "10",
+  "oc_type": "10 LIQUIDOS PERITONEALES"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "11",
+  "oc_type": "11 INSUMOS MEDICOS"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "12",
+  "oc_type": "12 MEDICAMENTOS FARMACEUTICOS"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "13",
+  "oc_type": "13 CASA ADMINISTRATIVA"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "14",
+  "oc_type": "14 BIOMEDICO PLANTAS DE TRATAMIENTO"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "15",
+  "oc_type": "15 AMBIENTAL Y SEGURIDAD"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "16",
+  "oc_type": "16 OUTSORCING"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "17",
+  "oc_type": "17 EVENTOS"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "qp_SP_OCType",
+  "is_inventariable": 0,
+  "modified": "2026-08-13 00:00:00.000000",
+  "name": "18",
+  "oc_type": "18 CARRO DE PARO MEDICAMENTOS"
+ }
+]

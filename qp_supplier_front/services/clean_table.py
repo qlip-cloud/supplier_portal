@@ -36,6 +36,12 @@ def receipt():
     execute_truncate("`tabqp_SP_PurchaseReceiptItem`")
     
     execute_delete("Purchase Receipt")
+
+    execute_truncate("`tabqp_SP_PaymentReceipt`")
+
+    execute_truncate("`tabqp_SP_PaymentReceiptItem`")
+
+    execute_delete("qp_SP_PaymentReceipt")
     
     frappe.db.commit()
 

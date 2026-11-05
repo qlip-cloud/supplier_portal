@@ -1,0 +1,342 @@
+# -*- coding: utf-8 -*-
+"""
+seeds.py (documenteme simulation)
+================================
+Seeds de datos de referencia (Purchase Order, Purchase Receipt, Supplier,
+User, sede, reglas) para el escenario simulado. Pueblan el MemoryStore de la
+sesion para que approve/assign/reject tengan input real sin tocar la DB.
+"""
+
+SIM_NIT = "999999999"
+
+MASTER_SETUP_NAME = "MASTER-SETUP"
+
+
+def _insert_if_missing(store, doctype, row, name=None):
+    """Inserta solo si la fila no existe (seeds idempotentes).
+
+    Los seeds se re-ejecutan en cada resolve() del composition root (p. ej.
+    dentro del mismo sync); el insert-replace pisaria el estado mutado de los
+    recibos (qp_invoice) o crearia duplicados. Con esta guarda la re-siembra
+    es un no-op.
+    """
+    name = name if name is not None else row.get("name")
+    if store.exists(doctype, name):
+        return
+    store.insert(doctype, row, name=name)
+
+
+def seed_purchase_order(store, name, headquarter="HQ01", oc_type=None,
+                        order_confirmation_no=None, transaction_date=None,
+                        schedule_date=None, supplier=None):
+    _insert_if_missing(store, "qp_SP_PurchaseOrder", {
+        "name": name,
+        "qp_headquarter": headquarter,
+        "qp_oc_type": oc_type,
+        "qp_order_confirmation_no": order_confirmation_no or name,
+        "transaction_date": transaction_date or "",
+        "schedule_date": schedule_date or "",
+        "supplier": supplier or "",
+    })
+
+
+def seed_purchase_receipt(store, name, purchase_order, total,
+                          posting_date=None, qp_invoice=None,
+                          supplier_delivery_note=None):
+    _insert_if_missing(store, "qp_SP_PurchaseReceipt", {
+        "name": name,
+        "qp_supplier_oc": purchase_order,
+        "total": total,
+        "posting_date": posting_date or "2026-01-01",
+        "qp_invoice": qp_invoice or "",
+        "supplier_delivery_note": supplier_delivery_note or name,
+    })
+
+
+def seed_purchase_order_item(store, parent, item_code, qty, unit_cost,
+                             uom="UND", idx=None):
+    _insert_if_missing(store, "qp_SP_PurchaseOrderItem", {
+        "name": "{}:{}".format(parent, item_code),
+        "parent": parent,
+        "parenttype": "Purchase Order",
+        "item_code": item_code,
+        "uom": uom,
+        "qty": qty,
+        "qp_unit_cost": unit_cost,
+        "qp_extd_cost": (qty or 0) * (unit_cost or 0),
+        "idx": idx or 0,
+    })
+
+
+def seed_purchase_receipt_item(store, parent, item_code, qty, rate, uom="UND",
+                               idx=None):
+    _insert_if_missing(store, "qp_SP_PurchaseReceiptItem", {
+        "name": "{}:{}".format(parent, item_code),
+        "parent": parent,
+        "parenttype": "Purchase Receipt",
+        "item_code": item_code,
+        "uom": uom,
+        "qty": qty,
+        "rate": rate,
+        "amount": (qty or 0) * (rate or 0),
+        "idx": idx or 0,
+    })
+
+
+def seed_supplier(store, tax_id, auto_reject=None,
+                  qp_is_service_supplier=False):
+    _insert_if_missing(store, "qp_SP_Supplier", {
+        "name": tax_id,
+        "tax_id": tax_id,
+        "auto_reject": auto_reject,
+        "qp_is_service_supplier": 1 if qp_is_service_supplier else 0,
+    })
+
+
+def seed_homologation(store, supplier, supplier_item_code, bc_item_code,
+                      active=1):
+    _insert_if_missing(store, "qp_SP_ItemHomologation", {
+        "name": "{}:{}".format(supplier, supplier_item_code),
+        "supplier": supplier,
+        "supplier_item_code": supplier_item_code,
+        "bc_item_code": bc_item_code,
+        "active": active,
+    })
+
+
+def seed_user(store, email, full_name=None):
+    _insert_if_missing(store, "User", {
+        "name": email,
+        "email": email,
+        "full_name": full_name or email,
+        "enabled": 1,
+    })
+
+
+def seed_sede(store, code):
+    _insert_if_missing(store, "qp_md_headquarter", {"name": code, "code": code})
+
+
+def seed_reject_rule(store, name, rule_code, enabled=1, motive="Rechazo"):
+    _insert_if_missing(store, "qp_SP_AutoRejectRule", {
+        "name": name,
+        "rule_name": name,
+        "rule_code": rule_code,
+        "enabled": enabled,
+        "motive": motive,
+    })
+
+
+def seed_master_setup(store, **fields):
+    row = dict(fields)
+    row["name"] = MASTER_SETUP_NAME
+    _insert_if_missing(store, "qp_SP_MasterSetup", row)
+
+
+def seed_oc_type(store, name, is_inventariable=False):
+    _insert_if_missing(store, "qp_SP_OCType", {
+        "name": name,
+        "oc_type": name,
+        "is_inventariable": 1 if is_inventariable else 0,
+    })
+
+
+def seed_assignment_config(store, name, oc_type, headquarter="", user_emails=None,
+                           role_names=None, user_preferences=None):
+    """Fila de qp_SP_AssignmentConfig + usuarios/roles destino (child).
+
+    user_preferences: dict opcional email -> "Ambos"|"Con Recepcion"|
+    "Sin Recepcion" para la preferencia del renglon de usuarios.
+    """
+    _insert_if_missing(store, "qp_SP_AssignmentConfig", {
+        "name": name,
+        "oc_type": oc_type,
+        "headquarter": headquarter,
+    })
+    for email in (user_emails or []):
+        _insert_if_missing(store, "qp_SP_AssignmentConfigUser", {
+            "parent": name,
+            "parenttype": "qp_SP_AssignmentConfig",
+            "user_email": email,
+            "receipt_preference": (user_preferences or {}).get(email),
+        })
+    for role in (role_names or []):
+        _insert_if_missing(store, "qp_SP_AssignmentConfigRole", {
+            "parent": name,
+            "parenttype": "qp_SP_AssignmentConfig",
+            "role": role,
+        })
+
+
+ASSIGNEE_EMAIL = "asignado@sim.local"
+
+
+def seed_scenario(store):
+    """Escenario completo del modo simulador documenteme.
+
+    Siembra la data de referencia que alimenta los 11 fixtures del escenario:
+    - 4 facturas de casuistica general (credito/contado, R/A).
+    - Cada factura del banco de recibos tiene SU PROPIA OC (1:1). Verifica los
+      casos A (consistente -> aprueba), B (parcial) y C (ninguna cubierta ->
+      asignada).
+    - PO-A-0001 se conserva como OC compartida de evaluacion (varias facturas
+      por una OC); no la usan los fixtures del escenario.
+    """
+    seed_supplier(store, SIM_NIT)
+    seed_reject_rule(store, "RULE-NO-PO", "no_po",
+                     motive="Rechazo: la factura no coincide con ninguna orden de compra")
+    seed_sede(store, "HQ01")
+    seed_oc_type(store, "COMPRA")
+    seed_user(store, ASSIGNEE_EMAIL, full_name="Asignado Simulacion")
+    seed_assignment_config(
+        store, "CFG-COMPRA", oc_type="COMPRA", headquarter="",
+        user_emails=[ASSIGNEE_EMAIL],
+    )
+    # Fila catch-all para contado sin OC que rompe la regla (se asigna).
+    seed_assignment_config(
+        store, "CFG-CATCHALL", oc_type="", headquarter="",
+        user_emails=[ASSIGNEE_EMAIL],
+    )
+    seed_master_setup(store, auto_approve=1, auto_reject="RULE-NO-PO")
+
+    # Ordenes de compra: CADA factura del escenario tiene su PROPIA OC (1:1).
+    # PO-A-0001 se conserva como OC compartida de evaluacion (varias facturas
+    # por una OC), usada por la seleccion manual del banco.
+    seed_purchase_order(store, "PO-SIM-0001", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-A-0001", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POA-0001", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POA-0002", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POB-0001", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POB-0002", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POB-0003", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POC-0001", headquarter="HQ01", oc_type="COMPRA")
+    seed_purchase_order(store, "PO-POC-0002", headquarter="HQ01", oc_type="COMPRA")
+
+    seed_purchase_order_item(store, "PO-SIM-0001", "ITEM-0003", 4, 100000)
+    seed_purchase_order_item(store, "PO-A-0001", "ITEM-POA1", 1, 2000)
+    seed_purchase_order_item(store, "PO-A-0001", "ITEM-POA2", 1, 4000)
+    seed_purchase_order_item(store, "PO-POA-0001", "ITEM-POA1", 1, 2000)
+    seed_purchase_order_item(store, "PO-POA-0002", "ITEM-POA2", 1, 4000)
+    seed_purchase_order_item(store, "PO-POB-0001", "ITEM-POB1", 1, 1000)
+    seed_purchase_order_item(store, "PO-POB-0002", "ITEM-POB2", 1, 2000)
+    seed_purchase_order_item(store, "PO-POB-0003", "ITEM-POB3", 1, 2500)
+    seed_purchase_order_item(store, "PO-POC-0001", "ITEM-POC1", 1, 1000)
+    seed_purchase_order_item(store, "PO-POC-0002", "ITEM-POC2", 1, 800)
+
+    # OC compartida de evaluacion (varias facturas por una OC): PO-A-0001 con
+    # su banco de 4 recibos. NO la usan las facturas del escenario.
+    seed_purchase_receipt(store, "REC-A-1", "PO-A-0001", 500, posting_date="2026-08-20",
+                          supplier_delivery_note="RECIBO A1 · 500")
+    seed_purchase_receipt(store, "REC-A-2", "PO-A-0001", 1500, posting_date="2026-08-21",
+                          supplier_delivery_note="RECIBO A2 · 1500")
+    seed_purchase_receipt(store, "REC-A-3", "PO-A-0001", 1000, posting_date="2026-08-22",
+                          supplier_delivery_note="RECIBO A3 · 1000")
+    seed_purchase_receipt(store, "REC-A-4", "PO-A-0001", 3000, posting_date="2026-08-23",
+                          supplier_delivery_note="RECIBO A4 · 3000")
+
+    seed_purchase_receipt_item(store, "REC-A-1", "ITEM-REC-A1", 1, 500)
+    seed_purchase_receipt_item(store, "REC-A-2", "ITEM-REC-A2", 1, 1500)
+    seed_purchase_receipt_item(store, "REC-A-3", "ITEM-REC-A3", 1, 1000)
+    seed_purchase_receipt_item(store, "REC-A-4", "ITEM-REC-A4", 1, 3000)
+
+    # Caso A: cada factura con su OC y banco consistente -> se aprueban todas.
+    # SIM-POA-0001 (2000 = 500+1500) sobre PO-POA-0001.
+    seed_purchase_receipt(store, "REC-POA1-1", "PO-POA-0001", 500,
+                          posting_date="2026-08-20",
+                          supplier_delivery_note="RECIBO POA1-1 · 500")
+    seed_purchase_receipt(store, "REC-POA1-2", "PO-POA-0001", 1500,
+                          posting_date="2026-08-21",
+                          supplier_delivery_note="RECIBO POA1-2 · 1500")
+    seed_purchase_receipt_item(store, "REC-POA1-1", "ITEM-REC-POA1-1", 1, 500)
+    seed_purchase_receipt_item(store, "REC-POA1-2", "ITEM-REC-POA1-2", 1, 1500)
+
+    # SIM-POA-0002 (4000 = 1000+3000) sobre PO-POA-0002.
+    seed_purchase_receipt(store, "REC-POA2-1", "PO-POA-0002", 1000,
+                          posting_date="2026-08-22",
+                          supplier_delivery_note="RECIBO POA2-1 · 1000")
+    seed_purchase_receipt(store, "REC-POA2-2", "PO-POA-0002", 3000,
+                          posting_date="2026-08-23",
+                          supplier_delivery_note="RECIBO POA2-2 · 3000")
+    seed_purchase_receipt_item(store, "REC-POA2-1", "ITEM-REC-POA2-1", 1, 1000)
+    seed_purchase_receipt_item(store, "REC-POA2-2", "ITEM-REC-POA2-2", 1, 3000)
+
+    # Caso B: parcial -> SIM-POB-0001 y SIM-POB-0002 aprobadas; SIM-POB-0003
+    # no cubre su OC (2500 frente a un solo recibo de 1000) -> asignada.
+    seed_purchase_receipt(store, "REC-POB1-1", "PO-POB-0001", 1000,
+                          posting_date="2026-08-20",
+                          supplier_delivery_note="RECIBO POB1-1 · 1000")
+    seed_purchase_receipt_item(store, "REC-POB1-1", "ITEM-REC-POB1-1", 1, 1000)
+
+    seed_purchase_receipt(store, "REC-POB2-1", "PO-POB-0002", 2000,
+                          posting_date="2026-08-21",
+                          supplier_delivery_note="RECIBO POB2-1 · 2000")
+    seed_purchase_receipt_item(store, "REC-POB2-1", "ITEM-REC-POB2-1", 1, 2000)
+
+    seed_purchase_receipt(store, "REC-POB3-1", "PO-POB-0003", 1000,
+                          posting_date="2026-08-22",
+                          supplier_delivery_note="RECIBO POB3-1 · 1000")
+    seed_purchase_receipt_item(store, "REC-POB3-1", "ITEM-REC-POB3-1", 1, 1000)
+
+    # Caso C: ninguna factura cubre su OC -> ambas asignadas.
+    seed_purchase_receipt(store, "REC-POC1-1", "PO-POC-0001", 500,
+                          posting_date="2026-08-20",
+                          supplier_delivery_note="RECIBO POC1-1 · 500")
+    seed_purchase_receipt_item(store, "REC-POC1-1", "ITEM-REC-POC1-1", 1, 500)
+
+    seed_purchase_receipt(store, "REC-POC2-1", "PO-POC-0002", 700,
+                          posting_date="2026-08-21",
+                          supplier_delivery_note="RECIBO POC2-1 · 700")
+    seed_purchase_receipt_item(store, "REC-POC2-1", "ITEM-REC-POC2-1", 1, 700)
+
+
+GP_SIM_NIT = "900668439"
+GP_SIM_SERVICE_NIT = "900668440"
+
+
+def seed_gp_scenario(store):
+    """Escenario GP documenteme (modo simulador) para observar el flujo.
+
+    Siembra la referencia del backend GP:
+    - qp_SP_Supplier con qp_is_service_supplier para el proveedor servicio.
+    - OC con transaction_date/schedule_date e items con idx (noLineaRecepcion).
+    - Homologaciones qp_SP_ItemHomologation proveedor -> bc_item_code.
+
+    Proveedores:
+    - GP_SIM_NIT (900668439): proveedor normal (no servicio). Factura tipo 2
+      con OC sin recepciones -> homologa y consolida contra la OC.
+    - GP_SIM_SERVICE_NIT (900668440): proveedor de servicio (tipo 3) -> siempre
+      homologa; con OC aplica la regla de OC.
+    """
+    seed_supplier(store, GP_SIM_NIT)
+    seed_supplier(store, GP_SIM_SERVICE_NIT, qp_is_service_supplier=True)
+    seed_reject_rule(store, "RULE-NO-ACTION", "no_action",
+                     motive="Sin accion")
+    seed_master_setup(store, auto_approve=1, auto_reject="",
+                      documenteme_backend="GP")
+    seed_sede(store, "HQ01")
+
+    # OC del proveedor normal (tipo 2: con OC, sin recepciones).
+    seed_purchase_order(
+        store, "GP-PO-0001", headquarter="HQ01", oc_type="COMPRA",
+        transaction_date="2026-09-01", schedule_date="2026-10-15")
+    seed_purchase_order_item(store, "GP-PO-0001", "ITEM-GP-1", 100, 31.58,
+                             uom="UN", idx=1)
+    seed_purchase_order_item(store, "GP-PO-0001", "ITEM-GP-2", 50, 12.0,
+                             uom="UN", idx=2)
+    # Producto en la OC pero que la factura no trae (factura parcial).
+    seed_purchase_order_item(store, "GP-PO-0001", "ITEM-GP-3", 20, 5.0,
+                             uom="UN", idx=3)
+
+    # Homologaciones del proveedor normal: solo los que la factura declara.
+    seed_homologation(store, GP_SIM_NIT, "SUP-1", "ITEM-GP-1")
+    seed_homologation(store, GP_SIM_NIT, "SUP-2", "ITEM-GP-2")
+
+    # OC del proveedor servicio (tipo 3: homologa siempre; regla de OC).
+    seed_purchase_order(
+        store, "GP-PO-SRV", headquarter="HQ01", oc_type="COMPRA",
+        transaction_date="2026-09-02", schedule_date="2026-10-16")
+    seed_purchase_order_item(store, "GP-PO-SRV", "ITEM-SRV-1", 10, 100.0,
+                             uom="UN", idx=1)
+    seed_purchase_order_item(store, "GP-PO-SRV", "ITEM-SRV-2", 5, 50.0,
+                             uom="UN", idx=2)
+    seed_homologation(store, GP_SIM_SERVICE_NIT, "SRV-1", "ITEM-SRV-2")

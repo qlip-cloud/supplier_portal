@@ -1,0 +1,91 @@
+<td colspan="12">
+    {% set currency = parent.currency or "COP" %}
+
+    <div class="row">
+        <div class="col-lg-4">
+            <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Detalle de la factura</h5>
+            <div style="color:#8a9099;font-size:12px;margin-bottom:8px">
+                Factura: <strong>{{ parent.nvfac_nume or "-" }}</strong> &middot;
+                Proveedor: {{ parent.supplier or "-" }} &middot;
+                NIT: {{ parent.nvpro_ndoc or "-" }}
+            </div>
+            <table class="table inner-table">
+                <thead>
+                    <tr>
+                        <th>Subtotal</th>
+                        <th>IVA</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ frappe.utils.fmt_money(parent.subtotal or 0, currency=currency) }}</td>
+                        <td>{{ frappe.utils.fmt_money(parent.tax or 0, currency=currency) }}</td>
+                        <td>{{ frappe.utils.fmt_money(parent.total or 0, currency=currency) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="col-lg-4">
+            <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Orden de compra</h5>
+            <div style="color:#8a9099;font-size:12px;margin-bottom:8px">
+                Orden: <strong>{{ parent.purchase_order_id or "-" }}</strong>
+            </div>
+            {% if detail_oc %}
+            <table class="table inner-table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Unidad</th>
+                        <th>Cantidad</th>
+                        <th>Costo unitario</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in detail_oc %}
+                    <tr>
+                        <td>{{ item.item_code or "-" }}</td>
+                        <td>{{ item.uom or "" }}</td>
+                        <td>{{ item.qty or 0 }}</td>
+                        <td>{{ frappe.utils.fmt_money(item.qp_unit_cost or 0, currency=currency) }}</td>
+                        <td>{{ frappe.utils.fmt_money(item.qp_extd_cost or 0, currency=currency) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="color:#8a9099;font-size:12px">Sin datos</div>
+            {% endif %}
+        </div>
+        <div class="col-lg-4">
+            <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Recepción</h5>
+            {% if detail_receipt %}
+            <table class="table inner-table">
+                <thead>
+                    <tr>
+                        <th>Recepción</th>
+                        <th>Producto</th>
+                        <th>Unidad</th>
+                        <th>Cantidad</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in detail_receipt %}
+                    <tr>
+                        <td>{{ row.parent or "-" }}</td>
+                        <td>{{ row.item_code or "-" }}</td>
+                        <td>{{ row.uom or "" }}</td>
+                        <td>{{ row.qty or 0 }}</td>
+                        <td>{{ frappe.utils.fmt_money(row.amount or 0, currency=currency) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="color:#8a9099;font-size:12px">Sin datos</div>
+            {% endif %}
+        </div>
+    </div>
+</td>

@@ -57,6 +57,10 @@ def get_context(context):
     }
     context.error_message = error_messages.get(error, "")
 
+    config = frappe.get_single("qp_SP_MasterSetup")
+    context.welcome_title = config.welcome_title or "Portal de proveedores de Alpla"
+    context.welcome_image = config.welcome_image
+
     context.status_classes = {
         "En proceso": "badge-info",
         "Aprobado": "badge-success",

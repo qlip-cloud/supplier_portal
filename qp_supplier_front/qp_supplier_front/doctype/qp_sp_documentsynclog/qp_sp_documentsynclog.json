@@ -1,0 +1,108 @@
+{
+ "actions": [],
+ "creation": "2026-07-01 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "supplier",
+  "tax_id",
+  "endpoint_code",
+  "sync_date",
+  "status",
+  "error_message",
+  "payload",
+  "response"
+ ],
+ "fields": [
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Supplier",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "tax_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Tax ID"
+  },
+  {
+   "fieldname": "endpoint_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Endpoint Code"
+  },
+  {
+   "fieldname": "sync_date",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Sync Date"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Status"
+  },
+  {
+   "fieldname": "error_message",
+   "fieldtype": "Long Text",
+   "label": "Error Message"
+  },
+  {
+   "fieldname": "payload",
+   "fieldtype": "Long Text",
+   "label": "Payload"
+  },
+  {
+   "fieldname": "response",
+   "fieldtype": "Long Text",
+   "label": "Response"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [
+  {
+   "group": "Lines",
+   "link_doctype": "qp_SP_DocumentSyncLine",
+   "link_fieldname": "document_sync_log"
+  }
+ ],
+ "modified": "2026-07-01 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Qp Supplier Front",
+ "name": "qp_SP_DocumentSyncLog",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

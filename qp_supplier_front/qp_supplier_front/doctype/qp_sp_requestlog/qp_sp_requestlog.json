@@ -4,25 +4,31 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
- "field_order": [
-  "title",
-  "supplier_id",
-  "payload",
-  "response"
- ],
- "fields": [
-  {
-   "fieldname": "supplier_id",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "supplier_id",
-   "options": "Supplier"
-  },
-  {
-   "fieldname": "response",
-   "fieldtype": "Long Text",
-   "label": "response"
-  },
+  "field_order": [
+   "title",
+   "supplier_id",
+   "payload",
+   "raw_response",
+   "response"
+  ],
+  "fields": [
+   {
+    "fieldname": "supplier_id",
+    "fieldtype": "Link",
+    "in_list_view": 1,
+    "label": "supplier_id",
+    "options": "Supplier"
+   },
+   {
+    "fieldname": "raw_response",
+    "fieldtype": "Long Text",
+    "label": "respuesta cruda de BC"
+   },
+   {
+    "fieldname": "response",
+    "fieldtype": "Long Text",
+    "label": "response"
+   },
   {
    "fieldname": "title",
    "fieldtype": "Data",
@@ -37,7 +43,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-30 10:47:32.919847",
+  "modified": "2026-08-20 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_RequestLog",

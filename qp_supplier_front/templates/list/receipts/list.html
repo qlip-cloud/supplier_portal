@@ -2,7 +2,7 @@
     {% for payment in receipts %}
         <tr class="card-header" id="heading-{{ payment.qp_receipt_id }}">
             <td>{{payment.qp_receipt_id}}</td>
-            <td class="text-left">{{frappe.format_date(payment.qp_create_date, "dd/MM/yyyy")}}</td>
+            <td class="text-left">{{frappe.format_date(payment.qp_posting_date, "dd/MM/yyyy")}}</td>
             <td class="text-left">{{frappe.format_value(payment.qp_amount, "Currency")}}</td>
             <td class="text-left">
                 <span class="material-symbols-outlined detail-row empty-data" id="action-{{payment.name}}"

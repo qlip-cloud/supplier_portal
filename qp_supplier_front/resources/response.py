@@ -16,5 +16,15 @@ def handler(status ,msg, data = None):
         frappe.db.rollback()
 
         traceback.print_exc()
-        
-        frappe.log_error(message=frappe.get_traceback(), title = data or msg)       
+
+        title = data or msg
+
+        # frappe.log_error exige un titulo string: un dict (p. ej. data con
+        # clasificacion de estado) rompe el insert a tabError Log.
+        if not isinstance(title, str):
+            title = str(title)
+
+        if title and len(title) > 140:
+            title = title[:140]
+
+        frappe.log_error(message=frappe.get_traceback(), title = title)       

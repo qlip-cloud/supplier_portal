@@ -6,35 +6,72 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "code",
-  "number_valid",
-  "is_active"
- ],
- "fields": [
-  {
-   "fieldname": "code",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "code",
-   "unique": 1
-  },
-  {
-   "fieldname": "number_valid",
-   "fieldtype": "Int",
-   "in_list_view": 1,
-   "label": "number_valid"
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active",
-   "fieldtype": "Check",
-   "in_list_view": 1,
-   "label": "is_active"
-  }
- ],
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2025-01-22 14:58:13.697907",
+   "code",
+   "tab_label",
+   "tab_group",
+   "tab_order",
+   "show_in_wizard",
+   "has_finish_button",
+   "number_valid",
+   "is_active"
+  ],
+  "fields": [
+   {
+    "fieldname": "code",
+    "fieldtype": "Data",
+    "in_list_view": 1,
+    "label": "code",
+    "unique": 1
+   },
+   {
+    "fieldname": "tab_label",
+    "fieldtype": "Data",
+    "in_list_view": 1,
+    "label": "Etiqueta del Tab"
+   },
+   {
+    "fieldname": "tab_group",
+    "fieldtype": "Data",
+    "in_list_view": 1,
+    "label": "Grupo de Tab"
+   },
+   {
+    "fieldname": "tab_order",
+    "fieldtype": "Int",
+    "in_list_view": 1,
+    "label": "Orden del Tab"
+   },
+   {
+    "default": "1",
+    "fieldname": "show_in_wizard",
+    "fieldtype": "Check",
+    "in_list_view": 1,
+    "label": "Mostrar en wizard"
+   },
+   {
+    "default": "0",
+    "fieldname": "has_finish_button",
+    "fieldtype": "Check",
+    "in_list_view": 1,
+    "label": "Tiene boton de Finalizar"
+   },
+   {
+    "fieldname": "number_valid",
+    "fieldtype": "Int",
+    "in_list_view": 1,
+    "label": "number_valid"
+   },
+   {
+    "default": "1",
+    "fieldname": "is_active",
+    "fieldtype": "Check",
+    "in_list_view": 1,
+    "label": "is_active"
+   }
+  ],
+  "index_web_pages_for_search": 1,
+  "links": [],
+  "modified": "2026-07-28 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_FieldSection",

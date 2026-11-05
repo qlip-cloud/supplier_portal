@@ -1,0 +1,11 @@
+[
+    {
+        "dt": "Sales Order",
+        "fieldname": "qp_orden_externa",
+        "fieldtype": "Data",
+        "label": "Orden Externa",
+        "unique": 1,
+        "reqd": 1,
+        "no_copy": 1
+    }
+]
