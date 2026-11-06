@@ -102,7 +102,7 @@ def _pop_pending():
     try:
         cache = frappe.cache()
         pending = cache.get_value(AUTO_APPROVE_PENDING_KEY)
-        cache.delete(AUTO_APPROVE_PENDING_KEY)
+        cache.delete_value(AUTO_APPROVE_PENDING_KEY)
         return list(pending) if isinstance(pending, list) else []
     except Exception:
         return []
