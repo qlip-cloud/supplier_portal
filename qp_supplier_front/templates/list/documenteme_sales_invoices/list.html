@@ -14,6 +14,7 @@
     "PR": "status-progress",
     "PSA": "status-progress",
     "SR": "status-open",
+    "SO": "status-progress",
     "T": "status-default"
 } -%}
 
@@ -27,6 +28,7 @@
     "PR": "En proceso de rechazo",
     "PSA": "Por Autorización",
     "SR": "Sin referencia",
+    "SO": "Sin OC",
     "T": ""
 } -%}
 
@@ -34,7 +36,7 @@
 {% for row in documenteme_sales_invoices %}
 <tr class="card-header" data-toggle="collapse" data-target="#detail-{{ row.name.replace(':', '_') }}" aria-expanded="false">
     <td class="text-center">
-        <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()" {% if row.nvfac_esta in ["A", "R", "BCC", "PA", "PR", "SR"] or (row.nvfac_esta == "PSA" and not can_super_approve) %}disabled{% endif %}>
+        <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()" {% if row.nvfac_esta in ["A", "R", "BCC", "PA", "PR", "SR", "SO"] or (row.nvfac_esta == "PSA" and not can_super_approve) %}disabled{% endif %}>
     </td>
     <td>{{ row.nvpro_ndoc }}</td>
     <td>{{ row.nvpro_nomb or "" }}</td>
@@ -48,8 +50,12 @@
     <td>
         {% if row.ordenes_compra %}
             {{ row.nvfac_orde }}
+        {% elif row.nvfac_conv != "1" and row.nvtip_docu != "C" and row.nvfac_esta not in ["A", "R", "BCC", "PA", "PR", "PSA", "SR"] %}
+            <button type="button" class="btn-control-purchase-order" data-name="{{ row.name }}" title="Asignar orden de compra" style="border:0;background:none;padding:0;color:#004D90;cursor:pointer;vertical-align:middle">
+                <span class="material-symbols-outlined" style="font-size:18px">add_circle</span>
+            </button>
         {% else %}
-            <span class="material-symbols-outlined" style="color:#004D90;font-size:18px;cursor:pointer">add_circle</span>
+            <span class="material-symbols-outlined" style="color:#8a9099;font-size:18px">add_circle</span>
         {% endif %}
     </td>
     <td>

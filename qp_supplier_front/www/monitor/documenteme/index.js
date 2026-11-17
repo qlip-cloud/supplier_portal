@@ -1453,6 +1453,162 @@ $(document).ready(function () {
     });
 
     // =====================================================================
+    // Asignacion manual de la OC (factura de credito sin OC)
+    // =====================================================================
+    var refPoDocName = null;
+    var refPoSelected = {};
+    window.__refPoOrders = [];
+
+    function refreshRefPoCount() {
+        var count = Object.keys(refPoSelected).length;
+        $("#reference-po-count").text(
+            count ? (count + " orden(es) seleccionada(s)") : ""
+        );
+        $("#reference-po-confirm").toggle(count > 0);
+    }
+
+    function toggleRefPo(name) {
+        if (refPoSelected[name]) {
+            delete refPoSelected[name];
+        } else {
+            refPoSelected[name] = true;
+        }
+        $(".ref-po-row").each(function () {
+            var order = $(this).attr("data-order");
+            var selected = !!refPoSelected[order];
+            $(this).toggleClass("selected", selected);
+            $(this).find(".ref-po-check").prop("checked", selected);
+        });
+        refreshRefPoCount();
+    }
+
+    function renderRefPoCandidates(orders, search) {
+        search = String(search || "").trim().toLowerCase();
+        var $body = $("#reference-po-body");
+        $body.empty();
+        var rows = (orders || []).filter(function (order) {
+            if (!search) {
+                return true;
+            }
+            return String(order.name || "").toLowerCase().indexOf(search) !== -1;
+        });
+        if (rows.length === 0) {
+            $body.html('<tr><td colspan="7" class="text-center" style="color:#8a9099">Sin ordenes</td></tr>');
+            refreshRefPoCount();
+            return;
+        }
+        rows.forEach(function (order) {
+            var name = order.name || "";
+            var checked = !!refPoSelected[name];
+            var receipts = order.has_receipts
+                ? (String(order.receipt_count || 0) + " (" + fmtMoney(order.unclaimed_total) + " libres)")
+                : "Sin recepciones";
+            var $tr = $("<tr class=\"ref-row ref-po-row\" data-order=\"" + escapeHtml(name) + "\">" +
+                "<td class=\"text-center\"><input type=\"checkbox\" class=\"ref-po-check\" data-order=\"" + escapeHtml(name) + "\"" + (checked ? " checked" : "") + "></td>" +
+                "<td>" + escapeHtml(name) + "</td>" +
+                "<td>" + escapeHtml(order.transaction_date || "") + "</td>" +
+                "<td>" + escapeHtml(order.oc_type || "") + "</td>" +
+                "<td>" + escapeHtml(order.headquarter || "") + "</td>" +
+                "<td>" + fmtMoney(order.grand_total) + "</td>" +
+                "<td>" + escapeHtml(receipts) + "</td>" +
+                "</tr>");
+            if (checked) {
+                $tr.addClass("selected");
+            }
+            $tr.on("click", function (event) {
+                if ($(event.target).is("input")) {
+                    return;
+                }
+                event.stopPropagation();
+                toggleRefPo(name);
+            });
+            $body.append($tr);
+        });
+        refreshRefPoCount();
+    }
+
+    function loadRefPoCandidates() {
+        refPoSelected = {};
+        $("#reference-po-search").val("");
+        $("#reference-po-body").html(
+            '<tr><td colspan="7" class="text-center" style="color:#8a9099">Cargando ordenes...</td></tr>'
+        );
+        refreshRefPoCount();
+
+        petition_get_data({ doc_name: refPoDocName },
+            "qp_supplier_front.resources.documenteme.purchase_order_reference.get_purchase_order_candidates",
+            function (response) {
+                if (response.status !== 200) {
+                    $("#reference-po-body").html(
+                        '<tr><td colspan="7" class="text-center" style="color:#dc3545">' +
+                        escapeHtml(response.msg || "Error") + "</td></tr>"
+                    );
+                    frappe.msgprint(response.msg || "Error al obtener ordenes");
+                    return;
+                }
+                var data = response.data || {};
+                window.__refPoOrders = data.orders || [];
+                renderRefPoCandidates(window.__refPoOrders, "");
+            }
+        );
+    }
+
+    function submitRefPoAssign(approveFlag) {
+        var selected = Object.keys(refPoSelected);
+        if (!refPoDocName || selected.length === 0) {
+            frappe.msgprint("Seleccione al menos una orden de compra");
+            return;
+        }
+        var overlayEl = document.getElementById("overlay");
+        var savedOnClick = overlayEl ? overlayEl.onclick : null;
+        if (overlayEl) {
+            overlayEl.onclick = null;
+            overlayEl.style.display = "block";
+        }
+        petition_get_data({
+            doc_name: refPoDocName,
+            purchase_orders: JSON.stringify(selected),
+            approve: JSON.stringify(approveFlag)
+        }, "qp_supplier_front.resources.documenteme.purchase_order_reference.assign_purchase_order",
+            function (response) {
+                if (overlayEl) {
+                    overlayEl.onclick = savedOnClick;
+                    overlayEl.style.display = "none";
+                }
+                frappe.msgprint(response.msg);
+                if (response.status === 200) {
+                    $("#reference_po_modal").modal("hide");
+                    window.filter_init();
+                }
+            }
+        );
+    }
+
+    $(document).on("click", ".btn-control-purchase-order", function (event) {
+        event.stopPropagation();
+        refPoDocName = $(this).data("name");
+        $("#reference_po_modal").modal("show");
+        loadRefPoCandidates();
+    });
+
+    $(document).on("change", ".ref-po-check", function (event) {
+        event.stopPropagation();
+        toggleRefPo($(this).attr("data-order"));
+    });
+
+    $("#reference-po-search").on("input", function () {
+        renderRefPoCandidates(window.__refPoOrders || [], $(this).val());
+    });
+
+    $("#reference-po-assign").on("click", function () {
+        submitRefPoAssign(false);
+    });
+
+    $("#reference-po-approve").on("click", function () {
+        submitRefPoAssign(true);
+    });
+
+    // =====================================================================
     // Discrepancia de precio factura vs orden de compra: al pasar el cursor
     // por el icono se resaltan los productos afectados en ambas tablas
     // (factura y orden de compra) que comparten el mismo grupo.
