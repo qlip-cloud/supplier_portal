@@ -256,7 +256,7 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         def get_receipt_bank_fn(purchase_order_number):
             return receipt_bank
 
-        def resolve_emails_fn(oc_type, headquarter, has_receipt=None):
+        def resolve_emails_fn(oc_type, headquarter, has_receipt=None, invoice_type=None):
             return emails
 
         def resolve_users_fn(resolved_emails):
@@ -551,3 +551,141 @@ class TestAutoAssignOrchestration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAutoAssignWithoutPo(unittest.TestCase):
+    """Credito sin OC: flag assign_invoices_without_po (semantica A)."""
+
+    def _callbacks(self, candidates, emails=None, users=None,
+                   resolve_rule_fn=None, assign_without_po=True,
+                   assign_when_no_action=None, receipt_bank=None,
+                   oc_context=None):
+        calls = []
+        marked = []
+        received = []
+
+        def resolve_emails_fn(oc_type, headquarter, has_receipt=None,
+                              invoice_type=None):
+            received.append({
+                "oc_type": oc_type,
+                "headquarter": headquarter,
+                "has_receipt": has_receipt,
+                "invoice_type": invoice_type,
+            })
+            return list(emails or [])
+
+        def add_assignees_fn(sync_line_name, assignees):
+            calls.append((sync_line_name, list(assignees)))
+
+        return calls, marked, received, {
+            "candidates_fn": lambda names=None: list(candidates),
+            "get_oc_context_fn": lambda po: oc_context,
+            "get_receipt_bank_fn": lambda po: receipt_bank or [],
+            "resolve_emails_fn": resolve_emails_fn,
+            "resolve_users_fn": lambda resolved: list(resolved),
+            "add_assignees_fn": add_assignees_fn,
+            "resolve_rule_fn": resolve_rule_fn,
+            "po_exists_fn": lambda po: bool(po),
+            "assign_without_po": assign_without_po,
+            "mark_pending_oc_fn": lambda name: marked.append(name),
+            "assign_when_no_action": assign_when_no_action,
+        }
+
+    def _invoice(self, conv="2", orde=None, name="DETAIL-1",
+                 assigned_to=None, has_assigned_users=False):
+        return {
+            "name": name,
+            "nvfac_nume": "FAC001",
+            "nvfac_orde": orde,
+            "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
+            "nvfac_conv": conv,
+            "assigned_to": assigned_to,
+            "has_assigned_users": has_assigned_users,
+            "in_queue": True,
+        }
+
+    def test_flag_off_credito_sin_oc_no_asigna(self):
+        calls, marked, received, callbacks = self._callbacks(
+            [self._invoice()], emails=["a@x.com"], assign_without_po=False)
+
+        self.assertEqual(auto_assign(**callbacks), [])
+        self.assertEqual(calls, [])
+        self.assertEqual(marked, [])
+
+    def test_flag_on_credito_sin_oc_asigna_catch_all(self):
+        calls, marked, received, callbacks = self._callbacks(
+            [self._invoice()], emails=["a@x.com"])
+
+        self.assertEqual(auto_assign(**callbacks), ["FAC001"])
+        self.assertEqual(calls, [("FAC001", ["a@x.com"])])
+        self.assertEqual(marked, ["DETAIL-1"])
+        self.assertEqual(received, [{
+            "oc_type": None,
+            "headquarter": None,
+            "has_receipt": False,
+            "invoice_type": "Credito",
+        }])
+
+    def test_flag_on_sin_destinatarios_no_asigna_ni_marca(self):
+        calls, marked, received, callbacks = self._callbacks(
+            [self._invoice()], emails=[])
+
+        self.assertEqual(auto_assign(**callbacks), [])
+        self.assertEqual(calls, [])
+        self.assertEqual(marked, [])
+
+    def test_flag_on_credito_con_oc_usa_flujo_normal(self):
+        calls, marked, received, callbacks = self._callbacks(
+            [self._invoice(orde="OC001")], emails=["b@x.com"],
+            oc_context={"oc_type": "01", "headquarter": "BOG"},
+            receipt_bank=None)
+
+        self.assertEqual(auto_assign(**callbacks), ["FAC001"])
+        self.assertEqual(calls, [("FAC001", ["b@x.com"])])
+        self.assertEqual(marked, [])
+        self.assertEqual(received[0]["invoice_type"], "Credito")
+        self.assertEqual(received[0]["has_receipt"], False)
+
+    def test_flag_on_contado_sin_oc_sin_regla_no_asigna(self):
+        calls, marked, received, callbacks = self._callbacks(
+            [self._invoice(conv="1")], emails=["c@x.com"],
+            resolve_rule_fn=lambda doc: None)
+
+        self.assertEqual(auto_assign(**callbacks), [])
+        self.assertEqual(calls, [])
+        self.assertEqual(marked, [])
+
+    def test_flag_on_contado_sin_oc_con_regla_asigna_con_tipo_contado(self):
+        calls, marked, received, callbacks = self._callbacks(
+            [self._invoice(conv="1")], emails=["c@x.com"],
+            resolve_rule_fn=lambda doc: {"rule_code": "no_po"})
+
+        self.assertEqual(auto_assign(**callbacks), ["FAC001"])
+        self.assertEqual(received[0]["invoice_type"], "Contado")
+        self.assertEqual(marked, [])
+
+    def test_flag_on_ya_asignada_no_reasigna(self):
+        calls, marked, received, callbacks = self._callbacks(
+            [self._invoice(assigned_to="u@x.com")], emails=["a@x.com"])
+
+        self.assertEqual(auto_assign(**callbacks), [])
+        self.assertEqual(calls, [])
+        self.assertEqual(marked, [])
+
+    def test_knob_futuro_no_action_no_asigna(self):
+        rule = lambda doc: {"rule_code": "no_action"}
+        calls, marked, received, callbacks = self._callbacks(
+            [self._invoice()], emails=["a@x.com"], resolve_rule_fn=rule,
+            assign_when_no_action=False)
+
+        self.assertEqual(auto_assign(**callbacks), [])
+        self.assertEqual(marked, [])
+
+    def test_knob_futuro_no_action_con_default_asigna(self):
+        rule = lambda doc: {"rule_code": "no_action"}
+        calls, marked, received, callbacks = self._callbacks(
+            [self._invoice()], emails=["a@x.com"], resolve_rule_fn=rule)
+
+        self.assertEqual(auto_assign(**callbacks), ["FAC001"])
+        self.assertEqual(marked, ["DETAIL-1"])

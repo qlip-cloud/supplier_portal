@@ -343,7 +343,7 @@ def _pi_load_assignment_rows(store, oc_type_records=None):
             "qp_SP_OCType", fields=["name", "oc_type"])
     configs = store.query(
         "qp_SP_AssignmentConfig",
-        fields=["name", "headquarter", "oc_type"],
+        fields=["name", "headquarter", "oc_type", "invoice_type"],
     )
     rows = []
     for config in (configs or []):
@@ -362,6 +362,7 @@ def _pi_load_assignment_rows(store, oc_type_records=None):
         rows.append({
             "headquarter": _pi_normalize_headquarter(config.get("headquarter")),
             "oc_type": _pi_normalize_oc_type(config.get("oc_type"), oc_type_records),
+            "invoice_type": config.get("invoice_type"),
             "user_emails": [row.get("user_email") for row in child_rows],
             "user_preferences": {
                 row.get("user_email"): row.get("receipt_preference")
@@ -372,7 +373,8 @@ def _pi_load_assignment_rows(store, oc_type_records=None):
     return rows
 
 
-def _pi_assignee_emails(store, oc_type, headquarter, has_receipt=None):
+def _pi_assignee_emails(store, oc_type, headquarter, has_receipt=None,
+                        invoice_type=None):
     oc_type_records = store.query(
         "qp_SP_OCType", fields=["name", "oc_type", "is_inventariable"])
     oc_type_rows = [
@@ -391,7 +393,8 @@ def _pi_assignee_emails(store, oc_type, headquarter, has_receipt=None):
     return resolve_assignee_emails(
         oc_type, headquarter, oc_type_rows, assignment_rows,
         roles_to_users_fn=lambda roles: _pi_role_users(store, roles),
-        has_receipt=has_receipt)
+        has_receipt=has_receipt,
+        invoice_type=invoice_type)
 
 
 def _pi_assignee_users(store, emails):
@@ -432,8 +435,9 @@ def memory_run_collection_auto_assign(store, doc_names=None):
         candidates_fn=lambda names=None: _pi_candidates(store, names),
         get_oc_context_fn=lambda po: _pi_oc_context(store, po),
         get_receipt_bank_fn=lambda po: memory_get_receipt_bank(store, po),
-        resolve_emails_fn=lambda oc_type, hq, has_receipt=None: _pi_assignee_emails(
-            store, oc_type, hq, has_receipt=has_receipt),
+        resolve_emails_fn=lambda oc_type, hq, has_receipt=None, invoice_type=None: _pi_assignee_emails(
+            store, oc_type, hq, has_receipt=has_receipt,
+            invoice_type=invoice_type),
         resolve_users_fn=lambda emails: _pi_assignee_users(store, emails),
         add_assignees_fn=lambda pi, users: _pi_add_assignees(
             store, pi, users),

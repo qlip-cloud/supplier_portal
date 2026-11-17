@@ -32,6 +32,8 @@ DETAIL_FIELDS = [
     "nvfac_vicu", "nvfac_vadv", "nvfac_conv", "nvfac_fpag", "nvpro_cciu",
     "nvpro_ciud", "nvpro_cpai", "nvpro_pais", "nvpro_dire", "nvfac_tota",
     "nvfac_votr", "qp_ref_invoice", "qp_ref_date_start", "qp_ref_date_end",
+    "qp_manual_purchase_order", "qp_manual_po_assigned_by",
+    "qp_manual_po_assigned_at",
 ]
 
 DETALLE_FIELDS = [
@@ -148,6 +150,25 @@ def _set_detail_fields(sync_line_name, document_data):
     for attr in ("nvfac_fech", "nvfac_rfec", "nvfac_venc", "nvpro_ufac"):
         row[attr] = _datetime(row.get(attr))
     return row
+
+
+def _apply_manual_po(store, doc, name):
+    """Preserva la OC manual y el estado SO frente a un re-sync."""
+    previous = store.get("qp_SP_DocumentDetail", name) or {}
+    if not previous:
+        return doc
+
+    origin_po = str(doc.get("nvfac_orde") or "").strip()
+    manual_po = str(previous.get("qp_manual_purchase_order") or "").strip()
+    if not origin_po and manual_po:
+        doc["nvfac_orde"] = manual_po
+    if previous.get("nvfac_esta") == "SO":
+        doc["nvfac_esta"] = "E" if origin_po else "SO"
+    for field in ("qp_manual_purchase_order", "qp_manual_po_assigned_by",
+                  "qp_manual_po_assigned_at"):
+        if previous.get(field):
+            doc[field] = previous.get(field)
+    return doc
 
 
 def _memory_apply_nc_sync_fields(store, doc, attached_list):
@@ -279,6 +300,7 @@ def memory_create_document_detail(store, sync_line_name, document_data,
 
     doc = _set_detail_fields(sync_line_name, document_data)
     doc["name"] = name
+    _apply_manual_po(store, doc, name)
     _memory_apply_nc_sync_fields(store, doc, attached_list)
     if store.exists("qp_SP_DocumentDetail", name):
         previous = store.get("qp_SP_DocumentDetail", name) or {}

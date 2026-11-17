@@ -76,6 +76,7 @@ def run_auto_reject(http_fn=None, enqueue=True, doc_names=None):
         doc_names=doc_names,
         po_supplier_match_fn=_po_supplier_match,
         is_delivery_fn=make_delivery_order_predicate(),
+        assign_without_po=_master_setup_source().assign_without_po_enabled(),
     )
 
     # Guard / kill-switch: los docs con retry deshabilitado no se envian.

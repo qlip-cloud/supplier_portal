@@ -310,3 +310,52 @@ class TestNcSinReferencia(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestManualPurchaseOrderResync(unittest.TestCase):
+    """La OC manual y el estado SO sobreviven al re-sync en memoria."""
+
+    def setUp(self):
+        self.store = MemoryStore()
+        self.name = "{}:F1".format(SIM_NIT)
+
+    def _create(self, estado="E", orde=""):
+        return mem.memory_create_document_detail(
+            self.store, self.name,
+            {
+                "Nvfac_nume": "F1",
+                "Nvpro_ndoc": SIM_NIT,
+                "Nvtip_docu": "F",
+                "Nvfac_esta": estado,
+                "Nvfac_orde": orde,
+                "Nvfac_conv": "2",
+            },
+            [],
+        )
+
+    def _mark_manual(self, orders="OC-MANUAL"):
+        self.store.set_value(
+            "qp_SP_DocumentDetail", self.name,
+            "qp_manual_purchase_order", orders)
+        self.store.set_value(
+            "qp_SP_DocumentDetail", self.name, "nvfac_orde", orders)
+        self.store.set_value(
+            "qp_SP_DocumentDetail", self.name, "nvfac_esta", "SO")
+
+    def test_resync_sin_oc_preserva_manual_y_so(self):
+        self._create()
+        self._mark_manual()
+        self._create(estado="E", orde="")
+
+        row = self.store.get("qp_SP_DocumentDetail", self.name)
+        self.assertEqual(row["nvfac_orde"], "OC-MANUAL")
+        self.assertEqual(row["nvfac_esta"], "SO")
+        self.assertEqual(row["qp_manual_purchase_order"], "OC-MANUAL")
+
+    def test_origen_con_oc_gana_y_sale_de_so(self):
+        self._create()
+        self._mark_manual()
+        self._create(estado="E", orde="OC-REAL")
+
+        row = self.store.get("qp_SP_DocumentDetail", self.name)
+        self.assertEqual(row["nvfac_orde"], "OC-REAL")
+        self.assertEqual(row["nvfac_esta"], "E")

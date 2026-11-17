@@ -36,6 +36,7 @@ STATE_LABELS = {
     "PR": "En proceso de rechazo",
     "PSA": "Por Autorización",
     "SR": "Sin referencia",
+    "SO": "Sin OC",
     "T": "",
 }
 

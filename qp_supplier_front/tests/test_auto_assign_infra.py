@@ -213,6 +213,7 @@ class TestLoadAssignmentRows(unittest.TestCase):
         self.assertEqual(rows, [{
             "headquarter": "BOG",
             "oc_type": "01",
+            "invoice_type": None,
             "user_emails": ["a@x.com", "b@x.com"],
             "user_preferences": {"a@x.com": None, "b@x.com": None},
             "user_roles": [],
@@ -229,6 +230,7 @@ class TestLoadAssignmentRows(unittest.TestCase):
         self.assertEqual(rows, [{
             "headquarter": "CAL",
             "oc_type": "03",
+            "invoice_type": None,
             "user_emails": [],
             "user_preferences": {},
             "user_roles": [],
@@ -246,6 +248,7 @@ class TestLoadAssignmentRows(unittest.TestCase):
         self.assertEqual(rows, [{
             "headquarter": "BOG",
             "oc_type": "01",
+            "invoice_type": None,
             "user_emails": ["a@x.com", "b@x.com"],
             "user_preferences": {"a@x.com": None, "b@x.com": None},
             "user_roles": ["Alpla Compras", "Alpla Finanzas"],
@@ -262,6 +265,7 @@ class TestLoadAssignmentRows(unittest.TestCase):
         self.assertEqual(rows, [{
             "headquarter": "CAL",
             "oc_type": "No aplica",
+            "invoice_type": None,
             "user_emails": [],
             "user_preferences": {},
             "user_roles": [],
@@ -488,3 +492,47 @@ class TestResolveRoleUsers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestReassignToOcGroup(unittest.TestCase):
+
+    def _run(self, oc_context, emails, users, orders="OC1"):
+        line = MagicMock()
+        line.assigned_to = "old@x.com"
+        line.assigned_users = [type("Row", (), {"user": "old@x.com"})()]
+        frappe_mock = MagicMock()
+        frappe_mock.get_doc.side_effect = lambda doctype, name: (
+            {"document_sync_line": "SL1", "nvfac_orde": orders}
+            if doctype == "qp_SP_DocumentDetail" else line
+        )
+        with patch.object(infra, "frappe", frappe_mock), \
+             patch.object(infra, "get_oc_context", return_value=oc_context), \
+             patch.object(infra, "get_receipt_bank", return_value=[]), \
+             patch.object(infra, "get_assignee_emails", return_value=emails), \
+             patch.object(infra, "resolve_assignee_users", return_value=users):
+            result = infra.reassign_to_oc_group("D1")
+        return result, line
+
+    def test_sin_oc_valida_no_toca_asignacion(self):
+        result, line = self._run(None, [], [])
+        self.assertFalse(result["reassigned"])
+        self.assertEqual(result["reason"], "sin_oc_valida")
+        line.save.assert_not_called()
+
+    def test_sin_grupo_conserva_asignados(self):
+        result, line = self._run(
+            {"oc_type": "01", "headquarter": "BOG"}, [], [])
+        self.assertFalse(result["reassigned"])
+        self.assertEqual(result["reason"], "sin_grupo")
+        line.save.assert_not_called()
+
+    def test_reasigna_y_limpia_catch_all(self):
+        result, line = self._run(
+            {"oc_type": "01", "headquarter": "BOG"},
+            ["b@x.com"], ["b@x.com"])
+        self.assertTrue(result["reassigned"])
+        self.assertEqual(result["previous"], ["old@x.com"])
+        self.assertEqual(result["users"], ["b@x.com"])
+        self.assertIsNone(line.assigned_to)
+        line.set.assert_called_once_with("assigned_users", [])
+        line.save.assert_called_once()

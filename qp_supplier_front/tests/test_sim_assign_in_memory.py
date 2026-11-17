@@ -238,3 +238,120 @@ class TestMemoryPoSupplierMatch(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestSimAssignWithoutPoInMemory(unittest.TestCase):
+    """Credito sin OC con el flag assign_invoices_without_po en memoria."""
+
+    def setUp(self):
+        self.store = MemoryStore()
+        seeds.seed_scenario(self.store)
+        seeds.seed_user(self.store, "credito@sim.local",
+                        full_name="Credito Sin OC")
+        seeds.seed_assignment_config(
+            self.store, "CFG-CRE", oc_type="", headquarter="",
+            user_emails=["credito@sim.local"], invoice_type="Credito",
+        )
+        _seed_doc(self.store, "SIM-CRE-NOOC", "E", "", 1000, "2")
+        _seed_doc(self.store, "SIM-CAS-NOOC", "E", "", 1000, "1")
+        self._set_flag(1)
+
+    def _set_flag(self, value):
+        self.store.set_value(
+            "qp_SP_MasterSetup", seeds.MASTER_SETUP_NAME,
+            "assign_invoices_without_po", value,
+        )
+
+    def test_credito_sin_oc_se_asigna_y_marca_so(self):
+        name = "{}:{}".format(SIM_NIT, "SIM-CRE-NOOC")
+        assigned = assign_memory.run_auto_assign(self.store)
+
+        self.assertIn(name, assigned)
+        self.assertEqual(
+            self.store.get_value(
+                "qp_SP_DocumentDetail", name, "nvfac_esta"),
+            "SO",
+        )
+        users = [
+            row.get("user")
+            for row in self.store.query(
+                "qp_SP_SyncLineAssignedUser", filters={"parent": name})
+        ]
+        self.assertIn(seeds.ASSIGNEE_EMAIL, users)
+        self.assertIn("credito@sim.local", users)
+
+    def test_contado_no_recibe_el_grupo_de_credito(self):
+        name = "{}:{}".format(SIM_NIT, "SIM-CAS-NOOC")
+        assign_memory.run_auto_assign(self.store)
+
+        users = [
+            row.get("user")
+            for row in self.store.query(
+                "qp_SP_SyncLineAssignedUser", filters={"parent": name})
+        ]
+        self.assertIn(seeds.ASSIGNEE_EMAIL, users)
+        self.assertNotIn("credito@sim.local", users)
+        self.assertNotEqual(
+            self.store.get_value(
+                "qp_SP_DocumentDetail", name, "nvfac_esta"),
+            "SO",
+        )
+
+    def test_flag_off_credito_sin_oc_no_se_asigna(self):
+        self._set_flag(0)
+        name = "{}:{}".format(SIM_NIT, "SIM-CRE-NOOC")
+
+        assigned = assign_memory.run_auto_assign(self.store)
+
+        self.assertNotIn(name, assigned)
+        self.assertEqual(
+            self.store.get_value(
+                "qp_SP_DocumentDetail", name, "nvfac_esta"),
+            "E",
+        )
+
+
+class TestSimRejectWithoutPoInMemory(unittest.TestCase):
+    """Credito sin OC con el flag: no entra al rechazo automatico."""
+
+    def setUp(self):
+        self.store = MemoryStore()
+        seeds.seed_scenario(self.store)
+        seeds.seed_user(self.store, "credito@sim.local",
+                        full_name="Credito Sin OC")
+        seeds.seed_assignment_config(
+            self.store, "CFG-CRE", oc_type="", headquarter="",
+            user_emails=["credito@sim.local"], invoice_type="Credito",
+        )
+        _seed_doc(self.store, "SIM-CRE-NOOC", "E", "", 1000, "2")
+
+    def _run(self):
+        from unittest.mock import patch
+        from qp_supplier_front.simulation import reject_memory
+        name = "{}:{}".format(SIM_NIT, "SIM-CRE-NOOC")
+        with patch(
+            "qp_supplier_front.resources.documenteme.runtime.is_simulation_enabled",
+            return_value=True,
+        ):
+            result = reject_memory.run_reject(self.store, [name])
+        return name, result
+
+    def test_flag_on_no_rechaza(self):
+        self.store.set_value(
+            "qp_SP_MasterSetup", seeds.MASTER_SETUP_NAME,
+            "assign_invoices_without_po", 1,
+        )
+        name, result = self._run()
+        self.assertEqual(result.get("rejected"), [])
+        self.assertEqual(
+            self.store.get_value(
+                "qp_SP_DocumentDetail", name, "nvfac_esta"),
+            "E",
+        )
+
+    def test_flag_off_rechaza(self):
+        self.store.set_value(
+            "qp_SP_MasterSetup", seeds.MASTER_SETUP_NAME,
+            "assign_invoices_without_po", 0,
+        )
+        name, result = self._run()
+        self.assertIn("SIM-CRE-NOOC", result.get("rejected") or [])

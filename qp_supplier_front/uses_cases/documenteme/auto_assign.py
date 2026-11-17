@@ -35,6 +35,12 @@ from qp_supplier_front.uses_cases.documenteme.conversion import (
     is_cash_invoice,
     is_credit_note,
 )
+from qp_supplier_front.uses_cases.documenteme.no_purchase_order import (
+    DEFAULT_ASSIGN_WHEN_NO_ACTION,
+    INVOICE_TYPE_ALL,
+    invoice_type_of,
+    should_assign_without_po,
+)
 from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
     parse_purchase_orders,
 )
@@ -78,9 +84,25 @@ def _is_catch_all(row):
         and not row.get("headquarter")
 
 
+def _row_matches_invoice_type(row, invoice_type):
+    """True si la fila aplica al tipo de factura solicitado.
+
+    Sin filtro (invoice_type None), o con `Todos`/vacio en la fila, aplica a
+    cualquier factura (compatibilidad con configuraciones previas).
+    """
+    if not invoice_type:
+        return True
+    row_type = (row.get("invoice_type") or "").strip()
+    return (
+        not row_type
+        or row_type == INVOICE_TYPE_ALL
+        or row_type == invoice_type
+    )
+
+
 def resolve_assignee_emails(
         oc_type, headquarter, oc_type_rows, assignment_rows,
-        roles_to_users_fn=None, has_receipt=None):
+        roles_to_users_fn=None, has_receipt=None, invoice_type=None):
     """Resuelve los emails destino para una factura.
 
     Las filas "No aplica" (oc_type = NO_APLICA) son wildcard: se asigna sin
@@ -98,6 +120,10 @@ def resolve_assignee_emails(
     tiene. Un email presente en varias filas pasa si alguna lo permite. Los
     emails resueltos por roles no se filtran (los roles no tienen preferencia).
     Con has_receipt=None no se filtra (comportamiento historico).
+
+    invoice_type: "Credito"/"Contado" filtra las filas por
+    row["invoice_type"]; "Todos"/vacio en la fila aplica a cualquier factura.
+    None desactiva el filtro (comportamiento historico).
     """
     rows = assignment_rows or []
     wildcards = [row for row in rows if _is_wildcard(row)]
@@ -121,6 +147,11 @@ def resolve_assignee_emails(
                 row for row in rows
                 if matcher(row, oc_type, headquarter)
             ] + wildcards
+
+    matching = [
+        row for row in matching
+        if _row_matches_invoice_type(row, invoice_type)
+    ]
 
     emails = _user_emails(matching, has_receipt)
 
@@ -278,6 +309,9 @@ def auto_assign(
     is_service_supplier_fn=None,
     epsilon=DEFAULT_EPSILON,
     po_supplier_match_fn=None,
+    assign_without_po=False,
+    mark_pending_oc_fn=None,
+    assign_when_no_action=None,
 ):
     assigned = []
     candidates = candidates_fn() if doc_names is None else candidates_fn(doc_names)
@@ -301,8 +335,34 @@ def auto_assign(
         ]
         bank = _pool_receipt_bank(get_receipt_bank_fn, valid_orders)
         has_receipt = bool(bank)
-
         cash = is_cash_invoice(invoice.get("nvfac_conv"))
+        invoice_type = invoice_type_of(invoice)
+
+        supplier_rule = None
+        effective_knob = (
+            DEFAULT_ASSIGN_WHEN_NO_ACTION
+            if assign_when_no_action is None
+            else bool(assign_when_no_action)
+        )
+        if (not cash and not effective_knob
+                and resolve_rule_fn is not None):
+            supplier_rule = resolve_rule_fn(invoice)
+
+        without_po_credit = (
+            not cash
+            and should_assign_without_po(
+                invoice,
+                assign_without_po,
+                assign_when_no_action=assign_when_no_action,
+                supplier_rule=supplier_rule,
+                in_queue=invoice.get("in_queue", True),
+                already_assigned=(
+                    bool(invoice.get("assigned_to"))
+                    or bool(invoice.get("has_assigned_users"))
+                ),
+            )
+        )
+
         if cash:
             # Contado: solo se asigna si la regla de rechazo lo bloquea.
             if not should_assign_contado(
@@ -315,26 +375,40 @@ def auto_assign(
                 po_supplier_match_fn=po_supplier_match_fn,
             ):
                 continue
+        elif without_po_credit:
+            pass
         elif not should_auto_assign(invoice, bank, epsilon):
             continue
 
-        emails = []
-        found_context = False
-        for order in valid_orders:
-            oc_context = get_oc_context_fn(order)
-            if not oc_context:
-                continue
-            found_context = True
-            emails += resolve_emails_fn(
-                oc_context.get("oc_type"),
-                oc_context.get("headquarter"),
-                has_receipt=has_receipt,
+        if without_po_credit:
+            # Credito sin OC: destinatarios de la fila sin OC del tipo
+            # "Credito" de qp_SP_AssignmentConfig.
+            emails = resolve_emails_fn(
+                None, None, has_receipt=False,
+                invoice_type=invoice_type,
             ) or []
-        # Contado sin OC: destinatarios de la fila catch-all.
-        if not orders and cash:
-            emails = resolve_emails_fn(None, None, has_receipt=has_receipt) or []
-        elif not found_context:
-            continue
+        else:
+            emails = []
+            found_context = False
+            for order in valid_orders:
+                oc_context = get_oc_context_fn(order)
+                if not oc_context:
+                    continue
+                found_context = True
+                emails += resolve_emails_fn(
+                    oc_context.get("oc_type"),
+                    oc_context.get("headquarter"),
+                    has_receipt=has_receipt,
+                    invoice_type=invoice_type,
+                ) or []
+            # Contado sin OC: destinatarios de la fila catch-all de su tipo.
+            if not orders and cash:
+                emails = resolve_emails_fn(
+                    None, None, has_receipt=has_receipt,
+                    invoice_type=invoice_type,
+                ) or []
+            elif not found_context:
+                continue
 
         emails = _dedupe(emails)
         if not emails:
@@ -345,6 +419,8 @@ def auto_assign(
             continue
 
         add_assignees_fn(invoice.get("nvfac_nume"), users)
+        if without_po_credit and mark_pending_oc_fn is not None:
+            mark_pending_oc_fn(invoice.get("name") or invoice.get("nvfac_nume"))
         assigned.append(invoice.get("nvfac_nume"))
 
     return assigned

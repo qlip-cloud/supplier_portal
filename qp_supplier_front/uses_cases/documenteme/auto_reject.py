@@ -42,6 +42,10 @@ from qp_supplier_front.uses_cases.documenteme.conversion import is_credit_note
 from qp_supplier_front.uses_cases.documenteme.home_delivery import (
     is_home_delivery,
 )
+from qp_supplier_front.uses_cases.documenteme.no_purchase_order import (
+    DEFAULT_ASSIGN_WHEN_NO_ACTION,
+    should_skip_reject_without_po,
+)
 from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
     parse_purchase_orders,
 )
@@ -131,7 +135,8 @@ def is_eligible_doc(doc):
 
 
 def collect_rejectable(candidates, resolve_rule_fn, po_exists_fn, receipt_for_po_fn,
-                       po_supplier_match_fn=None):
+                       po_supplier_match_fn=None, assign_without_po=False,
+                       assign_when_no_action=None):
     rejectable = []
     for doc in candidates:
         if doc.get("nvfac_esta") == "PR":
@@ -142,6 +147,13 @@ def collect_rejectable(candidates, resolve_rule_fn, po_exists_fn, receipt_for_po
             })
             continue
         rule = resolve_rule_fn(doc)
+        if should_skip_reject_without_po(
+            doc,
+            assign_without_po,
+            assign_when_no_action=assign_when_no_action,
+            supplier_rule=rule,
+        ):
+            continue
         if not is_active_rule(rule):
             continue
         po_match = has_po_match(doc, po_exists_fn, po_supplier_match_fn)
@@ -159,6 +171,8 @@ def auto_reject(
     doc_names=None,
     po_supplier_match_fn=None,
     is_delivery_fn=None,
+    assign_without_po=False,
+    assign_when_no_action=None,
 ):
     is_delivery_fn = is_delivery_fn or is_home_delivery
     candidates = []
@@ -172,6 +186,8 @@ def auto_reject(
     rejectable = collect_rejectable(
         candidates, resolve_rule_fn, po_exists_fn, receipt_for_po_fn,
         po_supplier_match_fn=po_supplier_match_fn,
+        assign_without_po=assign_without_po,
+        assign_when_no_action=assign_when_no_action,
     )
     return [
         {
