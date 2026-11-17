@@ -35,6 +35,9 @@ class MemoryMasterSetupSource(object):
     def auto_reject_rule(self):
         return self._value("auto_reject")
 
+    def assign_without_po_enabled(self):
+        return bool(self._value("assign_invoices_without_po"))
+
     def documenteme_backend(self):
         return self._value("documenteme_backend")
 

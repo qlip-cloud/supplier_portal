@@ -67,6 +67,11 @@ class RealMasterSetupSource(object):
         frappe = self._frappe_module()
         return frappe.db.get_single_value(MASTER_SETUP_DOCTYPE, "auto_reject")
 
+    def assign_without_po_enabled(self):
+        frappe = self._frappe_module()
+        return bool(frappe.db.get_single_value(
+            MASTER_SETUP_DOCTYPE, "assign_invoices_without_po"))
+
     def documenteme_backend(self):
         frappe = self._frappe_module()
         return frappe.db.get_single_value(

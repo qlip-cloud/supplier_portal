@@ -7,6 +7,7 @@
 "field_order": [
     "supplier_date_sync",
     "auto_reject",
+    "assign_invoices_without_po",
     "reject_retry_max_attempts",
     "reject_retry_interval_seconds",
     "reject_event_delay_seconds",
@@ -44,6 +45,13 @@
      "label": "Rechazo autom\u00e1tico por defecto",
      "description": "Regla de rechazo autom\u00e1tico aplicada a proveedores sin configuraci\u00f3n propia. Campo vac\u00edo = No configurado.",
      "options": "qp_SP_AutoRejectRule"
+    },
+    {
+     "default": "0",
+     "fieldname": "assign_invoices_without_po",
+     "fieldtype": "Check",
+     "label": "Asignar facturas sin OC en lugar de rechazarlas",
+     "description": "Si est\u00e1 marcado, las facturas de cr\u00e9dito sin OC no se rechazan: se asignan a la fila sin OC de qp_SP_AssignmentConfig (tipo de factura Credito). El contado no cambia."
     },
     {
      "default": "5",
@@ -198,7 +206,7 @@
 "index_web_pages_for_search": 1,
   "issingle": 1,
   "links": [],
-   "modified": "2026-10-27 10:00:00.000000",
+   "modified": "2026-11-17 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_MasterSetup",

@@ -7,6 +7,7 @@
  "field_order": [
   "headquarter",
   "oc_type",
+  "invoice_type",
   "section_break_users",
   "users",
   "section_break_roles",
@@ -21,14 +22,23 @@
     "label": "Sede",
     "options": ""
    },
-{
-      "fieldname": "oc_type",
-      "fieldtype": "Select",
-      "in_list_view": 1,
-      "in_standard_filter": 1,
-      "label": "OC Type",
-      "options": ""
-     },
+  {
+   "fieldname": "oc_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "OC Type",
+   "options": ""
+  },
+  {
+   "default": "Todos",
+   "fieldname": "invoice_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Tipo de factura",
+   "options": "Todos\nCredito\nContado"
+  },
   {
    "collapsible": 1,
    "fieldname": "section_break_users",
@@ -56,7 +66,7 @@
  ],
 "index_web_pages_for_search": 1,
   "links": [],
-  "modified": "2026-09-22 10:00:00.000000",
+  "modified": "2026-11-17 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_AssignmentConfig",
