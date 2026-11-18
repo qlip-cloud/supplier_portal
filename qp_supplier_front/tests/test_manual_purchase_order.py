@@ -135,6 +135,29 @@ class TestGetCandidates(unittest.TestCase):
         orders = args[2]["orders"]
         self.assertEqual([row["name"] for row in orders], ["OC1"])
 
+    def test_incluye_ordenes_en_borrador(self):
+        """Las POs sincronizadas sin submitir tambien son candidatas."""
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            {"name": "OC1", "supplier": "SUP", "transaction_date": "2026-01-01",
+             "grand_total": 100, "qp_oc_type": "01", "qp_headquarter": "BOG",
+             "qp_order_confirmation_no": "OC1", "status": "Draft"},
+        ]
+        response_mock = MagicMock()
+
+        with patch.object(module, "frappe", frappe_mock), \
+             patch.object(module, "response", response_mock), \
+             patch.object(module, "_has_permission", return_value=True), \
+             patch.object(module, "_get_doc", return_value=_doc()), \
+             patch.object(module, "_validate_scope", return_value=""), \
+             patch.object(module, "get_supplier_by_tax_id", return_value="SUP"), \
+             patch.object(module, "get_receipt_bank", return_value=[]):
+            module.get_purchase_order_candidates("SUP:FC1")
+
+        filters = frappe_mock.get_all.call_args[1]["filters"]
+        self.assertEqual(filters["docstatus"], ["<", 2])
+        self.assertEqual(response_mock.call_args[0][2]["orders"][0]["name"], "OC1")
+
     def test_sin_permiso(self):
         response_mock = MagicMock()
         with patch.object(module, "frappe", MagicMock()), \

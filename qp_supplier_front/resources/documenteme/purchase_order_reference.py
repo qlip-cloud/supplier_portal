@@ -146,7 +146,10 @@ def get_purchase_order_candidates(doc_name, search=None, start=None, end=None,
             response(200, "ok", {"orders": []})
             return
 
-        filters = {"supplier": supplier, "docstatus": 1}
+        # El flujo normal (get_oc_context) acepta la OC por nombre aunque siga
+        # en borrador: las POs sincronizadas desde BC llegan sin submitir.
+        # Solo se excluyen las canceladas.
+        filters = {"supplier": supplier, "docstatus": ["<", 2]}
         if start:
             filters["transaction_date"] = [">=", str(start)]
         if end:

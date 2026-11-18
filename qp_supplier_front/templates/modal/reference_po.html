@@ -13,6 +13,20 @@
         #reference_po_modal .modal-title {
             color: #004D90;
         }
+        #reference_po_modal .range-filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        #reference_po_modal .range-filters .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        #reference_po_modal .range-filters label {
+            color: #8a9099;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
         #reference_po_modal .ref-table {
             margin-bottom: 0;
         }
@@ -67,6 +81,18 @@
                 </button>
             </div>
             <div class="modal-body">
+                <div class="range-filters">
+                    <div class="form-group">
+                        <label for="reference-po-start">Desde</label>
+                        <input type="date" class="form-control" id="reference-po-start"
+                            autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="reference-po-end">Hasta</label>
+                        <input type="date" class="form-control" id="reference-po-end"
+                            autocomplete="off">
+                    </div>
+                </div>
                 <div class="form-group">
                     <input type="text" class="form-control" id="reference-po-search"
                         placeholder="Buscar por numero de orden de compra..." autocomplete="off">

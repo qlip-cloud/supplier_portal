@@ -1482,18 +1482,12 @@ $(document).ready(function () {
         refreshRefPoCount();
     }
 
-    function renderRefPoCandidates(orders, search) {
-        search = String(search || "").trim().toLowerCase();
+    function renderRefPoCandidates(orders) {
         var $body = $("#reference-po-body");
         $body.empty();
-        var rows = (orders || []).filter(function (order) {
-            if (!search) {
-                return true;
-            }
-            return String(order.name || "").toLowerCase().indexOf(search) !== -1;
-        });
+        var rows = orders || [];
         if (rows.length === 0) {
-            $body.html('<tr><td colspan="7" class="text-center" style="color:#8a9099">Sin ordenes</td></tr>');
+            $body.html('<tr><td colspan="7" class="text-center" style="color:#8a9099">Sin ordenes para los filtros</td></tr>');
             refreshRefPoCount();
             return;
         }
@@ -1527,15 +1521,30 @@ $(document).ready(function () {
         refreshRefPoCount();
     }
 
+    function refPoFilters() {
+        var args = { doc_name: refPoDocName };
+        var start = $("#reference-po-start").val();
+        var end = $("#reference-po-end").val();
+        var search = String($("#reference-po-search").val() || "").trim();
+        if (start) {
+            args.start = start;
+        }
+        if (end) {
+            args.end = end;
+        }
+        if (search) {
+            args.search = search;
+        }
+        return args;
+    }
+
     function loadRefPoCandidates() {
-        refPoSelected = {};
-        $("#reference-po-search").val("");
         $("#reference-po-body").html(
             '<tr><td colspan="7" class="text-center" style="color:#8a9099">Cargando ordenes...</td></tr>'
         );
         refreshRefPoCount();
 
-        petition_get_data({ doc_name: refPoDocName },
+        petition_get_data(refPoFilters(),
             "qp_supplier_front.resources.documenteme.purchase_order_reference.get_purchase_order_candidates",
             function (response) {
                 if (response.status !== 200) {
@@ -1548,7 +1557,7 @@ $(document).ready(function () {
                 }
                 var data = response.data || {};
                 window.__refPoOrders = data.orders || [];
-                renderRefPoCandidates(window.__refPoOrders, "");
+                renderRefPoCandidates(window.__refPoOrders);
             }
         );
     }
@@ -1584,9 +1593,15 @@ $(document).ready(function () {
         );
     }
 
+    var refPoSearchTimer = null;
+
     $(document).on("click", ".btn-control-purchase-order", function (event) {
         event.stopPropagation();
         refPoDocName = $(this).data("name");
+        refPoSelected = {};
+        $("#reference-po-start").val("");
+        $("#reference-po-end").val("");
+        $("#reference-po-search").val("");
         $("#reference_po_modal").modal("show");
         loadRefPoCandidates();
     });
@@ -1596,8 +1611,15 @@ $(document).ready(function () {
         toggleRefPo($(this).attr("data-order"));
     });
 
+    $("#reference-po-start, #reference-po-end").on("change", function () {
+        loadRefPoCandidates();
+    });
+
     $("#reference-po-search").on("input", function () {
-        renderRefPoCandidates(window.__refPoOrders || [], $(this).val());
+        if (refPoSearchTimer) {
+            clearTimeout(refPoSearchTimer);
+        }
+        refPoSearchTimer = setTimeout(loadRefPoCandidates, 400);
     });
 
     $("#reference-po-assign").on("click", function () {
