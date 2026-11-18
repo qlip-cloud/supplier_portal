@@ -15,6 +15,8 @@ necesita destinatarios propios, asi que:
 import frappe
 
 
+DOCTYPE = "qp_SP_AssignmentConfig"
+
 CATCH_ALL_UPDATE = """
 UPDATE `tabqp_SP_AssignmentConfig`
 SET invoice_type = 'Contado'
@@ -32,8 +34,13 @@ WHERE invoice_type IS NULL OR invoice_type = ''
 
 
 def execute():
-    if not frappe.db.table_exists("qp_SP_AssignmentConfig"):
+    if not frappe.db.table_exists(DOCTYPE):
         return
+
+    # Los patches corren antes de sync_all, por lo que `invoice_type` aun no
+    # existe. Forzamos el sync del doctype para crearla antes del backfill.
+    frappe.reload_doc("qp_supplier_front", "doctype", DOCTYPE, force=True)
+
     frappe.db.sql(DEFAULT_UPDATE)
     frappe.db.sql(CATCH_ALL_UPDATE)
     frappe.db.commit()
