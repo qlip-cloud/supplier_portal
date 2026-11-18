@@ -22,6 +22,7 @@ tests puedan delegar en su propio mock; por defecto se usa el frappe real.
 
 from qp_supplier_front.uses_cases.documenteme.timeline import (
     ENTRY_COMMENT,
+    build_assignment_entry,
     build_comment_entry,
     build_creation_entry,
     build_state_entry,
@@ -193,6 +194,18 @@ class RealTimelineAdapter(object):
             attachment_file_id=attachment_file_id,
             attachment_file_url=attachment_file_url,
             attachment_file_name=attachment_file_name,
+        )
+        entry["name"] = _insert_row(doc_name, entry, self._frappe)
+        return entry
+
+    def add_assignment(self, doc_name, message, user=None, now=None):
+        """Entrada de historial (no comentario) para eventos del flujo.
+
+        No inserta alerta y no aparece en la conversacion; se muestra en el
+        historial del modal de alertas.
+        """
+        entry = build_assignment_entry(
+            message, _user_name(user, self._frappe), _now_str(now)
         )
         entry["name"] = _insert_row(doc_name, entry, self._frappe)
         return entry

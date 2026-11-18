@@ -272,6 +272,11 @@ $(document).ready(function () {
             icon: "comment",
             color: "#28a745",
             title: "Comentario"
+        },
+        asignacion: {
+            icon: "shopping_cart",
+            color: "#004D90",
+            title: "Asignaci\u00f3n de OC"
         }
     };
 

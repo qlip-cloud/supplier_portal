@@ -21,6 +21,7 @@ Cada entrada es un dict:
 ENTRY_CREATION = "creacion"
 ENTRY_STATE = "estado"
 ENTRY_COMMENT = "comentario"
+ENTRY_ASSIGNMENT = "asignacion"
 
 CREATION_MESSAGE = "Factura registrada en el sistema"
 
@@ -81,6 +82,22 @@ def build_comment_entry(comment, user, now, attachment_file_id="",
         "attachment_file_id": attachment_file_id or "",
         "attachment_file_url": attachment_file_url or "",
         "attachment_file_name": attachment_file_name or "",
+    }
+
+
+def build_assignment_entry(message, user, now):
+    """Entrada de historial (no comentario) para eventos del flujo.
+
+    Se muestra en el "Historial" del modal de alertas sin abrir una alerta:
+    no pinta el icono ni aparece en la conversacion.
+    """
+    return {
+        "type": ENTRY_ASSIGNMENT,
+        "message": message or "",
+        "old_state": None,
+        "new_state": None,
+        "entry_by": user or "",
+        "entry_date": now or "",
     }
 
 
