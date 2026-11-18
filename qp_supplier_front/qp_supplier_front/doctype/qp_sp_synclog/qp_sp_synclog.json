@@ -26,7 +26,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Sync Type",
-   "options": "Order\nReceipt"
+   "options": "Order\nReceipt\nInvoice"
   },
   {
    "fieldname": "supplier",
@@ -50,7 +50,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Sync Mode",
-   "options": "full\nincremental"
+   "options": "full\nincremental\non_demand"
   },
   {
    "fieldname": "sync_date",
@@ -108,7 +108,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-06 19:50:00.000000",
+ "modified": "2026-11-06 22:30:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_SyncLog",

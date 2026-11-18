@@ -24,6 +24,8 @@ Reglas:
     desbloquea solo (TTL corto renovado por heartbeat).
 """
 
+import time
+
 import frappe
 from datetime import datetime
 
@@ -76,6 +78,7 @@ FETCH_MAP = {
 SYNC_TYPE = "Invoice"
 SYNC_DOMAIN = "invoices"
 CHECKPOINT_FIELD = "qp_invoices_last_sync"
+FULL_SYNC_TIME_BUDGET_SECONDS = 3 * 60 * 60
 
 
 def _supplier_domain(supplier_id):
@@ -94,6 +97,24 @@ def _log_skipped(skip):
         ),
         title="BC Sync - LHCOrdenCompra excede limite",
     )
+
+
+def _has_invoices(supplier_id, flow, fetch_fn):
+    """Sonda barata antes de abrir las ventanas del historico.
+
+    Llama UNA vez al endpoint por proveedor (sin rango de fechas) y usa la
+    respuesta como "count": si no trae facturas no hay nada que sincronizar y
+    se evitan las ~34 ventanas de 30 dias (cada una con su request y su
+    posible 404). Aplica a los modos full y on_demand.
+    """
+    strategy = get_strategy(flow)
+    result = fetch_fn(
+        strategy["endpoints"]["per_supplier"],
+        param=strategy["build_param"](supplier_id),
+    )
+    if not isinstance(result, dict):
+        return True
+    return bool(result.get(strategy["request_key"]) or [])
 
 
 def _resolve_start(supplier_id, flow, mode, today):
@@ -138,12 +159,23 @@ def _run_supplier(
     today,
     lock_domain=None,
     lock_token=None,
+    has_invoices_fn=None,
 ):
     """Ejecuta el sync por ventanas para un proveedor. Reanima el lease
     (heartbeat) entre ventanas. No toca el checkpoint: eso lo decide el caller
-    si todo fue ok."""
+    si todo fue ok.
+
+    En full/on_demand primero consulta si el proveedor tiene facturas (una
+    sola llamada). Si no tiene, no recorre las ventanas historicas.
+    """
     strategy = get_strategy(flow)
     fetch_fn = FETCH_MAP.get(flow, fetch_bearer)
+
+    if mode in ("full", "on_demand"):
+        has_invoices_fn = has_invoices_fn or _has_invoices
+        if not has_invoices_fn(supplier_id, flow, fetch_fn):
+            return {"inserted": 0, "windows": 0}
+
     start = _resolve_start(supplier_id, flow, mode, today)
 
     total_inserted = 0
@@ -189,14 +221,30 @@ def _run_supplier(
     }
 
 
-def _sweep(flow, supplier_ids, mode):
-    """Barrido por proveedor con lock individual y checkpoint por proveedor."""
+def _sweep(flow, supplier_ids, mode, time_budget_seconds=None):
+    """Barrido por proveedor con lock individual y checkpoint por proveedor.
+
+    Se corta elegantemente al agotar `time_budget_seconds` (default 3h): los
+    proveedores ya procesados quedaron con checkpoint, asi que la proxima
+    corrida continua donde esta. Evita que el job quede "pegado" hasta que lo
+    mate el timeout.
+    """
     today = datetime.now()
     total_inserted = 0
     ok = 0
     failed = 0
+    started_at = time.time()
+    budget = (
+        FULL_SYNC_TIME_BUDGET_SECONDS
+        if time_budget_seconds is None
+        else time_budget_seconds
+    )
+    stopped = False
 
     for supplier_id in supplier_ids:
+        if budget and (time.time() - started_at) >= budget:
+            stopped = True
+            break
         supplier_domain = _supplier_domain(supplier_id)
         lock = acquire(supplier_domain)
         if lock is None:
@@ -231,6 +279,7 @@ def _sweep(flow, supplier_ids, mode):
         "inserted": total_inserted,
         "ok": ok,
         "failed": failed,
+        "stopped": stopped,
     }
 
 
