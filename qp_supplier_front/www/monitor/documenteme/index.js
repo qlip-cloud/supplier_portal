@@ -1626,10 +1626,6 @@ $(document).ready(function () {
         submitRefPoAssign(false);
     });
 
-    $("#reference-po-approve").on("click", function () {
-        submitRefPoAssign(true);
-    });
-
     // =====================================================================
     // Discrepancia de precio factura vs orden de compra: al pasar el cursor
     // por el icono se resaltan los productos afectados en ambas tablas

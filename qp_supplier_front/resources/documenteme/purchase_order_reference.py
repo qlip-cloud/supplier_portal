@@ -252,11 +252,14 @@ def assign_purchase_order(doc_name, purchase_orders, approve="false"):
         from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
             RealTimelineAdapter,
         )
+        from qp_supplier_front.resources.documenteme._alerts import insert_alert
+
         timeline = RealTimelineAdapter(frappe_module=frappe)
         timeline.set_state(doc_name, "E")
 
         reassign = reassign_to_oc_group(doc_name)
-        timeline.add_comment(doc_name, _build_message(orders, user, reassign))
+        insert_alert(doc_name, _build_message(orders, user, reassign),
+                     frappe.utils.now())
 
         run_auto_assign(doc_names=[doc_name])
 

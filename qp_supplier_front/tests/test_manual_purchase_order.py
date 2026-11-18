@@ -178,6 +178,7 @@ class TestAssignPurchaseOrder(unittest.TestCase):
         frappe_mock.utils.now.return_value = "2026-11-17 10:00:00"
         response_mock = MagicMock()
         timeline = MagicMock()
+        insert_alert = MagicMock()
         reassign = reassign if reassign is not None else {
             "reassigned": True, "previous": ["a@x.com"], "users": ["b@x.com"]}
         approve_core = approve_core or MagicMock(return_value={"ok": True})
@@ -202,6 +203,8 @@ class TestAssignPurchaseOrder(unittest.TestCase):
             patch.object(module, "resolve_backend", return_value="BC"),
             patch("qp_supplier_front.infrastructure.adapters.timeline_adapter.RealTimelineAdapter",
                   return_value=timeline),
+            patch("qp_supplier_front.resources.documenteme._alerts.insert_alert",
+                  insert_alert),
         ]
         for item in patches:
             item.start()
@@ -211,40 +214,40 @@ class TestAssignPurchaseOrder(unittest.TestCase):
             for item in reversed(patches):
                 item.stop()
 
-        return frappe_mock, response_mock, timeline, approve_core
+        return frappe_mock, response_mock, timeline, approve_core, insert_alert
 
     def test_persiste_y_dispara_flujo(self):
-        frappe_mock, response_mock, timeline, _ = self._run()
+        frappe_mock, response_mock, timeline, _, insert_alert = self._run()
         values = frappe_mock.db.set_value.call_args[0][2]
         self.assertEqual(values["qp_manual_purchase_order"], "OC1")
         self.assertEqual(values["nvfac_orde"], "OC1")
         self.assertEqual(values["nvfac_esta"], "E")
         self.assertEqual(values["qp_manual_po_assigned_by"], "u@x.com")
-        timeline.add_comment.assert_called_once()
+        insert_alert.assert_called_once()
         self.assertEqual(response_mock.call_args[0][0], 200)
 
     def test_multi_oc(self):
-        frappe_mock, response_mock, timeline, _ = self._run(
+        frappe_mock, response_mock, timeline, _, insert_alert = self._run(
             orders='["OC1", "OC2"]')
         values = frappe_mock.db.set_value.call_args[0][2]
         self.assertEqual(values["qp_manual_purchase_order"], "OC1, OC2")
 
     def test_oc_de_otro_proveedor_rechaza(self):
-        frappe_mock, response_mock, timeline, _ = self._run(
+        frappe_mock, response_mock, timeline, _, insert_alert = self._run(
             po_supplier=False)
         self.assertEqual(response_mock.call_args[0][0], 400)
         frappe_mock.db.set_value.assert_not_called()
-        timeline.add_comment.assert_not_called()
+        insert_alert.assert_not_called()
 
     def test_asignar_y_aprobar(self):
-        _, response_mock, _, approve_core = self._run(approve="true")
+        _, response_mock, _, approve_core, _ = self._run(approve="true")
         approve_core.assert_called_once()
         self.assertEqual(response_mock.call_args[0][0], 200)
 
     def test_sin_grupo_conserva_asignados(self):
-        _, response_mock, timeline, _ = self._run(
+        _, response_mock, timeline, _, insert_alert = self._run(
             reassign={"reassigned": False, "reason": "sin_grupo"})
-        message = timeline.add_comment.call_args[0][1]
+        message = insert_alert.call_args[0][1]
         self.assertIn("conservan los asignados", message)
         self.assertEqual(response_mock.call_args[0][0], 200)
 
