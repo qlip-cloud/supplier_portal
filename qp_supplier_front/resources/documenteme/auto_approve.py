@@ -44,6 +44,10 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     _allocate_registrables,
 )
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILON
+from qp_supplier_front.services.auto_approve_state import (
+    clear_processing,
+    mark_processing,
+)
 
 AUTO_APPROVE_JOB_METHOD = (
     "qp_supplier_front.resources.documenteme.auto_approve.approve_batch_job"
@@ -501,6 +505,7 @@ def run_auto_approve(enqueue=True, doc_names=None, force=False):
         if not force and _is_job_pending():
             # Ya hay un job en cola/corriendo: no encolar otro, acumular.
             _add_pending(doc_names)
+            mark_processing(doc_names)
             return {
                 "approved": [],
                 "errors": [],
@@ -522,6 +527,7 @@ def run_auto_approve(enqueue=True, doc_names=None, force=False):
             timeout=14400,
             job_name="auto approve documents",
         )
+        mark_processing(doc_names)
         return {
             "approved": [],
             "errors": [],
@@ -561,6 +567,7 @@ def approve_batch_job(doc_names, job_id=None):
         return {"approved": [], "errors": [], "skipped": True}
 
     result = {"approved": [], "errors": []}
+    tracked = set(doc_names or [])
     try:
         names = list(doc_names or [])
         while True:
@@ -568,6 +575,7 @@ def approve_batch_job(doc_names, job_id=None):
             # job previo y toma las que se acumularon mientras este corria.
             names = _filter_registrable(
                 names if in_memory else _merge_pending(names))
+            tracked.update(names)
             if not names:
                 break
             if not in_memory:
@@ -598,6 +606,7 @@ def approve_batch_job(doc_names, job_id=None):
 
         return result
     finally:
+        clear_processing(tracked)
         _set_status(
             job_id=job_id, running=False, queued=False,
             done=len(result.get("approved", [])),

@@ -158,35 +158,24 @@ def apply(doc_name, receipt_names=None):
         if release_only:
             response(
                 200,
-                (
-                    "Se liberaron los recibos asociados a la factura; "
-                    "la factura vuelve a quedar disponible para el flujo "
-                    "automático."
-                ),
+                "Se liberaron los recibos asociados a la factura.",
                 {"classification": classification, "claimed": receipt_names},
             )
             return
 
-        # Aplicar SOLO vincula los recibos a la factura (queda NO definitiva):
-        # la aprobacion es siempre manual, para que el usuario pueda revisar,
-        # cambiar los recibos o decidir no aprobar.
+        # Aplicar SOLO vincula los recibos a la factura (queda NO definitiva).
         if classification == "parcial":
             message = (
                 "El monto seleccionado no cubre el total de la factura. Los "
-                "recibos quedaron aplicados; aprueba la factura manualmente "
-                "cuando lo decidas."
+                "recibos quedaron aplicados."
             )
         elif classification == "excede":
             message = (
                 "El monto seleccionado excede el total de la factura. Los "
-                "recibos quedaron aplicados completos; aprueba la factura "
-                "manualmente cuando lo decidas."
+                "recibos quedaron aplicados completos."
             )
         else:
-            message = (
-                "Recibos aplicados a la factura. Revisalos y aprueba la "
-                "factura manualmente cuando lo decidas."
-            )
+            message = "Recibos aplicados a la factura."
         response(
             200,
             message,

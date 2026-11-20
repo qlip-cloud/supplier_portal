@@ -3,6 +3,7 @@ from qp_supplier_front.services.pagination import get_paginated_filtered
 from qp_supplier_front.services.get_data import has_recent_news, get_has_dispatch_permission
 from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.services.enrich_document_list import enrich_document_list
+from qp_supplier_front.services.auto_approve_state import is_processing
 from qp_supplier_front.services.documenteme_access import (
     get_assigned_sync_lines_filters,
     get_assigned_sync_line_names,
@@ -71,6 +72,11 @@ def get_context(context):
     documents = get_paginated_filtered(0, doctype, order_by, filters, data=data)
 
     enrich_document_list(documents, doctype, data=data)
+    for document in documents:
+        document["auto_approve_processing"] = bool(
+            document.get("nvfac_esta") == "V"
+            and is_processing(document.get("name"))
+        )
 
     context.documenteme_sales_invoices = documents
     context.key = key

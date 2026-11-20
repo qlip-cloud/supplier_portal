@@ -1,8 +1,10 @@
 import frappe
 import json
 from qp_supplier_front.services.pagination import get_paginated, get_paginated_filtered, get_detail
+from qp_supplier_front.services.auto_approve_state import is_processing
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.services.enrich_document_detail import enrich_document_detail
+from qp_supplier_front.services.enrich_document_list import enrich_document_list
 from qp_supplier_front.services.documenteme_access import (
     get_assigned_sync_lines_filters,
     get_assigned_sync_line_names,
@@ -84,6 +86,10 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
                 else:
                     doc["assigned_to_name"] = None
                 enrich_document_detail(doc)
+                doc["auto_approve_processing"] = bool(
+                    doc.get("nvfac_esta") == "V"
+                    and is_processing(doc.get("name"))
+                )
         else:
             pagination = get_paginated(int(page), doctype, supplier_id, order_by, parsed_filters)
             frappe.enqueue(f"qp_supplier_front.uses_cases.{key}.sync_by_supplier.handler", supplier_id=supplier_id, queue='long', is_async=True, timeout=14400, job_name=f"send sync {doctype} {supplier_id}")
@@ -103,6 +109,50 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
         
         response(500,  msg)
         
+@frappe.whitelist()
+def render_row(doc_name):
+    """Renderiza la fila (cabecera + detalle) de una sola factura.
+
+    Permite actualizar en el DOM solo la factura afectada (por ejemplo tras
+    asignar una OC) sin recargar toda la lista. Aplica el mismo filtro de
+    acceso que la paginacion.
+    """
+    try:
+        if not doc_name:
+            response(400, "Falta el documento")
+            return
+
+        filters = get_assigned_sync_lines_filters(
+            frappe.get_roles(), frappe.session.user,
+            get_assigned_sync_line_names, {"name": doc_name})
+        docs = get_paginated_filtered(
+            0, "qp_SP_DocumentDetail", "creation", filters)
+        doc = next(
+            (row for row in docs if row.get("name") == doc_name), None)
+        if not doc:
+            response(403, "No tiene acceso a la factura")
+            return
+
+        enrich_document_list([doc], "qp_SP_DocumentDetail")
+        doc["auto_approve_processing"] = bool(
+            doc.get("nvfac_esta") == "V" and is_processing(doc.get("name")))
+
+        html = frappe.render_template(
+            "qp_supplier_front/templates/list/documenteme_sales_invoices/row.html",
+            {
+                "row": doc,
+                "can_super_approve": can_super_approve_current_user(),
+                "documenteme_backend": get_sync_backend(),
+                "is_sede_documenteme": is_sede_documenteme(frappe.get_roles()),
+            },
+        )
+        response(200, "", html)
+
+    except Exception as error:
+        frappe.db.rollback()
+        response(500, "Error al actualizar la factura: {}".format(str(error)))
+
+
 @frappe.whitelist()
 def render_detail(key, parent_doctype, doctype, name, page = 0):
     

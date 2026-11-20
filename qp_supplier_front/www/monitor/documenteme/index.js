@@ -949,6 +949,7 @@ $(document).ready(function () {
     var URL_UNLOCK_DOCUMENTS_SYNC = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.unlock_documents_sync";
     var URL_AUTO_APPROVE_STATUS = "qp_supplier_front.resources.documenteme.auto_approve.get_auto_approve_job_status";
     var URL_AUTO_APPROVE_RETRY = "qp_supplier_front.resources.documenteme.auto_approve.retry_auto_approve";
+    var URL_RENDER_ROW = "qp_supplier_front.resources.utils.pagination.render_row";
 
     // Un solo estado continuo: la barra sigue visible desde el click hasta que
     // terminan el sync y la aprobacion en segundo plano. No se recarga la
@@ -1045,23 +1046,26 @@ $(document).ready(function () {
     // Espera la aprobacion en segundo plano manteniendo el estado continuo. Al
     // usuario no se le muestra mecanica interna (worker, cola, conteos): solo
     // un mensaje generico de actualizacion en curso.
-    function pollBackgroundApproval(attempts) {
+    function pollBackgroundApproval(attempts, finishedMessage, refreshFn, progressText) {
+        var refresh = refreshFn || window.filter_init;
         if (attempts >= SYNC_POLL_MAX) {
             clearSyncProgress();
-            window.filter_init();
+            refresh();
             frappe.msgprint("La actualizaci\u00f3n est\u00e1 tardando m\u00e1s de lo normal. "
                 + "Vuelva a intentarlo en unos minutos.");
             return;
         }
         petition_get_data({}, URL_AUTO_APPROVE_STATUS, function (status) {
             if (status && status.pending) {
-                setSyncProgress("Actualizando facturas...");
-                setTimeout(function () { pollBackgroundApproval(attempts + 1); }, SYNC_POLL_MS);
+                setSyncProgress(progressText || "Actualizando facturas...");
+                setTimeout(function () {
+                    pollBackgroundApproval(attempts + 1, finishedMessage, refreshFn, progressText);
+                }, SYNC_POLL_MS);
                 return;
             }
             clearSyncProgress();
             if (status && status.waiting_worker) {
-                window.filter_init();
+                refresh();
                 if (canManageSync()) {
                     frappe.msgprint({
                         title: "Actualizaci\u00f3n pendiente",
@@ -1078,8 +1082,8 @@ $(document).ready(function () {
                     + "Vuelva a intentarlo en unos minutos.");
                 return;
             }
-            window.filter_init();
-            frappe.msgprint("Actualizaci\u00f3n completada.");
+            refresh();
+            frappe.msgprint(finishedMessage || "Actualizaci\u00f3n completada.");
         });
     }
 
@@ -1264,14 +1268,14 @@ $(document).ready(function () {
         var msg;
         if (state.classification === "completo") {
             msg = "Al confirmar se aplicar\u00e1n " + state.count +
-                " recibo(s) a la factura (quedar\u00e1n vinculados). La factura NO se aprueba autom\u00e1ticamente; podr\u00e1s aprobarla manualmente. \u00bfDesea continuar?";
+                " recibo(s) a la factura (quedar\u00e1n vinculados). \u00bfDesea continuar?";
         } else if (state.classification === "excede") {
             msg = "El valor de las recepciones seleccionadas (" + fmtMoney(state.sum) +
                 ") excede el total de la factura (" + fmtMoney(state.stot) +
-                "). Las recepciones son indivisibles, por lo que se aplicar\u00e1n completas; la factura NO se aprueba autom\u00e1ticamente. \u00bfDesea continuar?";
+                "). Las recepciones son indivisibles, por lo que se aplicar\u00e1n completas. \u00bfDesea continuar?";
         } else {
             msg = "El monto seleccionado (" + fmtMoney(state.sum) + ") no cubre el total de la factura (" +
-                fmtMoney(state.stot) + "). Los recibos quedar\u00e1n aplicados a esta factura y no estar\u00e1n disponibles para otras; la factura NO se aprueba autom\u00e1ticamente. \u00bfDesea continuar?";
+                fmtMoney(state.stot) + "). Los recibos quedar\u00e1n aplicados a esta factura y no estar\u00e1n disponibles para otras. \u00bfDesea continuar?";
         }
 
         frappe.confirm(msg, function () {
@@ -1292,7 +1296,7 @@ $(document).ready(function () {
                 }
                 frappe.msgprint(response.msg);
                 if (response.status === 200) {
-                    window.filter_init();
+                    refreshInvoiceRow(docName);
                 }
             });
         }, function () {
@@ -1381,7 +1385,7 @@ $(document).ready(function () {
                 frappe.msgprint(response.msg);
                 if (response.status === 200) {
                     $("#reference_nc_modal").modal("hide");
-                    window.filter_init();
+                    refreshInvoiceRow(refNcDocName);
                 }
             }
         );
@@ -1567,12 +1571,54 @@ $(document).ready(function () {
         );
     }
 
+    // Refresca solo la fila afectada (cabecera + detalle) sin recargar la lista.
+    function refreshInvoiceRow(docName) {
+        if (!docName) {
+            window.filter_init();
+            return;
+        }
+        petition_get_data({ doc_name: docName }, URL_RENDER_ROW, function (response) {
+            if (!response || response.status !== 200 || !response.data) {
+                window.filter_init();
+                return;
+            }
+            var $current = $("tr.card-header").filter(function () {
+                return $(this).attr("data-row") === docName;
+            });
+            if (!$current.length) {
+                window.filter_init();
+                return;
+            }
+            var target = $current.attr("data-target");
+            var $detail = target ? $(target) : $();
+            if (!$detail.length) {
+                window.filter_init();
+                return;
+            }
+            var wasOpen = $detail.hasClass("show");
+            var $rows = $("<tbody>").html(response.data).children("tr");
+            var $newHeader = $rows.filter(".card-header");
+            var $newDetail = $rows.not(".card-header");
+            if (!$newHeader.length || !$newDetail.length) {
+                window.filter_init();
+                return;
+            }
+            if (wasOpen) {
+                $newHeader.attr("aria-expanded", "true");
+                $newDetail.addClass("show");
+            }
+            $current.replaceWith($newHeader);
+            $detail.replaceWith($newDetail);
+        });
+    }
+
     function submitRefPoAssign(approveFlag) {
         var selected = Object.keys(refPoSelected);
         if (!refPoDocName || selected.length === 0) {
             frappe.msgprint("Seleccione al menos una orden de compra");
             return;
         }
+        var docName = refPoDocName;
         var overlayEl = document.getElementById("overlay");
         var savedOnClick = overlayEl ? overlayEl.onclick : null;
         if (overlayEl) {
@@ -1580,7 +1626,7 @@ $(document).ready(function () {
             overlayEl.style.display = "block";
         }
         petition_get_data({
-            doc_name: refPoDocName,
+            doc_name: docName,
             purchase_orders: JSON.stringify(selected),
             approve: JSON.stringify(approveFlag)
         }, "qp_supplier_front.resources.documenteme.purchase_order_reference.assign_purchase_order",
@@ -1589,11 +1635,26 @@ $(document).ready(function () {
                     overlayEl.onclick = savedOnClick;
                     overlayEl.style.display = "none";
                 }
-                frappe.msgprint(response.msg);
-                if (response.status === 200) {
-                    $("#reference_po_modal").modal("hide");
-                    window.filter_init();
+                if (response.status !== 200) {
+                    frappe.msgprint(response.msg);
+                    return;
                 }
+                var result = (response.data && response.data.result) || {};
+                var processing = !!(result.enqueued > 0 || result.already_queued);
+                $("#reference_po_modal").modal("hide");
+                refreshInvoiceRow(docName);
+                if (!processing) {
+                    frappe.msgprint(response.msg);
+                    return;
+                }
+                frappe.msgprint({
+                    title: "Procesando",
+                    message: "La factura se est\u00e1 procesando. Espere unos segundos."
+                });
+                setSyncProgress("Procesando factura...");
+                pollBackgroundApproval(0, "Proceso finalizado.", function () {
+                    refreshInvoiceRow(docName);
+                }, "Procesando factura...");
             }
         );
     }
