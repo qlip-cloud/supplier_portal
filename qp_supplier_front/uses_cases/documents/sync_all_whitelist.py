@@ -5,6 +5,7 @@ from qp_supplier_front.uses_cases.documents.sync_by_supplier import (
     get_default_nvfac_ffin,
 )
 from qp_supplier_front.uses_cases.documents.sync_detail import sync_detail
+from qp_supplier_front.uses_cases.documents.date_range import validate_date_range
 from qp_supplier_front.services import sync_lock
 from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.resources.documenteme.auto_assign import run_auto_assign
@@ -268,6 +269,30 @@ def refresh_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
         return {"success": False, "error": "Internal error"}
     finally:
         sync_lock.release(DOCUMENTS_LOCK_DOMAIN, token)
+
+
+@frappe.whitelist()
+def sync_by_date_range(fecha_inicio, fecha_fin):
+    """Sincronizacion manual de documenteme por rango de fechas (contingencia).
+
+    Emula el boton Actualizar del monitor documenteme, pero con un rango
+    explicito de maximo 90 dias. Valida en el servidor (el front tambien
+    valida) y delega en refresh_documents para reutilizar el lock global,
+    la descarga por Company, la asignacion, el rechazo y la aprobacion.
+
+    No se encola: es una accion manual y sincrona, igual que el refresh.
+    """
+    frappe.only_for("System Manager")
+
+    validation = validate_date_range(fecha_inicio, fecha_fin)
+    if not validation["ok"]:
+        return {"success": False, "error": validation["error"]}
+
+    return refresh_documents(
+        nvfac_esta="T",
+        nvfac_fini=validation["nvfac_fini"],
+        nvfac_ffin=validation["nvfac_ffin"],
+    )
 
 
 @frappe.whitelist()
