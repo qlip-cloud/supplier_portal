@@ -31,6 +31,30 @@
         #assign_invoice_modal .table-no-border tr:last-child td {
             border-bottom: none;
         }
+        #assign_invoice_modal #assign-user-list {
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 6px 10px;
+        }
+        #assign_invoice_modal .assign-user-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: normal;
+            margin: 0;
+            padding: 4px 0;
+            cursor: pointer;
+        }
+        #assign_invoice_modal .assign-user-option input {
+            margin: 0;
+        }
+        #assign_invoice_modal .assign-user-empty {
+            color: #8a9099;
+            font-size: 12px;
+            padding: 6px 0;
+        }
     </style>
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -56,9 +80,11 @@
                 </div>
                 <hr>
                 <div class="form-group">
-                    <select class="form-control" id="assign-user-select">
-                        <option value="">Seleccione un usuario</option>
-                    </select>
+                    <input type="text" class="form-control" id="assign-user-search"
+                        placeholder="Buscar usuario..." autocomplete="off">
+                </div>
+                <div id="assign-user-list">
+                    <div class="assign-user-empty">Cargando usuarios...</div>
                 </div>
             </div>
             <div class="modal-footer">

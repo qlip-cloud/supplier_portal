@@ -22,6 +22,7 @@ ENTRY_CREATION = "creacion"
 ENTRY_STATE = "estado"
 ENTRY_COMMENT = "comentario"
 ENTRY_ASSIGNMENT = "asignacion"
+ENTRY_USER_ASSIGNMENT = "asignacion_usuario"
 
 CREATION_MESSAGE = "Factura registrada en el sistema"
 
@@ -93,6 +94,34 @@ def build_assignment_entry(message, user, now):
     """
     return {
         "type": ENTRY_ASSIGNMENT,
+        "message": message or "",
+        "old_state": None,
+        "new_state": None,
+        "entry_by": user or "",
+        "entry_date": now or "",
+    }
+
+
+def user_assignment_message(new_labels, previous_labels):
+    """Mensaje del historial para una asignacion manual de usuarios.
+
+    Lista los asignados nuevos y, si habia, los previos (reasignacion).
+    El autor de la entrada lo agrega el timeline (`entry_by`).
+    """
+    assigned = ", ".join(
+        [label for label in (new_labels or []) if label]
+    ) or "-"
+    previous = [label for label in (previous_labels or []) if label]
+    if not previous:
+        return "Asignados: {0}.".format(assigned)
+    return "Asignados: {0}. Asignados previos: {1}.".format(
+        assigned, ", ".join(previous))
+
+
+def build_user_assignment_entry(message, user, now):
+    """Entrada de historial (no comentario) de una asignacion manual."""
+    return {
+        "type": ENTRY_USER_ASSIGNMENT,
         "message": message or "",
         "old_state": None,
         "new_state": None,

@@ -2,6 +2,74 @@ $(document).ready(function () {
 
     var assignTargetDoc = null;
 
+    function setAssignUsersMessage(message) {
+        $("#assign-user-list").html(
+            '<div class="assign-user-empty">' + message + '</div>');
+    }
+
+    function escapeHtml(value) {
+        return String(value == null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function loadAssignUsers() {
+        setAssignUsersMessage("Cargando usuarios...");
+        $("#assign-user-search").val("");
+
+        petition_get_data({}, "qp_supplier_front.resources.documenteme.assign.get_users", function (response) {
+            var users = response.data || [];
+            if (!users.length) {
+                setAssignUsersMessage("No hay usuarios disponibles");
+                return;
+            }
+
+            var html = "";
+            $.each(users, function (index, u) {
+                var fullName = (u.first_name || "") + " " + (u.last_name || "");
+                fullName = $.trim(fullName);
+                if (!fullName) {
+                    fullName = u.name;
+                }
+                html += '<label class="assign-user-option">' +
+                    '<input type="checkbox" name="assign-user" value="' + escapeHtml(u.name) + '">' +
+                    '<span>' + escapeHtml(fullName) + '</span>' +
+                    '</label>';
+            });
+
+            $("#assign-user-list").html(html);
+        });
+    }
+
+    function getSelectedAssignUsers() {
+        var users = [];
+        $("#assign-user-list input[name=\"assign-user\"]:checked").each(function () {
+            users.push($(this).val());
+        });
+        return users;
+    }
+
+    function getAssignUserNames(users) {
+        var names = [];
+        $("#assign-user-list input[name=\"assign-user\"]").each(function () {
+            if (users.indexOf($(this).val()) !== -1) {
+                names.push($(this).closest("label").find("span").text());
+            }
+        });
+        return names;
+    }
+
+    $("#assign-user-search").on("input", function () {
+        var term = $.trim($(this).val()).toLowerCase();
+        $("#assign-user-list .assign-user-option").each(function () {
+            var search = $(this).text().toLowerCase();
+            $(this).toggle(!term || search.indexOf(term) !== -1);
+        });
+    });
+
     $('tbody input[type="checkbox"]').prop("checked", false);
 
     $("#go-collections").on("click", function (event) {
@@ -34,18 +102,7 @@ $(document).ready(function () {
         var $tbody = $("#assign-table-body");
         $tbody.empty();
 
-        var $select = $("#assign-user-select");
-        $select.prop("disabled", true).html('<option value="">Cargando usuarios...</option>');
-
-        petition_get_data({}, "qp_supplier_front.resources.documenteme.assign.get_users", function (response) {
-            $select.prop("disabled", false).html('<option value="">Seleccione un usuario</option>');
-            if (response.data && response.data.length > 0) {
-                response.data.forEach(function (u) {
-                    var fullName = u.first_name + " " + (u.last_name || "");
-                    $select.append('<option value="' + u.name + '">' + fullName.trim() + '</option>');
-                });
-            }
-        });
+        loadAssignUsers();
 
         petition_get_data({
             doc_names: JSON.stringify(doc_names)
@@ -211,18 +268,7 @@ $(document).ready(function () {
         var $tbody = $("#assign-table-body");
         $tbody.empty();
 
-        var $select = $("#assign-user-select");
-        $select.prop("disabled", true).html('<option value="">Cargando usuarios...</option>');
-
-        petition_get_data({}, "qp_supplier_front.resources.documenteme.assign.get_users", function (response) {
-            $select.prop("disabled", false).html('<option value="">Seleccione un usuario</option>');
-            if (response.data && response.data.length > 0) {
-                response.data.forEach(function (u) {
-                    var fullName = u.first_name + " " + (u.last_name || "");
-                    $select.append('<option value="' + u.name + '">' + fullName.trim() + '</option>');
-                });
-            }
-        });
+        loadAssignUsers();
 
         petition_get_data({
             doc_names: JSON.stringify([assignTargetDoc])
@@ -277,6 +323,11 @@ $(document).ready(function () {
             icon: "shopping_cart",
             color: "#004D90",
             title: "Asignaci\u00f3n de OC"
+        },
+        asignacion_usuario: {
+            icon: "person_add",
+            color: "#004D90",
+            title: "Asignaci\u00f3n manual"
         }
     };
 
@@ -880,9 +931,9 @@ $(document).ready(function () {
     });
 
     $("#confirm-assign").on("click", function () {
-        var user = $("#assign-user-select").val();
-        if (!user) {
-            frappe.msgprint("Seleccione un usuario para asignar");
+        var users = getSelectedAssignUsers();
+        if (!users.length) {
+            frappe.msgprint("Seleccione al menos un usuario para asignar");
             return;
         }
 
@@ -896,7 +947,10 @@ $(document).ready(function () {
             });
         }
 
-        var userName = $("#assign-user-select option:selected").text();
+        var assignedNames = getAssignUserNames(users);
+        var assignedTitle = "Asignado a:\n" + assignedNames.map(function (name) {
+            return "- " + name;
+        }).join("\n");
 
         $("#confirm-assign").prop("disabled", true);
         $("#assign_invoice_modal").modal("hide");
@@ -917,12 +971,12 @@ $(document).ready(function () {
                 if (targetDoc) {
                     var $btn = $('.btn-control-assign[data-name="' + targetDoc + '"]');
                     $btn.css("color", "#007bff");
-                    $btn.attr("title", "Asignado a:\n- " + userName);
+                    $btn.attr("title", assignedTitle);
                 } else {
                     $('tbody input[name="seleccion"]:checked').each(function () {
                         var $btn = $(this).closest("tr").find(".btn-control-assign");
                         $btn.css("color", "#007bff");
-                        $btn.attr("title", "Asignado a:\n- " + userName);
+                        $btn.attr("title", assignedTitle);
                     });
                     $('tbody input[name="seleccion"]:checked').prop("checked", false);
                 }
@@ -932,7 +986,7 @@ $(document).ready(function () {
 
         petition_get_data({
             doc_names: JSON.stringify(doc_names),
-            user: user
+            users: JSON.stringify(users)
         }, url, callresponse);
     });
 

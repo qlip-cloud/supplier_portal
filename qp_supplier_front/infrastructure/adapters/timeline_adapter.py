@@ -26,6 +26,7 @@ from qp_supplier_front.uses_cases.documenteme.timeline import (
     build_comment_entry,
     build_creation_entry,
     build_state_entry,
+    build_user_assignment_entry,
     order_desc,
 )
 
@@ -205,6 +206,17 @@ class RealTimelineAdapter(object):
         historial del modal de alertas.
         """
         entry = build_assignment_entry(
+            message, _user_name(user, self._frappe), _now_str(now)
+        )
+        entry["name"] = _insert_row(doc_name, entry, self._frappe)
+        return entry
+
+    def add_user_assignment(self, doc_name, message, user=None, now=None):
+        """Entrada de historial de una asignacion manual de usuarios.
+
+        El `entry_by` registra quien hizo la asignacion o reasignacion.
+        """
+        entry = build_user_assignment_entry(
             message, _user_name(user, self._frappe), _now_str(now)
         )
         entry["name"] = _insert_row(doc_name, entry, self._frappe)
