@@ -4,15 +4,26 @@ from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
     RealTimelineAdapter,
 )
 from qp_supplier_front.resources.response import handler as response
+from qp_supplier_front.services.documenteme_access import (
+    can_reassign_documenteme,
+)
 from qp_supplier_front.uses_cases.documenteme.assign import assign_documents
 from qp_supplier_front.uses_cases.documenteme.timeline import (
     user_assignment_message,
 )
 
 
+def _forbidden():
+    response(403, "No tiene permisos para reasignar facturas")
+
+
 @frappe.whitelist()
 def get_users():
     try:
+        if not can_reassign_documenteme(frappe.get_roles()):
+            _forbidden()
+            return
+
         users_data = frappe.get_all(
             "User",
             filters={"enabled": 1},
@@ -29,6 +40,10 @@ def get_users():
 @frappe.whitelist()
 def get_document_data(doc_names):
     try:
+        if not can_reassign_documenteme(frappe.get_roles()):
+            _forbidden()
+            return
+
         doc_names_list = parse_json(doc_names)
 
         data = frappe.get_all(
@@ -113,6 +128,10 @@ def _display_names(users):
 @frappe.whitelist()
 def assign(doc_names, users=None, user=None):
     try:
+        if not can_reassign_documenteme(frappe.get_roles()):
+            _forbidden()
+            return
+
         doc_names_list = parse_json(doc_names)
         users_list = _requested_users(users, user)
 

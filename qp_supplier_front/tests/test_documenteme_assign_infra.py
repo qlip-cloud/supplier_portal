@@ -81,7 +81,7 @@ if __name__ == "__main__":
 
 class TestAssignEndpointTimeline(unittest.TestCase):
 
-    def _run(self, users='["new@x.com"]', previous=None):
+    def _run(self, users='["new@x.com"]', previous=None, allowed=True):
         frappe_mock = MagicMock()
         frappe_mock.session.user = "author@x.com"
         names = {
@@ -102,6 +102,7 @@ class TestAssignEndpointTimeline(unittest.TestCase):
         patches = [
             patch.object(infra, "frappe", frappe_mock),
             patch.object(infra, "parse_json", side_effect=json.loads),
+            patch.object(infra, "can_reassign_documenteme", return_value=allowed),
             patch.object(infra, "_invalid_users", return_value=[]),
             patch.object(infra, "_assigned_users", return_value=previous or []),
             patch.object(infra, "assign_documents"),
@@ -136,10 +137,59 @@ class TestAssignEndpointTimeline(unittest.TestCase):
         message = timeline.add_user_assignment.call_args[0][1]
         self.assertEqual(message, "Asignados: Nuevo.")
 
+    def test_sin_rol_de_reasignacion_devuelve_403(self):
+        frappe_mock, response_mock, timeline = self._run(allowed=False)
+
+        self.assertEqual(response_mock.call_args[0][0], 403)
+        timeline.add_user_assignment.assert_not_called()
+        frappe_mock.db.commit.assert_not_called()
+
     def test_asigna_varios_y_registra_todos(self):
         _, _, timeline = self._run(users='["new@x.com", "new2@x.com"]')
 
         args, _ = timeline.add_user_assignment.call_args
         self.assertEqual(
             args[1], "Asignados: Nuevo, Nuevo2.")
+
+class TestAssignEndpointsPermission(unittest.TestCase):
+
+    def _run(self, fn, *args, **kwargs):
+        frappe_mock = MagicMock()
+        frappe_mock.get_roles.return_value = ["Administrador Sede Documenteme"]
+        response_mock = MagicMock()
+        with patch.object(infra, "frappe", frappe_mock), \
+                patch.object(infra, "response", response_mock):
+            fn(*args, **kwargs)
+        return frappe_mock, response_mock
+
+    def test_get_users_403_sin_rol_de_reasignacion(self):
+        frappe_mock, response_mock = self._run(infra.get_users)
+        self.assertEqual(response_mock.call_args[0][0], 403)
+        frappe_mock.get_all.assert_not_called()
+
+    def test_get_document_data_403_sin_rol_de_reasignacion(self):
+        _, response_mock = self._run(infra.get_document_data, '["DOC-1"]')
+        self.assertEqual(response_mock.call_args[0][0], 403)
+
+    def test_assign_403_sin_rol_de_reasignacion(self):
+        frappe_mock, response_mock = self._run(
+            infra.assign, '["DOC-1"]', users='["new@x.com"]')
+        self.assertEqual(response_mock.call_args[0][0], 403)
+        frappe_mock.db.commit.assert_not_called()
+
+    def test_assign_permite_compras(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_roles.return_value = ["Administrador Compras Documenteme"]
+        frappe_mock.db.get_value.return_value = "SL-1"
+        response_mock = MagicMock()
+        with patch.object(infra, "frappe", frappe_mock), \
+                patch.object(infra, "parse_json", side_effect=json.loads), \
+                patch.object(infra, "_invalid_users", return_value=[]), \
+                patch.object(infra, "_assigned_users", return_value=[]), \
+                patch.object(infra, "_display_names", return_value=["Nuevo"]), \
+                patch.object(infra, "assign_documents"), \
+                patch.object(infra, "RealTimelineAdapter"), \
+                patch.object(infra, "response", response_mock):
+            infra.assign('["DOC-1"]', users='["new@x.com"]')
+        self.assertEqual(response_mock.call_args[0][0], 200)
 
