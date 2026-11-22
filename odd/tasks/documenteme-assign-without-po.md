@@ -1,6 +1,6 @@
 # Asignación de facturas sin OC (documenteme — crédito)
 
-Branch: `feat/documenteme-assign-without-po`. Delivery: ask-on-risk. Tests: `python -m unittest` (archivo por archivo).
+Branch: `develop-no-reject-oc` (integrada en `develop-documenteme`). Delivery: ask-on-risk. Tests: `python -m unittest` (archivo por archivo).
 
 ## Alcance
 
@@ -113,7 +113,7 @@ Revertir la semántica A = `assign_when_no_action=False` en un solo lugar, con t
 - [x] **T7** (S4, S5) Front. Route: inline. Files: `templates/modal/reference_po.html`, `templates/list/documenteme_sales_invoices/list.html`, `www/monitor/documenteme/index.js`, `www/monitor/documenteme/index.html`, `www/monitor/documenteme/index.py`. Acepta: icono visible solo en crédito sin OC no final; modal multi-selección con búsqueda; opción `SO` en el filtro; badge "Sin OC"; recarga/refresh tras asignar.
 - [x] **T8** (S1, S5, S10, D11, D12) Paridad de simulación. Route: inline. Files: `simulation/assign_memory.py`, `simulation/reject_memory.py`, `simulation/documents_memory.py`, `simulation/collection_invoices_memory.py`, `simulation/seeds.py`, `tests/test_sim_assign_in_memory.py`, `tests/test_sim_reject_in_memory.py`, `tests/test_documents_memory.py`. Acepta: mismos escenarios que real (incluye `invoice_type` en la carga de filas y en los lambdas, reasignación al grupo de la OC y constancia en el timeline); flag sembrado en seeds; collection memory propaga el tipo.
 - [x] **T9** (S8) Escenarios GP. Route: inline. Files: tests de simulación GP + `docs/FLUJO-GP-DOCUMENTEME.md`. Acepta: crédito sin OC asignado no rompe tipo 1/2; con OC con recepciones = tipo 1; con OC sin recepciones = tipo 2 y homologación; servicio/NC intactos.
-- [ ] **T10** (all) Verificación y contexto. Route: inline. Acepta: suite por archivo verde; docs (`docs/ASIGNACION-AUTOMATICA-DOCUMENTEME.md`, skill `documenteme`, `AGENTS.md`) actualizados **con confirmación del usuario**.
+- [x] **T10** (all) Verificación y contexto. Route: inline. Hecho: suite por archivo verde; docs actualizados: `docs/ASIGNACION-SIN-OC-DOCUMENTEME.md` (nuevo), `docs/ASIGNACION-AUTOMATICA-DOCUMENTEME.md`, skill `documenteme`, `AGENTS.md`. Ver §Ajustes posteriores y Log L9-L12.
 
 ## Slices de entrega (ask-on-risk)
 
@@ -158,6 +158,18 @@ Comandos de referencia:
 - Migración: el patch backfillea las filas catch-all existentes a `Contado`. Si el negocio quiere que una fila existente también cubra crédito, debe editarla a `Todos` o crear la fila `Credito`.
 - Cambiar la firma de `resolve_emails_fn` obliga a actualizar lambdas de tests y de `simulation/collection_invoices_memory.py`.
 
+## Ajustes posteriores (implementación real)
+
+- **Candidatas en borrador + filtros**: `get_purchase_order_candidates` incluye `docstatus < 2` (las POs sincronizadas desde BC llegan sin submitir); el modal agrega Desde/Hasta y búsqueda server-side con debounce. Commit `0b204fa`.
+- **D9 (UI)**: el modal quedó solo con "Solo asignar"; el endpoint conserva el parámetro `approve` por compatibilidad.
+- **D10 (log)**: la asignación ya no es comentario ni alerta: se registra como entrada de historial `asignacion` (`qp_SP_TimelineEntry`) y se muestra en el "Historial" del modal de alertas. Commits `9807b17`/`51f45ce`.
+- **UX de progreso**: marca transitoria en cache (`services/auto_approve_state.py`), badge "Procesando" (`status-progress`, gris, sin spinner), checkbox deshabilitado, polling de `get_auto_approve_job_status` y refresh de la fila. Commit `51f45ce`.
+- **Refresh por fila**: `resources/utils/pagination.render_row` + partial `row.html` + JS `refreshInvoiceRow`; aplicado a asignar OC, aplicar recibos y asignar referencia NC. Sync/refresh y aprobación en lote con errores mantienen reload completo. Commit `51f45ce`.
+- **OWASP**: mensajes genéricos, sin revelar la regla de auto-aprobación, en JS, `receipt_selection.py` y `approve.py`. Commit `51f45ce`.
+- **Colores**: `status-progress` gris para transitivos (`PA`/`PR`/`PSA`/Procesando); `SO`/`SR` azul; `V` amarillo; `A` verde; `R` rojo; `BCC` gris. Commit `51f45ce`.
+- **Patch**: `add_assignment_config_invoice_type` requiere `reload_doc(force=True)` antes del UPDATE porque los patches corren antes de `sync_all`. Commit `6ec85bd`.
+- **Validación en sitio**: `davita.qa` migrado; prueba real de asignar OC + auto-aprobación → `BCC`; fila catch-all `Credito` y reasignación al grupo `oc_type`/`headquarter` verificadas.
+
 ## Log
 
 - **L1**: "vamos a hacer un cambio en el proceso de asignaciones / el cambio es requerido para bc, pero podemos evaluar el impacto en gp / necesitamos que las facturas que no tengan oc en vez de rechazarse, se asigne a usuarios que van a indicar las ordenes de compra a la q le pertenece y despues que se le asigne manualmente la orden de compra siga su flujo normal" + los 4 puntos de la propuesta original.
@@ -168,3 +180,8 @@ Comandos de referencia:
 - **L6**: "La factura conserva los asignados del catch-all: lo ideal es q una vez asignada la oc, se re-asigna al grupo del oc_type y headquarter como funciona normalmente, lo q si podemos es dejar contancia en el log q se le muestra al usuario" → decisión **D11** y ajuste de T6/T8/riesgos.
 - **L7**: "ese es el punto, tambien se lo asignara a los de contado, debemos poder diferenciarlos" → decisión **D12** (`invoice_type` en `qp_SP_AssignmentConfig`), tarea T2b y ajuste de T3/T6/T8/riesgos.
 - **L8**: Implementado en la rama `develop-no-reject-oc` (desde `develop-documenteme`): `a8b8500` config + predicado, `b0ece81` flujo núcleo + simulación, `33c6b5f` endpoint manual de OC, `5e30c48` front. T1-T9 verificadas; T10 (docs/skill/AGENTS) pendiente de confirmación del usuario.
+- **L9**: "48988 ... no tiene el mismo valor de la factura no se va a aprobar automaticamente" → se alinearon los montos de `SETT0501443` (1.299.123) con la recepción R112254 y se verificó `solve_receipt_bank`; se detectó que las candidatas exigían `docstatus=1` y se incluyeron borradores.
+- **L10**: "elimina el boton de asignar y aprobar", "mueve el log de las asignaciones a alertas", "el boton de + en la fila de recepciones ... color deshabilitado".
+- **L11**: "la informacion lo agregas en la alerta activando el color del icono, lo prefiero en el historial" → se creó la entrada de historial `asignacion`; se limpió la factura varias veces para pruebas.
+- **L12**: "el proceso funciona ... problema en la ux ... se muestra listo para procesar y parece que no se hace nada"; "este mensaje rompe el owasp"; "porque tiene que recargar toda la lista no se puede solo recargar la linea afectada"; "generalízalo"; "los estados transitivos ... deberían ser grises"; "Sin OC ... tiene que ser azul como sin referencia".
+- **L13**: Documentación completada: `docs/ASIGNACION-SIN-OC-DOCUMENTEME.md` (nuevo), `docs/ASIGNACION-AUTOMATICA-DOCUMENTEME.md`, skill `documenteme` y `AGENTS.md`. Commits finales: `6ec85bd`, `0b204fa`, `b365ca2`, `9807b17`, `51f45ce`; `develop-documenteme` pusheada.

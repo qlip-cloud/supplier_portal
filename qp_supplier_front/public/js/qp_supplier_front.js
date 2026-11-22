@@ -232,11 +232,55 @@ $(document).ready(function () {
     })
 
 
-    $(window).scroll(function () {
-        if ($(window).scrollTop() + $(window).height() >= $(document).height()) {
+    function atScrollBottom(el) {
+        // Devuelve true si el elemento (o el documento) esta cerca del final.
+        var threshold = 200;
+
+        if (!el || el === document || el === window) {
+            var doc = document.scrollingElement || document.documentElement;
+            if (!doc) {
+                return false;
+            }
+            var scrollTop = window.pageYOffset || doc.scrollTop || 0;
+            var viewport = window.innerHeight || doc.clientHeight || 0;
+            return (scrollTop + viewport) >= (doc.scrollHeight - threshold);
+        }
+
+        if (!el.scrollHeight || el.scrollHeight <= el.clientHeight) {
+            return false;
+        }
+
+        return (el.scrollTop + el.clientHeight) >= (el.scrollHeight - threshold);
+    }
+
+    function onAnyScroll(event) {
+        // Ignora eventos mientras hay una carga en curso o ya no hay datos,
+        // para no disparar el popup de "peticion en curso".
+        if (loading || no_more) {
+            return;
+        }
+
+        var target = event ? event.target : null;
+
+        if (atScrollBottom(target) ||
+            atScrollBottom(document.scrollingElement || document.documentElement)) {
             loadMoreInvoices();
         }
-    });
+    }
+
+    function bindInfiniteScroll() {
+        // Escucha el scroll de la ventana Y el de cualquier contenedor interno
+        // (capture phase): algunas vistas scrollean en un div, no en window.
+        if ($("#accordion").length === 0) {
+            return;
+        }
+
+        $(window).off('scroll', onAnyScroll).on('scroll', onAnyScroll);
+        document.removeEventListener('scroll', onAnyScroll, true);
+        document.addEventListener('scroll', onAnyScroll, true);
+    }
+
+    bindInfiniteScroll();
 
     function loadMoreInvoices(is_filter = false) {
 
@@ -309,11 +353,7 @@ $(document).ready(function () {
         let accordion = $("#accordion");
 
         $(window).off('scroll');
-        $(window).scroll(function () {
-            if ($(window).scrollTop() + $(window).height() >= $(document).height()) {
-                loadMoreInvoices();
-            }
-        });
+        bindInfiniteScroll();
 
         clearTimeout(debounceTimer);
 

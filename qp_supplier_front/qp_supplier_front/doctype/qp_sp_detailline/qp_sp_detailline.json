@@ -33,7 +33,7 @@
   },
   {
    "fieldname": "nvdet_desc",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "in_list_view": 1,
    "label": "Nvdet Desc"
   },
@@ -69,13 +69,13 @@
   },
   {
    "fieldname": "nvuni_desc",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "in_list_view": 1,
    "label": "Nvuni Desc"
   },
   {
    "fieldname": "nvdet_nota",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "Nvdet Nota"
   },
   {
@@ -88,7 +88,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-07-03 10:00:00",
+ "modified": "2026-11-22 17:23:50",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DetailLine",
