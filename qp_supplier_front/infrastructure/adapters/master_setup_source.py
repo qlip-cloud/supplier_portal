@@ -21,6 +21,10 @@ y en modo simulador el composition root inyecta la de memoria.
 
 MASTER_SETUP_DOCTYPE = "qp_SP_MasterSetup"
 
+# Guard de salida a produccion: bloquea la DESCARGA de facturas nuevas
+# (boton Actualizar y sync programado). La carga manual por rango lo ignora.
+NEW_INVOICE_FETCH_BLOCK_FIELD = "documenteme_block_new_invoice_fetch"
+
 DEFAULT_SEDE_SOURCE = "qp_md_headquarter"
 DEFAULT_REJECT_MAX_ATTEMPTS = 5
 DEFAULT_REJECT_RETRY_INTERVAL = 60
@@ -34,6 +38,22 @@ SUPER_APPROVER_FIELDS = (
     "threshold_percentage",
     "limit_percentage",
 )
+
+
+def flag_enabled(value):
+    """Interpreta un Check (0/1, bool, "1") sin caer en truthiness raro.
+
+    Un valor ilegible (columna ausente, MagicMock, None) NO bloquea la
+    descarga: el guard es fail-open para no romper sitios sin el campo. Se
+    exige el tipo real porque MagicMock soporta __int__ y devolveria 1.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return value == 1
+    if isinstance(value, str):
+        return value.strip().lower() in ("1", "true")
+    return False
 
 
 def super_approver_row(row):
@@ -67,10 +87,26 @@ class RealMasterSetupSource(object):
         frappe = self._frappe_module()
         return frappe.db.get_single_value(MASTER_SETUP_DOCTYPE, "auto_reject")
 
+    def assign_without_po_enabled(self):
+        frappe = self._frappe_module()
+        return bool(frappe.db.get_single_value(
+            MASTER_SETUP_DOCTYPE, "assign_invoices_without_po"))
+
     def documenteme_backend(self):
         frappe = self._frappe_module()
         return frappe.db.get_single_value(
             MASTER_SETUP_DOCTYPE, "documenteme_backend")
+
+    def new_invoice_fetch_blocked(self):
+        """True si la descarga de facturas documenteme esta bloqueada."""
+        frappe = self._frappe_module()
+        try:
+            value = frappe.db.get_single_value(
+                MASTER_SETUP_DOCTYPE, NEW_INVOICE_FETCH_BLOCK_FIELD)
+        except Exception:
+            # Columna ausente (migrate pendiente) o lectura fallida: fail-open.
+            return False
+        return flag_enabled(value)
 
     def reject_config(self):
         frappe = self._frappe_module()

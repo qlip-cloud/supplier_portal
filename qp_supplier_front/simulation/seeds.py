@@ -142,16 +142,19 @@ def seed_oc_type(store, name, is_inventariable=False):
 
 
 def seed_assignment_config(store, name, oc_type, headquarter="", user_emails=None,
-                           role_names=None, user_preferences=None):
+                           role_names=None, user_preferences=None,
+                           invoice_type="Todos"):
     """Fila de qp_SP_AssignmentConfig + usuarios/roles destino (child).
 
     user_preferences: dict opcional email -> "Ambos"|"Con Recepcion"|
     "Sin Recepcion" para la preferencia del renglon de usuarios.
+    invoice_type: "Todos"|"Credito"|"Contado" (fila sin OC).
     """
     _insert_if_missing(store, "qp_SP_AssignmentConfig", {
         "name": name,
         "oc_type": oc_type,
         "headquarter": headquarter,
+        "invoice_type": invoice_type,
     })
     for email in (user_emails or []):
         _insert_if_missing(store, "qp_SP_AssignmentConfigUser", {
@@ -195,7 +198,12 @@ def seed_scenario(store):
     # Fila catch-all para contado sin OC que rompe la regla (se asigna).
     seed_assignment_config(
         store, "CFG-CATCHALL", oc_type="", headquarter="",
-        user_emails=[ASSIGNEE_EMAIL],
+        user_emails=[ASSIGNEE_EMAIL], invoice_type="Contado",
+    )
+    # Fila sin OC para credito (flag assign_invoices_without_po).
+    seed_assignment_config(
+        store, "CFG-SIN-OC-CREDITO", oc_type="", headquarter="",
+        user_emails=[ASSIGNEE_EMAIL], invoice_type="Credito",
     )
     seed_master_setup(store, auto_approve=1, auto_reject="RULE-NO-PO")
 

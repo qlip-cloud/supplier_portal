@@ -147,7 +147,7 @@ class TestApplyComplete(_Base):
         infra.apply("DOC1", '["R1","R2"]')
         message = self._message(frappe_mock)
         self.assertEqual(message["status"], 200)
-        self.assertIn("manualmente", message["msg"])
+        self.assertIn("Recibos aplicados", message["msg"])
         self.assertEqual(message["data"]["classification"], "completo")
         self.assertEqual(claim_calls, [["R1", "R2"]])
 

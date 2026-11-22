@@ -294,6 +294,12 @@ label {
     background-color: #f9fafb;
 }
 
+.status-progress {
+    border: 2px solid #9ca3af;
+    color: #6b7280;
+    background-color: #f3f4f6;
+}
+
 .inner-table {
     width: 100%;
     border-collapse: collapse;

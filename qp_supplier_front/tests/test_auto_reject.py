@@ -447,3 +447,78 @@ class TestAutoReject(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCollectRejectableWithoutPo(unittest.TestCase):
+    """Credito sin OC: el flag assign_invoices_without_po lo saca del rechazo."""
+
+    def _resolve(self, rule):
+        return lambda doc: rule
+
+    def _candidates(self, orde="", conv=None, name="DOC1"):
+        doc = _invoice(name=name, nvfac_orde=orde)
+        doc["nvfac_conv"] = conv
+        return [doc]
+
+    def test_flag_off_credito_sin_oc_se_rechaza(self):
+        rejectable = collect_rejectable(
+            self._candidates(),
+            self._resolve(_rule(RULE_NO_PO)),
+            lambda o: False,
+            lambda o: None,
+        )
+        self.assertEqual(len(rejectable), 1)
+
+    def test_flag_on_credito_sin_oc_no_se_rechaza(self):
+        rejectable = collect_rejectable(
+            self._candidates(),
+            self._resolve(_rule(RULE_NO_PO)),
+            lambda o: False,
+            lambda o: None,
+            assign_without_po=True,
+        )
+        self.assertEqual(rejectable, [])
+
+    def test_flag_on_contado_sin_oc_sigue_su_flujo(self):
+        rejectable = collect_rejectable(
+            self._candidates(conv="1"),
+            self._resolve(_rule(RULE_NO_PO)),
+            lambda o: False,
+            lambda o: None,
+            assign_without_po=True,
+        )
+        self.assertEqual(len(rejectable), 1)
+
+    def test_flag_on_credito_con_oc_no_se_afecta(self):
+        rejectable = collect_rejectable(
+            self._candidates(orde="OC111"),
+            self._resolve(_rule(RULE_NO_RECEIPT)),
+            lambda o: True,
+            lambda o: None,
+            assign_without_po=True,
+        )
+        self.assertEqual(len(rejectable), 1)
+
+    def test_flag_on_knob_futuro_no_action_no_saltea(self):
+        # Con el knob futuro en False, un proveedor no_action no se saltea la
+        # regla; pero no_action nunca rechaza, asi que no queda rejectable.
+        rejectable = collect_rejectable(
+            self._candidates(),
+            self._resolve(_rule(RULE_NO_ACTION)),
+            lambda o: False,
+            lambda o: None,
+            assign_without_po=True,
+            assign_when_no_action=False,
+        )
+        self.assertEqual(rejectable, [])
+
+    def test_flag_on_knob_futuro_otra_regla_si_se_saltea(self):
+        rejectable = collect_rejectable(
+            self._candidates(),
+            self._resolve(_rule(RULE_NO_PO)),
+            lambda o: False,
+            lambda o: None,
+            assign_without_po=True,
+            assign_when_no_action=False,
+        )
+        self.assertEqual(rejectable, [])

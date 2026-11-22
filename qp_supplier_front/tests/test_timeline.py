@@ -257,3 +257,60 @@ class TestBeforeSaveHook(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestUserAssignmentEntry(unittest.TestCase):
+
+    def test_mensaje_sin_previos(self):
+        from qp_supplier_front.uses_cases.documenteme.timeline import (
+            user_assignment_message,
+        )
+        self.assertEqual(
+            "Asignados: Ana, Luis.",
+            user_assignment_message(["Ana", "Luis"], []),
+        )
+
+    def test_mensaje_con_previos(self):
+        from qp_supplier_front.uses_cases.documenteme.timeline import (
+            user_assignment_message,
+        )
+        self.assertEqual(
+            "Asignados: Ana. Asignados previos: Pedro.",
+            user_assignment_message(["Ana"], ["Pedro"]),
+        )
+
+    def test_mensaje_descarta_vacios(self):
+        from qp_supplier_front.uses_cases.documenteme.timeline import (
+            user_assignment_message,
+        )
+        self.assertEqual(
+            "Asignados: Ana.",
+            user_assignment_message(["Ana", ""], ["", None]),
+        )
+
+
+class TestAddUserAssignment(unittest.TestCase):
+
+    def setUp(self):
+        self.frappe, self.utils = _make_frappe()
+        self.patcher = patch.dict(
+            sys.modules,
+            {"frappe": self.frappe, "frappe.utils": self.utils},
+        )
+        self.patcher.start()
+        from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+            RealTimelineAdapter,
+        )
+        self.adapter = RealTimelineAdapter()
+
+    def tearDown(self):
+        self.patcher.stop()
+
+    def test_add_user_assignment_inserta_fila(self):
+        entry = self.adapter.add_user_assignment(
+            "D1", "Asignados: Ana.", user="admin@example.com")
+        entry.pop("name")
+        self.assertEqual(entry["type"], "asignacion_usuario")
+        self.assertEqual(entry["message"], "Asignados: Ana.")
+        self.assertEqual(entry["entry_by"], "Admin Name")
+        self.assertEqual(entry["entry_date"], entry["entry_date"])
+        self.assertTrue(self.frappe.db.sql.called)

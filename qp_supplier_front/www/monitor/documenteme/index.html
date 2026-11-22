@@ -56,11 +56,12 @@
                                 <option value="PR">En proceso de rechazo</option>
                                 <option value="PSA">Por Autorización</option>
                                 <option value="SR">Sin referencia</option>
+                                <option value="SO">Sin OC</option>
                             </select>
                         </div>
                     </div>
                     <div class="dm-toolbar-actions">
-                        {% if not is_sede_documenteme %}
+                        {% if can_reassign %}
                         <button type="button" class="btn btn-primary btn-sm rounded" id="assign-document"
                             title="Asignar">Asignar</button>
                         {% endif %}
@@ -124,4 +125,5 @@
 {% include "qp_supplier_front/templates/modal/timeline.html" %}
 {% include "qp_supplier_front/templates/modal/notifications.html" %}
 {% include "qp_supplier_front/templates/modal/reference_nc.html" %}
+{% include "qp_supplier_front/templates/modal/reference_po.html" %}
 {% endblock %}

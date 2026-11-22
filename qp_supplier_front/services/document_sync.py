@@ -215,7 +215,7 @@ def create_detail_line(detalle_item):
     return line
 
 
-ADVANCED_STATES = ("SR", "PSA", "BCC", "PA", "A", "R")
+ADVANCED_STATES = ("SO", "SR", "PSA", "BCC", "PA", "A", "R")
 
 
 def _resolve_sync_state(current_state, origin_state, origin_ueve):
@@ -242,6 +242,8 @@ def _set_document_detail_fields(doc, document_data):
     current_state = doc.get("nvfac_esta")
     origin_state = document_data.get("Nvfac_esta")
     origin_ueve = document_data.get("Nvfac_ueve")
+    origin_po = str(document_data.get("Nvfac_orde") or "").strip()
+    manual_po = str(doc.get("qp_manual_purchase_order") or "").strip()
     doc.nvfac_cont = document_data.get("Nvfac_cont")
     doc.nvtip_docu = document_data.get("Nvtip_docu")
     doc.nvfac_nume = document_data.get("Nvfac_nume")
@@ -253,7 +255,11 @@ def _set_document_detail_fields(doc, document_data):
     doc.nvfac_totp = document_data.get("Nvfac_totp")
     doc.nvfac_esta = _resolve_sync_state(current_state, origin_state, origin_ueve)
     doc.nvfac_rfec = convert_to_mariadb_datetime(document_data.get("Nvfac_rfec"))
-    doc.nvfac_orde = document_data.get("Nvfac_orde")
+    # La OC manual del usuario solo completa el vacio del origen: si
+    # documenteme manda una OC real, esa prevalece.
+    doc.nvfac_orde = origin_po or manual_po
+    if doc.nvfac_esta == "SO" and origin_po:
+        doc.nvfac_esta = "E"
     doc.nvfac_rece = document_data.get("Nvfac_rece")
     doc.nvfac_refe = document_data.get("Nvfac_refe")
     doc.nvsuc_codi = document_data.get("Nvsuc_codi")

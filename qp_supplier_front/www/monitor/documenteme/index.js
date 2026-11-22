@@ -2,6 +2,74 @@ $(document).ready(function () {
 
     var assignTargetDoc = null;
 
+    function setAssignUsersMessage(message) {
+        $("#assign-user-list").html(
+            '<div class="assign-user-empty">' + message + '</div>');
+    }
+
+    function escapeHtml(value) {
+        return String(value == null ? "" : value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function loadAssignUsers() {
+        setAssignUsersMessage("Cargando usuarios...");
+        $("#assign-user-search").val("");
+
+        petition_get_data({}, "qp_supplier_front.resources.documenteme.assign.get_users", function (response) {
+            var users = response.data || [];
+            if (!users.length) {
+                setAssignUsersMessage("No hay usuarios disponibles");
+                return;
+            }
+
+            var html = "";
+            $.each(users, function (index, u) {
+                var fullName = (u.first_name || "") + " " + (u.last_name || "");
+                fullName = $.trim(fullName);
+                if (!fullName) {
+                    fullName = u.name;
+                }
+                html += '<label class="assign-user-option">' +
+                    '<input type="checkbox" name="assign-user" value="' + escapeHtml(u.name) + '">' +
+                    '<span>' + escapeHtml(fullName) + '</span>' +
+                    '</label>';
+            });
+
+            $("#assign-user-list").html(html);
+        });
+    }
+
+    function getSelectedAssignUsers() {
+        var users = [];
+        $("#assign-user-list input[name=\"assign-user\"]:checked").each(function () {
+            users.push($(this).val());
+        });
+        return users;
+    }
+
+    function getAssignUserNames(users) {
+        var names = [];
+        $("#assign-user-list input[name=\"assign-user\"]").each(function () {
+            if (users.indexOf($(this).val()) !== -1) {
+                names.push($(this).closest("label").find("span").text());
+            }
+        });
+        return names;
+    }
+
+    $("#assign-user-search").on("input", function () {
+        var term = $.trim($(this).val()).toLowerCase();
+        $("#assign-user-list .assign-user-option").each(function () {
+            var search = $(this).text().toLowerCase();
+            $(this).toggle(!term || search.indexOf(term) !== -1);
+        });
+    });
+
     $('tbody input[type="checkbox"]').prop("checked", false);
 
     $("#go-collections").on("click", function (event) {
@@ -34,18 +102,7 @@ $(document).ready(function () {
         var $tbody = $("#assign-table-body");
         $tbody.empty();
 
-        var $select = $("#assign-user-select");
-        $select.prop("disabled", true).html('<option value="">Cargando usuarios...</option>');
-
-        petition_get_data({}, "qp_supplier_front.resources.documenteme.assign.get_users", function (response) {
-            $select.prop("disabled", false).html('<option value="">Seleccione un usuario</option>');
-            if (response.data && response.data.length > 0) {
-                response.data.forEach(function (u) {
-                    var fullName = u.first_name + " " + (u.last_name || "");
-                    $select.append('<option value="' + u.name + '">' + fullName.trim() + '</option>');
-                });
-            }
-        });
+        loadAssignUsers();
 
         petition_get_data({
             doc_names: JSON.stringify(doc_names)
@@ -211,18 +268,7 @@ $(document).ready(function () {
         var $tbody = $("#assign-table-body");
         $tbody.empty();
 
-        var $select = $("#assign-user-select");
-        $select.prop("disabled", true).html('<option value="">Cargando usuarios...</option>');
-
-        petition_get_data({}, "qp_supplier_front.resources.documenteme.assign.get_users", function (response) {
-            $select.prop("disabled", false).html('<option value="">Seleccione un usuario</option>');
-            if (response.data && response.data.length > 0) {
-                response.data.forEach(function (u) {
-                    var fullName = u.first_name + " " + (u.last_name || "");
-                    $select.append('<option value="' + u.name + '">' + fullName.trim() + '</option>');
-                });
-            }
-        });
+        loadAssignUsers();
 
         petition_get_data({
             doc_names: JSON.stringify([assignTargetDoc])
@@ -272,6 +318,16 @@ $(document).ready(function () {
             icon: "comment",
             color: "#28a745",
             title: "Comentario"
+        },
+        asignacion: {
+            icon: "shopping_cart",
+            color: "#004D90",
+            title: "Asignaci\u00f3n de OC"
+        },
+        asignacion_usuario: {
+            icon: "person_add",
+            color: "#004D90",
+            title: "Asignaci\u00f3n manual"
         }
     };
 
@@ -875,9 +931,9 @@ $(document).ready(function () {
     });
 
     $("#confirm-assign").on("click", function () {
-        var user = $("#assign-user-select").val();
-        if (!user) {
-            frappe.msgprint("Seleccione un usuario para asignar");
+        var users = getSelectedAssignUsers();
+        if (!users.length) {
+            frappe.msgprint("Seleccione al menos un usuario para asignar");
             return;
         }
 
@@ -891,7 +947,10 @@ $(document).ready(function () {
             });
         }
 
-        var userName = $("#assign-user-select option:selected").text();
+        var assignedNames = getAssignUserNames(users);
+        var assignedTitle = "Asignado a:\n" + assignedNames.map(function (name) {
+            return "- " + name;
+        }).join("\n");
 
         $("#confirm-assign").prop("disabled", true);
         $("#assign_invoice_modal").modal("hide");
@@ -912,12 +971,12 @@ $(document).ready(function () {
                 if (targetDoc) {
                     var $btn = $('.btn-control-assign[data-name="' + targetDoc + '"]');
                     $btn.css("color", "#007bff");
-                    $btn.attr("title", "Asignado a:\n- " + userName);
+                    $btn.attr("title", assignedTitle);
                 } else {
                     $('tbody input[name="seleccion"]:checked').each(function () {
                         var $btn = $(this).closest("tr").find(".btn-control-assign");
                         $btn.css("color", "#007bff");
-                        $btn.attr("title", "Asignado a:\n- " + userName);
+                        $btn.attr("title", assignedTitle);
                     });
                     $('tbody input[name="seleccion"]:checked').prop("checked", false);
                 }
@@ -927,7 +986,7 @@ $(document).ready(function () {
 
         petition_get_data({
             doc_names: JSON.stringify(doc_names),
-            user: user
+            users: JSON.stringify(users)
         }, url, callresponse);
     });
 
@@ -944,6 +1003,7 @@ $(document).ready(function () {
     var URL_UNLOCK_DOCUMENTS_SYNC = "qp_supplier_front.uses_cases.documents.sync_all_whitelist.unlock_documents_sync";
     var URL_AUTO_APPROVE_STATUS = "qp_supplier_front.resources.documenteme.auto_approve.get_auto_approve_job_status";
     var URL_AUTO_APPROVE_RETRY = "qp_supplier_front.resources.documenteme.auto_approve.retry_auto_approve";
+    var URL_RENDER_ROW = "qp_supplier_front.resources.utils.pagination.render_row";
 
     // Un solo estado continuo: la barra sigue visible desde el click hasta que
     // terminan el sync y la aprobacion en segundo plano. No se recarga la
@@ -1040,23 +1100,26 @@ $(document).ready(function () {
     // Espera la aprobacion en segundo plano manteniendo el estado continuo. Al
     // usuario no se le muestra mecanica interna (worker, cola, conteos): solo
     // un mensaje generico de actualizacion en curso.
-    function pollBackgroundApproval(attempts) {
+    function pollBackgroundApproval(attempts, finishedMessage, refreshFn, progressText) {
+        var refresh = refreshFn || window.filter_init;
         if (attempts >= SYNC_POLL_MAX) {
             clearSyncProgress();
-            window.filter_init();
+            refresh();
             frappe.msgprint("La actualizaci\u00f3n est\u00e1 tardando m\u00e1s de lo normal. "
                 + "Vuelva a intentarlo en unos minutos.");
             return;
         }
         petition_get_data({}, URL_AUTO_APPROVE_STATUS, function (status) {
             if (status && status.pending) {
-                setSyncProgress("Actualizando facturas...");
-                setTimeout(function () { pollBackgroundApproval(attempts + 1); }, SYNC_POLL_MS);
+                setSyncProgress(progressText || "Actualizando facturas...");
+                setTimeout(function () {
+                    pollBackgroundApproval(attempts + 1, finishedMessage, refreshFn, progressText);
+                }, SYNC_POLL_MS);
                 return;
             }
             clearSyncProgress();
             if (status && status.waiting_worker) {
-                window.filter_init();
+                refresh();
                 if (canManageSync()) {
                     frappe.msgprint({
                         title: "Actualizaci\u00f3n pendiente",
@@ -1073,8 +1136,8 @@ $(document).ready(function () {
                     + "Vuelva a intentarlo en unos minutos.");
                 return;
             }
-            window.filter_init();
-            frappe.msgprint("Actualizaci\u00f3n completada.");
+            refresh();
+            frappe.msgprint(finishedMessage || "Actualizaci\u00f3n completada.");
         });
     }
 
@@ -1119,11 +1182,26 @@ $(document).ready(function () {
                         $(".filter-list.filter-check").val("0");
                         $(".filter-list.date").removeAttr("min").removeAttr("max");
                         $("select.filter-list").val("0");
+                        var fetchBlockedMsg = response.fetch_blocked
+                            ? "La descarga de facturas nuevas est\u00e1 bloqueada "
+                                + "temporalmente. Se actualizaron asignaciones, "
+                                + "aprobaciones y rechazos, pero no se trajeron "
+                                + "facturas nuevas."
+                            : null;
                         if (response.enqueued > 0 || response.already_queued) {
                             // Un solo estado continuo: no se recarga la lista
                             // hasta que termina la aprobacion en segundo plano.
                             setSyncProgress("Actualizando facturas...");
+                            if (fetchBlockedMsg) {
+                                frappe.msgprint(fetchBlockedMsg);
+                            }
                             pollBackgroundApproval(0);
+                            return;
+                        }
+                        if (fetchBlockedMsg) {
+                            clearSyncProgress();
+                            window.filter_init();
+                            frappe.msgprint(fetchBlockedMsg);
                             return;
                         }
                         finishRefresh();
@@ -1259,14 +1337,14 @@ $(document).ready(function () {
         var msg;
         if (state.classification === "completo") {
             msg = "Al confirmar se aplicar\u00e1n " + state.count +
-                " recibo(s) a la factura (quedar\u00e1n vinculados). La factura NO se aprueba autom\u00e1ticamente; podr\u00e1s aprobarla manualmente. \u00bfDesea continuar?";
+                " recibo(s) a la factura (quedar\u00e1n vinculados). \u00bfDesea continuar?";
         } else if (state.classification === "excede") {
             msg = "El valor de las recepciones seleccionadas (" + fmtMoney(state.sum) +
                 ") excede el total de la factura (" + fmtMoney(state.stot) +
-                "). Las recepciones son indivisibles, por lo que se aplicar\u00e1n completas; la factura NO se aprueba autom\u00e1ticamente. \u00bfDesea continuar?";
+                "). Las recepciones son indivisibles, por lo que se aplicar\u00e1n completas. \u00bfDesea continuar?";
         } else {
             msg = "El monto seleccionado (" + fmtMoney(state.sum) + ") no cubre el total de la factura (" +
-                fmtMoney(state.stot) + "). Los recibos quedar\u00e1n aplicados a esta factura y no estar\u00e1n disponibles para otras; la factura NO se aprueba autom\u00e1ticamente. \u00bfDesea continuar?";
+                fmtMoney(state.stot) + "). Los recibos quedar\u00e1n aplicados a esta factura y no estar\u00e1n disponibles para otras. \u00bfDesea continuar?";
         }
 
         frappe.confirm(msg, function () {
@@ -1287,7 +1365,7 @@ $(document).ready(function () {
                 }
                 frappe.msgprint(response.msg);
                 if (response.status === 200) {
-                    window.filter_init();
+                    refreshInvoiceRow(docName);
                 }
             });
         }, function () {
@@ -1376,7 +1454,7 @@ $(document).ready(function () {
                 frappe.msgprint(response.msg);
                 if (response.status === 200) {
                     $("#reference_nc_modal").modal("hide");
-                    window.filter_init();
+                    refreshInvoiceRow(refNcDocName);
                 }
             }
         );
@@ -1450,6 +1528,237 @@ $(document).ready(function () {
 
     $("#reference-nc-approve").on("click", function () {
         submitRefAssign(true);
+    });
+
+    // =====================================================================
+    // Asignacion manual de la OC (factura de credito sin OC)
+    // =====================================================================
+    var refPoDocName = null;
+    var refPoSelected = {};
+    window.__refPoOrders = [];
+
+    function refreshRefPoCount() {
+        var count = Object.keys(refPoSelected).length;
+        $("#reference-po-count").text(
+            count ? (count + " orden(es) seleccionada(s)") : ""
+        );
+        $("#reference-po-confirm").toggle(count > 0);
+    }
+
+    function toggleRefPo(name) {
+        if (refPoSelected[name]) {
+            delete refPoSelected[name];
+        } else {
+            refPoSelected[name] = true;
+        }
+        $(".ref-po-row").each(function () {
+            var order = $(this).attr("data-order");
+            var selected = !!refPoSelected[order];
+            $(this).toggleClass("selected", selected);
+            $(this).find(".ref-po-check").prop("checked", selected);
+        });
+        refreshRefPoCount();
+    }
+
+    function renderRefPoCandidates(orders) {
+        var $body = $("#reference-po-body");
+        $body.empty();
+        var rows = orders || [];
+        if (rows.length === 0) {
+            $body.html('<tr><td colspan="7" class="text-center" style="color:#8a9099">Sin ordenes para los filtros</td></tr>');
+            refreshRefPoCount();
+            return;
+        }
+        rows.forEach(function (order) {
+            var name = order.name || "";
+            var checked = !!refPoSelected[name];
+            var receipts = order.has_receipts
+                ? (String(order.receipt_count || 0) + " (" + fmtMoney(order.unclaimed_total) + " libres)")
+                : "Sin recepciones";
+            var $tr = $("<tr class=\"ref-row ref-po-row\" data-order=\"" + escapeHtml(name) + "\">" +
+                "<td class=\"text-center\"><input type=\"checkbox\" class=\"ref-po-check\" data-order=\"" + escapeHtml(name) + "\"" + (checked ? " checked" : "") + "></td>" +
+                "<td>" + escapeHtml(name) + "</td>" +
+                "<td>" + escapeHtml(order.transaction_date || "") + "</td>" +
+                "<td>" + escapeHtml(order.oc_type || "") + "</td>" +
+                "<td>" + escapeHtml(order.headquarter || "") + "</td>" +
+                "<td>" + fmtMoney(order.grand_total) + "</td>" +
+                "<td>" + escapeHtml(receipts) + "</td>" +
+                "</tr>");
+            if (checked) {
+                $tr.addClass("selected");
+            }
+            $tr.on("click", function (event) {
+                if ($(event.target).is("input")) {
+                    return;
+                }
+                event.stopPropagation();
+                toggleRefPo(name);
+            });
+            $body.append($tr);
+        });
+        refreshRefPoCount();
+    }
+
+    function refPoFilters() {
+        var args = { doc_name: refPoDocName };
+        var start = $("#reference-po-start").val();
+        var end = $("#reference-po-end").val();
+        var search = String($("#reference-po-search").val() || "").trim();
+        if (start) {
+            args.start = start;
+        }
+        if (end) {
+            args.end = end;
+        }
+        if (search) {
+            args.search = search;
+        }
+        return args;
+    }
+
+    function loadRefPoCandidates() {
+        $("#reference-po-body").html(
+            '<tr><td colspan="7" class="text-center" style="color:#8a9099">Cargando ordenes...</td></tr>'
+        );
+        refreshRefPoCount();
+
+        petition_get_data(refPoFilters(),
+            "qp_supplier_front.resources.documenteme.purchase_order_reference.get_purchase_order_candidates",
+            function (response) {
+                if (response.status !== 200) {
+                    $("#reference-po-body").html(
+                        '<tr><td colspan="7" class="text-center" style="color:#dc3545">' +
+                        escapeHtml(response.msg || "Error") + "</td></tr>"
+                    );
+                    frappe.msgprint(response.msg || "Error al obtener ordenes");
+                    return;
+                }
+                var data = response.data || {};
+                window.__refPoOrders = data.orders || [];
+                renderRefPoCandidates(window.__refPoOrders);
+            }
+        );
+    }
+
+    // Refresca solo la fila afectada (cabecera + detalle) sin recargar la lista.
+    function refreshInvoiceRow(docName) {
+        if (!docName) {
+            window.filter_init();
+            return;
+        }
+        petition_get_data({ doc_name: docName }, URL_RENDER_ROW, function (response) {
+            if (!response || response.status !== 200 || !response.data) {
+                window.filter_init();
+                return;
+            }
+            var $current = $("tr.card-header").filter(function () {
+                return $(this).attr("data-row") === docName;
+            });
+            if (!$current.length) {
+                window.filter_init();
+                return;
+            }
+            var target = $current.attr("data-target");
+            var $detail = target ? $(target) : $();
+            if (!$detail.length) {
+                window.filter_init();
+                return;
+            }
+            var wasOpen = $detail.hasClass("show");
+            var $rows = $("<tbody>").html(response.data).children("tr");
+            var $newHeader = $rows.filter(".card-header");
+            var $newDetail = $rows.not(".card-header");
+            if (!$newHeader.length || !$newDetail.length) {
+                window.filter_init();
+                return;
+            }
+            if (wasOpen) {
+                $newHeader.attr("aria-expanded", "true");
+                $newDetail.addClass("show");
+            }
+            $current.replaceWith($newHeader);
+            $detail.replaceWith($newDetail);
+        });
+    }
+
+    function submitRefPoAssign(approveFlag) {
+        var selected = Object.keys(refPoSelected);
+        if (!refPoDocName || selected.length === 0) {
+            frappe.msgprint("Seleccione al menos una orden de compra");
+            return;
+        }
+        var docName = refPoDocName;
+        var overlayEl = document.getElementById("overlay");
+        var savedOnClick = overlayEl ? overlayEl.onclick : null;
+        if (overlayEl) {
+            overlayEl.onclick = null;
+            overlayEl.style.display = "block";
+        }
+        petition_get_data({
+            doc_name: docName,
+            purchase_orders: JSON.stringify(selected),
+            approve: JSON.stringify(approveFlag)
+        }, "qp_supplier_front.resources.documenteme.purchase_order_reference.assign_purchase_order",
+            function (response) {
+                if (overlayEl) {
+                    overlayEl.onclick = savedOnClick;
+                    overlayEl.style.display = "none";
+                }
+                if (response.status !== 200) {
+                    frappe.msgprint(response.msg);
+                    return;
+                }
+                var result = (response.data && response.data.result) || {};
+                var processing = !!(result.enqueued > 0 || result.already_queued);
+                $("#reference_po_modal").modal("hide");
+                refreshInvoiceRow(docName);
+                if (!processing) {
+                    frappe.msgprint(response.msg);
+                    return;
+                }
+                frappe.msgprint({
+                    title: "Procesando",
+                    message: "La factura se est\u00e1 procesando. Espere unos segundos."
+                });
+                setSyncProgress("Procesando factura...");
+                pollBackgroundApproval(0, "Proceso finalizado.", function () {
+                    refreshInvoiceRow(docName);
+                }, "Procesando factura...");
+            }
+        );
+    }
+
+    var refPoSearchTimer = null;
+
+    $(document).on("click", ".btn-control-purchase-order", function (event) {
+        event.stopPropagation();
+        refPoDocName = $(this).data("name");
+        refPoSelected = {};
+        $("#reference-po-start").val("");
+        $("#reference-po-end").val("");
+        $("#reference-po-search").val("");
+        $("#reference_po_modal").modal("show");
+        loadRefPoCandidates();
+    });
+
+    $(document).on("change", ".ref-po-check", function (event) {
+        event.stopPropagation();
+        toggleRefPo($(this).attr("data-order"));
+    });
+
+    $("#reference-po-start, #reference-po-end").on("change", function () {
+        loadRefPoCandidates();
+    });
+
+    $("#reference-po-search").on("input", function () {
+        if (refPoSearchTimer) {
+            clearTimeout(refPoSearchTimer);
+        }
+        refPoSearchTimer = setTimeout(loadRefPoCandidates, 400);
+    });
+
+    $("#reference-po-assign").on("click", function () {
+        submitRefPoAssign(false);
     });
 
     // =====================================================================

@@ -191,3 +191,32 @@ class TestResolveSyncState(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class _AttrDoc(dict):
+    def __getattr__(self, name):
+        return self.get(name)
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+
+class TestManualPurchaseOrderPreservation(unittest.TestCase):
+    """La OC manual y el estado SO frente al re-sync real."""
+
+    def test_origen_vacio_preserva_oc_manual_y_so(self):
+        doc = _AttrDoc(nvfac_esta="SO", qp_manual_purchase_order="OC-MANUAL")
+        ds._set_document_detail_fields(
+            doc, {"Nvfac_esta": "E", "Nvfac_orde": ""})
+        self.assertEqual(doc["nvfac_orde"], "OC-MANUAL")
+        self.assertEqual(doc["nvfac_esta"], "SO")
+
+    def test_origen_con_oc_gana_y_sale_de_so(self):
+        doc = _AttrDoc(nvfac_esta="SO", qp_manual_purchase_order="OC-MANUAL")
+        ds._set_document_detail_fields(
+            doc, {"Nvfac_esta": "E", "Nvfac_orde": "OC-REAL"})
+        self.assertEqual(doc["nvfac_orde"], "OC-REAL")
+        self.assertEqual(doc["nvfac_esta"], "E")
+
+    def test_resolve_sync_state_protege_so(self):
+        self.assertEqual(ds._resolve_sync_state("SO", "E", None), "SO")
+        self.assertEqual(ds._resolve_sync_state("SO", "A", None), "A")

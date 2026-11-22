@@ -23,9 +23,22 @@ from qp_supplier_front.uses_cases.documenteme.auto_assign import (
     is_inventariable_oc_type,
     resolve_assignee_emails,
 )
+from qp_supplier_front.uses_cases.documenteme.no_purchase_order import (
+    INVOICE_TYPE_CREDIT,
+)
+from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
+    parse_purchase_orders,
+)
 
 
 def run_auto_assign(doc_names=None):
+    from qp_supplier_front.infrastructure.adapters.master_setup_source import (
+        RealMasterSetupSource,
+    )
+
+    assign_without_po = RealMasterSetupSource(
+        frappe_module=frappe).assign_without_po_enabled()
+
     return auto_assign_core(
         candidates_fn=get_candidates,
         get_oc_context_fn=get_oc_context,
@@ -38,6 +51,8 @@ def run_auto_assign(doc_names=None):
         po_exists_fn=_po_exists,
         is_service_supplier_fn=_is_service_supplier_doc,
         po_supplier_match_fn=po_supplier_match,
+        assign_without_po=assign_without_po,
+        mark_pending_oc_fn=mark_pending_oc,
     )
 
 
@@ -141,7 +156,8 @@ def get_receipt_total(purchase_order_number):
     )
 
 
-def get_assignee_emails(oc_type, headquarter, has_receipt=None):
+def get_assignee_emails(oc_type, headquarter, has_receipt=None,
+                        invoice_type=None):
     oc_type_records = frappe.get_all(
         "qp_SP_OCType", fields=["name", "oc_type", "is_inventariable"]
     )
@@ -162,6 +178,7 @@ def get_assignee_emails(oc_type, headquarter, has_receipt=None):
         assignment_rows,
         roles_to_users_fn=resolve_role_users,
         has_receipt=has_receipt,
+        invoice_type=invoice_type,
     )
 
 
@@ -197,7 +214,7 @@ def _load_assignment_rows(oc_type_records=None):
 
     configs = frappe.get_all(
         "qp_SP_AssignmentConfig",
-        fields=["name", "headquarter", "oc_type"],
+        fields=["name", "headquarter", "oc_type", "invoice_type"],
     )
 
     rows = []
@@ -215,6 +232,7 @@ def _load_assignment_rows(oc_type_records=None):
         rows.append({
             "headquarter": _normalize_headquarter(config.get("headquarter")),
             "oc_type": _normalize_oc_type(config.get("oc_type"), oc_type_records),
+            "invoice_type": config.get("invoice_type"),
             "user_emails": [row.get("user_email") for row in child_rows],
             "user_preferences": {
                 row.get("user_email"): row.get("receipt_preference")
@@ -247,3 +265,90 @@ def add_assignees(sync_line_name, users):
         line.append("assigned_users", {"user": user})
 
     line.save()
+
+
+def mark_pending_oc(detail_name):
+    """Marca la factura en "SO" (Sin OC) y lo registra en el timeline."""
+    if not detail_name:
+        return
+    if not frappe.db.exists("qp_SP_DocumentDetail", detail_name):
+        return
+
+    frappe.db.set_value(
+        "qp_SP_DocumentDetail", detail_name, "nvfac_esta", "SO")
+
+    from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+        RealTimelineAdapter,
+    )
+    RealTimelineAdapter(frappe_module=frappe).set_state(detail_name, "SO")
+
+
+def _unique(items):
+    unique = []
+    for item in (items or []):
+        if item and item not in unique:
+            unique.append(item)
+    return unique
+
+
+def reassign_to_oc_group(detail_name):
+    """Prepara la reasignacion de la factura al grupo de su OC.
+
+    Resuelve el grupo `(oc_type, headquarter)` de las OC de la factura. Si no
+    resuelve destinatarios, conserva la asignacion actual (nunca deja la
+    factura huerfana). Si resuelve, limpia `assigned_to` y `assigned_users`
+    del sync line para que el pipeline normal decida: si el banco cubre el
+    total no queda asignada (pasa a V) y si no, se asigna al grupo de la OC.
+
+    Retorna un dict con `reassigned`, `previous`, `users`, `emails` y `reason`.
+    """
+    if not detail_name:
+        return {"reassigned": False, "reason": "sin_documento"}
+
+    doc = frappe.get_doc("qp_SP_DocumentDetail", detail_name)
+    sync_line = doc.get("document_sync_line")
+    if not sync_line:
+        return {"reassigned": False, "reason": "sin_sync_line"}
+
+    orders = parse_purchase_orders(doc.get("nvfac_orde"))
+    emails = []
+    valid_context = False
+    for order in orders:
+        oc_context = get_oc_context(order)
+        if not oc_context:
+            continue
+        valid_context = True
+        bank = get_receipt_bank(order)
+        emails += get_assignee_emails(
+            oc_context.get("oc_type"),
+            oc_context.get("headquarter"),
+            has_receipt=bool(bank),
+            invoice_type=INVOICE_TYPE_CREDIT,
+        ) or []
+
+    if not valid_context:
+        return {"reassigned": False, "reason": "sin_oc_valida"}
+
+    users = resolve_assignee_users(_unique(emails))
+    if not users:
+        return {
+            "reassigned": False,
+            "reason": "sin_grupo",
+            "emails": _unique(emails),
+        }
+
+    line = frappe.get_doc("qp_SP_DocumentSyncLine", sync_line)
+    previous = [row.user for row in line.assigned_users]
+    if line.assigned_to:
+        previous.append(line.assigned_to)
+
+    line.assigned_to = None
+    line.set("assigned_users", [])
+    line.save()
+
+    return {
+        "reassigned": True,
+        "previous": _unique(previous),
+        "users": users,
+        "emails": _unique(emails),
+    }
