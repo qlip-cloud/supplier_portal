@@ -1,0 +1,142 @@
+<div class="modal fade" id="reference_po_modal" tabindex="-1" aria-labelledby="reference_po_modal_label" aria-hidden="true">
+    <style>
+        #reference_po_modal .modal-header {
+            display: block;
+            text-align: center;
+            position: relative;
+        }
+        #reference_po_modal .modal-header .close {
+            position: absolute;
+            right: 1rem;
+            top: 1rem;
+        }
+        #reference_po_modal .modal-title {
+            color: #004D90;
+        }
+        #reference_po_modal .range-filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        #reference_po_modal .range-filters .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        #reference_po_modal .range-filters label {
+            color: #8a9099;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        #reference_po_modal .ref-table {
+            margin-bottom: 0;
+        }
+        #reference_po_modal .ref-row {
+            cursor: pointer;
+        }
+        #reference_po_modal .ref-row.selected {
+            background-color: #e3f2fd;
+        }
+        #reference_po_modal .ref-row:hover {
+            box-shadow: 0 1px 6px rgba(0, 77, 144, 0.35);
+            background-color: #f5f9ff;
+        }
+        #reference_po_modal .ref-hint {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #8a9099;
+            font-size: 12px;
+            margin: 0 0 8px 0;
+        }
+        #reference_po_modal .ref-hint .material-symbols-outlined {
+            font-size: 15px;
+        }
+        #reference_po_modal .ref-confirm {
+            border-top: 1px solid #dee2e6;
+            padding: 12px 0 4px 0;
+        }
+        #reference_po_modal .ref-confirm .buttons-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        #reference_po_modal .ref-confirm .buttons-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #reference_po_modal .ref-count {
+            color: #8a9099;
+            font-size: 12px;
+        }
+    </style>
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reference_po_modal_label">Asignar orden de compra</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="range-filters">
+                    <div class="form-group">
+                        <label for="reference-po-start">Desde</label>
+                        <input type="date" class="form-control" id="reference-po-start"
+                            autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="reference-po-end">Hasta</label>
+                        <input type="date" class="form-control" id="reference-po-end"
+                            autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <input type="text" class="form-control" id="reference-po-search"
+                        placeholder="Buscar por numero de orden de compra..." autocomplete="off">
+                </div>
+                <div class="ref-hint">
+                    <span class="material-symbols-outlined">touch_app</span>
+                    <span>Haga clic en una o varias ordenes para seleccionarlas</span>
+                </div>
+                <div style="max-height:280px;overflow-y:auto">
+                    <table class="table table-striped ref-table">
+                        <thead>
+                            <tr>
+                                <th style="width:32px"></th>
+                                <th>Orden</th>
+                                <th>Fecha</th>
+                                <th>Tipo OC</th>
+                                <th>Sede</th>
+                                <th>Total</th>
+                                <th>Recepciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reference-po-body">
+                            <tr>
+                                <td colspan="7" class="text-center" style="color:#8a9099">Cargando ordenes...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="ref-confirm" id="reference-po-confirm" style="display:none">
+                    <p style="font-size:13px;color:#333;margin-bottom:8px">
+                        &iquest;Asignar la(s) orden(es) de compra seleccionada(s) a la factura?
+                        Despu&eacute;s se reasigna al grupo del tipo de OC y sede.
+                    </p>
+                    <div class="buttons-row">
+                        <div>
+                            <span class="ref-count" id="reference-po-count"></span>
+                        </div>
+                        <div class="buttons-right">
+                            <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary btn-sm" id="reference-po-assign">Solo asignar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

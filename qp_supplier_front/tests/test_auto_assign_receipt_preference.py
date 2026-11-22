@@ -162,7 +162,7 @@ class TestAutoAssignReceiptPreference(unittest.TestCase):
         def get_receipt_bank_fn(purchase_order_number):
             return receipt_bank
 
-        def resolve_emails_fn(oc_type, headquarter, has_receipt=None):
+        def resolve_emails_fn(oc_type, headquarter, has_receipt=None, invoice_type=None):
             received.append(has_receipt)
             return emails
 

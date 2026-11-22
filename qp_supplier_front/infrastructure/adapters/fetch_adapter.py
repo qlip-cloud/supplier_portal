@@ -27,7 +27,8 @@ def fetch_payment_receipts(endpoint, param=None):
     import frappe
 
     try:
-        response, status = send_request_status(endpoint, param=param)
+        response, status = send_request_status(
+            endpoint, param=param, ignore_statuses=(404,))
         return assert_gp_range_ok(endpoint, response, status)
     except Exception:
         frappe.log_error(
@@ -47,7 +48,8 @@ def fetch_purchase_invoices(endpoint, param=None):
     import frappe
 
     try:
-        response, status = send_request_status(endpoint, param=param)
+        response, status = send_request_status(
+            endpoint, param=param, ignore_statuses=(404,))
         return assert_gp_range_ok(endpoint, response, status)
     except Exception:
         frappe.log_error(

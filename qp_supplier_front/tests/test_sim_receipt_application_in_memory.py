@@ -104,7 +104,7 @@ class TestSimReceiptApplication(unittest.TestCase):
         infra.apply("SIM:PO-MANUAL-0001", '["REC-A-1", "REC-A-2"]')
         message = self._msg()
         self.assertEqual(message["status"], 200)
-        self.assertIn("manualmente", message["msg"])
+        self.assertIn("Recibos aplicados", message["msg"])
         doc = self.store.get("qp_SP_DocumentDetail", "SIM:PO-MANUAL-0001")
         self.assertEqual(doc["nvfac_esta"], "E")
         self.assertEqual(self._receipt("REC-A-1")["qp_invoice"], "PO-MANUAL-0001")

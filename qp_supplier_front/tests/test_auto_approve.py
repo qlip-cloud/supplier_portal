@@ -460,6 +460,23 @@ class _FakeCache(object):
     def set_value(self, key, val, user=None, expires_in_sec=None):
         self.values[key] = val
 
+    def delete_value(self, key, user=None, make_keys=True, shared=False):
+        self.values.pop(key, None)
+
+
+class TestPopPending(unittest.TestCase):
+    """_pop_pending debe vaciar la cola; con cache.delete() no la borraba y el
+    job de aprobacion entraba en loop infinito (una cable por site)."""
+
+    def test_pop_pending_vacia_la_cola(self):
+        cache = _FakeCache()
+        cache.values[infra.AUTO_APPROVE_PENDING_KEY] = ["A", "B"]
+        frappe_mock = MagicMock()
+        frappe_mock.cache.return_value = cache
+        with patch.object(infra, "frappe", frappe_mock):
+            self.assertEqual(infra._pop_pending(), ["A", "B"])
+            self.assertEqual(infra._pop_pending(), [])
+
 
 class TestJobLock(unittest.TestCase):
 

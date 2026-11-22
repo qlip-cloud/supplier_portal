@@ -7,10 +7,10 @@ del usuario autenticado.
 Roles que ven TODAS las facturas:
   - Administrator (equivalente a Administrador Documenteme)
   - Administrador Documenteme
-  - Administrador Compras Documenteme
 
-Rol restringido (solo ve las facturas que tiene asignadas):
-  - Administrador Sede Documenteme
+Roles restringidos (solo ven las facturas que tienen asignadas):
+  - Administrador Compras Documenteme (puede reasignar)
+  - Administrador Sede Documenteme (no puede reasignar)
 
 La deteccion del rol se hace por la lista de roles de frappe (frappe.get_roles()).
 La asignacion de una factura al usuario se resuelve a partir de
@@ -26,7 +26,13 @@ ROLE_ADMIN_DOCUMENTEME = "Administrador Documenteme"
 ROLE_COMPRAS_DOCUMENTEME = "Administrador Compras Documenteme"
 ROLE_SEDE_DOCUMENTEME = "Administrador Sede Documenteme"
 
-SEE_ALL_ROLES = ("Administrator", ROLE_ADMIN_DOCUMENTEME, ROLE_COMPRAS_DOCUMENTEME)
+SEE_ALL_ROLES = ("Administrator", ROLE_ADMIN_DOCUMENTEME)
+
+REASSIGN_ROLES = (
+    "Administrator",
+    ROLE_ADMIN_DOCUMENTEME,
+    ROLE_COMPRAS_DOCUMENTEME,
+)
 
 
 def can_see_all_documenteme(user_roles):
@@ -34,12 +40,20 @@ def can_see_all_documenteme(user_roles):
     return any(role in (user_roles or []) for role in SEE_ALL_ROLES)
 
 
+def can_reassign_documenteme(user_roles):
+    """True si el usuario puede asignar o reasignar facturas manualmente.
+
+    Compras y sede ven solo lo asignado, pero solo Compras (y los admin)
+    pueden reasignar.
+    """
+    return any(role in (user_roles or []) for role in REASSIGN_ROLES)
+
+
 def is_sede_documenteme(user_roles):
     """True si el usuario es Administrador Sede Documenteme restringido.
 
     Un usuario con rol sede pero que tambien tiene un rol de vision total
-    (admin/compras) ve todas las facturas y conserva los botones de
-    asignacion, por lo que no se considera restringido.
+    (admin) ve todas las facturas. Compras ya no otorga vision total.
     """
     roles = list(user_roles or [])
     return ROLE_SEDE_DOCUMENTEME in roles and not can_see_all_documenteme(roles)

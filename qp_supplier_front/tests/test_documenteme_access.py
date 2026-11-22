@@ -5,6 +5,7 @@ test_documenteme_access.py
 Pruebas unitarias para services/documenteme_access.py:
 
   - can_see_all_documenteme: roles que ven todas las facturas.
+  - can_reassign_documenteme: roles que pueden reasignar facturas.
   - is_sede_documenteme: deteccion del rol sede.
   - get_assigned_sync_lines_filters: aplica la restriccion por asignacion
     (ve todo vs. solo asignadas).
@@ -31,8 +32,8 @@ class TestCanSeeAllDocumenteme(unittest.TestCase):
     def test_administrador_documenteme_ve_todo(self):
         self.assertTrue(documenteme_access.can_see_all_documenteme([SEE_ALL]))
 
-    def test_administrador_compras_ve_todo(self):
-        self.assertTrue(documenteme_access.can_see_all_documenteme([COMPRAS]))
+    def test_administrador_compras_no_ve_todo(self):
+        self.assertFalse(documenteme_access.can_see_all_documenteme([COMPRAS]))
 
     def test_administrator_ve_todo(self):
         self.assertTrue(documenteme_access.can_see_all_documenteme(["Administrator"]))
@@ -47,13 +48,40 @@ class TestCanSeeAllDocumenteme(unittest.TestCase):
         self.assertFalse(documenteme_access.can_see_all_documenteme(None))
 
 
+class TestCanReassignDocumenteme(unittest.TestCase):
+
+    def test_administrador_documenteme_puede_reasignar(self):
+        self.assertTrue(documenteme_access.can_reassign_documenteme([SEE_ALL]))
+
+    def test_administrador_compras_puede_reasignar(self):
+        self.assertTrue(documenteme_access.can_reassign_documenteme([COMPRAS]))
+
+    def test_administrator_puede_reasignar(self):
+        self.assertTrue(
+            documenteme_access.can_reassign_documenteme(["Administrator"]))
+
+    def test_sede_no_puede_reasignar(self):
+        self.assertFalse(documenteme_access.can_reassign_documenteme([SEDE]))
+
+    def test_sede_con_compras_puede_reasignar(self):
+        self.assertTrue(
+            documenteme_access.can_reassign_documenteme([COMPRAS, SEDE]))
+
+    def test_sin_roles_no_puede_reasignar(self):
+        self.assertFalse(documenteme_access.can_reassign_documenteme([]))
+
+    def test_none_no_puede_reasignar(self):
+        self.assertFalse(documenteme_access.can_reassign_documenteme(None))
+
+
 class TestIsSedeDocumenteme(unittest.TestCase):
 
     def test_solo_sede_true(self):
         self.assertTrue(documenteme_access.is_sede_documenteme([SEDE]))
 
-    def test_con_compras_no_es_sede(self):
-        self.assertFalse(documenteme_access.is_sede_documenteme([COMPRAS, SEDE]))
+    def test_sede_con_compras_sigue_restringida(self):
+        # Compras ya no otorga vision total: sede + compras sigue restringida.
+        self.assertTrue(documenteme_access.is_sede_documenteme([COMPRAS, SEDE]))
 
     def test_sin_roles_false(self):
         self.assertFalse(documenteme_access.is_sede_documenteme([]))
@@ -85,6 +113,10 @@ class TestGetAssignedSyncLinesFilters(unittest.TestCase):
         )
         self.assertFalse(called["v"])
         self.assertEqual(result, {"nvpro_ndoc": "1"})
+
+    def test_compras_aplica_filtro_por_asignacion(self):
+        result = self._run([COMPRAS], "user@x.com", ["L1"])
+        self.assertEqual(result["document_sync_line"], ["in", ["L1"]])
 
     def test_sede_con_asignadas_filtra_por_in(self):
         result = self._run([SEDE], "user@x.com", ["L1", "L2"], {"nvpro_ndoc": "1"})

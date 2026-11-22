@@ -252,9 +252,7 @@ def _get_cash_registrable_warnings(doc, po_exists_fn, receipts_total_fn, resolve
     if should_auto_reject(po_match, receipt_match, rule_code):
         return [
             "La factura de contado no cumple la regla de rechazo configurada "
-            "({}), por lo que no se aprueba automaticamente y debe asignarse".format(
-                rule_code
-            )
+            "({}) y debe asignarse".format(rule_code)
         ]
 
     return []
@@ -288,8 +286,7 @@ def _get_service_supplier_registrable_warnings(doc, po_exists_fn, receipts_total
     if should_auto_reject(po_match, receipt_match, rule_code):
         return [
             "La factura del proveedor de servicio no cumple la regla de "
-            "rechazo del proveedor ({}), por lo que no se aprueba "
-            "automaticamente".format(rule_code)
+            "rechazo del proveedor ({})".format(rule_code)
         ]
 
     return []

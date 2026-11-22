@@ -6,8 +6,15 @@ from frappe import _
 from frappe.model.document import Document
 
 from qp_supplier_front.services.sede_source import list_sedes as _list_sedes
+from qp_supplier_front.uses_cases.documenteme.no_purchase_order import (
+    INVOICE_TYPE_ALL,
+    INVOICE_TYPE_CASH,
+    INVOICE_TYPE_CREDIT,
+)
 
 NO_APLICA = "No aplica"
+
+INVOICE_TYPES = (INVOICE_TYPE_ALL, INVOICE_TYPE_CREDIT, INVOICE_TYPE_CASH)
 
 
 @frappe.whitelist()
@@ -79,15 +86,23 @@ class qp_SP_AssignmentConfig(Document):
     def validate(self):
         self.oc_type = (self.oc_type or "").strip()
         self.headquarter = _normalize_headquarter(self.headquarter)
+        self.invoice_type = (self.invoice_type or "").strip() or INVOICE_TYPE_ALL
+        if self.invoice_type not in INVOICE_TYPES:
+            self.invoice_type = INVOICE_TYPE_ALL
 
         # "No aplica": fila wildcard que se asigna sin importar OC type ni
         # headquarter (tambien cubre el contado sin OC).
         if self.oc_type == NO_APLICA:
             return
 
-        # Fila catch-all: oc_type y headquarter vacios permiten configurar los
-        # destinatarios por defecto de las facturas de contado sin OC.
+        # Fila catch-all: oc_type y headquarter vacios. Se exige el tipo de
+        # factura para no compartir destinatarios entre contado y credito.
         if not self.oc_type and not self.headquarter:
+            if self.invoice_type not in (INVOICE_TYPE_CREDIT, INVOICE_TYPE_CASH):
+                frappe.throw(
+                    "Debe indicar el tipo de factura (Credito o Contado) para "
+                    "la configuracion sin OC"
+                )
             return
 
         if not self.oc_type:

@@ -122,6 +122,9 @@ def run_reject(store, doc_names=None):
     """
     from qp_supplier_front.resources.documenteme import runtime
     from qp_supplier_front.simulation import references_memory
+    from qp_supplier_front.simulation.master_setup_source import (
+        MemoryMasterSetupSource,
+    )
     from qp_supplier_front.uses_cases.documenteme.auto_reject import (
         get_reject_motive,
         has_po_match,
@@ -129,6 +132,12 @@ def run_reject(store, doc_names=None):
         is_active_rule,
         should_auto_reject,
     )
+    from qp_supplier_front.uses_cases.documenteme.no_purchase_order import (
+        should_skip_reject_without_po,
+    )
+
+    assign_without_po = MemoryMasterSetupSource(
+        store).assign_without_po_enabled()
 
     components = runtime.resolve()
     event_http_fn = components["event_http_fn"]
@@ -159,6 +168,9 @@ def run_reject(store, doc_names=None):
             continue
 
         rule = references_memory.memory_resolve_rule(store, doc)
+        if should_skip_reject_without_po(
+                doc, assign_without_po, supplier_rule=rule):
+            continue
         if not is_active_rule(rule):
             continue
 
