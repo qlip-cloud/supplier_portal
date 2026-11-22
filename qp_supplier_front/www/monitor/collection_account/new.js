@@ -137,7 +137,12 @@ $(document).ready(function () {
 					});
 
 					frappe.msg_dialog.$wrapper.on("hidden.bs.modal", function () {
-						window.location.href = "/monitor/collection_account";
+						var supplierId = $("#supplier_id").val();
+						var target = "/monitor/collection_account";
+						if (supplierId) {
+							target += "?supplier=" + encodeURIComponent(supplierId);
+						}
+						window.location.href = target;
 					});
 				},
 			});

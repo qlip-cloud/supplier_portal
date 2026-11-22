@@ -19,7 +19,6 @@ def get_context(context):
     supplier_id = query_params.get("supplier")
     
     context.supplier_id = supplier_id
-    context.is_monitor_view = True
     context.has_dispatch_permission = get_has_dispatch_permission(supplier_id)
 
     context.collection_accounts = frappe.get_list(
