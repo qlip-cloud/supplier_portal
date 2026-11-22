@@ -41,6 +41,12 @@ class MemoryMasterSetupSource(object):
     def documenteme_backend(self):
         return self._value("documenteme_backend")
 
+    def new_invoice_fetch_blocked(self):
+        from qp_supplier_front.infrastructure.adapters.master_setup_source import (
+            flag_enabled,
+        )
+        return flag_enabled(self._value("documenteme_block_new_invoice_fetch"))
+
     def reject_config(self):
         return {
             "max_attempts": int(self._value("reject_retry_max_attempts")

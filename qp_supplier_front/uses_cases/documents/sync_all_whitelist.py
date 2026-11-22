@@ -8,6 +8,9 @@ from qp_supplier_front.uses_cases.documents.sync_detail import sync_detail
 from qp_supplier_front.uses_cases.documents.date_range import validate_date_range
 from qp_supplier_front.services import sync_lock
 from qp_supplier_front.resources.documenteme import runtime
+from qp_supplier_front.infrastructure.adapters.master_setup_source import (
+    resolve_master_setup_source,
+)
 from qp_supplier_front.resources.documenteme.auto_assign import run_auto_assign
 from qp_supplier_front.resources.documenteme.auto_approve import run_auto_approve
 from qp_supplier_front.resources.documenteme.auto_reject import run_auto_reject
@@ -18,6 +21,23 @@ DOCUMENTS_LOCK_DOMAIN = "documents"
 
 def get_company_tax_id(company_name):
     return frappe.get_doc("Company", company_name).tax_id
+
+
+def _master_setup_source():
+    """Adaptador de config (Real en modo real, memoria en simulador)."""
+    data = runtime.resolve().get("data")
+    return resolve_master_setup_source(data=data, frappe_module=frappe)
+
+
+def is_new_invoice_fetch_blocked():
+    """Guard de salida a produccion: bloquea la descarga de facturas nuevas.
+
+    Lo lee qp_SP_MasterSetup.documenteme_block_new_invoice_fetch (Check).
+    Bloquea SOLO la descarga (fases 1 y 2); asignacion, aprobacion, rechazo y
+    alertas siguen corriendo con lo que ya existe localmente. La carga manual
+    por rango (sync_by_date_range) pasa allow_fetch=True y no se ve afectada.
+    """
+    return _master_setup_source().new_invoice_fetch_blocked()
 
 
 def _resolve_sync_runtime():
@@ -51,7 +71,7 @@ def _seed_simulation_scenario():
 
 
 def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
-                    doc_names=None, heartbeat_fn=None):
+                    doc_names=None, heartbeat_fn=None, allow_fetch=None):
     """Fase SINCRONA del flujo documenteme (no depende de workers).
 
     Genera primero las alertas de estatus no definitivo (>48h): solo leen
@@ -59,6 +79,11 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
     se ejecutan aunque el sync posterior falle (red, permisos o workers).
     Luego descarga lineas + detalles (trae las facturas), asigna y encola la
     aprobacion en segundo plano. NO lanza el auto-rechazo aqui.
+
+    `allow_fetch=None` resuelve el guard de qp_SP_MasterSetup
+    (documenteme_block_new_invoice_fetch): bloqueado, se saltan las fases de
+    descarga y el resto del pipeline corre sobre lo ya existente. El bypass
+    explicito (allow_fetch=True) es exclusivo de la carga manual por rango.
 
     `heartbeat_fn` renueva el lease del lock global durante fases largas.
 
@@ -68,33 +93,38 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
 
     send_request_fn, get_tax_id_fn, persist = _resolve_sync_runtime()
 
-    companies = frappe.get_all("Company", pluck="name")
+    fetch_blocked = is_new_invoice_fetch_blocked() if allow_fetch is None \
+        else not allow_fetch
 
-    for company_id in companies:
-        sync_by_supplier(
-            supplier_id=company_id,
-            get_tax_id_fn=get_tax_id_fn,
+    created_names = []
+    if not fetch_blocked:
+        companies = frappe.get_all("Company", pluck="name")
+
+        for company_id in companies:
+            sync_by_supplier(
+                supplier_id=company_id,
+                get_tax_id_fn=get_tax_id_fn,
+                send_request_fn=send_request_fn,
+                create_log_fn=persist["create_log"],
+                create_lines_fn=persist["create_lines"],
+                commit_fn=lambda: frappe.db.commit(),
+                nvfac_esta=nvfac_esta,
+                nvfac_fini=nvfac_fini,
+                nvfac_ffin=nvfac_ffin,
+            )
+            if heartbeat_fn:
+                heartbeat_fn()
+
+        created_names = sync_detail(
+            get_uncompleted_lines_fn=persist["get_uncompleted_lines"],
             send_request_fn=send_request_fn,
-            create_log_fn=persist["create_log"],
-            create_lines_fn=persist["create_lines"],
+            create_document_detail_fn=persist["create_document_detail"],
+            log_sync_attempt_fn=persist["log_sync_attempt"],
+            mark_line_completed_fn=persist["mark_line_completed"],
             commit_fn=lambda: frappe.db.commit(),
-            nvfac_esta=nvfac_esta,
-            nvfac_fini=nvfac_fini,
-            nvfac_ffin=nvfac_ffin,
+            get_company_tax_id_fn=persist["get_log_company_tax_id"],
+            heartbeat_fn=heartbeat_fn,
         )
-        if heartbeat_fn:
-            heartbeat_fn()
-
-    created_names = sync_detail(
-        get_uncompleted_lines_fn=persist["get_uncompleted_lines"],
-        send_request_fn=send_request_fn,
-        create_document_detail_fn=persist["create_document_detail"],
-        log_sync_attempt_fn=persist["log_sync_attempt"],
-        mark_line_completed_fn=persist["mark_line_completed"],
-        commit_fn=lambda: frappe.db.commit(),
-        get_company_tax_id_fn=persist["get_log_company_tax_id"],
-        heartbeat_fn=heartbeat_fn,
-    )
 
     created_names = created_names or []
     run_documenteme_auto_assign(doc_names or created_names)
@@ -105,6 +135,7 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
         "approved": (approve_result or {}).get("approved") or [],
         "enqueued": (approve_result or {}).get("enqueued") or 0,
         "already_queued": (approve_result or {}).get("already_queued") or False,
+        "fetch_blocked": fetch_blocked,
     }
 
 
@@ -181,7 +212,24 @@ def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
     La descarga de facturas es SINCRONA dentro del lock (para no pisar a
     otro cron en curso). Al final se lanza el auto-rechazo en segundo plano
     sobre las facturas nuevas.
+
+    Guard de salida a produccion: con documenteme_block_new_invoice_fetch
+    activo el job es un NO-OP total (no descarga, no toma lock y no corre el
+    pipeline), aunque se reactive el Scheduled Job Type o alguien invoque el
+    metodo a mano. La unica via de carga es la manual por rango.
     """
+    if is_new_invoice_fetch_blocked():
+        return {
+            "success": True,
+            "skipped": True,
+            "fetch_blocked": True,
+            "created_count": 0,
+            "approved": [],
+            "rejected": [],
+            "enqueued": 0,
+            "message": "Descarga de facturas documenteme bloqueada por configuracion",
+        }
+
     nvfac_fini = nvfac_fini if nvfac_fini is not None else get_default_nvfac_fini()
     nvfac_ffin = nvfac_ffin if nvfac_ffin is not None else get_default_nvfac_ffin()
 
@@ -209,6 +257,7 @@ def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
             "success": True,
             "companies_count": len(frappe.get_all("Company", pluck="name")),
             "created_count": len(created_names),
+            "fetch_blocked": sync_result.get("fetch_blocked", False),
             "rejected": (reject_result or {}).get("rejected") or [],
             "approved": sync_result["approved"],
             "enqueued": sync_result.get("enqueued", 0),
@@ -223,7 +272,8 @@ def sync_all(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
 
 
 @frappe.whitelist()
-def refresh_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
+def refresh_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
+                      allow_fetch=None):
     """Refresco manual (boton) — single-flight por lock global.
 
     Solo un refresco corre a la vez (el cron y otros usuarios comparten el
@@ -232,6 +282,11 @@ def refresh_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
 
     Descarga y asigna de forma sincrona; la aprobacion se encola en segundo
     plano para responder rapido. El auto-rechazo tambien se encola.
+
+    Con `allow_fetch=None` manda el guard de qp_SP_MasterSetup: si la descarga
+    esta bloqueada, el boton conserva sus tareas (alertas, asignacion,
+    aprobacion, rechazo) pero no trae facturas nuevas y responde
+    `fetch_blocked: True`.
     """
     lock = sync_lock.acquire(DOCUMENTS_LOCK_DOMAIN)
     if not lock:
@@ -249,6 +304,7 @@ def refresh_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
             nvfac_fini=nvfac_fini,
             nvfac_ffin=nvfac_ffin,
             heartbeat_fn=heartbeat_fn,
+            allow_fetch=allow_fetch,
         )
         created_names = sync_result["created"]
         # Siempre lanza el rechazo en fondo (encola), aunque ya haya otro job.
@@ -258,6 +314,7 @@ def refresh_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None):
             "success": True,
             "companies_count": len(frappe.get_all("Company", pluck="name")),
             "created_count": len(created_names),
+            "fetch_blocked": sync_result.get("fetch_blocked", False),
             "rejected": (reject_result or {}).get("rejected") or [],
             "approved": sync_result["approved"],
             "enqueued": sync_result.get("enqueued", 0),
@@ -281,6 +338,10 @@ def sync_by_date_range(fecha_inicio, fecha_fin):
     la descarga por Company, la asignacion, el rechazo y la aprobacion.
 
     No se encola: es una accion manual y sincrona, igual que el refresh.
+
+    Bypassa el guard de descarga (allow_fetch=True): es el unico camino para
+    seguir cargando facturas mientras documenteme_block_new_invoice_fetch
+    esta activo en produccion.
     """
     frappe.only_for("System Manager")
 
@@ -292,6 +353,7 @@ def sync_by_date_range(fecha_inicio, fecha_fin):
         nvfac_esta="T",
         nvfac_fini=validation["nvfac_fini"],
         nvfac_ffin=validation["nvfac_ffin"],
+        allow_fetch=True,
     )
 
 

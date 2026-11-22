@@ -14,6 +14,7 @@
     "auto_approve",
     "documenteme_simulation",
     "documenteme_backend",
+    "documenteme_block_new_invoice_fetch",
     "section_break_super_approval",
     "super_approvers",
     "delivery_items",
@@ -96,6 +97,14 @@
      "label": "Backend de creación de facturas",
      "description": "Backend de origen de las peticiones de creación de factura al aprobar (BC o GP). Es el valor predeterminado del selector manual de aprobación.",
      "options": "BC\nGP"
+    },
+    {
+     "default": "0",
+     "fieldname": "documenteme_block_new_invoice_fetch",
+     "fieldtype": "Check",
+     "label": "Bloquear descarga de facturas nuevas (documenteme)",
+     "description": "Solo visible para Administrador. Con el check activo, el botón Actualizar del monitor y el sync programado NO descargan facturas nuevas de documenteme: el resto del flujo (alertas, asignación, aprobación, rechazo) sigue igual. La carga manual por rango desde este formulario no se ve afectada.",
+     "permlevel": 1
     },
     {
      "fieldname": "section_break_super_approval",
@@ -206,7 +215,7 @@
 "index_web_pages_for_search": 1,
   "issingle": 1,
   "links": [],
-   "modified": "2026-11-17 10:00:00.000000",
+   "modified": "2026-11-22 14:30:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_MasterSetup",

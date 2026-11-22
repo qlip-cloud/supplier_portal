@@ -1182,11 +1182,26 @@ $(document).ready(function () {
                         $(".filter-list.filter-check").val("0");
                         $(".filter-list.date").removeAttr("min").removeAttr("max");
                         $("select.filter-list").val("0");
+                        var fetchBlockedMsg = response.fetch_blocked
+                            ? "La descarga de facturas nuevas est\u00e1 bloqueada "
+                                + "temporalmente. Se actualizaron asignaciones, "
+                                + "aprobaciones y rechazos, pero no se trajeron "
+                                + "facturas nuevas."
+                            : null;
                         if (response.enqueued > 0 || response.already_queued) {
                             // Un solo estado continuo: no se recarga la lista
                             // hasta que termina la aprobacion en segundo plano.
                             setSyncProgress("Actualizando facturas...");
+                            if (fetchBlockedMsg) {
+                                frappe.msgprint(fetchBlockedMsg);
+                            }
                             pollBackgroundApproval(0);
+                            return;
+                        }
+                        if (fetchBlockedMsg) {
+                            clearSyncProgress();
+                            window.filter_init();
+                            frappe.msgprint(fetchBlockedMsg);
                             return;
                         }
                         finishRefresh();

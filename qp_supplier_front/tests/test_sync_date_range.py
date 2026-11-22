@@ -102,6 +102,7 @@ class TestSyncByDateRangeEndpoint(unittest.TestCase):
             nvfac_esta="T",
             nvfac_fini=self.start.strftime("%d/%m/%Y"),
             nvfac_ffin=self.today.strftime("%d/%m/%Y"),
+            allow_fetch=True,
         )
         self.assertEqual(result["created_count"], 3)
 
