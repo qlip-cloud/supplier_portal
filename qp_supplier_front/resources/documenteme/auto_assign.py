@@ -1,3 +1,5 @@
+from functools import partial
+
 import frappe
 
 from qp_supplier_front.infrastructure.adapters.documenteme_http_adapter import (
@@ -43,7 +45,8 @@ def run_auto_assign(doc_names=None):
         candidates_fn=get_candidates,
         get_oc_context_fn=get_oc_context,
         get_receipt_bank_fn=get_receipt_bank,
-        resolve_emails_fn=get_assignee_emails,
+        resolve_emails_fn=partial(
+            get_assignee_emails, cache=new_assignment_cache()),
         resolve_users_fn=resolve_assignee_users,
         add_assignees_fn=add_assignees,
         doc_names=doc_names,
@@ -160,11 +163,66 @@ def get_receipt_total(purchase_order_number):
     )
 
 
+def new_assignment_cache():
+    """Cache de UNA corrida de auto-asignacion (lectura, sin estado global).
+
+    La configuracion de asignacion (qp_SP_OCType, qp_SP_AssignmentConfig y sus
+    renglones hijos) se lee del arbol completo y se reutiliza para todas las
+    facturas. Antes se recargaba por cada factura (619 configs -> ~1.240
+    consultas por factura), lo que convertia el refresco en un N+1 de cientos
+    de miles de consultas.
+
+    Se crea nueva en cada corrida: nunca se comparte entre requests ni entre
+    documenteme y collection.
+    """
+    return {"oc_types": None, "assignment_rows": None, "roles": {}}
+
+
+def _cached_oc_type_records(cache):
+    if cache is None:
+        return frappe.get_all(
+            "qp_SP_OCType", fields=["name", "oc_type", "is_inventariable"]
+        )
+    if cache.get("oc_types") is None:
+        cache["oc_types"] = frappe.get_all(
+            "qp_SP_OCType", fields=["name", "oc_type", "is_inventariable"]
+        )
+    return cache["oc_types"]
+
+
+def _cached_assignment_rows(cache, oc_type_records):
+    if cache is None:
+        return _load_assignment_rows(oc_type_records)
+    if cache.get("assignment_rows") is None:
+        cache["assignment_rows"] = _load_assignment_rows(oc_type_records)
+    return cache["assignment_rows"]
+
+
+def _cached_role_resolver(cache):
+    """resolve_role_users memoizado por conjunto de roles (solo con cache)."""
+    if cache is None:
+        return resolve_role_users
+    role_cache = cache["roles"]
+
+    def _resolve(roles):
+        key = tuple(sorted(role for role in (roles or []) if role))
+        if key not in role_cache:
+            role_cache[key] = resolve_role_users(list(key))
+        return list(role_cache[key])
+
+    return _resolve
+
+
 def get_assignee_emails(oc_type, headquarter, has_receipt=None,
-                        invoice_type=None):
-    oc_type_records = frappe.get_all(
-        "qp_SP_OCType", fields=["name", "oc_type", "is_inventariable"]
-    )
+                        invoice_type=None, cache=None):
+    """Resuelve los emails destino de una factura.
+
+    `cache` es opcional y de alcance por corrida: cuando se pasa, la
+    configuracion de asignacion y los roles se leen una sola vez y se
+    reutilizan. Sin `cache` se conserva el comportamiento anterior (recarga en
+    cada llamada), para no romper llamadores aislados.
+    """
+    oc_type_records = _cached_oc_type_records(cache)
     oc_type_rows = [
         {"oc_type": row.get("name"), "is_inventariable": row.get("is_inventariable")}
         for row in (oc_type_records or [])
@@ -174,13 +232,13 @@ def get_assignee_emails(oc_type, headquarter, has_receipt=None,
     if is_inventariable_oc_type(oc_type, oc_type_rows) and headquarter and not sede_exists(headquarter):
         return None
 
-    assignment_rows = _load_assignment_rows(oc_type_records)
+    assignment_rows = _cached_assignment_rows(cache, oc_type_records)
     return resolve_assignee_emails(
         oc_type,
         headquarter,
         oc_type_rows,
         assignment_rows,
-        roles_to_users_fn=resolve_role_users,
+        roles_to_users_fn=_cached_role_resolver(cache),
         has_receipt=has_receipt,
         invoice_type=invoice_type,
     )
@@ -260,13 +318,24 @@ def resolve_assignee_users(emails):
 
 
 def add_assignees(sync_line_name, users):
+    """Agrega usuarios asignados al sync line (idempotente).
+
+    No guarda si no hay usuarios nuevos: evita reescribir la linea por cada
+    factura ya asignada en cada refresco.
+    """
     line = frappe.get_doc("qp_SP_DocumentSyncLine", sync_line_name)
     existing = {row.user for row in line.assigned_users}
 
+    changed = False
     for user in (users or []):
-        if user in existing:
+        if not user or user in existing:
             continue
         line.append("assigned_users", {"user": user})
+        existing.add(user)
+        changed = True
+
+    if not changed:
+        return
 
     line.save()
 
@@ -317,6 +386,7 @@ def reassign_to_oc_group(detail_name):
     orders = parse_purchase_orders(doc.get("nvfac_orde"))
     emails = []
     valid_context = False
+    cache = new_assignment_cache()
     for order in orders:
         oc_context = get_oc_context(order)
         if not oc_context:
@@ -328,6 +398,7 @@ def reassign_to_oc_group(detail_name):
             oc_context.get("headquarter"),
             has_receipt=bool(bank),
             invoice_type=INVOICE_TYPE_CREDIT,
+            cache=cache,
         ) or []
 
     if not valid_context:
