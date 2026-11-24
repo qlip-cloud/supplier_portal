@@ -40,6 +40,9 @@ from qp_supplier_front.uses_cases.documenteme.event_retry import (
     resolve_pending_code,
     send_was_successful,
 )
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    start_code,
+)
 
 EVENT_JOB_METHOD = (
     "qp_supplier_front.resources.documenteme.event_job.run_documenteme_event"
@@ -73,12 +76,50 @@ def event_lock_domain(doc_name):
     return "{}:{}".format(EVENT_LOCK_PREFIX, doc_name)
 
 
-def initialize_event_schedule(doc, intent):
-    """Deja el documento listo para iniciar la secuencia de eventos."""
+FINAL_ORIGIN_ALERT = (
+    "No se programo la notificacion: documenteme ya reporta un evento final "
+    "para la factura. Revisar manualmente."
+)
+
+
+def _origin_pending_code(doc, intent):
+    """Primer evento a enviar segun el ueve que trajo documenteme.
+
+    None cuando el origen ya es final (031/033): no hay nada que notificar.
+    """
+    return start_code(intent, doc.get("nvfac_ueve"))
+
+
+def _apply_schedule(doc, intent, code):
     doc.qp_event_sequence = intent
-    doc.qp_event_pending_code = first_code(intent)
-    doc.qp_event_next_at = _now_str()
+    doc.qp_event_pending_code = code or ""
+    doc.qp_event_next_at = _now_str() if code else None
     doc.qp_event_attempts = 0
+
+
+def _warn_final_origin(doc):
+    try:
+        insert_alert(
+            doc.name,
+            FINAL_ORIGIN_ALERT,
+            _now_str(),
+            alert_type="ErrorUrgente",
+        )
+    except Exception:
+        pass
+
+
+def initialize_event_schedule(doc, intent):
+    """Deja el documento listo para iniciar la secuencia de eventos.
+
+    Arranca desde el `nvfac_ueve` de origen: vacio -> 030; 030 -> 032;
+    032 -> 033 (aprobacion) / 031 (rechazo). Si el origen ya es final no se
+    programa ningun evento y se deja una alerta para revision manual.
+    """
+    code = _origin_pending_code(doc, intent)
+    _apply_schedule(doc, intent, code)
+    if code is None:
+        _warn_final_origin(doc)
 
 
 def initialize_event_schedule_db(doc_name, intent):
@@ -87,16 +128,28 @@ def initialize_event_schedule_db(doc_name, intent):
     Se usa cuando el estado ya se persistio aparte (p. ej. la confirmacion
     marca PA via set_value) y no se quiere un save extra del documento.
     """
+    origin_ueve = frappe.db.get_value(
+        "qp_SP_DocumentDetail", doc_name, "nvfac_ueve"
+    )
+    code = start_code(intent, origin_ueve)
     frappe.db.set_value(
         "qp_SP_DocumentDetail",
         doc_name,
         {
             "qp_event_sequence": intent,
-            "qp_event_pending_code": first_code(intent),
-            "qp_event_next_at": _now_str(),
+            "qp_event_pending_code": code or "",
+            "qp_event_next_at": _now_str() if code else None,
             "qp_event_attempts": 0,
         },
     )
+    if code is None:
+        _warn_final_origin(_DocRef(doc_name))
+
+
+class _DocRef(object):
+
+    def __init__(self, name):
+        self.name = name
 
 
 def _event_config(intent):
@@ -303,7 +356,10 @@ def _apply_outcome(doc, intent, code, response, status, config):
         return {"doc": doc.name, "intent": intent, "sent": code, "done": False,
                 "error": "Maximo de intentos alcanzado", "attempts": attempts}
 
-    upcoming = next_code(intent, code) if success else first_code(intent)
+    # Ante un fallo se reinicia la secuencia, pero desde el primer codigo que
+    # documenteme aun no tenia aplicado (no se reenvia 030/032 ya presentes).
+    restart = start_code(intent, doc.get("nvfac_ueve")) or first_code(intent)
+    upcoming = next_code(intent, code) if success else restart
     delay = config.get("event_delay") if success else config.get("retry_interval")
     doc.qp_event_pending_code = upcoming
     doc.qp_event_next_at = _future_str(delay)

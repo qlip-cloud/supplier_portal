@@ -836,7 +836,28 @@ def memory_run_credit_confirmation(store, doc_name):
 
     doc = store.get("qp_SP_DocumentDetail", doc_name) or {}
 
-    for event_code in ("030", "032", "033"):
+    from qp_supplier_front.uses_cases.documenteme.event_retry import (
+        sequence_for,
+    )
+    from qp_supplier_front.uses_cases.documenteme.notification_state import (
+        start_code,
+    )
+
+    start = start_code("A", doc.get("nvfac_ueve"))
+    if start is None:
+        now = _now_str()
+        store.insert("qp_SP_Alert", {
+            "parent": doc_name,
+            "alert_message": ("No se programo la notificacion: documenteme ya "
+                              "reporta un evento final para la factura."),
+            "alert_type": "ErrorUrgente",
+            "status": "Abierta",
+            "alert_date": now,
+            "creation": now,
+        })
+        return False
+    sequence = sequence_for("A")
+    for event_code in sequence[sequence.index(start):]:
         payload = {
             "Nvemp_nnit": company_tax_id,
             "Nvpro_ndoc": doc.get("nvpro_ndoc"),

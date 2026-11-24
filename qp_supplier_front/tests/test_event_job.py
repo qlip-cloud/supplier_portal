@@ -141,6 +141,62 @@ class TestEventRetryCore(unittest.TestCase):
         self.assertEqual(core.next_attempt_count(3, False), 4)
 
 
+class TestInitializeEventSchedule(unittest.TestCase):
+
+    def _init(self, ueve, intent):
+        doc = FakeDoc(nvfac_ueve=ueve)
+        with patch.object(mod, "insert_alert") as alert:
+            mod.initialize_event_schedule(doc, intent)
+        return doc, alert
+
+    def test_arranca_desde_vacio(self):
+        doc, alert = self._init(None, "A")
+        self.assertEqual(doc.qp_event_pending_code, "030")
+        self.assertIsNotNone(doc.qp_event_next_at)
+        alert.assert_not_called()
+
+    def test_arranca_desde_030(self):
+        doc, _ = self._init("030", "A")
+        self.assertEqual(doc.qp_event_pending_code, "032")
+
+    def test_arranca_desde_032_aprobacion(self):
+        doc, _ = self._init("032", "A")
+        self.assertEqual(doc.qp_event_pending_code, "033")
+
+    def test_arranca_desde_032_rechazo(self):
+        doc, _ = self._init("032", "R")
+        self.assertEqual(doc.qp_event_pending_code, "031")
+
+    def test_origen_final_no_programa_y_alerta(self):
+        doc, alert = self._init("033", "A")
+        self.assertEqual(doc.qp_event_pending_code, "")
+        self.assertIsNone(doc.qp_event_next_at)
+        alert.assert_called_once()
+
+    def test_db_arranca_desde_ueve_de_origen(self):
+        frappe_mock = MagicMock()
+        frappe_mock.db.get_value.return_value = "032"
+        with patch.object(mod, "frappe", frappe_mock), \
+             patch.object(mod, "insert_alert") as alert:
+            mod.initialize_event_schedule_db("D1", "A")
+        values = frappe_mock.db.set_value.call_args[0][2]
+        self.assertEqual(values["qp_event_sequence"], "A")
+        self.assertEqual(values["qp_event_pending_code"], "033")
+        self.assertIsNotNone(values["qp_event_next_at"])
+        alert.assert_not_called()
+
+    def test_db_origen_final_no_programa_y_alerta(self):
+        frappe_mock = MagicMock()
+        frappe_mock.db.get_value.return_value = "033"
+        with patch.object(mod, "frappe", frappe_mock), \
+             patch.object(mod, "insert_alert") as alert:
+            mod.initialize_event_schedule_db("D1", "A")
+        values = frappe_mock.db.set_value.call_args[0][2]
+        self.assertEqual(values["qp_event_pending_code"], "")
+        self.assertIsNone(values["qp_event_next_at"])
+        alert.assert_called_once()
+
+
 class TestRunEvent(unittest.TestCase):
 
     def test_success_non_final_avanza(self):
@@ -202,6 +258,17 @@ class TestRunEvent(unittest.TestCase):
         self.assertEqual(doc.qp_event_pending_code, "030")
         self.assertEqual(doc.qp_event_attempts, 1)
         insert_alert.assert_not_called()
+
+    def test_fallo_reinicia_desde_ueve_de_origen(self):
+        doc = FakeDoc(nvfac_esta="PA", qp_event_sequence="A",
+                      qp_event_pending_code="033", nvfac_ueve="032")
+
+        def http(payload):
+            return (ERROR, 200)
+
+        _run(doc, http)
+
+        self.assertEqual(doc.qp_event_pending_code, "033")
 
     def test_fallo_agota_intentos(self):
         doc = FakeDoc(qp_event_pending_code="031", qp_event_attempts=4)

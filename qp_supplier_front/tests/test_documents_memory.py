@@ -284,11 +284,11 @@ class TestCount(unittest.TestCase):
 
 class TestCreditConfirmation(unittest.TestCase):
 
-    def _seed_credit(self, store):
+    def _seed_credit(self, store, ueve=""):
         store.insert("qp_SP_DocumentDetail", {
             "name": "999999999:F1", "nvfac_nume": "F1",
             "nvpro_ndoc": SIM_NIT, "nvfac_cont": "12345",
-            "nvfac_esta": "PA", "nvfac_ueve": "", "nvfac_conv": "2",
+            "nvfac_esta": "PA", "nvfac_ueve": ueve, "nvfac_conv": "2",
         })
 
     def test_confirmacion_credito_llega_a_aprobado(self):
@@ -328,6 +328,42 @@ class TestCreditConfirmation(unittest.TestCase):
         self.assertFalse(ok)
         doc = store.get("qp_SP_DocumentDetail", "999999999:F1")
         self.assertEqual(doc["nvfac_esta"], "PA")
+        alerts = store.query("qp_SP_Alert",
+                             filters={"parent": "999999999:F1"})
+        self.assertEqual(len(alerts), 1)
+
+    def test_confirmacion_arranca_desde_ueve_de_origen(self):
+        from unittest.mock import patch
+
+        from qp_supplier_front.resources.documenteme import runtime
+
+        store = MemoryStore()
+        self._seed_credit(store, ueve="032")
+        with patch.object(runtime, "is_simulation_enabled", return_value=True):
+            ok = mem.memory_run_credit_confirmation(store, "999999999:F1")
+        self.assertTrue(ok)
+        doc = store.get("qp_SP_DocumentDetail", "999999999:F1")
+        self.assertEqual(doc["nvfac_esta"], "A")
+        self.assertEqual(doc["nvfac_ueve"], "033")
+        events = store.query("qp_SP_EventLog",
+                             filters={"parent": "999999999:F1"})
+        self.assertEqual([e["event_code"] for e in events], ["033"])
+
+    def test_confirmacion_con_origen_final_no_emite_eventos(self):
+        from unittest.mock import patch
+
+        from qp_supplier_front.resources.documenteme import runtime
+
+        store = MemoryStore()
+        self._seed_credit(store, ueve="033")
+        with patch.object(runtime, "is_simulation_enabled", return_value=True):
+            ok = mem.memory_run_credit_confirmation(store, "999999999:F1")
+        self.assertFalse(ok)
+        doc = store.get("qp_SP_DocumentDetail", "999999999:F1")
+        self.assertEqual(doc["nvfac_esta"], "PA")
+        events = store.query("qp_SP_EventLog",
+                             filters={"parent": "999999999:F1"})
+        self.assertEqual(events, [])
         alerts = store.query("qp_SP_Alert",
                              filters={"parent": "999999999:F1"})
         self.assertEqual(len(alerts), 1)

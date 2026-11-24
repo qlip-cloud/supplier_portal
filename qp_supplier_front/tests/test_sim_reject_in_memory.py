@@ -54,6 +54,27 @@ class TestRejectCredit(unittest.TestCase):
         self.assertEqual([e["event_code"] for e in events],
                          ["030", "032", "031"])
 
+    def test_rechazo_arranca_desde_ueve_de_origen(self):
+        _doc(self.store, "999999999:F1", "F1", conv="2", orde="PO-X",
+             ueve="030")
+        with patch(
+            "qp_supplier_front.resources.documenteme.runtime.is_simulation_enabled",
+            return_value=True):
+            result = reject_memory.run_reject(self.store, doc_names=["999999999:F1"])
+        self.assertEqual(result["rejected"], ["F1"])
+        events = self.store.query("qp_SP_EventLog",
+                                  filters={"parent": "999999999:F1"})
+        self.assertEqual([e["event_code"] for e in events], ["032", "031"])
+
+    def test_ueve_final_no_se_rechaza(self):
+        _doc(self.store, "999999999:F1", "F1", conv="2", orde="PO-X",
+             ueve="033")
+        with patch(
+            "qp_supplier_front.resources.documenteme.runtime.is_simulation_enabled",
+            return_value=True):
+            result = reject_memory.run_reject(self.store, doc_names=["999999999:F1"])
+        self.assertEqual(result["rejected"], [])
+
     def test_credito_con_oc_sembrada_no_se_rechaza(self):
         seeds.seed_purchase_order(self.store, "PO-X", headquarter="HQ01")
         _doc(self.store, "999999999:F1", "F1", conv="2", orde="PO-X")

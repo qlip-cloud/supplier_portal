@@ -26,7 +26,7 @@ Delivery: work-unit commits en la feature branch. Tests: `env/bin/python -m pyte
 - T1. Núcleo puro `uses_cases/documenteme/notification_state.py` + `tests/test_notification_state.py`. Spec: S2,S5,S6,S7,S8,S11,S12. Route: inline. Status: done (RED: ModuleNotFoundError; GREEN: 18 passed).
 - T2. Ingesta y reconciliación (`services/document_sync.py`, `simulation/documents_memory.py`, timeline) + tests. Spec: S1,S2,S7(historial),S8,S9,S10,S13. Route: inline. Status: done (131 tests verdes; commit 320a90f).
 - T3. Elegibilidad 030/032 (`auto_approve`, `auto_assign`, `auto_reject`, `receipt_trigger`, espejos de simulación) + tests. Spec: S5,S6,S12. Route: inline. Status: done (tests reales+sim verdes).
-- T4. Secuencia desde el ueve de origen (`event_job`, `auto_approve_confirmation`) + tests. Spec: S7,S12. Route: inline. Status: pending.
+- T4. Secuencia desde el ueve de origen (`event_job`, `auto_approve_confirmation`) + tests. Spec: S7,S12. Route: inline. Status: done (event_job + simulacion; 73 tests verdes).
 - T5. Etiqueta del timeline en el front + documentación (SKILL/AGENTS/docs). Spec: S9,S10. Route: inline. Status: pending.
 
 ## Log
