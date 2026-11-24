@@ -17,6 +17,7 @@ qp_supplier_front/context/ConsultarPagosProveedores.json
 # AI/opencode context: agents, skills, commands, plans, config
 opencode.json
 .opencode/
+.atl/
 .coverage
 docs/
 .opencode/skills/supplier-edit-workflow/SKILL.md
