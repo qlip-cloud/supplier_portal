@@ -73,6 +73,8 @@ def resolve_state(current_state, origin_state, origin_ueve,
         return FINAL_STATE_BY_CODE[code]
     if origin_state in ("A", "R"):
         return origin_state
+    if not origin_state:
+        return current_state
     if current_state in advanced_states:
         return current_state
     return origin_state

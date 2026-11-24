@@ -36,13 +36,35 @@ class TestSyncLogAndLines(unittest.TestCase):
             {"Result": 1, "Description": "boom"}, 500)
         self.assertEqual(self.store.get("qp_SP_DocumentSyncLog", name)["error_message"], "boom")
 
-    def test_create_sync_lines_dedupe_y_salta_ueve(self):
+    def test_create_sync_lines_registra_todos_los_ueve(self):
         mem.memory_create_sync_lines(
             self.store, "LOG-1",
             [{"Nvfac_nume": "F1", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": ""},
-             {"Nvfac_nume": "F2", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": "031"}])
-        self.assertTrue(self.store.exists("qp_SP_DocumentSyncLine", "999999999:F1"))
-        self.assertFalse(self.store.exists("qp_SP_DocumentSyncLine", "999999999:F2"))
+             {"Nvfac_nume": "F2", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": "030"},
+             {"Nvfac_nume": "F3", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": "032"},
+             {"Nvfac_nume": "F4", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": "031"},
+             {"Nvfac_nume": "F5", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": "033"}])
+        for nume in ("F1", "F2", "F3", "F4", "F5"):
+            self.assertTrue(self.store.exists(
+                "qp_SP_DocumentSyncLine", "999999999:" + nume), nume)
+        self.assertEqual(
+            self.store.get_value(
+                "qp_SP_DocumentSyncLine", "999999999:F2", "nvfac_ueve"),
+            "030")
+
+    def test_resync_no_reinicia_linea_completada(self):
+        mem.memory_create_sync_lines(
+            self.store, "LOG-1",
+            [{"Nvfac_nume": "F1", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": ""}])
+        mem.memory_mark_line_completed(self.store, "999999999:F1")
+        mem.memory_create_sync_lines(
+            self.store, "LOG-2",
+            [{"Nvfac_nume": "F1", "Nvpro_ndoc": SIM_NIT,
+              "Nvfac_ueve": "030"}])
+        self.assertEqual(
+            self.store.get_value(
+                "qp_SP_DocumentSyncLine", "999999999:F1", "is_completed"),
+            1)
 
     def test_get_uncompleted_lines_solo_sin_completar(self):
         mem.memory_create_sync_lines(
@@ -130,6 +152,66 @@ class TestCreateDocumentDetail(unittest.TestCase):
         self.assertEqual(
             len(self.store.query("qp_SP_DetailLine",
                                  filters={"parent": "999999999:SIM-FAC-0001"})), 1)
+
+
+class TestReconcileCompletedLine(unittest.TestCase):
+
+    def setUp(self):
+        self.store = MemoryStore()
+        mem.memory_create_sync_lines(
+            self.store, "LOG-1",
+            [{"Nvfac_nume": "F1", "Nvpro_ndoc": SIM_NIT,
+              "Nvfac_esta": "E", "Nvfac_ueve": ""}])
+        mem.memory_mark_line_completed(self.store, "999999999:F1")
+        mem.memory_create_document_detail(
+            self.store, "999999999:F1",
+            {"Nvfac_nume": "F1", "Nvpro_ndoc": SIM_NIT, "Nvfac_esta": "E"},
+            [])
+
+    def _sync(self, state, ueve):
+        mem.memory_create_sync_lines(
+            self.store, "LOG-2",
+            [{"Nvfac_nume": "F1", "Nvpro_ndoc": SIM_NIT,
+              "Nvfac_esta": state, "Nvfac_ueve": ueve}])
+
+    def _detail(self):
+        return self.store.get("qp_SP_DocumentDetail", "999999999:F1")
+
+    def _origin_entries(self):
+        return [
+            row for row in self.store.query(
+                "qp_SP_TimelineEntry",
+                filters={"parent": "999999999:F1"},
+            )
+            if row.get("entry_by") == "Documenteme"
+        ]
+
+    def test_actualiza_ueve_intermedio_sin_recargar_detalle(self):
+        self._sync("E", "030")
+        detail = self._detail()
+        self.assertEqual(detail["nvfac_ueve"], "030")
+        self.assertEqual(detail["nvfac_esta"], "E")
+        self.assertEqual(len(self._origin_entries()), 1)
+
+    def test_origen_final_actualiza_estado(self):
+        self._sync("E", "033")
+        detail = self._detail()
+        self.assertEqual(detail["nvfac_esta"], "A")
+        self.assertEqual(detail["nvfac_ueve"], "033")
+
+    def test_no_degrada_final_local(self):
+        mem.memory_update_document(
+            self.store, "999999999:F1",
+            {"nvfac_esta": "A", "nvfac_ueve": "033"})
+        self._sync("E", "032")
+        detail = self._detail()
+        self.assertEqual(detail["nvfac_esta"], "A")
+        self.assertEqual(detail["nvfac_ueve"], "033")
+
+    def test_sin_cambios_no_duplica_historial(self):
+        self._sync("E", "030")
+        self._sync("E", "030")
+        self.assertEqual(len(self._origin_entries()), 1)
 
 
 class TestDocumentOps(unittest.TestCase):
@@ -305,7 +387,9 @@ class TestNcSinReferencia(unittest.TestCase):
         self._create_nc(estado="V")
         row = self.store.get("qp_SP_DocumentDetail", name)
         self.assertEqual(row["qp_ref_invoice"], "F-REF")
-        self.assertNotEqual(row["nvfac_esta"], "SR")
+        # SR es un estado local avanzado (igual que en el flujo real): la
+        # promocion a V la hace la asignacion de referencia, no el re-sync.
+        self.assertEqual(row["nvfac_esta"], "SR")
 
 
 if __name__ == "__main__":

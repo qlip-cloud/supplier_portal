@@ -158,8 +158,14 @@ class TestResolveSyncState(unittest.TestCase):
         self.assertEqual(ds._resolve_sync_state("BCC", "A", None), "A")
         self.assertEqual(ds._resolve_sync_state("PA", "R", None), "R")
 
-    def test_origen_con_ueve_prevalece(self):
-        self.assertEqual(ds._resolve_sync_state("BCC", "V", "033"), "V")
+    def test_origen_con_ueve_final_define_estado(self):
+        self.assertEqual(ds._resolve_sync_state("BCC", "V", "033"), "A")
+        self.assertEqual(ds._resolve_sync_state("PA", "V", "031"), "R")
+
+    def test_origen_intermedio_conserva_avanzado(self):
+        self.assertEqual(ds._resolve_sync_state("BCC", "V", "030"), "BCC")
+        self.assertEqual(ds._resolve_sync_state("PA", "E", "032"), "PA")
+        self.assertEqual(ds._resolve_sync_state("A", "E", "032"), "A")
 
     def test_sin_estado_avanzado_toma_origen(self):
         self.assertEqual(ds._resolve_sync_state("E", "V", None), "V")
@@ -187,6 +193,122 @@ class TestResolveSyncState(unittest.TestCase):
         }
         ds._set_document_detail_fields(doc, document_data)
         self.assertEqual(doc.nvfac_esta, "V")
+
+
+class TestCreateSyncLines(unittest.TestCase):
+
+    def test_crea_linea_para_todos_los_estados_de_notificacion(self):
+        docs = [
+            {"Nvfac_nume": "F0", "Nvpro_ndoc": "N", "Nvfac_ueve": None},
+            {"Nvfac_nume": "F1", "Nvpro_ndoc": "N", "Nvfac_ueve": "030"},
+            {"Nvfac_nume": "F2", "Nvpro_ndoc": "N", "Nvfac_ueve": "032"},
+            {"Nvfac_nume": "F3", "Nvpro_ndoc": "N", "Nvfac_ueve": "031"},
+            {"Nvfac_nume": "F4", "Nvpro_ndoc": "N", "Nvfac_ueve": "033"},
+        ]
+        with patch.object(ds, "create_sync_line") as create:
+            ds.create_sync_lines("LOG", docs)
+        self.assertEqual(create.call_count, len(docs))
+
+
+class TestReconcileDetailFromLine(unittest.TestCase):
+
+    def _run(self, current, doc_data, detail_name="D1"):
+        frappe_mock = MagicMock()
+        frappe_mock.db.get_value.return_value = current
+        with patch.dict(sys.modules, {"frappe": frappe_mock}), \
+             patch.object(ds, "_get_existing_detail_name",
+                          return_value=detail_name), \
+             patch.object(ds, "_record_origin_history") as record:
+            result = ds.reconcile_detail_from_line(doc_data)
+        return result, frappe_mock, record
+
+    def _doc(self, state, ueve):
+        return {
+            "Nvfac_nume": "F1", "Nvpro_ndoc": "N",
+            "Nvfac_esta": state, "Nvfac_ueve": ueve,
+        }
+
+    def test_actualiza_ueve_intermedio_conservando_estado(self):
+        result, frappe_mock, record = self._run(
+            {"nvfac_esta": "BCC", "nvfac_ueve": None},
+            self._doc("E", "030"),
+        )
+        self.assertEqual(result, "D1")
+        frappe_mock.db.set_value.assert_called_once_with(
+            "qp_SP_DocumentDetail", "D1",
+            {"nvfac_esta": "BCC", "nvfac_ueve": "030"},
+        )
+        record.assert_called_once()
+
+    def test_origen_final_manda(self):
+        result, frappe_mock, _record = self._run(
+            {"nvfac_esta": "BCC", "nvfac_ueve": None},
+            self._doc("E", "033"),
+        )
+        self.assertEqual(result, "D1")
+        frappe_mock.db.set_value.assert_called_once_with(
+            "qp_SP_DocumentDetail", "D1",
+            {"nvfac_esta": "A", "nvfac_ueve": "033"},
+        )
+
+    def test_no_degrada_final_local(self):
+        result, frappe_mock, record = self._run(
+            {"nvfac_esta": "A", "nvfac_ueve": "033"},
+            self._doc("E", "032"),
+        )
+        self.assertIsNone(result)
+        frappe_mock.db.set_value.assert_not_called()
+        record.assert_not_called()
+
+    def test_sin_cambios_no_escribe_ni_duplica_historial(self):
+        result, frappe_mock, record = self._run(
+            {"nvfac_esta": "E", "nvfac_ueve": "030"},
+            self._doc("E", "030"),
+        )
+        self.assertIsNone(result)
+        frappe_mock.db.set_value.assert_not_called()
+        record.assert_not_called()
+
+    def test_detalle_inexistente_no_hace_nada(self):
+        result, frappe_mock, _adapter = self._run(
+            {"nvfac_esta": "E", "nvfac_ueve": None},
+            self._doc("E", "030"),
+            detail_name=None,
+        )
+        self.assertIsNone(result)
+        frappe_mock.db.set_value.assert_not_called()
+
+    def test_linea_no_completada_no_reconcilia(self):
+        line = MagicMock()
+        line.get.return_value = 0
+        with patch.object(ds, "reconcile_detail_from_line") as reconcile:
+            ds._reconcile_completed_line(line, self._doc("E", "030"))
+        reconcile.assert_not_called()
+
+
+class TestResolveUeveEnDetalle(unittest.TestCase):
+
+    def _doc(self, state, ueve):
+        doc = MagicMock()
+        doc.get.side_effect = {"nvfac_esta": state, "nvfac_ueve": ueve}.get
+        return doc
+
+    def test_guarda_ueve_de_origen(self):
+        doc = self._doc("E", None)
+        ds._set_document_detail_fields(doc, {
+            "Nvfac_esta": "E", "Nvfac_ueve": "030",
+            "Nvfac_cont": 1, "Nvfac_nume": "F1", "Nvpro_ndoc": "N",
+        })
+        self.assertEqual(doc.nvfac_ueve, "030")
+
+    def test_no_baja_ueve_final_local(self):
+        doc = self._doc("A", "033")
+        ds._set_document_detail_fields(doc, {
+            "Nvfac_esta": "E", "Nvfac_ueve": "032",
+            "Nvfac_cont": 1, "Nvfac_nume": "F1", "Nvpro_ndoc": "N",
+        })
+        self.assertEqual(doc.nvfac_esta, "A")
+        self.assertEqual(doc.nvfac_ueve, "033")
 
 
 if __name__ == "__main__":

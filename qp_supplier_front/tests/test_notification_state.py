@@ -82,6 +82,11 @@ class TestResolveState(unittest.TestCase):
         self.assertEqual(resolve_state("A", "E", None), "A")
         self.assertEqual(resolve_state("R", "E", "030"), "R")
 
+    def test_origen_sin_estado_conserva_local(self):
+        self.assertEqual(resolve_state("E", None, None), "E")
+        self.assertEqual(resolve_state("BCC", "", ""), "BCC")
+        self.assertIsNone(resolve_state(None, None, None))
+
     def test_advanced_states_inyectable(self):
         self.assertEqual(
             resolve_state("SO", "E", "030", advanced_states=("BCC",)), "E")

@@ -1,3 +1,11 @@
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    ADVANCED_STATES,
+    normalize,
+    resolve_state,
+    resolve_ueve,
+)
+
+
 def build_document_params(tax_id, nvfac_esta, nvfac_fini, nvfac_ffin):
     return (
         "nvemp_nnit={tax_id}"
@@ -88,6 +96,7 @@ def create_sync_line(log_name, doc_data):
         line = frappe.get_doc("qp_SP_DocumentSyncLine", sync_line_name)
         line = _set_sync_line_fields(line, log_name, doc_data)
         line.save(ignore_permissions=True)
+        _reconcile_completed_line(line, doc_data)
         return line
 
     existing = _get_existing_sync_line(nvpro_ndoc, nvfac_nume)
@@ -95,12 +104,101 @@ def create_sync_line(log_name, doc_data):
         line = frappe.get_doc("qp_SP_DocumentSyncLine", existing)
         line = _set_sync_line_fields(line, log_name, doc_data)
         line.save(ignore_permissions=True)
+        _reconcile_completed_line(line, doc_data)
         return line
 
     line = frappe.new_doc("qp_SP_DocumentSyncLine")
     line = _set_sync_line_fields(line, log_name, doc_data)
     line.insert(ignore_permissions=True)
     return line
+
+
+def _reconcile_completed_line(line, doc_data):
+    """Reconcilia el detalle ya creado con el estado/ueve del listado actual.
+
+    Solo aplica a lineas ya completadas: el detalle se construye una sola vez
+    (fase 2) y una re-sincronizacion no lo vuelve a descargar. Esta funcion
+    mantiene el estado de la factura y su `nvfac_ueve` alineados con
+    documenteme sin costo de HTTP ni de archivos.
+    """
+    if not line.get("is_completed"):
+        return None
+    return reconcile_detail_from_line(doc_data)
+
+
+def reconcile_detail_from_line(doc_data):
+    """Aplica estado/ueve de origen a un `qp_SP_DocumentDetail` existente.
+
+    Reglas en `uses_cases/documenteme/notification_state`:
+    - Origen final (A/R o ueve 031/033) manda.
+    - Origen intermedio (030/032/vacio) respeta el estado local avanzado.
+    - Un ueve final local nunca baja a un valor intermedio.
+
+    No toca `is_completed`, no re-descarga el detalle ni reinicia la
+    secuencia de eventos. Registra en el historial cuando el ueve cambia.
+    """
+    import frappe
+
+    detail_name = _get_existing_detail_name(
+        doc_data.get("Nvfac_nume"), doc_data.get("Nvpro_ndoc")
+    )
+    if not detail_name:
+        return None
+
+    current = frappe.db.get_value(
+        "qp_SP_DocumentDetail",
+        detail_name,
+        ["nvfac_esta", "nvfac_ueve"],
+        as_dict=True,
+    ) or {}
+    old_state = current.get("nvfac_esta")
+    old_ueve = current.get("nvfac_ueve")
+
+    new_state = resolve_state(
+        old_state, doc_data.get("Nvfac_esta"), doc_data.get("Nvfac_ueve")
+    )
+    new_ueve = resolve_ueve(old_ueve, doc_data.get("Nvfac_ueve"))
+
+    state_changed = (new_state or "") != (old_state or "")
+    ueve_changed = normalize(new_ueve) != normalize(old_ueve)
+    if not state_changed and not ueve_changed:
+        return None
+
+    values = {"nvfac_esta": new_state, "nvfac_ueve": new_ueve}
+    frappe.db.set_value("qp_SP_DocumentDetail", detail_name, values)
+    _record_origin_history(
+        detail_name, new_ueve, old_state, new_state,
+        state_changed=state_changed,
+    )
+    return detail_name
+
+
+def _record_origin_history(detail_name, code, previous_state, current_state,
+                           state_changed=True):
+    """Historial: registra que el ueve/estado vino de documenteme.
+
+    Fail-tolerant: un problema al escribir el historial no debe cortar el
+    sync. Solo escribe cuando hay un codigo de origen o cambio de estado.
+    """
+    import frappe
+
+    if not normalize(code) and not state_changed:
+        return None
+    try:
+        from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+            RealTimelineAdapter,
+        )
+        return RealTimelineAdapter(frappe_module=frappe).add_documenteme_entry(
+            detail_name,
+            code=code,
+            previous_state=previous_state,
+            current_state=current_state,
+        )
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(), "documenteme origin history"
+        )
+        return None
 
 
 def build_sync_line_name(nvpro_ndoc, nvfac_nume):
@@ -135,8 +233,7 @@ def _get_existing_sync_line(nvpro_ndoc, nvfac_nume):
 
 def create_sync_lines(log_name, ldocuments):
     for doc_data in ldocuments:
-        if not doc_data.get("Nvfac_ueve"):
-            create_sync_line(log_name, doc_data)
+        create_sync_line(log_name, doc_data)
 
 
 def build_detail_params(nvemp_nnit, nvpro_ndoc, nvfac_esta, nvfac_nume):
@@ -215,31 +312,18 @@ def create_detail_line(detalle_item):
     return line
 
 
-ADVANCED_STATES = ("SO", "SR", "PSA", "BCC", "PA", "A", "R")
-
-
 def _resolve_sync_state(current_state, origin_state, origin_ueve):
-    """Resuelve el nvfac_esta tras una re-sincronizacion.
+    """Compatibilidad: delega en el nucleo puro `notification_state`.
 
-    El estado local que ya avanzo el flujo (creado en BC, en proceso,
-    aprobado o rechazado) NO debe retroceder al estado de analisis (V/E/T)
-    que documenteme aun reporta. Por el contrario, un estado definitivo de
-    origen (A/R) o un evento (nvfac_ueve) de documenteme prevalece porque
-    refleja una confirmacion real del origen.
-
-    - current_state: estado local previo (o None si es detalle nuevo).
-    - origin_state:  Nvfac_esta que devuelve documenteme.
-    - origin_ueve:   Nvfac_ueve que devuelve documenteme.
+    Reglas: un origen final (A/R o ueve 031/033) manda; un origen intermedio
+    (030/032/vacio) nunca degrada un estado local avanzado.
     """
-    if origin_state in ("A", "R") or origin_ueve:
-        return origin_state
-    if current_state in ADVANCED_STATES:
-        return current_state
-    return origin_state
+    return resolve_state(current_state, origin_state, origin_ueve)
 
 
 def _set_document_detail_fields(doc, document_data):
     current_state = doc.get("nvfac_esta")
+    current_ueve = doc.get("nvfac_ueve")
     origin_state = document_data.get("Nvfac_esta")
     origin_ueve = document_data.get("Nvfac_ueve")
     origin_po = str(document_data.get("Nvfac_orde") or "").strip()
@@ -253,7 +337,7 @@ def _set_document_detail_fields(doc, document_data):
     doc.nvfac_fech = convert_to_mariadb_datetime(document_data.get("Nvfac_fech"))
     doc.nvmon_codi = document_data.get("Nvmon_codi")
     doc.nvfac_totp = document_data.get("Nvfac_totp")
-    doc.nvfac_esta = _resolve_sync_state(current_state, origin_state, origin_ueve)
+    doc.nvfac_esta = resolve_state(current_state, origin_state, origin_ueve)
     doc.nvfac_rfec = convert_to_mariadb_datetime(document_data.get("Nvfac_rfec"))
     # La OC manual del usuario solo completa el vacio del origen: si
     # documenteme manda una OC real, esa prevalece.
@@ -266,7 +350,7 @@ def _set_document_detail_fields(doc, document_data):
     doc.nvfac_venc = convert_to_mariadb_datetime(document_data.get("Nvfac_venc"))
     doc.nvfac_viva = document_data.get("Nvfac_viva")
     doc.nvpro_ufac = convert_to_mariadb_datetime(document_data.get("Nvpro_ufac"))
-    doc.nvfac_ueve = document_data.get("Nvfac_ueve")
+    doc.nvfac_ueve = resolve_ueve(current_ueve, origin_ueve)
     doc.nvfac_stot = document_data.get("Nvfac_stot")
     doc.nvfac_vinc = document_data.get("Nvfac_vinc")
     doc.nvfac_vicb = document_data.get("Nvfac_vicb")
@@ -402,6 +486,8 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
 
     if detail_name:
         detail = frappe.get_doc("qp_SP_DocumentDetail", detail_name)
+        previous_state = detail.get("nvfac_esta")
+        previous_ueve = detail.get("nvfac_ueve")
         detail = _set_document_detail_fields(detail, document_data)
         detail.document_sync_line = document_sync_line_name
         _apply_nc_sync_fields(detail, attached_list)
@@ -444,6 +530,7 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
         _create_allowance_charges_from_xml(detail, attached_list)
 
         detail.save(ignore_permissions=True)
+        _record_detail_origin_entry(detail, previous_state, previous_ueve)
         return detail
 
     detail = frappe.new_doc("qp_SP_DocumentDetail")
@@ -470,7 +557,35 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
 
     detail.save(ignore_permissions=True)
 
+    if normalize(document_data.get("Nvfac_ueve")):
+        _record_origin_history(
+            detail.name,
+            detail.get("nvfac_ueve"),
+            None,
+            detail.get("nvfac_esta"),
+            state_changed=False,
+        )
+
     return detail
+
+
+def _record_detail_origin_entry(detail, previous_state, previous_ueve):
+    """Historial (fase 2): registra el ueve de origen si cambio.
+
+    Un cambio solo de estado ya lo registra el hook before_save; aca solo se
+    agrega la entrada de origen cuando llego un codigo de notificacion nuevo.
+    """
+    ueve_changed = normalize(previous_ueve) != normalize(detail.get("nvfac_ueve"))
+    if not ueve_changed or not normalize(detail.get("nvfac_ueve")):
+        return None
+    state_changed = (previous_state or "") != (detail.get("nvfac_esta") or "")
+    return _record_origin_history(
+        detail.name,
+        detail.get("nvfac_ueve"),
+        previous_state,
+        detail.get("nvfac_esta"),
+        state_changed=state_changed,
+    )
 
 
 def log_sync_attempt(line_name, status, error_message, response):

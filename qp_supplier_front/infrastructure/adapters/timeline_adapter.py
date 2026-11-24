@@ -25,6 +25,7 @@ from qp_supplier_front.uses_cases.documenteme.timeline import (
     build_assignment_entry,
     build_comment_entry,
     build_creation_entry,
+    build_documenteme_entry,
     build_state_entry,
     build_user_assignment_entry,
     order_desc,
@@ -218,6 +219,19 @@ class RealTimelineAdapter(object):
         """
         entry = build_user_assignment_entry(
             message, _user_name(user, self._frappe), _now_str(now)
+        )
+        entry["name"] = _insert_row(doc_name, entry, self._frappe)
+        return entry
+
+    def add_documenteme_entry(self, doc_name, code="", previous_state=None,
+                              current_state=None, now=None):
+        """Historial: dato de sincronizacion reportado por documenteme.
+
+        No es un comentario ni una alerta: se muestra en el Historial del modal
+        de alertas con `entry_by = "Documenteme"`.
+        """
+        entry = build_documenteme_entry(
+            code, previous_state, current_state, "Documenteme", _now_str(now)
         )
         entry["name"] = _insert_row(doc_name, entry, self._frappe)
         return entry
