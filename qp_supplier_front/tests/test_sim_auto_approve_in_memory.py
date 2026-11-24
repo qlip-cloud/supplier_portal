@@ -64,7 +64,12 @@ class TestSimAutoApproveInMemory(unittest.TestCase):
             patch.object(abase, "frappe", MagicMock()),
         ]
 
-    def test_auto_aprueba_contado_has_a(self):
+    def test_contado_no_se_autoaprueba_en_bc(self):
+        """El contado tiene la aprobacion automatica deshabilitada en BC.
+
+        Queda en "E" (no se promueve a "V") y no se crea la factura en BC; se
+        resuelve por asignacion y aprobacion manual.
+        """
         _seed(self.store)
         with patch("qp_supplier_front.simulation.session.store",
                    return_value=self.store):
@@ -75,11 +80,13 @@ class TestSimAutoApproveInMemory(unittest.TestCase):
             result = arapp.run_auto_approve(enqueue=False)
 
         self.assertFalse(result["skipped"])
-        self.assertIn("SIM-FAC-0002", result["promoted"])
+        self.assertEqual(result["approved"], [])
         row = self.store.get("qp_SP_DocumentDetail", "999999999:F2")
-        self.assertEqual(row["nvfac_esta"], "A")
-        self.assertTrue(self.store.exists("qp_SP_PurchaseInvoice", "999999999:F2"))
-        self.assertTrue(self.store.exists("qp_SP_PurchaseInvoiceBC", "SIMSIM-FAC-0002"))
+        self.assertEqual(row["nvfac_esta"], "E")
+        self.assertFalse(self.store.exists(
+            "qp_SP_PurchaseInvoice", "999999999:F2"))
+        self.assertFalse(self.store.exists(
+            "qp_SP_PurchaseInvoiceBC", "SIMSIM-FAC-0002"))
 
     def test_contado_sin_oc_queda_en_espera(self):
         _seed(self.store, purchase_order=None)

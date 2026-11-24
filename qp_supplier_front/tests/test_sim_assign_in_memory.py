@@ -4,7 +4,8 @@ test_sim_assign_in_memory.py
 =============================
 Asignacion automatica simulada en memoria: las facturas de credito con OC
 sin combinacion exacta de recepciones (banco) quedan asignadas a los usuarios
-de qp_SP_AssignmentConfig; las cubiertas y los contados (sin regla) no.
+de qp_SP_AssignmentConfig; las cubiertas de credito no. En BC el contado se
+asigna SIEMPRE (su aprobacion automatica esta deshabilitada temporalmente).
 
 Ejecutar con: python -m unittest qp_supplier_front.tests.test_sim_assign_in_memory -v
 """
@@ -49,8 +50,8 @@ class TestSimAssignInMemory(unittest.TestCase):
         _seed_doc(self.store, "SIM-POB-0001", "E", "PO-POB-0001", 1000, "2")
         _seed_doc(self.store, "SIM-POB-0003", "E", "PO-POB-0003", 2500, "2")
         _seed_doc(self.store, "SIM-POC-0001", "E", "PO-POC-0001", 1000, "2")
-        # Contado con OC (no rompe no_po -> no se asigna) y contado sin OC
-        # (rompe no_po -> se asigna via catch-all).
+        # Contado con OC y contado sin OC: en BC el contado se asigna siempre
+        # (su aprobacion automatica esta deshabilitada), asi que ambos entran.
         _seed_doc(self.store, "SIM-FAC-0003", "E", "PO-SIM-0001", 400000, "1")
         _seed_doc(self.store, "SIM-FAC-0004", "E", "", 600000, "1")
 
@@ -58,7 +59,8 @@ class TestSimAssignInMemory(unittest.TestCase):
         assigned = assign_memory.run_auto_assign(self.store)
         self.assertEqual(
             sorted(assigned),
-            ["999999999:SIM-FAC-0004",
+            ["999999999:SIM-FAC-0003",
+             "999999999:SIM-FAC-0004",
              "999999999:SIM-POB-0003",
              "999999999:SIM-POC-0001"],
         )
@@ -72,16 +74,17 @@ class TestSimAssignInMemory(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["user"], seeds.ASSIGNEE_EMAIL)
 
-    def test_contado_cubierto_y_oc_cubierta_no_reciben_asignacion(self):
+    def test_contado_y_descubiertas_reciben_asignacion_y_credito_cubierto_no(self):
         assign_memory.run_auto_assign(self.store)
-        for nume in ("SIM-POB-0003", "SIM-POC-0001", "SIM-FAC-0004"):
+        for nume in ("SIM-POB-0003", "SIM-POC-0001",
+                     "SIM-FAC-0003", "SIM-FAC-0004"):
             self.assertGreater(self.store.count(
                 "qp_SP_SyncLineAssignedUser",
                 filters={"parent": "{}:{}".format(SIM_NIT, nume)}), 0)
-        for nume in ("SIM-POB-0001", "SIM-FAC-0003"):
-            self.assertEqual(self.store.count(
-                "qp_SP_SyncLineAssignedUser",
-                filters={"parent": "{}:{}".format(SIM_NIT, nume)}), 0)
+        # Credito cubierto: no se asigna.
+        self.assertEqual(self.store.count(
+            "qp_SP_SyncLineAssignedUser",
+            filters={"parent": "{}:{}".format(SIM_NIT, "SIM-POB-0001")}), 0)
 
 
 class TestSimAssignRolesInMemory(unittest.TestCase):

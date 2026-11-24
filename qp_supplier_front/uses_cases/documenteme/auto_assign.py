@@ -247,6 +247,10 @@ def should_assign_contado(invoice, resolve_rule_fn, po_exists_fn, receipt_for_po
 
     Con "no_action" o sin regla configurada, el contado se aprueba
     automaticamente y no se asigna.
+
+    En backend BC este gate ya no decide: el contado se asigna SIEMPRE
+    (`cash_always_assign=True`) porque su aprobacion automatica esta
+    deshabilitada temporalmente. Se conserva para el flujo GP.
     """
     if resolve_rule_fn is None:
         return False
@@ -312,6 +316,7 @@ def auto_assign(
     assign_without_po=False,
     mark_pending_oc_fn=None,
     assign_when_no_action=None,
+    cash_always_assign=False,
 ):
     assigned = []
     candidates = candidates_fn() if doc_names is None else candidates_fn(doc_names)
@@ -364,8 +369,11 @@ def auto_assign(
         )
 
         if cash:
-            # Contado: solo se asigna si la regla de rechazo lo bloquea.
-            if not should_assign_contado(
+            # Contado: en BC se asigna SIEMPRE porque su aprobacion automatica
+            # esta deshabilitada temporalmente (ver
+            # resources/documenteme/auto_approve.py). En GP se mantiene la
+            # regla de rechazo: solo se asigna si la vulnera.
+            if not cash_always_assign and not should_assign_contado(
                 invoice,
                 resolve_rule_fn,
                 po_exists_fn,

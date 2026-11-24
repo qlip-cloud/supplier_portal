@@ -221,17 +221,18 @@ def _add_assignees(store, sync_line_name, users):
 def run_auto_assign(store, doc_names=None):
     """Asignacion automatica del escenario sobre el store de la sesion.
 
-    La regla de rechazo activa (MemoryMasterSetupSource) decide el contado:
-    si la viola (ej. no_po sin OC) se asigna via catch-all; si no hay regla
-    (None) el contado no se asigna (aprueba). El flag
-    `assign_invoices_without_po` habilita la cola de credito sin OC.
+    En backend BC el contado se asigna SIEMPRE (su aprobacion automatica esta
+    deshabilitada temporalmente): con OC usa el grupo de la OC, sin OC usa la
+    fila catch-all de tipo Contado. En GP se mantiene la regla de rechazo.
+    El flag `assign_invoices_without_po` habilita la cola de credito sin OC.
     """
     from qp_supplier_front.simulation.master_setup_source import (
         MemoryMasterSetupSource,
     )
 
-    assign_without_po = MemoryMasterSetupSource(
-        store).assign_without_po_enabled()
+    source = MemoryMasterSetupSource(store)
+    assign_without_po = source.assign_without_po_enabled()
+    backend = source.documenteme_backend() or "BC"
 
     return auto_assign_core(
         candidates_fn=lambda names=None: _candidates(store, names),
@@ -256,6 +257,7 @@ def run_auto_assign(store, doc_names=None):
         ),
         assign_without_po=assign_without_po,
         mark_pending_oc_fn=lambda name: memory_mark_pending_oc(store, name),
+        cash_always_assign=(backend != "GP"),
     )
 
 

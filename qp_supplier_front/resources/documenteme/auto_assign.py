@@ -38,8 +38,9 @@ def run_auto_assign(doc_names=None):
         RealMasterSetupSource,
     )
 
-    assign_without_po = RealMasterSetupSource(
-        frappe_module=frappe).assign_without_po_enabled()
+    source = RealMasterSetupSource(frappe_module=frappe)
+    assign_without_po = source.assign_without_po_enabled()
+    backend = _resolve_backend(source)
 
     return auto_assign_core(
         candidates_fn=get_candidates,
@@ -56,7 +57,24 @@ def run_auto_assign(doc_names=None):
         po_supplier_match_fn=po_supplier_match,
         assign_without_po=assign_without_po,
         mark_pending_oc_fn=mark_pending_oc,
+        cash_always_assign=_cash_always_assign(backend),
     )
+
+
+def _resolve_backend(source):
+    """Backend documenteme (GP/BC); default BC si no se puede leer."""
+    try:
+        value = source.documenteme_backend()
+    except Exception:
+        return "BC"
+    if value in ("GP", "BC"):
+        return str(value).upper()
+    return "BC"
+
+
+def _cash_always_assign(backend):
+    """El contado se asigna siempre en BC (auto-aprobacion deshabilitada)."""
+    return backend != "GP"
 
 
 @frappe.whitelist()
