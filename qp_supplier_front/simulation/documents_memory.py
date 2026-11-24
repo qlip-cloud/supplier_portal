@@ -14,6 +14,8 @@ from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
     parse_purchase_orders,
 )
 from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    final_state,
+    is_final_conflict,
     normalize,
     resolve_state,
     resolve_ueve,
@@ -135,10 +137,15 @@ def _memory_reconcile_detail(store, doc_data):
     current = store.get("qp_SP_DocumentDetail", name) or {}
     old_state = current.get("nvfac_esta")
     old_ueve = current.get("nvfac_ueve")
-    new_state = resolve_state(
-        old_state, doc_data.get("Nvfac_esta"), doc_data.get("Nvfac_ueve")
-    )
-    new_ueve = resolve_ueve(old_ueve, doc_data.get("Nvfac_ueve"))
+    origin_state = doc_data.get("Nvfac_esta")
+    origin_ueve = doc_data.get("Nvfac_ueve")
+    if is_final_conflict(old_state, old_ueve, origin_state, origin_ueve):
+        _memory_record_final_conflict(
+            store, name, old_state, old_ueve, origin_state, origin_ueve
+        )
+        return None
+    new_state = resolve_state(old_state, origin_state, origin_ueve)
+    new_ueve = resolve_ueve(old_ueve, origin_ueve)
     state_changed = (new_state or "") != (old_state or "")
     ueve_changed = normalize(new_ueve) != normalize(old_ueve)
     if not state_changed and not ueve_changed:
@@ -156,6 +163,38 @@ def _memory_reconcile_detail(store, doc_data):
             current_state=new_state,
         )
     return name
+
+
+def _memory_record_final_conflict(store, name, local_state, local_ueve,
+                                  origin_state, origin_ueve):
+    """Espejo de services/document_sync._record_final_conflict."""
+    local = final_state(local_state, local_ueve)
+    origin = final_state(origin_state, origin_ueve)
+    message = (
+        "Documenteme reporta un estado final distinto ({0}) al estado final "
+        "local ({1}). No se sobrescribe; revisar manualmente."
+    ).format(origin or "-", local or "-")
+    existing = store.query(
+        "qp_SP_Alert",
+        filters={
+            "parent": name,
+            "status": "Abierta",
+            "alert_message": message,
+        },
+        limit=1,
+    )
+    if existing:
+        return None
+    now = _now_str()
+    store.insert("qp_SP_Alert", {
+        "parent": name,
+        "alert_message": message,
+        "alert_type": "ErrorUrgente",
+        "status": "Abierta",
+        "alert_date": now,
+        "creation": now,
+    })
+    return None
 
 
 def memory_get_uncompleted_lines(store):
@@ -349,12 +388,16 @@ def memory_create_document_detail(store, sync_line_name, document_data,
     for field in ("qp_ref_invoice", "qp_ref_date_start", "qp_ref_date_end"):
         if not doc.get(field) and previous.get(field):
             doc[field] = previous.get(field)
-    doc["nvfac_esta"] = resolve_state(
+    conflict = is_final_conflict(
+        previous.get("nvfac_esta"), previous.get("nvfac_ueve"),
+        document_data.get("Nvfac_esta"), document_data.get("Nvfac_ueve"),
+    )
+    doc["nvfac_esta"] = previous.get("nvfac_esta") if conflict else resolve_state(
         previous.get("nvfac_esta"),
         document_data.get("Nvfac_esta"),
         document_data.get("Nvfac_ueve"),
     )
-    doc["nvfac_ueve"] = resolve_ueve(
+    doc["nvfac_ueve"] = previous.get("nvfac_ueve") if conflict else resolve_ueve(
         previous.get("nvfac_ueve"), doc.get("nvfac_ueve")
     )
     _apply_manual_po(store, doc, name)
@@ -369,6 +412,12 @@ def memory_create_document_detail(store, sync_line_name, document_data,
             for child in store.query(child_doctype, filters={"parent": name}):
                 store.delete(child_doctype, child["name"])
         store.update("qp_SP_DocumentDetail", name, doc)
+        if conflict:
+            _memory_record_final_conflict(
+                store, name, old_state, old_ueve,
+                document_data.get("Nvfac_esta"),
+                document_data.get("Nvfac_ueve"),
+            )
         state_changed = (old_state or "") != (new_state or "")
         if state_changed:
             _memory_timeline(store).set_state(

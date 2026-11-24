@@ -20,6 +20,9 @@ Delivery: work-unit commits en la feature branch. Tests: `env/bin/python -m pyte
 - S11. Compatibilidad Python 3.6 (sin f-strings, dataclasses ni typing en firmas).
 - S12. No se rompe el comportamiento existente: facturas con ueve vacío siguen fluyendo, 031/033 siguen excluidas, `nvfac_esta=T` se mantiene.
 - S13. Una factura importada con estado final de documenteme (A/R) queda en `A/R` local y no es aprobable/rechazable/asignable.
+- S14. Si el estado final local y el final de origen son distintos (p. ej. local `A/033` contra origen `R/031`), la reconciliacion NO sobrescribe: conserva el estado local y deja una alerta abierta deduplicada para revision manual.
+- S15. Un fallo al insertar la alerta de origen final se registra con `frappe.log_error` (no se traga en silencio).
+- S16. Si el origen es terminal (`031`/`033`), un fallo de evento no reinicia la secuencia desde `030`: se aparca sin eventos pendientes y deja la alerta de origen final.
 
 ## Tasks
 
@@ -28,6 +31,8 @@ Delivery: work-unit commits en la feature branch. Tests: `env/bin/python -m pyte
 - T3. Elegibilidad 030/032 (`auto_approve`, `auto_assign`, `auto_reject`, `receipt_trigger`, espejos de simulación) + tests. Spec: S5,S6,S12. Route: inline. Status: done (tests reales+sim verdes). Commit 6fbbd50.
 - T4. Secuencia desde el ueve de origen (`event_job`, `auto_approve_confirmation`) + tests. Spec: S7,S12. Route: inline. Status: done (event_job + simulacion; tests verdes). Commit a3296c0.
 - T5. Etiqueta del timeline en el front + documentación (SKILL/AGENTS/docs). Spec: S9,S10. Route: inline. Status: done (label `documenteme` en el front; SKILL/AGENTS/docs actualizados en disco; requiere `bench build`). Commit e082a43.
+- T6. Conflicto entre finales: conservar local + alerta (real y memoria). Spec: S14,S15. Route: inline. Status: done (tests verdes). Commit pendiente.
+- T7. Fallo de alerta de origen final logueado y reintento que no reenvia 030 con origen terminal. Spec: S15,S16. Route: inline. Status: done (tests verdes). Commit pendiente.
 
 ## Log
 
@@ -38,3 +43,6 @@ Delivery: work-unit commits en la feature branch. Tests: `env/bin/python -m pyte
 - L3 (no regresion): `test_data_facade::test_get_v_doc_names_real_devuelve_strings` falla igual en `develop-documenteme` (baseline, entorno sin contexto frappe), no es regresion.
 - L3 (RDD): `gentle-ai review mode status` = on (global). `review assess --base-ref develop-documenteme --committed-only` = risk medium, `review_due=false`, reason `under_budget`; no se inicia review.
 - L3 (pendiente operativo): `bench build` para el label `documenteme` del timeline (no requiere `bench migrate`).
+
+- L4 (decision del usuario, verbatim): "en el caso R1-FINAL-OVERRIDE, en vez de sobreescribir se puede dar una alerta, pero solo para ese caso q describes q tiene un estado definitivo distinto".
+- L4 (review nativo parcial): lineage `review-5921d492461a5c7c`, target `sha256:6bad295a...`, risk medium. Risk y Resilience admitidos; Reliability no capturable (`opencode_task_output_empty` en 3 intentos, defecto recurrente del transporte OpenCode) y registrado como `unachievable`; STATUS termino en stop `unachievable_lens_slot`, sin receipt ni PASS. Hallazgos WARNING: R1-FINAL-OVERRIDE (este cambio), R4-2 (alerta final tragada), R4-3 (costo por factura), R4-4 (fallback 030); R4-1 falso positivo verificado. R4-3 queda fuera de alcance (no pedido).

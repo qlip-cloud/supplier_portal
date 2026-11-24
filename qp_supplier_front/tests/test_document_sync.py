@@ -285,6 +285,21 @@ class TestReconcileDetailFromLine(unittest.TestCase):
             ds._reconcile_completed_line(line, self._doc("E", "030"))
         reconcile.assert_not_called()
 
+    def test_conflicto_de_finales_conserva_local_y_alerta(self):
+        frappe_mock = MagicMock()
+        frappe_mock.db.get_value.return_value = {
+            "nvfac_esta": "A", "nvfac_ueve": "033"}
+        with patch.dict(sys.modules, {"frappe": frappe_mock}), \
+             patch.object(ds, "_get_existing_detail_name",
+                          return_value="D1"), \
+             patch.object(ds, "_record_origin_history") as history, \
+             patch.object(ds, "_record_final_conflict") as conflict:
+            result = ds.reconcile_detail_from_line(self._doc("E", "031"))
+        self.assertIsNone(result)
+        frappe_mock.db.set_value.assert_not_called()
+        history.assert_not_called()
+        conflict.assert_called_once()
+
 
 class TestResolveUeveEnDetalle(unittest.TestCase):
 
@@ -305,6 +320,15 @@ class TestResolveUeveEnDetalle(unittest.TestCase):
         doc = self._doc("A", "033")
         ds._set_document_detail_fields(doc, {
             "Nvfac_esta": "E", "Nvfac_ueve": "032",
+            "Nvfac_cont": 1, "Nvfac_nume": "F1", "Nvpro_ndoc": "N",
+        })
+        self.assertEqual(doc.nvfac_esta, "A")
+        self.assertEqual(doc.nvfac_ueve, "033")
+
+    def test_conflicto_de_finales_conserva_estado_local(self):
+        doc = self._doc("A", "033")
+        ds._set_document_detail_fields(doc, {
+            "Nvfac_esta": "E", "Nvfac_ueve": "031",
             "Nvfac_cont": 1, "Nvfac_nume": "F1", "Nvpro_ndoc": "N",
         })
         self.assertEqual(doc.nvfac_esta, "A")

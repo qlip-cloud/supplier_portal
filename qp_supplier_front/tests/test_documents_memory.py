@@ -140,6 +140,27 @@ class TestCreateDocumentDetail(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["file_name"], "f.xml")
 
+    def test_reescritura_conflicto_final_conserva_estado_y_alerta(self):
+        mem.memory_create_document_detail(
+            self.store, "999999999:SIM-FAC-0001", _DetailFixture.data(), [])
+        self.store.set_value(
+            "qp_SP_DocumentDetail", "999999999:SIM-FAC-0001",
+            "nvfac_esta", "A")
+        self.store.set_value(
+            "qp_SP_DocumentDetail", "999999999:SIM-FAC-0001",
+            "nvfac_ueve", "033")
+        data2 = _DetailFixture.data()
+        data2["Nvfac_esta"] = "E"
+        data2["Nvfac_ueve"] = "031"
+        mem.memory_create_document_detail(
+            self.store, "999999999:SIM-FAC-0001", data2, [])
+        stored = self.store.get("qp_SP_DocumentDetail", "999999999:SIM-FAC-0001")
+        self.assertEqual(stored["nvfac_esta"], "A")
+        self.assertEqual(stored["nvfac_ueve"], "033")
+        alerts = self.store.query(
+            "qp_SP_Alert", filters={"parent": "999999999:SIM-FAC-0001"})
+        self.assertEqual(len(alerts), 1)
+
     def test_reescritura_actualiza_sin_duplicar_childs(self):
         mem.memory_create_document_detail(
             self.store, "999999999:SIM-FAC-0001", _DetailFixture.data(), [])
@@ -212,6 +233,38 @@ class TestReconcileCompletedLine(unittest.TestCase):
         self._sync("E", "030")
         self._sync("E", "030")
         self.assertEqual(len(self._origin_entries()), 1)
+
+    def test_conflicto_de_finales_conserva_local_y_alerta(self):
+        mem.memory_update_document(
+            self.store, "999999999:F1",
+            {"nvfac_esta": "A", "nvfac_ueve": "033"})
+        self._sync("E", "031")
+        detail = self._detail()
+        self.assertEqual(detail["nvfac_esta"], "A")
+        self.assertEqual(detail["nvfac_ueve"], "033")
+        alerts = self.store.query(
+            "qp_SP_Alert", filters={"parent": "999999999:F1"})
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0]["alert_type"], "ErrorUrgente")
+
+    def test_conflicto_de_finales_no_duplica_alerta(self):
+        mem.memory_update_document(
+            self.store, "999999999:F1",
+            {"nvfac_esta": "A", "nvfac_ueve": "033"})
+        self._sync("E", "031")
+        self._sync("E", "031")
+        alerts = self.store.query(
+            "qp_SP_Alert", filters={"parent": "999999999:F1"})
+        self.assertEqual(len(alerts), 1)
+
+    def test_conflicto_inverso_conserva_rechazado(self):
+        mem.memory_update_document(
+            self.store, "999999999:F1",
+            {"nvfac_esta": "R", "nvfac_ueve": "031"})
+        self._sync("E", "033")
+        detail = self._detail()
+        self.assertEqual(detail["nvfac_esta"], "R")
+        self.assertEqual(detail["nvfac_ueve"], "031")
 
 
 class TestDocumentOps(unittest.TestCase):

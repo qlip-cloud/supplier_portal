@@ -60,6 +60,32 @@ def is_known(value):
     return normalize(value) in KNOWN_CODES
 
 
+def final_state(state, ueve):
+    """Estado final (A/R) que representa el par estado/ueve, o None.
+
+    El ueve final manda sobre el estado; si no hay ueve final, un estado
+    local A/R tambien es final.
+    """
+    code = normalize(ueve)
+    if code in FINAL_STATE_BY_CODE:
+        return FINAL_STATE_BY_CODE[code]
+    if state in ("A", "R"):
+        return state
+    return None
+
+
+def is_final_conflict(current_state, current_ueve, origin_state, origin_ueve):
+    """True si local y origen son finales pero representan estados distintos.
+
+    Es el unico caso en que la reconciliacion NO debe sobrescribir: p. ej. un
+    local Aprobado (033) contra un origen Rechazado (031). El llamador debe
+    conservar el estado local y dejar una alerta para revision manual.
+    """
+    local = final_state(current_state, current_ueve)
+    origin = final_state(origin_state, origin_ueve)
+    return bool(local and origin and local != origin)
+
+
 def resolve_state(current_state, origin_state, origin_ueve,
                   advanced_states=ADVANCED_STATES):
     """Resuelve el `nvfac_esta` local tras una sincronizacion.

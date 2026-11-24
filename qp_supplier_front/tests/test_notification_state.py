@@ -11,7 +11,9 @@ Ejecutar:
 import unittest
 
 from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    final_state,
     is_final,
+    is_final_conflict,
     is_known,
     is_pending,
     normalize,
@@ -132,3 +134,25 @@ class TestStartCode(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestFinalConflict(unittest.TestCase):
+
+    def test_final_state_from_ueve_o_estado(self):
+        self.assertEqual(final_state("E", "033"), "A")
+        self.assertEqual(final_state("E", "031"), "R")
+        self.assertEqual(final_state("A", ""), "A")
+        self.assertEqual(final_state("R", None), "R")
+        self.assertIsNone(final_state("E", "030"))
+        self.assertIsNone(final_state("BCC", None))
+
+    def test_conflicto_entre_finales_distintos(self):
+        self.assertTrue(is_final_conflict("A", "033", "E", "031"))
+        self.assertTrue(is_final_conflict("R", "031", "E", "033"))
+        self.assertTrue(is_final_conflict("A", "", "R", None))
+
+    def test_sin_conflicto(self):
+        self.assertFalse(is_final_conflict("A", "033", "E", "033"))
+        self.assertFalse(is_final_conflict("E", None, "E", "033"))
+        self.assertFalse(is_final_conflict("A", "033", "E", "030"))
+        self.assertFalse(is_final_conflict("E", "030", "E", "032"))

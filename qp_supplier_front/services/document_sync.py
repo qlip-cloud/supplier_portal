@@ -1,5 +1,7 @@
 from qp_supplier_front.uses_cases.documenteme.notification_state import (
     ADVANCED_STATES,
+    final_state,
+    is_final_conflict,
     normalize,
     resolve_state,
     resolve_ueve,
@@ -154,10 +156,16 @@ def reconcile_detail_from_line(doc_data):
     old_state = current.get("nvfac_esta")
     old_ueve = current.get("nvfac_ueve")
 
-    new_state = resolve_state(
-        old_state, doc_data.get("Nvfac_esta"), doc_data.get("Nvfac_ueve")
-    )
-    new_ueve = resolve_ueve(old_ueve, doc_data.get("Nvfac_ueve"))
+    origin_state = doc_data.get("Nvfac_esta")
+    origin_ueve = doc_data.get("Nvfac_ueve")
+    if is_final_conflict(old_state, old_ueve, origin_state, origin_ueve):
+        _record_final_conflict(
+            detail_name, old_state, old_ueve, origin_state, origin_ueve
+        )
+        return None
+
+    new_state = resolve_state(old_state, origin_state, origin_ueve)
+    new_ueve = resolve_ueve(old_ueve, origin_ueve)
 
     state_changed = (new_state or "") != (old_state or "")
     ueve_changed = normalize(new_ueve) != normalize(old_ueve)
@@ -171,6 +179,47 @@ def reconcile_detail_from_line(doc_data):
         state_changed=state_changed,
     )
     return detail_name
+
+
+def _record_final_conflict(detail_name, local_state, local_ueve,
+                           origin_state, origin_ueve):
+    """Alerta: documenteme reporta un final distinto al final local.
+
+    No sobrescribe el estado local (ver `is_final_conflict`); deja una alerta
+    abierta, deduplicada por mensaje, para revision manual.
+    """
+    import frappe
+    from datetime import datetime
+
+    local = final_state(local_state, local_ueve)
+    origin = final_state(origin_state, origin_ueve)
+    message = (
+        "Documenteme reporta un estado final distinto ({0}) al estado final "
+        "local ({1}). No se sobrescribe; revisar manualmente."
+    ).format(origin or "-", local or "-")
+    try:
+        existing = frappe.get_all(
+            "qp_SP_Alert",
+            filters={
+                "parent": detail_name,
+                "status": "Abierta",
+                "alert_message": message,
+            },
+            limit=1,
+        )
+        if existing:
+            return None
+        from qp_supplier_front.resources.documenteme._alerts import insert_alert
+        insert_alert(
+            detail_name, message,
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            alert_type="ErrorUrgente",
+        )
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(), "documenteme final conflict"
+        )
+    return None
 
 
 def _record_origin_history(detail_name, code, previous_state, current_state,
@@ -326,6 +375,9 @@ def _set_document_detail_fields(doc, document_data):
     current_ueve = doc.get("nvfac_ueve")
     origin_state = document_data.get("Nvfac_esta")
     origin_ueve = document_data.get("Nvfac_ueve")
+    conflict = is_final_conflict(
+        current_state, current_ueve, origin_state, origin_ueve
+    )
     origin_po = str(document_data.get("Nvfac_orde") or "").strip()
     manual_po = str(doc.get("qp_manual_purchase_order") or "").strip()
     doc.nvfac_cont = document_data.get("Nvfac_cont")
@@ -337,7 +389,9 @@ def _set_document_detail_fields(doc, document_data):
     doc.nvfac_fech = convert_to_mariadb_datetime(document_data.get("Nvfac_fech"))
     doc.nvmon_codi = document_data.get("Nvmon_codi")
     doc.nvfac_totp = document_data.get("Nvfac_totp")
-    doc.nvfac_esta = resolve_state(current_state, origin_state, origin_ueve)
+    doc.nvfac_esta = current_state if conflict else resolve_state(
+        current_state, origin_state, origin_ueve
+    )
     doc.nvfac_rfec = convert_to_mariadb_datetime(document_data.get("Nvfac_rfec"))
     # La OC manual del usuario solo completa el vacio del origen: si
     # documenteme manda una OC real, esa prevalece.
@@ -350,7 +404,9 @@ def _set_document_detail_fields(doc, document_data):
     doc.nvfac_venc = convert_to_mariadb_datetime(document_data.get("Nvfac_venc"))
     doc.nvfac_viva = document_data.get("Nvfac_viva")
     doc.nvpro_ufac = convert_to_mariadb_datetime(document_data.get("Nvpro_ufac"))
-    doc.nvfac_ueve = resolve_ueve(current_ueve, origin_ueve)
+    doc.nvfac_ueve = current_ueve if conflict else resolve_ueve(
+        current_ueve, origin_ueve
+    )
     doc.nvfac_stot = document_data.get("Nvfac_stot")
     doc.nvfac_vinc = document_data.get("Nvfac_vinc")
     doc.nvfac_vicb = document_data.get("Nvfac_vicb")
@@ -530,6 +586,15 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
         _create_allowance_charges_from_xml(detail, attached_list)
 
         detail.save(ignore_permissions=True)
+        if is_final_conflict(
+            previous_state, previous_ueve,
+            document_data.get("Nvfac_esta"), document_data.get("Nvfac_ueve"),
+        ):
+            _record_final_conflict(
+                detail.name, previous_state, previous_ueve,
+                document_data.get("Nvfac_esta"),
+                document_data.get("Nvfac_ueve"),
+            )
         _record_detail_origin_entry(detail, previous_state, previous_ueve)
         return detail
 
