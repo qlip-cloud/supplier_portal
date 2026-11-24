@@ -15,13 +15,17 @@ from qp_supplier_front.services.documenteme_access import (
 )
 from qp_supplier_front.services.role_resolver import get_active_role
 from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
+from qp_supplier_front.uses_cases.documenteme.no_purchase_order import (
+    STATE_PENDING_PURCHASE_ORDER,
+)
 
 ALLOWED_ROLES = {"Administrador Documenteme", "Administrador Sede Documenteme"}
 
 # Estados desde los que se permite un rechazo manual. Coinciden con los
-# estados de analisis de la aprobacion (E/V/T): una factura ya creada en BC,
-# en proceso o final (BCC/PA/PR/A/R/SR) no debe retroceder a "PR".
-REJECTABLE_STATES = ("E", "V", "T")
+# estados de analisis de la aprobacion (E/V/T) mas "Sin OC" (SO): una factura
+# sin OC puede rechazarse, aunque no puede aprobarse sin ella. Una factura ya
+# creada en BC, en proceso o final (BCC/PA/PR/A/R/SR) no debe retroceder a "PR".
+REJECTABLE_STATES = ("E", "V", "T", STATE_PENDING_PURCHASE_ORDER)
 
 
 def _get_company_tax_id():

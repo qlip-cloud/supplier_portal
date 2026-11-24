@@ -43,12 +43,12 @@ from qp_supplier_front.resources.documenteme.auto_reject import (
     run_auto_reject,
 )
 from qp_supplier_front.resources.response import handler as response
+from qp_supplier_front.uses_cases.documenteme.auto_reject import (
+    has_po_match,
+)
 from qp_supplier_front.uses_cases.documenteme.conversion import (
     is_cash_invoice,
     is_credit_note,
-)
-from qp_supplier_front.uses_cases.documenteme.no_purchase_order import (
-    has_purchase_orders,
 )
 from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
     parse_purchase_orders,
@@ -94,7 +94,8 @@ def _validate_scope(doc):
         return "Una factura de delivery no requiere orden de compra"
     if doc.get("nvfac_esta") not in ASSIGNABLE_STATES:
         return "La factura no esta pendiente de orden de compra"
-    if has_purchase_orders(doc) and not doc.get("qp_manual_purchase_order"):
+    if (not doc.get("qp_manual_purchase_order")
+            and has_po_match(doc, po_exists, po_supplier_match)):
         return "La factura ya tiene una orden de compra del origen"
     return ""
 
@@ -141,9 +142,14 @@ def get_purchase_order_candidates(doc_name, search=None, start=None, end=None,
             response(400, error)
             return
 
+        declared = parse_purchase_orders(doc.get("nvfac_orde"))
+
         supplier = get_supplier_by_tax_id(doc.get("nvpro_ndoc"))
         if not supplier:
-            response(200, "ok", {"orders": []})
+            response(200, "ok", {
+                "orders": [],
+                "declared_purchase_orders": declared,
+            })
             return
 
         # El flujo normal (get_oc_context) acepta la OC por nombre aunque siga
@@ -189,7 +195,10 @@ def get_purchase_order_candidates(doc_name, search=None, start=None, end=None,
             order.update(summary)
             orders.append(order)
 
-        response(200, "ok", {"orders": orders})
+        response(200, "ok", {
+            "orders": orders,
+            "declared_purchase_orders": declared,
+        })
 
     except Exception as error:
         frappe.db.rollback()

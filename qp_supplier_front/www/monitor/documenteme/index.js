@@ -30,8 +30,8 @@ $(document).ready(function () {
             var html = "";
             $.each(users, function (index, u) {
                 var fullName = (u.first_name || "") + " " + (u.last_name || "");
-                fullName = $.trim(fullName);
-                if (!fullName) {
+                fullName = $.trim(fullName).replace(/\s+/g, " ");
+                if (!fullName || fullName.indexOf(" ") === -1) {
                     fullName = u.name;
                 }
                 html += '<label class="assign-user-option">' +
@@ -1565,6 +1565,24 @@ $(document).ready(function () {
         refreshRefPoCount();
     }
 
+    function renderRefPoDeclared(orders) {
+        var $notice = $("#reference-po-declared");
+        var declared = (orders || []).filter(function (order) {
+            return !!order;
+        });
+        if (declared.length === 0) {
+            $notice.hide().empty();
+            return;
+        }
+        var escaped = declared.map(function (order) {
+            return "<strong>" + escapeHtml(order) + "</strong>";
+        }).join(", ");
+        $notice.html(
+            "La factura indica tener la orden de compra " + escaped +
+            ". Revise si es correcta o seleccione la orden que corresponda."
+        ).show();
+    }
+
     function renderRefPoCandidates(orders) {
         var $body = $("#reference-po-body");
         $body.empty();
@@ -1640,6 +1658,7 @@ $(document).ready(function () {
                 }
                 var data = response.data || {};
                 window.__refPoOrders = data.orders || [];
+                renderRefPoDeclared(data.declared_purchase_orders || []);
                 renderRefPoCandidates(window.__refPoOrders);
             }
         );
@@ -1742,6 +1761,7 @@ $(document).ready(function () {
         $("#reference-po-start").val("");
         $("#reference-po-end").val("");
         $("#reference-po-search").val("");
+        $("#reference-po-declared").hide().empty();
         $("#reference_po_modal").modal("show");
         loadRefPoCandidates();
     });

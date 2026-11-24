@@ -86,6 +86,26 @@ class TestIsWithoutPoCredit(unittest.TestCase):
         self.assertFalse(
             is_without_po_credit(_credit(without_po=False)))
 
+    def test_oc_inexistente_cuenta_como_sin_oc(self):
+        # OC mal escrita / inexistente: se informa has_valid_po=False.
+        self.assertTrue(
+            is_without_po_credit(
+                _credit(without_po=False), has_valid_po=False))
+
+    def test_oc_valida_no_es_sin_oc(self):
+        self.assertFalse(
+            is_without_po_credit(
+                _credit(without_po=False), has_valid_po=True))
+
+    def test_has_valid_po_false_con_campo_vacio(self):
+        self.assertTrue(
+            is_without_po_credit(_credit(), has_valid_po=False))
+
+    def test_has_valid_po_true_con_campo_lleno(self):
+        self.assertFalse(
+            is_without_po_credit(
+                _credit(without_po=False), has_valid_po=True))
+
 
 class TestPendingPurchaseOrder(unittest.TestCase):
 
@@ -149,6 +169,16 @@ class TestShouldAssignWithoutPo(unittest.TestCase):
     def test_flag_off(self):
         self.assertFalse(should_assign_without_po(_credit(), enabled=False))
 
+    def test_asigna_oc_inexistente(self):
+        self.assertTrue(
+            should_assign_without_po(
+                _credit(without_po=False), enabled=True, has_valid_po=False))
+
+    def test_no_asigna_oc_valida(self):
+        self.assertFalse(
+            should_assign_without_po(
+                _credit(without_po=False), enabled=True, has_valid_po=True))
+
 
 class TestShouldSkipRejectWithoutPo(unittest.TestCase):
 
@@ -168,6 +198,16 @@ class TestShouldSkipRejectWithoutPo(unittest.TestCase):
         self.assertFalse(
             should_skip_reject_without_po(
                 _credit(without_po=False), enabled=True))
+
+    def test_skips_oc_inexistente(self):
+        self.assertTrue(
+            should_skip_reject_without_po(
+                _credit(without_po=False), enabled=True, has_valid_po=False))
+
+    def test_does_not_skip_oc_valida(self):
+        self.assertFalse(
+            should_skip_reject_without_po(
+                _credit(without_po=False), enabled=True, has_valid_po=True))
 
 
 if __name__ == "__main__":

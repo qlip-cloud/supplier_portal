@@ -34,7 +34,7 @@
 
 <tr class="card-header" data-row="{{ row.name }}" data-toggle="collapse" data-target="#detail-{{ row.name.replace(':', '_') }}" aria-expanded="false">
     <td class="text-center">
-        <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()" {% if row.nvfac_esta in ["A", "R", "BCC", "PA", "PR", "SR", "SO"] or row.auto_approve_processing or (row.nvfac_esta == "PSA" and not can_super_approve) %}disabled{% endif %}>
+        <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()" {% if row.nvfac_esta in ["A", "R", "BCC", "PA", "PR", "SR"] or row.auto_approve_processing or (row.nvfac_esta == "PSA" and not can_super_approve) %}disabled{% endif %}>
     </td>
     <td>{{ row.nvpro_ndoc }}</td>
     <td>{{ row.nvpro_nomb or "" }}</td>

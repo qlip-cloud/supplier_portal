@@ -86,6 +86,12 @@ class TestBuildAssignedToName(unittest.TestCase):
         result = build_assigned_to_name(frappe_mock, ["U1"])
         self.assertEqual(result, "Asignado a:\n- U1")
 
+    def test_usa_user_id_cuando_full_name_es_una_sola_palabra(self):
+        frappe_mock = MagicMock()
+        frappe_mock.db.get_value.return_value = "johana"
+        result = build_assigned_to_name(frappe_mock, ["johana@example.com"])
+        self.assertEqual(result, "Asignado a:\n- johana@example.com")
+
 
 class TestEnrichDocumentList(unittest.TestCase):
 

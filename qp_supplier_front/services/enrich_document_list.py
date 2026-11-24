@@ -16,6 +16,7 @@ DB) para que el modulo se pueda importar sin Frappe instalado (testabilidad).
 Las helpers de calculo puro estan separadas de las que consultan la base.
 """
 from qp_supplier_front.services.enrich_document_detail import enrich_document_detail
+from qp_supplier_front.services.user_display import resolve_user_display_name
 
 
 NON_XML = "XML"
@@ -165,5 +166,6 @@ def build_assigned_to_name(data, assigned_user_ids):
         return None
     names = []
     for user_id in assigned_user_ids:
-        names.append(_data_api(data, "get_value")("User", user_id, "full_name") or user_id)
+        full_name = _data_api(data, "get_value")("User", user_id, "full_name")
+        names.append(resolve_user_display_name(full_name, user_id))
     return ASSIGNED_PREFIX + "\n" + "\n".join("- " + name for name in names)

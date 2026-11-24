@@ -171,12 +171,6 @@ def run_reject(store, doc_names=None):
             continue
 
         rule = references_memory.memory_resolve_rule(store, doc)
-        if should_skip_reject_without_po(
-                doc, assign_without_po, supplier_rule=rule):
-            continue
-        if not is_active_rule(rule):
-            continue
-
         po_match = has_po_match(
             doc,
             lambda po: references_memory.memory_po_exists(store, po),
@@ -184,6 +178,13 @@ def run_reject(store, doc_names=None):
                 references_memory.memory_po_supplier_match(store, d)
             ),
         )
+        if should_skip_reject_without_po(
+                doc, assign_without_po, supplier_rule=rule,
+                has_valid_po=po_match):
+            continue
+        if not is_active_rule(rule):
+            continue
+
         receipt_match = has_receipt_match(doc, _receipt_for_po(store))
 
         if not should_auto_reject(po_match, receipt_match,

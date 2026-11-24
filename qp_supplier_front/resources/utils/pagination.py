@@ -5,6 +5,7 @@ from qp_supplier_front.services.auto_approve_state import is_processing
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.services.enrich_document_detail import enrich_document_detail
 from qp_supplier_front.services.enrich_document_list import enrich_document_list
+from qp_supplier_front.services.user_display import resolve_user_display_name
 from qp_supplier_front.services.documenteme_access import (
     get_assigned_sync_lines_filters,
     get_assigned_sync_line_names,
@@ -82,7 +83,10 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
                 if assigned_user_ids:
                     names = []
                     for user_id in assigned_user_ids:
-                        names.append(frappe.db.get_value("User", user_id, "full_name") or user_id)
+                        names.append(resolve_user_display_name(
+                            frappe.db.get_value("User", user_id, "full_name"),
+                            user_id,
+                        ))
                     doc["assigned_to_name"] = "Asignado a:\n" + "\n".join("- " + name for name in names)
                 else:
                     doc["assigned_to_name"] = None
