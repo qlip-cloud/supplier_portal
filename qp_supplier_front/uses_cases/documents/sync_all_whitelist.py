@@ -7,6 +7,7 @@ from qp_supplier_front.uses_cases.documents.sync_by_supplier import (
 from qp_supplier_front.uses_cases.documents.sync_detail import sync_detail
 from qp_supplier_front.uses_cases.documents.date_range import validate_date_range
 from qp_supplier_front.services import sync_lock
+from qp_supplier_front.services.document_sync import log_sync_progress
 from qp_supplier_front.resources.documenteme import runtime
 from qp_supplier_front.infrastructure.adapters.master_setup_source import (
     resolve_master_setup_source,
@@ -99,8 +100,16 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
     created_names = []
     if not fetch_blocked:
         companies = frappe.get_all("Company", pluck="name")
+        log_sync_progress(
+            "sync_documents: descargando listado documenteme ({} empresa(s))".format(
+                len(companies)
+            )
+        )
 
         for company_id in companies:
+            log_sync_progress(
+                "sync_documents: listando empresa={}".format(company_id)
+            )
             sync_by_supplier(
                 supplier_id=company_id,
                 get_tax_id_fn=get_tax_id_fn,
@@ -124,7 +133,10 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
             commit_fn=lambda: frappe.db.commit(),
             get_company_tax_id_fn=persist["get_log_company_tax_id"],
             heartbeat_fn=heartbeat_fn,
+            log_fn=log_sync_progress,
         )
+    else:
+        log_sync_progress("sync_documents: descarga bloqueada (fetch_blocked)")
 
     created_names = created_names or []
     run_documenteme_auto_assign(doc_names or created_names)

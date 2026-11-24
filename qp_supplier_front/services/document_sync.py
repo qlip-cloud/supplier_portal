@@ -26,6 +26,20 @@ def get_response_description(response):
     return response.get("Description") if isinstance(response, dict) else None
 
 
+def log_sync_progress(message):
+    """Escribe el avance del sync documenteme al archivo de log de Frappe.
+
+    Cae en `logs/documenteme_sync.log` (bench) y `sites/<sitio>/logs/
+    documenteme_sync.log` (sitio), con rotacion, para poder seguirlo en
+    produccion con `tail -f`. Nunca debe romper el sync si el logging falla.
+    """
+    import frappe
+    try:
+        frappe.logger("documenteme_sync").info(message)
+    except Exception:
+        pass
+
+
 def create_sync_log(supplier_id, tax_id, endpoint_code, payload, response, status):
     import frappe
     import json
