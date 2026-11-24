@@ -106,7 +106,12 @@ def _warn_final_origin(doc):
             alert_type="ErrorUrgente",
         )
     except Exception:
-        pass
+        try:
+            frappe.log_error(
+                frappe.get_traceback(), "documenteme final origin alert"
+            )
+        except Exception:
+            pass
 
 
 def initialize_event_schedule(doc, intent):
@@ -356,10 +361,25 @@ def _apply_outcome(doc, intent, code, response, status, config):
         return {"doc": doc.name, "intent": intent, "sent": code, "done": False,
                 "error": "Maximo de intentos alcanzado", "attempts": attempts}
 
-    # Ante un fallo se reinicia la secuencia, pero desde el primer codigo que
-    # documenteme aun no tenia aplicado (no se reenvia 030/032 ya presentes).
-    restart = start_code(intent, doc.get("nvfac_ueve")) or first_code(intent)
-    upcoming = next_code(intent, code) if success else restart
+    if success:
+        upcoming = next_code(intent, code)
+    else:
+        # Ante un fallo se reinicia la secuencia, pero desde el primer codigo
+        # que documenteme aun no tenia aplicado (no se reenvia 030/032 ya
+        # presentes). Un origen terminal no se reintenta: se aparca con alerta.
+        restart = start_code(intent, doc.get("nvfac_ueve"))
+        if restart is None:
+            doc.qp_event_sequence = intent
+            doc.qp_event_pending_code = ""
+            doc.qp_event_next_at = None
+            doc.qp_event_attempts = 0
+            doc.save()
+            frappe.db.commit()
+            _warn_final_origin(doc)
+            return {"doc": doc.name, "intent": intent, "sent": code,
+                    "done": False, "attempts": 0,
+                    "error": "Origen final en documenteme; no se reintenta"}
+        upcoming = restart
     delay = config.get("event_delay") if success else config.get("retry_interval")
     doc.qp_event_pending_code = upcoming
     doc.qp_event_next_at = _future_str(delay)

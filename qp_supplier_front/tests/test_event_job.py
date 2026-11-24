@@ -197,6 +197,17 @@ class TestInitializeEventSchedule(unittest.TestCase):
         alert.assert_called_once()
 
 
+class TestWarnFinalOrigin(unittest.TestCase):
+
+    def test_alerta_fallida_se_loguea(self):
+        doc = FakeDoc()
+        frappe_mock = MagicMock()
+        with patch.object(mod, "frappe", frappe_mock), \
+             patch.object(mod, "insert_alert", side_effect=Exception("boom")):
+            mod._warn_final_origin(doc)
+        frappe_mock.log_error.assert_called_once()
+
+
 class TestRunEvent(unittest.TestCase):
 
     def test_success_non_final_avanza(self):
@@ -258,6 +269,21 @@ class TestRunEvent(unittest.TestCase):
         self.assertEqual(doc.qp_event_pending_code, "030")
         self.assertEqual(doc.qp_event_attempts, 1)
         insert_alert.assert_not_called()
+
+    def test_fallo_con_origen_terminal_no_reenvia_030(self):
+        doc = FakeDoc(nvfac_esta="PA", qp_event_sequence="A",
+                      qp_event_pending_code="032", nvfac_ueve="033",
+                      qp_event_attempts=1)
+
+        def http(payload):
+            return (ERROR, 200)
+
+        result, insert_alert, _ = _run(doc, http)
+
+        self.assertEqual(doc.qp_event_pending_code, "")
+        self.assertIsNone(doc.qp_event_next_at)
+        self.assertIn("final", str(result.get("error", "")).lower())
+        insert_alert.assert_called_once()
 
     def test_fallo_reinicia_desde_ueve_de_origen(self):
         doc = FakeDoc(nvfac_esta="PA", qp_event_sequence="A",
