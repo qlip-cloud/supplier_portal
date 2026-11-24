@@ -18,6 +18,9 @@ from qp_supplier_front.uses_cases.documenteme.auto_assign import (
     is_inventariable_oc_type,
     resolve_assignee_emails,
 )
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    is_pending_ueve,
+)
 
 
 def _sync_line(store, doc):
@@ -36,7 +39,6 @@ def _has_assigned_users(store, sync_line):
 
 def _candidates(store, doc_names=None):
     filters = {
-        "nvfac_ueve": ["is", "not set"],
         "nvfac_esta": ["not in", ["PSA", "BCC", "PA", "PR", "A", "R"]],
     }
     if doc_names:
@@ -46,8 +48,8 @@ def _candidates(store, doc_names=None):
         "qp_SP_DocumentDetail",
         filters=filters,
         fields=["name", "nvfac_nume", "nvpro_ndoc", "nvfac_orde", "nvfac_totp",
-                "nvfac_stot", "nvfac_esta", "nvfac_conv", "nvtip_docu",
-                "document_sync_line"],
+                "nvfac_stot", "nvfac_esta", "nvfac_ueve", "nvfac_conv",
+                "nvtip_docu", "document_sync_line"],
     )
 
     # Seleccion manual en curso (recibos reclamados): se excluye del flujo
@@ -56,6 +58,8 @@ def _candidates(store, doc_names=None):
 
     candidates = []
     for doc in docs:
+        if not is_pending_ueve(doc.get("nvfac_ueve")):
+            continue
         if doc.get("nvfac_nume") in claimed:
             continue
         sync_line = _sync_line(store, doc)

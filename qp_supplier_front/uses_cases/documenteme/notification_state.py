@@ -46,6 +46,10 @@ def is_pending(value):
     return normalize(value) in PENDING_CODES
 
 
+# Alias explicito para los llamadores de infraestructura.
+is_pending_ueve = is_pending
+
+
 def is_final(value):
     """True si el ueve es final (031 rechazado o 033 aprobado)."""
     return normalize(value) in FINAL_CODES

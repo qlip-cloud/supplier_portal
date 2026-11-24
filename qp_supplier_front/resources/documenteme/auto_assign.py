@@ -72,9 +72,11 @@ def get_candidates(doc_names=None):
     from qp_supplier_front.infrastructure.adapters.receipt_claim_adapter import (
         claimed_invoice_numbers,
     )
+    from qp_supplier_front.uses_cases.documenteme.notification_state import (
+        is_pending_ueve,
+    )
 
     filters = {
-        "nvfac_ueve": ["is", "not set"],
         "nvfac_esta": ["not in", ["PSA", "BCC", "PA", "PR", "A", "R", "SR"]],
     }
     if doc_names:
@@ -83,7 +85,7 @@ def get_candidates(doc_names=None):
     docs = frappe.get_all(
         "qp_SP_DocumentDetail",
         filters=filters,
-        fields=["name", "nvfac_nume", "nvpro_ndoc", "nvfac_orde", "nvfac_totp", "nvfac_stot", "nvfac_esta", "nvfac_conv", "nvtip_docu", "document_sync_line"],
+        fields=["name", "nvfac_nume", "nvpro_ndoc", "nvfac_orde", "nvfac_totp", "nvfac_stot", "nvfac_esta", "nvfac_ueve", "nvfac_conv", "nvtip_docu", "document_sync_line"],
     )
 
     # Seleccion manual en curso (recibos reclamados): se excluye del flujo
@@ -92,6 +94,8 @@ def get_candidates(doc_names=None):
 
     candidates = []
     for doc in docs:
+        if not is_pending_ueve(doc.get("nvfac_ueve")):
+            continue
         if doc.get("nvfac_nume") in claimed:
             continue
         sync_line = doc.get("document_sync_line") or doc.get("nvfac_nume")

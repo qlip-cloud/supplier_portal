@@ -44,6 +44,9 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     _allocate_registrables,
 )
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILON
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    is_pending_ueve,
+)
 from qp_supplier_front.services.auto_approve_state import (
     clear_processing,
     mark_processing,
@@ -214,7 +217,7 @@ def _filter_registrable(doc_names):
         )
     ready = set(
         doc.get("name") for doc in docs or []
-        if doc.get("nvfac_esta") == "V" and not doc.get("nvfac_ueve")
+        if doc.get("nvfac_esta") == "V" and is_pending_ueve(doc.get("nvfac_ueve"))
     )
     return [name for name in names if name in ready]
 
@@ -338,7 +341,6 @@ def is_auto_approve_enabled(master_setup=None):
 
 def get_analysis_candidates(doc_names=None):
     filters = {
-        "nvfac_ueve": ["is", "not set"],
         "nvfac_esta": ["in", ANALYSIS_STATES],
     }
     if doc_names:
@@ -382,7 +384,11 @@ def get_analysis_candidates(doc_names=None):
                 "nvtip_docu",
             ],
         )
-    return [doc for doc in docs if doc.get("nvfac_nume") not in claimed]
+    pending = [
+        doc for doc in (docs or [])
+        if is_pending_ueve(doc.get("nvfac_ueve"))
+    ]
+    return [doc for doc in pending if doc.get("nvfac_nume") not in claimed]
 
 
 def promote_eligible_to_v(doc_names=None, backend=None):
@@ -457,7 +463,6 @@ def promote_eligible_to_v(doc_names=None, backend=None):
 
 def get_v_doc_names(doc_names=None):
     filters = {
-        "nvfac_ueve": ["is", "not set"],
         "nvfac_esta": "V",
     }
     if doc_names:
@@ -468,14 +473,20 @@ def get_v_doc_names(doc_names=None):
         docs = frappe.get_all(
             "qp_SP_DocumentDetail",
             filters=filters,
-            fields=["name", "nvfac_nume"],
+            fields=["name", "nvfac_nume", "nvfac_ueve"],
         )
     else:
         docs = data.get_all(
             "qp_SP_DocumentDetail",
             filters=filters,
-            fields=["name", "nvfac_nume"],
+            fields=["name", "nvfac_nume", "nvfac_ueve"],
         )
+    docs = [
+        doc for doc in (docs or [])
+        if is_pending_ueve(
+            doc.get("nvfac_ueve") if isinstance(doc, dict) else None
+        )
+    ]
 
     claimed = _claimed_invoice_numbers()
     names = []

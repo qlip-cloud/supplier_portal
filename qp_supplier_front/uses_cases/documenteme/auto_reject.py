@@ -39,6 +39,9 @@ FINAL_STATES = ("A", "R")
 import qp_supplier_front.uses_cases.documenteme.reject_retry
 
 from qp_supplier_front.uses_cases.documenteme.conversion import is_credit_note
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    is_pending_ueve,
+)
 from qp_supplier_front.uses_cases.documenteme.home_delivery import (
     is_home_delivery,
 )
@@ -127,9 +130,13 @@ def should_auto_reject(po_match, receipt_match, rule_code):
 
 def is_eligible_doc(doc):
     """Candidato a rechazo: sin evento final aplicado y en estado pendiente
-    (E = evaluar regla, P = en proceso de rechazo)."""
+    (E = evaluar regla, P = en proceso de rechazo).
+
+    Los ueve intermedios (030/032) se tratan igual que vacio: la factura sigue
+    en cola. Solo 031/033 (finales) la excluyen.
+    """
     return (
-        not doc.get("nvfac_ueve")
+        is_pending_ueve(doc.get("nvfac_ueve"))
         and doc.get("nvfac_esta") in REJECT_PENDING_STATES
     )
 

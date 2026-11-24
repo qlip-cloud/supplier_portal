@@ -27,6 +27,9 @@ from qp_supplier_front.uses_cases.documenteme.conversion import (
 from qp_supplier_front.uses_cases.documenteme.home_delivery import (
     find_delivery_type,
 )
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    is_pending_ueve,
+)
 
 
 def _memory_timeline(store):
@@ -154,7 +157,7 @@ def run_reject(store, doc_names=None):
 
     for name in (doc_names or []):
         doc = store.get("qp_SP_DocumentDetail", name) or {}
-        if not doc or doc.get("nvfac_ueve"):
+        if not doc or not is_pending_ueve(doc.get("nvfac_ueve")):
             continue
         if doc.get("nvfac_nume") in claimed:
             continue

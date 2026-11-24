@@ -94,8 +94,21 @@ class TestGetAnalysisCandidates(_WithData, unittest.TestCase):
         self._ctx(frappe_mock)
         infra.get_analysis_candidates()
         filters = frappe_mock.get_all.call_args[1]["filters"]
-        self.assertEqual(filters["nvfac_ueve"], ["is", "not set"])
+        self.assertNotIn("nvfac_ueve", filters)
         self.assertEqual(filters["nvfac_esta"], ["in", ("E", "V", "T")])
+
+    def test_incluye_ueve_intermedio_y_excluye_final(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            _doc(name="D1", nvfac_ueve=None),
+            _doc(name="D2", nvfac_ueve="030"),
+            _doc(name="D3", nvfac_ueve="032"),
+            _doc(name="D4", nvfac_ueve="031"),
+            _doc(name="D5", nvfac_ueve="033"),
+        ]
+        self._ctx(frappe_mock)
+        docs = infra.get_analysis_candidates()
+        self.assertEqual([d["name"] for d in docs], ["D1", "D2", "D3"])
 
     def test_get_analysis_candidates_incluye_nvfac_conv(self):
         frappe_mock = MagicMock()
@@ -200,8 +213,18 @@ class TestGetVDocNames(_WithData, unittest.TestCase):
         names = infra.get_v_doc_names()
         filters = frappe_mock.get_all.call_args[1]["filters"]
         self.assertEqual(filters["nvfac_esta"], "V")
-        self.assertEqual(filters["nvfac_ueve"], ["is", "not set"])
+        self.assertNotIn("nvfac_ueve", filters)
         self.assertEqual(names, ["DOC1"])
+
+    def test_excluye_ueve_final(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            {"name": "D1", "nvfac_nume": "D1", "nvfac_ueve": None},
+            {"name": "D2", "nvfac_nume": "D2", "nvfac_ueve": "030"},
+            {"name": "D3", "nvfac_nume": "D3", "nvfac_ueve": "033"},
+        ]
+        self._ctx(frappe_mock)
+        self.assertEqual(infra.get_v_doc_names(), ["D1", "D2"])
 
 
 class TestRunAutoApprove(_WithData, unittest.TestCase):
