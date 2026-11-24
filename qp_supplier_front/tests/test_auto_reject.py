@@ -240,8 +240,13 @@ class TestIsEligibleDoc(unittest.TestCase):
     def test_estado_R_no_es_elegible(self):
         self.assertFalse(is_eligible_doc(_invoice(nvfac_esta="R")))
 
-    def test_con_ueve_no_es_elegible(self):
+    def test_con_ueve_final_no_es_elegible(self):
         self.assertFalse(is_eligible_doc(_invoice(nvfac_ueve="031")))
+        self.assertFalse(is_eligible_doc(_invoice(nvfac_ueve="033")))
+
+    def test_con_ueve_intermedio_si_es_elegible(self):
+        self.assertTrue(is_eligible_doc(_invoice(nvfac_ueve="030")))
+        self.assertTrue(is_eligible_doc(_invoice(nvfac_ueve="032")))
 
 
 class TestCollectRejectable(unittest.TestCase):

@@ -13,6 +13,8 @@ por una combinacion exacta de recepciones no consumidas se asigna a los
 usuarios configurados.
 """
 
+from functools import partial
+
 import frappe
 
 from qp_supplier_front.resources.collection_accounts._collection_invoice_base import (
@@ -21,6 +23,7 @@ from qp_supplier_front.resources.collection_accounts._collection_invoice_base im
 from qp_supplier_front.resources.documenteme.auto_assign import (
     _load_assignment_rows,
     get_assignee_emails,
+    new_assignment_cache,
     resolve_assignee_users,
 )
 from qp_supplier_front.uses_cases.documenteme.auto_assign import (
@@ -37,7 +40,8 @@ def run_collection_auto_assign(doc_names=None):
         candidates_fn=get_candidates,
         get_oc_context_fn=get_oc_context,
         get_receipt_bank_fn=_receipt_bank,
-        resolve_emails_fn=get_assignee_emails,
+        resolve_emails_fn=partial(
+            get_assignee_emails, cache=new_assignment_cache()),
         resolve_users_fn=resolve_assignee_users,
         add_assignees_fn=add_assignees,
         doc_names=doc_names,
@@ -112,14 +116,21 @@ def get_oc_context(purchase_order_number):
 def add_assignees(purchase_invoice_name, users):
     """Agrega usuarios asignados a la factura (child assigned_users).
 
-    Idempotente: no duplica usuarios ya presentes.
+    Idempotente: no duplica usuarios ya presentes ni guarda si no hay
+    usuarios nuevos.
     """
     invoice = frappe.get_doc(PURCHASE_INVOICE, purchase_invoice_name)
     existing = {row.user for row in invoice.assigned_users}
 
+    changed = False
     for user in (users or []):
         if not user or user in existing:
             continue
         invoice.append("assigned_users", {"user": user})
+        existing.add(user)
+        changed = True
+
+    if not changed:
+        return
 
     invoice.save(ignore_permissions=True)

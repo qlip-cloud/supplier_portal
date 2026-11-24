@@ -166,9 +166,11 @@ def get_candidates(doc_names=None):
     from qp_supplier_front.infrastructure.adapters.receipt_claim_adapter import (
         claimed_invoice_numbers,
     )
+    from qp_supplier_front.uses_cases.documenteme.notification_state import (
+        is_pending_ueve,
+    )
 
     filters = {
-        "nvfac_ueve": ["is", "not set"],
         "nvfac_esta": ["in", list(REJECT_PENDING_STATES)],
     }
     if doc_names:
@@ -194,7 +196,9 @@ def get_candidates(doc_names=None):
     # automatico (manual excluye auto).
     claimed = claimed_invoice_numbers()
     return [
-        doc for doc in docs if doc.get("nvfac_nume") not in claimed
+        doc for doc in docs
+        if is_pending_ueve(doc.get("nvfac_ueve"))
+        and doc.get("nvfac_nume") not in claimed
     ]
 
 

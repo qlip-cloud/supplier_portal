@@ -7,10 +7,11 @@ Escenario integral en memoria: sync (fases 1-2) + asignacion + auto-aprobacion
 
 El escenario de 11 facturas debe terminar en:
   - Rechazadas (R): SIM-FAC-0001, SIM-FAC-0002 (credito sin OC).
-  - Aprobadas (A): contado (SIM-FAC-0003/0004) y credito cubierto por el banco
-    de recibos (SIM-POA-0001/0002, SIM-POB-0001/0002).
+  - Aprobadas (A): credito cubierto por el banco de recibos
+    (SIM-POA-0001/0002, SIM-POB-0001/0002).
   - Asignadas (E + assigned_users): SIM-POB-0003, SIM-POC-0001/0002
-    (credito con OC cuya combinacion de recibos no la cubre).
+    (credito con OC cuya combinacion de recibos no la cubre) y TODO el contado
+    (SIM-FAC-0003/0004): su aprobacion automatica esta deshabilitada en BC.
 
 Ejecutar con: python -m unittest qp_supplier_front.tests.test_sim_scenario_in_memory -v
 """
@@ -28,11 +29,13 @@ SIM_NIT = "999999999"
 
 REJECTED = {"SIM-FAC-0001", "SIM-FAC-0002"}
 APPROVED = {
-    "SIM-FAC-0003",
     "SIM-POA-0001", "SIM-POA-0002",
     "SIM-POB-0001", "SIM-POB-0002",
 }
-ASSIGNED = {"SIM-POB-0003", "SIM-POC-0001", "SIM-POC-0002", "SIM-FAC-0004"}
+ASSIGNED = {
+    "SIM-POB-0003", "SIM-POC-0001", "SIM-POC-0002",
+    "SIM-FAC-0003", "SIM-FAC-0004",
+}
 
 
 class TestSimScenarioInMemory(unittest.TestCase):
@@ -74,17 +77,17 @@ class TestSimScenarioInMemory(unittest.TestCase):
         for nume in ASSIGNED:
             self.assertEqual(states[nume], "E", nume)
 
-        # Aprobadas de credito notificaron 030/032/033; contado va directo a A.
-        # Solo el contado CON OC aprueba (no_po); el contado SIN OC se asigna.
-        row = store.query("qp_SP_DocumentDetail",
-                          filters={"nvfac_nume": "SIM-FAC-0003"}, limit=1)[0]
-        self.assertEqual(row["nvfac_ueve"], "")
-        self.assertEqual(row["qp_is_event_completed"], 1)
+        # Aprobadas de credito notificaron 030/032/033. El contado ya no se
+        # aprueba automaticamente en BC (queda E y asignado, sin eventos).
         for nume in ("SIM-POA-0001", "SIM-POB-0002"):
             row = store.query("qp_SP_DocumentDetail",
                               filters={"nvfac_nume": nume}, limit=1)[0]
             self.assertEqual(row["nvfac_ueve"], "033")
             self.assertEqual(row["qp_is_event_completed"], 1)
+        cash = store.query("qp_SP_DocumentDetail",
+                           filters={"nvfac_nume": "SIM-FAC-0003"}, limit=1)[0]
+        self.assertEqual(cash["nvfac_esta"], "E")
+        self.assertEqual(cash["nvfac_ueve"], "")
 
     def test_asignadas_tienen_usuario_y_consumo_de_recibos(self):
         for p in self._patched():

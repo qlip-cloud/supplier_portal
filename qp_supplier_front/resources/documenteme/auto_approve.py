@@ -43,6 +43,10 @@ from qp_supplier_front.uses_cases.documenteme.approve import (
     ANALYSIS_STATES,
     _allocate_registrables,
 )
+from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    is_pending_ueve,
+)
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILON
 from qp_supplier_front.services.auto_approve_state import (
     clear_processing,
@@ -58,6 +62,27 @@ AUTO_APPROVE_PENDING_KEY = "documenteme_auto_approve_pending"
 AUTO_APPROVE_LOCK_KEY = "documenteme_auto_approve_lock"
 AUTO_APPROVE_LOCK_TTL = 60 * 60
 AUTO_APPROVE_LOCK_STALE = 5 * 60
+
+# CONTADO — aprobacion automatica deshabilitada temporalmente en BC.
+# El flujo de aprobacion del contado necesitara cambios; mientras tanto el
+# contado NO se promueve a "V" dentro del flujo automatico de aprobacion ni se
+# envia a BC automaticamente: se ASIGNA (resources/documenteme/auto_assign.py)
+# y espera aprobacion manual. GP conserva el comportamiento anterior (regla de
+# rechazo / proveedor de servicio). Al habilitar BC de nuevo, quitar este gate
+# y actualizar docs/FLUJO-BC-DOCUMENTEME.md.
+CASH_AUTO_APPROVE_BLOCKED_BACKEND = "BC"
+
+
+def _cash_auto_approve_blocked(backend):
+    """True si el contado no debe entrar al flujo automatico para `backend`."""
+    return backend == CASH_AUTO_APPROVE_BLOCKED_BACKEND
+
+
+def _is_blocked_cash(doc, backend):
+    """True si `doc` es contado y su aprobacion automatica esta bloqueada."""
+    if not _cash_auto_approve_blocked(backend):
+        return False
+    return is_cash_invoice(doc.get("nvfac_conv"))
 
 
 def _set_status(job_id=None, force=False, **values):
@@ -193,12 +218,18 @@ def _release_job_lock(token):
         pass
 
 
-def _filter_registrable(doc_names):
-    """Deja solo facturas listas para aprobar (V sin evento final)."""
+def _filter_registrable(doc_names, backend=None):
+    """Deja solo facturas listas para aprobar (V sin evento final).
+
+    En BC excluye el contado: su aprobacion automatica esta deshabilitada
+    temporalmente (`_is_blocked_cash`).
+    """
+    if backend is None:
+        backend = _resolve_backend()
     names = [name for name in (doc_names or []) if name]
     if not names:
         return []
-    fields = ["name", "nvfac_esta", "nvfac_ueve"]
+    fields = ["name", "nvfac_esta", "nvfac_ueve", "nvfac_conv"]
     data = _data()
     if data is None:
         docs = frappe.get_all(
@@ -214,7 +245,9 @@ def _filter_registrable(doc_names):
         )
     ready = set(
         doc.get("name") for doc in docs or []
-        if doc.get("nvfac_esta") == "V" and not doc.get("nvfac_ueve")
+        if doc.get("nvfac_esta") == "V"
+        and is_pending_ueve(doc.get("nvfac_ueve"))
+        and not _is_blocked_cash(doc, backend)
     )
     return [name for name in names if name in ready]
 
@@ -294,9 +327,8 @@ def _resolve_backend(default="BC"):
     Lee via el adaptador de config (memoria en simulacion, frappe en real);
     si el campo no puede leerse se asume BC.
     """
-    source = _master_setup_source()
     try:
-        value = source.documenteme_backend()
+        value = _master_setup_source().documenteme_backend()
     except Exception:
         return default
     if value in ("GP", "BC"):
@@ -338,7 +370,6 @@ def is_auto_approve_enabled(master_setup=None):
 
 def get_analysis_candidates(doc_names=None):
     filters = {
-        "nvfac_ueve": ["is", "not set"],
         "nvfac_esta": ["in", ANALYSIS_STATES],
     }
     if doc_names:
@@ -382,7 +413,11 @@ def get_analysis_candidates(doc_names=None):
                 "nvtip_docu",
             ],
         )
-    return [doc for doc in docs if doc.get("nvfac_nume") not in claimed]
+    pending = [
+        doc for doc in (docs or [])
+        if is_pending_ueve(doc.get("nvfac_ueve"))
+    ]
+    return [doc for doc in pending if doc.get("nvfac_nume") not in claimed]
 
 
 def promote_eligible_to_v(doc_names=None, backend=None):
@@ -399,6 +434,10 @@ def promote_eligible_to_v(doc_names=None, backend=None):
     En backend GP, los proveedores de servicio (qp_is_service_supplier) se
     promueven aunque no tengan OC ni recepciones (salvo que su propia regla de
     auto-rechazo lo bloquee).
+
+    En backend BC las facturas de CONTADO se excluyen: su aprobacion automatica
+    esta deshabilitada temporalmente y se resuelven por asignacion
+    (`_is_blocked_cash`).
     """
     if backend is None:
         backend = _resolve_backend()
@@ -424,6 +463,7 @@ def promote_eligible_to_v(doc_names=None, backend=None):
         doc
         for doc in get_analysis_candidates(doc_names)
         if doc.get("nvfac_esta") != "V"
+        and not _is_blocked_cash(doc, backend)
     ]
     valid, _errors, _allocation = _allocate_registrables(
         candidates,
@@ -455,9 +495,10 @@ def promote_eligible_to_v(doc_names=None, backend=None):
     return promoted
 
 
-def get_v_doc_names(doc_names=None):
+def get_v_doc_names(doc_names=None, backend=None):
+    if backend is None:
+        backend = _resolve_backend()
     filters = {
-        "nvfac_ueve": ["is", "not set"],
         "nvfac_esta": "V",
     }
     if doc_names:
@@ -468,14 +509,23 @@ def get_v_doc_names(doc_names=None):
         docs = frappe.get_all(
             "qp_SP_DocumentDetail",
             filters=filters,
-            fields=["name", "nvfac_nume"],
+            fields=["name", "nvfac_nume", "nvfac_ueve", "nvfac_conv"],
         )
     else:
         docs = data.get_all(
             "qp_SP_DocumentDetail",
             filters=filters,
-            fields=["name", "nvfac_nume"],
+            fields=["name", "nvfac_nume", "nvfac_ueve", "nvfac_conv"],
         )
+    docs = [
+        doc for doc in (docs or [])
+        if is_pending_ueve(
+            doc.get("nvfac_ueve") if isinstance(doc, dict) else None
+        )
+        and not (
+            isinstance(doc, dict) and _is_blocked_cash(doc, backend)
+        )
+    ]
 
     claimed = _claimed_invoice_numbers()
     names = []
@@ -495,9 +545,10 @@ def run_auto_approve(enqueue=True, doc_names=None, force=False):
     if not is_auto_approve_enabled():
         return {"approved": [], "errors": [], "skipped": True}
 
-    promoted = promote_eligible_to_v(doc_names)
+    backend = _resolve_backend()
+    promoted = promote_eligible_to_v(doc_names, backend=backend)
 
-    doc_names = get_v_doc_names(doc_names)
+    doc_names = get_v_doc_names(doc_names, backend=backend)
     if not doc_names:
         return {"approved": [], "errors": [], "skipped": False}
 
@@ -552,6 +603,7 @@ def auto_approve_now(doc_names=None):
 def approve_batch_job(doc_names, job_id=None):
     started_at = time.time()
     data = _data()
+    backend = _resolve_backend()
     in_memory = data is not None and getattr(data, "is_in_memory", False)
     token = job_id or uuid.uuid4().hex
     if not in_memory and not _acquire_job_lock(token):
@@ -574,7 +626,7 @@ def approve_batch_job(doc_names, job_id=None):
             # Re-filtrar en cada vuelta: descarta facturas ya aprobadas por un
             # job previo y toma las que se acumularon mientras este corria.
             names = _filter_registrable(
-                names if in_memory else _merge_pending(names))
+                names if in_memory else _merge_pending(names), backend)
             tracked.update(names)
             if not names:
                 break
@@ -585,7 +637,7 @@ def approve_batch_job(doc_names, job_id=None):
                 done=0, started_at=started_at, queued_at=None,
             )
             batch = approve_documents_core(
-                names, backend=_resolve_backend()
+                names, backend=backend
             )
             _merge_result(result, batch)
             data = _data()

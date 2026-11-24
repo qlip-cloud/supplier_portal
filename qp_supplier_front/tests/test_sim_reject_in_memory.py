@@ -54,6 +54,27 @@ class TestRejectCredit(unittest.TestCase):
         self.assertEqual([e["event_code"] for e in events],
                          ["030", "032", "031"])
 
+    def test_rechazo_arranca_desde_ueve_de_origen(self):
+        _doc(self.store, "999999999:F1", "F1", conv="2", orde="PO-X",
+             ueve="030")
+        with patch(
+            "qp_supplier_front.resources.documenteme.runtime.is_simulation_enabled",
+            return_value=True):
+            result = reject_memory.run_reject(self.store, doc_names=["999999999:F1"])
+        self.assertEqual(result["rejected"], ["F1"])
+        events = self.store.query("qp_SP_EventLog",
+                                  filters={"parent": "999999999:F1"})
+        self.assertEqual([e["event_code"] for e in events], ["032", "031"])
+
+    def test_ueve_final_no_se_rechaza(self):
+        _doc(self.store, "999999999:F1", "F1", conv="2", orde="PO-X",
+             ueve="033")
+        with patch(
+            "qp_supplier_front.resources.documenteme.runtime.is_simulation_enabled",
+            return_value=True):
+            result = reject_memory.run_reject(self.store, doc_names=["999999999:F1"])
+        self.assertEqual(result["rejected"], [])
+
     def test_credito_con_oc_sembrada_no_se_rechaza(self):
         seeds.seed_purchase_order(self.store, "PO-X", headquarter="HQ01")
         _doc(self.store, "999999999:F1", "F1", conv="2", orde="PO-X")
@@ -131,7 +152,7 @@ class TestFullFlowInMemory(unittest.TestCase):
         self.store = MemoryStore()
         self.addCleanup(session.reset)
 
-    def test_contado_con_oc_a_y_credito_sin_oc_r(self):
+    def test_contado_con_oc_queda_e_y_credito_sin_oc_r(self):
         from unittest.mock import MagicMock
 
         from qp_supplier_front.resources.documenteme import _approve_base
@@ -157,7 +178,9 @@ class TestFullFlowInMemory(unittest.TestCase):
 
         cash = self.store.get("qp_SP_DocumentDetail", "999999999:F2")
         credit = self.store.get("qp_SP_DocumentDetail", "999999999:F1")
-        self.assertEqual(cash["nvfac_esta"], "A")
+        # El contado ya no se aprueba automaticamente en BC; el rechazo tampoco
+        # lo toca: queda en E para asignacion/aprobacion manual.
+        self.assertEqual(cash["nvfac_esta"], "E")
         self.assertEqual(credit["nvfac_esta"], "R")
         self.assertEqual(credit["nvfac_ueve"], "031")
 

@@ -15,6 +15,7 @@ from qp_supplier_front.uses_cases.documenteme.timeline import (
     ENTRY_COMMENT,
     build_comment_entry,
     build_creation_entry,
+    build_documenteme_entry,
     build_state_entry,
     order_desc,
 )
@@ -63,6 +64,15 @@ class MemoryTimelineAdapter(object):
             attachment_file_id=attachment_file_id,
             attachment_file_url=attachment_file_url,
             attachment_file_name=attachment_file_name,
+        )
+        entry["name"] = self._insert(doc_name, entry)
+        return entry
+
+    def add_documenteme_entry(self, doc_name, code="", previous_state=None,
+                              current_state=None, now=None):
+        """Espejo de RealTimelineAdapter.add_documenteme_entry."""
+        entry = build_documenteme_entry(
+            code, previous_state, current_state, "Documenteme", _now_str(now)
         )
         entry["name"] = self._insert(doc_name, entry)
         return entry
