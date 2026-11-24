@@ -154,16 +154,17 @@ def collect_rejectable(candidates, resolve_rule_fn, po_exists_fn, receipt_for_po
             })
             continue
         rule = resolve_rule_fn(doc)
+        po_match = has_po_match(doc, po_exists_fn, po_supplier_match_fn)
         if should_skip_reject_without_po(
             doc,
             assign_without_po,
             assign_when_no_action=assign_when_no_action,
             supplier_rule=rule,
+            has_valid_po=po_match,
         ):
             continue
         if not is_active_rule(rule):
             continue
-        po_match = has_po_match(doc, po_exists_fn, po_supplier_match_fn)
         receipt_match = has_receipt_match(doc, receipt_for_po_fn)
         if should_auto_reject(po_match, receipt_match, rule.get("rule_code")):
             rejectable.append({"doc": doc, "rule": rule})

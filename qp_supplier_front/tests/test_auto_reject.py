@@ -504,6 +504,38 @@ class TestCollectRejectableWithoutPo(unittest.TestCase):
         )
         self.assertEqual(len(rejectable), 1)
 
+    def test_flag_on_credito_oc_inexistente_no_se_rechaza(self):
+        # OC mal escrita / inexistente: cuenta como "sin OC" y no se rechaza.
+        rejectable = collect_rejectable(
+            self._candidates(orde="OC REP 28996"),
+            self._resolve(_rule(RULE_NO_PO)),
+            lambda o: False,
+            lambda o: None,
+            assign_without_po=True,
+        )
+        self.assertEqual(rejectable, [])
+
+    def test_flag_on_credito_oc_de_otro_proveedor_no_se_rechaza(self):
+        rejectable = collect_rejectable(
+            self._candidates(orde="OC111"),
+            self._resolve(_rule(RULE_NO_PO)),
+            lambda o: True,
+            lambda o: None,
+            po_supplier_match_fn=lambda doc: False,
+            assign_without_po=True,
+        )
+        self.assertEqual(rejectable, [])
+
+    def test_flag_off_credito_oc_inexistente_se_rechaza(self):
+        rejectable = collect_rejectable(
+            self._candidates(orde="OC REP 28996"),
+            self._resolve(_rule(RULE_NO_PO)),
+            lambda o: False,
+            lambda o: None,
+            assign_without_po=False,
+        )
+        self.assertEqual(len(rejectable), 1)
+
     def test_flag_on_knob_futuro_no_action_no_saltea(self):
         # Con el knob futuro en False, un proveedor no_action no se saltea la
         # regla; pero no_action nunca rechaza, asi que no queda rejectable.

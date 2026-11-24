@@ -79,15 +79,29 @@ class TestInvalidUsers(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
+
+class TestDisplayNames(unittest.TestCase):
+
+    def test_muestra_nombre_completo_con_apellido(self):
+        with patch.object(infra.frappe.db, "get_value", return_value="Ana Perez"):
+            self.assertEqual(
+                infra._display_names(["ana@x.com"]), ["Ana Perez"])
+
+    def test_muestra_correo_cuando_no_hay_apellido(self):
+        with patch.object(infra.frappe.db, "get_value", return_value="johana"):
+            self.assertEqual(
+                infra._display_names(["johana@x.com"]), ["johana@x.com"])
+
+
 class TestAssignEndpointTimeline(unittest.TestCase):
 
     def _run(self, users='["new@x.com"]', previous=None, allowed=True):
         frappe_mock = MagicMock()
         frappe_mock.session.user = "author@x.com"
         names = {
-            "old@x.com": "Viejo",
-            "new@x.com": "Nuevo",
-            "new2@x.com": "Nuevo2",
+            "old@x.com": "Viejo Anterior",
+            "new@x.com": "Nuevo Uno",
+            "new2@x.com": "Nuevo2 Dos",
         }
 
         def _get_value(doctype, name, field, *args, **kwargs):
@@ -127,7 +141,7 @@ class TestAssignEndpointTimeline(unittest.TestCase):
         args, kwargs = timeline.add_user_assignment.call_args
         self.assertEqual(args[0], "DOC-1")
         self.assertEqual(
-            args[1], "Asignados: Nuevo. Asignados previos: Viejo.")
+            args[1], "Asignados: Nuevo Uno. Asignados previos: Viejo Anterior.")
         self.assertEqual(kwargs["user"], "author@x.com")
         self.assertEqual(response_mock.call_args[0][0], 200)
 
@@ -135,7 +149,7 @@ class TestAssignEndpointTimeline(unittest.TestCase):
         _, _, timeline = self._run()
 
         message = timeline.add_user_assignment.call_args[0][1]
-        self.assertEqual(message, "Asignados: Nuevo.")
+        self.assertEqual(message, "Asignados: Nuevo Uno.")
 
     def test_sin_rol_de_reasignacion_devuelve_403(self):
         frappe_mock, response_mock, timeline = self._run(allowed=False)
@@ -149,7 +163,7 @@ class TestAssignEndpointTimeline(unittest.TestCase):
 
         args, _ = timeline.add_user_assignment.call_args
         self.assertEqual(
-            args[1], "Asignados: Nuevo, Nuevo2.")
+            args[1], "Asignados: Nuevo Uno, Nuevo2 Dos.")
 
 class TestAssignEndpointsPermission(unittest.TestCase):
 

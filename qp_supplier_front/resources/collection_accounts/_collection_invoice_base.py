@@ -26,6 +26,7 @@ from qp_supplier_front.resources.collection_accounts._notifications import (
 )
 from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.services.role_resolver import get_active_role
+from qp_supplier_front.services.user_display import resolve_user_display_name
 from qp_supplier_front.uses_cases.collection_invoices import mapping
 from qp_supplier_front.uses_cases.collection_invoices.approve import (
     approve_collection_invoices,
@@ -475,7 +476,8 @@ def attach_assignment_info(rows, data=None):
                 fields=["name", "full_name"],
             )
         full_names = {
-            user.get("name"): user.get("full_name") or user.get("name")
+            user.get("name"): resolve_user_display_name(
+                user.get("full_name"), user.get("name"))
             for user in (users or [])
         }
 

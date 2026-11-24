@@ -7,6 +7,7 @@ from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.services.documenteme_access import (
     can_reassign_documenteme,
 )
+from qp_supplier_front.services.user_display import resolve_user_display_name
 from qp_supplier_front.uses_cases.documenteme.assign import assign_documents
 from qp_supplier_front.uses_cases.documenteme.timeline import (
     user_assignment_message,
@@ -119,7 +120,8 @@ def _display_names(users):
     """Nombres completos (o email) de los usuarios, sin duplicados."""
     names = []
     for user in (users or []):
-        name = frappe.db.get_value("User", user, "full_name") or user
+        name = resolve_user_display_name(
+            frappe.db.get_value("User", user, "full_name"), user)
         if name not in names:
             names.append(name)
     return names
