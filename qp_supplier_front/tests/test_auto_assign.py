@@ -71,9 +71,31 @@ class TestResolveAssigneeEmails(unittest.TestCase):
         emails = resolve_assignee_emails("03", "BOG", self.OC_TYPE_ROWS, self.ASSIGNMENT_ROWS)
         self.assertEqual(emails, ["c@x.com"])
 
-    def test_no_inventariable_ignora_sede_de_la_fila(self):
+    def test_no_inventariable_no_cruza_sedes(self):
         emails = resolve_assignee_emails("03", "CAL", self.OC_TYPE_ROWS, self.ASSIGNMENT_ROWS)
-        self.assertEqual(emails, ["c@x.com"])
+        self.assertEqual(emails, [])
+
+    def test_no_inventariable_suma_sede_exacta_y_fila_sin_sede(self):
+        rows = [
+            {"headquarter": "BOG", "oc_type": "03", "user_emails": ["bog@x.com"]},
+            {"headquarter": "CAL", "oc_type": "03", "user_emails": ["cal@x.com"]},
+            {"headquarter": "", "oc_type": "03", "user_emails": ["global@x.com"]},
+            {"headquarter": "MED", "oc_type": "03", "user_emails": ["med@x.com"]},
+        ]
+        self.assertEqual(
+            resolve_assignee_emails("03", "BOG", self.OC_TYPE_ROWS, rows),
+            ["bog@x.com", "global@x.com"],
+        )
+
+    def test_no_inventariable_sin_sede_solo_fila_sin_sede(self):
+        rows = [
+            {"headquarter": "BOG", "oc_type": "03", "user_emails": ["bog@x.com"]},
+            {"headquarter": "", "oc_type": "03", "user_emails": ["global@x.com"]},
+        ]
+        self.assertEqual(
+            resolve_assignee_emails("03", "", self.OC_TYPE_ROWS, rows),
+            ["global@x.com"],
+        )
 
     def test_oc_type_no_inventariable_sin_config_retorna_vacio(self):
         emails = resolve_assignee_emails("02", "CAL", self.OC_TYPE_ROWS, [])

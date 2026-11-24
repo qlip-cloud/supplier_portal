@@ -10,7 +10,8 @@ esta cubierta por una combinacion exacta de recepciones no consumidas
 (banco de recepciones). El destinatario se resuelve segun el tipo de OC:
 - Inventariable: el par exacto (oc_type, sede) configurado en
   qp_SP_AssignmentConfig. La orden determina ambas dimensiones.
-- No inventariable: solo el oc_type; la sede de la orden no se valida.
+- No inventariable: la sede exacta de la orden y, ademas, la fila del mismo
+  oc_type sin sede (headquarter vacio, si existe). No se cruzan las sedes.
 
 Facturas de CONTADO: se asignan (no se aprueban) cuando la regla de rechazo
 activa (proveedor o default MasterSetup) exige OC/recibo y la factura no la
@@ -64,7 +65,10 @@ def _match_inventariable(row, oc_type, headquarter):
 
 
 def _match_no_inventariable(row, oc_type, headquarter):
-    return row.get("oc_type") == oc_type
+    if row.get("oc_type") != oc_type:
+        return False
+    row_headquarter = row.get("headquarter")
+    return not row_headquarter or row_headquarter == headquarter
 
 
 _MATCHERS = {
