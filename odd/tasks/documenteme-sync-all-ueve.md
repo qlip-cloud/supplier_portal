@@ -31,8 +31,8 @@ Delivery: work-unit commits en la feature branch. Tests: `env/bin/python -m pyte
 - T3. Elegibilidad 030/032 (`auto_approve`, `auto_assign`, `auto_reject`, `receipt_trigger`, espejos de simulación) + tests. Spec: S5,S6,S12. Route: inline. Status: done (tests reales+sim verdes). Commit 6fbbd50.
 - T4. Secuencia desde el ueve de origen (`event_job`, `auto_approve_confirmation`) + tests. Spec: S7,S12. Route: inline. Status: done (event_job + simulacion; tests verdes). Commit a3296c0.
 - T5. Etiqueta del timeline en el front + documentación (SKILL/AGENTS/docs). Spec: S9,S10. Route: inline. Status: done (label `documenteme` en el front; SKILL/AGENTS/docs actualizados en disco; requiere `bench build`). Commit e082a43.
-- T6. Conflicto entre finales: conservar local + alerta (real y memoria). Spec: S14,S15. Route: inline. Status: done (tests verdes). Commit pendiente.
-- T7. Fallo de alerta de origen final logueado y reintento que no reenvia 030 con origen terminal. Spec: S15,S16. Route: inline. Status: done (tests verdes). Commit pendiente.
+- T6. Conflicto entre finales: conservar local + alerta (real y memoria). Spec: S14,S15. Route: inline. Status: done (tests verdes). Commit ba042e8.
+- T7. Fallo de alerta de origen final logueado y reintento que no reenvia 030 con origen terminal. Spec: S15,S16. Route: inline. Status: done (tests verdes). Commit 02eb731.
 
 ## Log
 
