@@ -252,7 +252,8 @@ $(document).ready(function () {
         }
     });
 
-    $(document).on("click", ".btn-control-alert", function () {
+    $(document).on("click", ".btn-control-alert", function (event) {
+        event.stopPropagation();
         var name = $(this).data("name");
         $("#notification-alerts").html("<div style=\"color:#8a9099;font-size:12px\">Cargando...</div>");
         $("#notification-summary").empty();
@@ -261,7 +262,8 @@ $(document).ready(function () {
         $("#notifications_invoice_modal").modal("show");
     });
 
-    $(document).on("click", ".btn-control-assign", function () {
+    $(document).on("click", ".btn-control-assign", function (event) {
+        event.stopPropagation();
         assignTargetDoc = $(this).data("name");
         $("#assign_invoice_modal_label").text("Asignar Factura");
 
@@ -285,14 +287,150 @@ $(document).ready(function () {
         $("#assign_invoice_modal").modal("show");
     });
 
-    $(document).on("click", ".btn-control-download", function () {
-        var name = $(this).data("name");
-        var nvfacNume = $(this).data("nvfac-nume");
+    // =====================================================================
+    // Descarga / carga de documentos de la factura
+    // =====================================================================
+    var URL_ATTACHMENT_STATUS = "qp_supplier_front.resources.documenteme.attachments.get_attachments";
+    var URL_ADD_ATTACHMENT = "qp_supplier_front.resources.documenteme.attachments.add_attachment";
+    var uploadAttachmentDoc = null;
+    var uploadAttachmentFile = null;
+
+    function openInvoiceDownload(name, nvfacNume) {
         var url = "/api/method/qp_supplier_front.resources.documenteme.download.files";
         var noCacheUrl = url + "?nocache=" + new Date().getTime() +
                          "&doc_name=" + encodeURIComponent(name) +
                          "&invoice_number=" + encodeURIComponent(nvfacNume);
         window.open(noCacheUrl, "_blank");
+    }
+
+    function renderUploadCurrentFiles(attachments) {
+        var $wrapper = $("#upload_invoice_file_current_wrapper");
+        var $list = $("#upload_invoice_file_current");
+        var rows = attachments || [];
+        $list.empty();
+        if (!rows.length) {
+            $wrapper.hide();
+            return;
+        }
+        rows.forEach(function (file) {
+            var label = file.file_name || "documento";
+            var type = file.file_type ? " (" + file.file_type + ")" : "";
+            if (file.file_url) {
+                $list.append($("<a>")
+                    .attr("href", file.file_url)
+                    .attr("target", "_blank")
+                    .attr("rel", "noopener")
+                    .text(label + type)
+                    .css({
+                        display: "block",
+                        fontSize: "12px",
+                        color: "#004D90",
+                        textDecoration: "none"
+                    }));
+            } else {
+                $list.append($("<span>")
+                    .text(label + type)
+                    .css({ display: "block", fontSize: "12px", color: "#444" }));
+            }
+        });
+        $wrapper.show();
+    }
+
+    function resetUploadFileInput() {
+        uploadAttachmentFile = null;
+        $("#upload_invoice_file_input").val("");
+        $("#upload_invoice_file_name").text("");
+        $("#upload_invoice_file_clear").hide();
+        $("#upload_invoice_file_submit").prop("disabled", true);
+    }
+
+    function openUploadAttachmentModal(name, nvfacNume, attachments) {
+        uploadAttachmentDoc = name;
+        resetUploadFileInput();
+        $("#upload_invoice_file_error").hide().text("");
+        $("#upload-invoice-file-context").html(
+            "Factura <strong>" + escapeHtml(nvfacNume) + "</strong>. " +
+            "No hay documentos descargables; cargue el archivo."
+        );
+        renderUploadCurrentFiles(attachments);
+        $("#upload_invoice_file_modal").modal("show");
+    }
+
+    $(document).on("click", ".btn-control-download", function (event) {
+        event.stopPropagation();
+        var name = $(this).data("name");
+        var nvfacNume = $(this).data("nvfac-nume");
+        petition_get_data({ doc_name: name }, URL_ATTACHMENT_STATUS, function (response) {
+            if (response && response.status === 200 && response.data) {
+                if (response.data.has_downloadable) {
+                    openInvoiceDownload(name, nvfacNume);
+                } else {
+                    openUploadAttachmentModal(
+                        name, nvfacNume, response.data.attachments || []);
+                }
+                return;
+            }
+            openInvoiceDownload(name, nvfacNume);
+        });
+    });
+
+    $("#upload_invoice_file_trigger").on("click", function (event) {
+        event.preventDefault();
+        $("#upload_invoice_file_input").trigger("click");
+    });
+
+    $("#upload_invoice_file_clear").on("click", function (event) {
+        event.preventDefault();
+        resetUploadFileInput();
+    });
+
+    $("#upload_invoice_file_input").on("change", function () {
+        uploadAttachmentFile = (this.files && this.files[0]) || null;
+        $("#upload_invoice_file_name").text(
+            uploadAttachmentFile ? uploadAttachmentFile.name : "");
+        $("#upload_invoice_file_clear").toggle(!!uploadAttachmentFile);
+        $("#upload_invoice_file_submit").prop("disabled", !uploadAttachmentFile);
+    });
+
+    $("#upload_invoice_file_submit").on("click", function () {
+        if (!uploadAttachmentDoc || !uploadAttachmentFile) {
+            return;
+        }
+        var $button = $(this);
+        $button.prop("disabled", true);
+        $("#upload_invoice_file_error").hide().text("");
+        uploadPublicFile(uploadAttachmentFile).then(function (uploaded) {
+            if (!uploaded || !uploaded.file_url) {
+                throw new Error("upload_failed");
+            }
+            petition_get_data({
+                doc_name: uploadAttachmentDoc,
+                file_id: uploaded.file_id,
+                file_url: uploaded.file_url,
+                file_name: uploaded.file_name
+            }, URL_ADD_ATTACHMENT, function (response) {
+                if (!response || response.status !== 200) {
+                    $("#upload_invoice_file_error")
+                        .text((response && response.msg) || "No se pudo guardar el archivo.")
+                        .show();
+                    $button.prop("disabled", false);
+                    return;
+                }
+                var docName = uploadAttachmentDoc;
+                $("#upload_invoice_file_modal").modal("hide");
+                frappe.msgprint({
+                    title: "Listo",
+                    message: "El documento se carg\u00f3 correctamente.",
+                    indicator: "green"
+                });
+                refreshInvoiceRow(docName);
+            });
+        }).catch(function () {
+            $("#upload_invoice_file_error")
+                .text("No se pudo subir el archivo.")
+                .show();
+            $button.prop("disabled", false);
+        });
     });
 
     // =====================================================================
