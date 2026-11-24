@@ -55,6 +55,9 @@ from qp_supplier_front.uses_cases.documenteme.home_delivery import (
     get_delivery_comment,
     resolve_delivery,
 )
+from qp_supplier_front.uses_cases.documenteme.no_purchase_order import (
+    STATE_PENDING_PURCHASE_ORDER,
+)
 from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
     parse_purchase_orders,
 )
@@ -2048,6 +2051,20 @@ def collect_document_violations(doc_names, backend="BC"):
     )
     for entry in selection_violations:
         _merge(entry)
+
+    # Una factura "Sin OC" (SO) puede rechazarse pero nunca aprobarse sin OC:
+    # se reporta como bloqueo duro para que el front no intente la aprobacion
+    # (el nucleo tambien la bloquea por estado no registrable).
+    for doc in (docs or []):
+        if doc.get("nvfac_esta") != STATE_PENDING_PURCHASE_ORDER:
+            continue
+        _merge({
+            "nvfac_nume": doc.get("nvfac_nume"),
+            "violations": [
+                "La factura no tiene orden de compra y no se puede aprobar"
+            ],
+            "blocking": True,
+        })
 
     if backend != "GP":
         return list(by_nume.values())

@@ -32,6 +32,10 @@ from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
 # un ciclo de imports (auto_reject importa este modulo para el guard).
 NO_ACTION = "no_action"
 
+# Estado local de una factura de credito sin OC, pendiente de asignar la OC.
+# Es rechazable, pero nunca aprobable sin OC.
+STATE_PENDING_PURCHASE_ORDER = "SO"
+
 INVOICE_TYPE_ALL = "Todos"
 INVOICE_TYPE_CREDIT = "Credito"
 INVOICE_TYPE_CASH = "Contado"
