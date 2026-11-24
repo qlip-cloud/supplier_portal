@@ -369,6 +369,7 @@ def auto_assign(
                     bool(invoice.get("assigned_to"))
                     or bool(invoice.get("has_assigned_users"))
                 ),
+                has_valid_po=bool(valid_orders),
             )
         )
 

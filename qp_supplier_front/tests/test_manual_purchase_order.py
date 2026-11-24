@@ -90,9 +90,30 @@ class TestValidateScope(unittest.TestCase):
     def test_oc_del_origen_no_se_reemplaza(self):
         with patch.object(module, "is_service_supplier_doc", return_value=False), \
              patch.object(module, "make_delivery_order_predicate",
-                          return_value=lambda doc: False):
+                          return_value=lambda doc: False), \
+             patch.object(module, "po_exists", return_value=True), \
+             patch.object(module, "po_supplier_match", return_value=True):
             self.assertIn("origen", module._validate_scope(
                 _doc(nvfac_orde="OC-ORIGEN")))
+
+    def test_oc_inexistente_permite_asignar(self):
+        # OC mal escrita: no hay OC valida, la factura se puede asignar.
+        with patch.object(module, "is_service_supplier_doc", return_value=False), \
+             patch.object(module, "make_delivery_order_predicate",
+                          return_value=lambda doc: False), \
+             patch.object(module, "po_exists", return_value=False), \
+             patch.object(module, "po_supplier_match", return_value=False):
+            self.assertEqual(module._validate_scope(
+                _doc(nvfac_orde="OC REP 28996")), "")
+
+    def test_oc_de_otro_proveedor_permite_asignar(self):
+        with patch.object(module, "is_service_supplier_doc", return_value=False), \
+             patch.object(module, "make_delivery_order_predicate",
+                          return_value=lambda doc: False), \
+             patch.object(module, "po_exists", return_value=True), \
+             patch.object(module, "po_supplier_match", return_value=False):
+            self.assertEqual(module._validate_scope(
+                _doc(nvfac_orde="OC-OTRO")), "")
 
     def test_oc_manual_previa_se_puede_cambiar(self):
         with patch.object(module, "is_service_supplier_doc", return_value=False), \
@@ -134,6 +155,24 @@ class TestGetCandidates(unittest.TestCase):
         self.assertEqual(args[0], 200)
         orders = args[2]["orders"]
         self.assertEqual([row["name"] for row in orders], ["OC1"])
+
+    def test_devuelve_oc_declarada(self):
+        """El modal muestra la OC que la factura indica tener (aunque no exista)."""
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = []
+        response_mock = MagicMock()
+
+        with patch.object(module, "frappe", frappe_mock), \
+             patch.object(module, "response", response_mock), \
+             patch.object(module, "_has_permission", return_value=True), \
+             patch.object(module, "_get_doc",
+                          return_value=_doc(nvfac_orde="OC REP 28996")), \
+             patch.object(module, "_validate_scope", return_value=""), \
+             patch.object(module, "get_supplier_by_tax_id", return_value="SUP"):
+            module.get_purchase_order_candidates("SUP:FC1")
+
+        data = response_mock.call_args[0][2]
+        self.assertEqual(data["declared_purchase_orders"], ["OC REP 28996"])
 
     def test_incluye_ordenes_en_borrador(self):
         """Las POs sincronizadas sin submitir tambien son candidatas."""

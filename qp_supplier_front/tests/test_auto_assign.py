@@ -633,7 +633,7 @@ class TestAutoAssignWithoutPo(unittest.TestCase):
     def _callbacks(self, candidates, emails=None, users=None,
                    resolve_rule_fn=None, assign_without_po=True,
                    assign_when_no_action=None, receipt_bank=None,
-                   oc_context=None):
+                   oc_context=None, po_exists_fn=None):
         calls = []
         marked = []
         received = []
@@ -659,7 +659,7 @@ class TestAutoAssignWithoutPo(unittest.TestCase):
             "resolve_users_fn": lambda resolved: list(resolved),
             "add_assignees_fn": add_assignees_fn,
             "resolve_rule_fn": resolve_rule_fn,
-            "po_exists_fn": lambda po: bool(po),
+            "po_exists_fn": po_exists_fn or (lambda po: bool(po)),
             "assign_without_po": assign_without_po,
             "mark_pending_oc_fn": lambda name: marked.append(name),
             "assign_when_no_action": assign_when_no_action,
@@ -720,6 +720,29 @@ class TestAutoAssignWithoutPo(unittest.TestCase):
         self.assertEqual(marked, [])
         self.assertEqual(received[0]["invoice_type"], "Credito")
         self.assertEqual(received[0]["has_receipt"], False)
+
+    def test_flag_on_credito_oc_inexistente_asigna_catch_all(self):
+        # OC mal escrita (no existe): se trata como "sin OC" y se marca SO.
+        calls, marked, received, callbacks = self._callbacks(
+            [self._invoice(orde="OC REP 28996")], emails=["a@x.com"],
+            po_exists_fn=lambda po: False)
+
+        self.assertEqual(auto_assign(**callbacks), ["FAC001"])
+        self.assertEqual(calls, [("FAC001", ["a@x.com"])])
+        self.assertEqual(marked, ["DETAIL-1"])
+        self.assertEqual(received[0]["oc_type"], None)
+        self.assertEqual(received[0]["headquarter"], None)
+        self.assertEqual(received[0]["has_receipt"], False)
+        self.assertEqual(received[0]["invoice_type"], "Credito")
+
+    def test_flag_on_credito_oc_de_otro_proveedor_asigna_catch_all(self):
+        calls, marked, received, callbacks = self._callbacks(
+            [self._invoice(orde="OC001")], emails=["a@x.com"],
+            po_exists_fn=lambda po: True)
+        callbacks["po_supplier_match_fn"] = lambda doc: False
+
+        self.assertEqual(auto_assign(**callbacks), ["FAC001"])
+        self.assertEqual(marked, ["DETAIL-1"])
 
     def test_flag_on_contado_sin_oc_sin_regla_no_asigna(self):
         calls, marked, received, callbacks = self._callbacks(

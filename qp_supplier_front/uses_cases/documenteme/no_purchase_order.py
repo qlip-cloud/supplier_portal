@@ -12,8 +12,9 @@ Reglas:
 - Solo aplica a facturas de CREDITO. El CONTADO conserva su comportamiento
   actual (regla de rechazo -> asignar o aprobar).
 - Excluye notas credito y delivery (no son facturas sin OC reales).
-- "sin OC" = `nvfac_orde` vacio. Una OC que no existe o es de otro proveedor
-  no entra a esta cola: sigue la regla de rechazo actual.
+- "sin OC" = no hay OC valida: `nvfac_orde` vacio, o las OC indicadas no
+  existen / no son del proveedor. Una OC mal escrita o inexistente entra a la
+  cola "sin OC" para que el usuario asigne la orden correcta manualmente.
 - Con el flag activo, la factura no se rechaza y se asigna a la fila catch-all
   de `qp_SP_AssignmentConfig` de su tipo de factura.
 
@@ -64,8 +65,14 @@ def invoice_type_of(doc):
     return INVOICE_TYPE_CREDIT
 
 
-def is_without_po_credit(doc, is_delivery_fn=None):
-    """True si es una factura de credito que llego sin OC."""
+def is_without_po_credit(doc, is_delivery_fn=None, has_valid_po=None):
+    """True si es una factura de credito que llego sin OC valida.
+
+    `has_valid_po` es el resultado ya calculado de "alguna OC existe y es del
+    proveedor". Si es None se conserva el criterio historico (solo mira si
+    `nvfac_orde` viene vacio); si se informa, una OC inexistente / de otro
+    proveedor tambien cuenta como "sin OC".
+    """
     doc = doc or {}
     if is_credit_note(doc.get("nvtip_docu")):
         return False
@@ -73,11 +80,14 @@ def is_without_po_credit(doc, is_delivery_fn=None):
         return False
     if is_delivery_fn is not None and is_delivery_fn(doc):
         return False
-    return not has_purchase_orders(doc)
+    if has_valid_po is None:
+        return not has_purchase_orders(doc)
+    return not bool(has_valid_po)
 
 
 def is_pending_purchase_order(doc, enabled, assign_when_no_action=None,
-                              supplier_rule=None, is_delivery_fn=None):
+                              supplier_rule=None, is_delivery_fn=None,
+                              has_valid_po=None):
     """True si la factura entra a la cola "sin OC" (no rechazar y asignar).
 
     enabled: valor del flag `qp_SP_MasterSetup.assign_invoices_without_po`.
@@ -85,10 +95,13 @@ def is_pending_purchase_order(doc, enabled, assign_when_no_action=None,
     DEFAULT_ASSIGN_WHEN_NO_ACTION.
     supplier_rule: regla de rechazo activa del proveedor (o default), solo se
     consulta cuando el knob es False.
+    has_valid_po: si se informa, "sin OC" = no hay ninguna OC valida (no solo
+    el campo vacio).
     """
     if not enabled:
         return False
-    if not is_without_po_credit(doc, is_delivery_fn=is_delivery_fn):
+    if not is_without_po_credit(
+            doc, is_delivery_fn=is_delivery_fn, has_valid_po=has_valid_po):
         return False
 
     if assign_when_no_action is None:
@@ -101,7 +114,8 @@ def is_pending_purchase_order(doc, enabled, assign_when_no_action=None,
 
 def should_assign_without_po(doc, enabled, assign_when_no_action=None,
                              supplier_rule=None, in_queue=True,
-                             already_assigned=False, is_delivery_fn=None):
+                             already_assigned=False, is_delivery_fn=None,
+                             has_valid_po=None):
     """True si la factura debe asignarse a los destinatarios de "sin OC"."""
     if already_assigned or not in_queue:
         return False
@@ -111,11 +125,13 @@ def should_assign_without_po(doc, enabled, assign_when_no_action=None,
         assign_when_no_action=assign_when_no_action,
         supplier_rule=supplier_rule,
         is_delivery_fn=is_delivery_fn,
+        has_valid_po=has_valid_po,
     )
 
 
 def should_skip_reject_without_po(doc, enabled, assign_when_no_action=None,
-                                  supplier_rule=None, is_delivery_fn=None):
+                                  supplier_rule=None, is_delivery_fn=None,
+                                  has_valid_po=None):
     """True si la factura sin OC no debe entrar al rechazo automatico."""
     return is_pending_purchase_order(
         doc,
@@ -123,4 +139,5 @@ def should_skip_reject_without_po(doc, enabled, assign_when_no_action=None,
         assign_when_no_action=assign_when_no_action,
         supplier_rule=supplier_rule,
         is_delivery_fn=is_delivery_fn,
+        has_valid_po=has_valid_po,
     )

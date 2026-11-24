@@ -274,6 +274,7 @@ class TestRunAutoReject(unittest.TestCase):
     def test_rechaza_y_encola_job(self):
         frappe_mock = MagicMock()
         frappe_mock.db.get_value.return_value = 1  # retry habilitado
+        frappe_mock.db.get_single_value.return_value = 0  # sin flag sin-OC
 
         with patch.object(infra, "frappe", frappe_mock), \
              patch.object(infra, "get_candidates", return_value=[_doc()]), \
@@ -304,6 +305,7 @@ class TestRunAutoReject(unittest.TestCase):
     def test_con_http_fn_ejecuta_inline(self):
         frappe_mock = MagicMock()
         frappe_mock.db.get_value.return_value = 1
+        frappe_mock.db.get_single_value.return_value = 0  # sin flag sin-OC
 
         def http_fn(payload, url, headers, method):
             return ({"Result": 0, "Description": "OK"}, 200)
@@ -326,6 +328,7 @@ class TestRunAutoReject(unittest.TestCase):
     def test_marca_pendiente_antes_de_encolar(self):
         frappe_mock = MagicMock()
         frappe_mock.db.get_value.return_value = 1
+        frappe_mock.db.get_single_value.return_value = 0  # sin flag sin-OC
         doc = MagicMock()
         doc.nvfac_esta = "E"
         doc.qp_reject_orig_state = None
@@ -396,6 +399,7 @@ class TestRunAutoReject(unittest.TestCase):
     def test_credito_contado_mixto(self):
         frappe_mock = MagicMock()
         frappe_mock.db.get_value.return_value = 1  # retry habilitado
+        frappe_mock.db.get_single_value.return_value = 0  # sin flag sin-OC
         credit_doc = MagicMock()
         credit_doc.nvfac_esta = "E"
         credit_doc.qp_reject_orig_state = None
