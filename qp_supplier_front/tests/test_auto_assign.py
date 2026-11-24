@@ -440,6 +440,58 @@ class TestAutoAssignOrchestration(unittest.TestCase):
         self.assertEqual(assigned, [])
         self.assertEqual(calls, [])
 
+    def test_contado_se_asigna_siempre_con_flag_sin_oc(self):
+        candidates = [{
+            "nvfac_nume": "FAC001",
+            "nvfac_conv": "1",
+            "nvfac_orde": None,
+            "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
+            "assigned_to": None,
+            "has_assigned_users": False,
+            "in_queue": True,
+        }]
+        calls, callbacks = self._callbacks(
+            oc_context=None,
+            receipt_bank=None,
+            emails=["a@x.com"],
+            users=["a@x.com"],
+            candidates=candidates,
+            resolve_rule_fn=lambda doc: None,
+        )
+        callbacks["cash_always_assign"] = True
+
+        assigned = auto_assign(**callbacks)
+
+        self.assertEqual(assigned, ["FAC001"])
+        self.assertEqual(calls, [("FAC001", ["a@x.com"])])
+
+    def test_contado_se_asigna_siempre_con_flag_y_oc(self):
+        candidates = [{
+            "nvfac_nume": "FAC001",
+            "nvfac_conv": "1",
+            "nvfac_orde": "OC001",
+            "nvfac_totp": 1000,
+            "nvfac_stot": 1000,
+            "assigned_to": None,
+            "has_assigned_users": False,
+            "in_queue": True,
+        }]
+        calls, callbacks = self._callbacks(
+            oc_context={"oc_type": "01", "headquarter": "BOG"},
+            receipt_bank=[{"name": "R1", "amount": 1000, "date": "2026-01-01", "qp_invoice": None}],
+            emails=["a@x.com"],
+            users=["a@x.com"],
+            candidates=candidates,
+            resolve_rule_fn=lambda doc: None,
+        )
+        callbacks["cash_always_assign"] = True
+
+        assigned = auto_assign(**callbacks)
+
+        self.assertEqual(assigned, ["FAC001"])
+        self.assertEqual(calls, [("FAC001", ["a@x.com"])])
+
     def test_contado_rompe_regla_sin_oc_se_asigna_catch_all(self):
         candidates = [{
             "nvfac_nume": "FAC001",

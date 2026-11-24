@@ -536,3 +536,23 @@ class TestReassignToOcGroup(unittest.TestCase):
         self.assertIsNone(line.assigned_to)
         line.set.assert_called_once_with("assigned_users", [])
         line.save.assert_called_once()
+
+
+class TestRunAutoAssignCashFlag(unittest.TestCase):
+
+    def _run(self, backend):
+        frappe_mock = MagicMock()
+        frappe_mock.db.get_single_value.side_effect = lambda doctype, field: {
+            "assign_invoices_without_po": 0,
+            "documenteme_backend": backend,
+        }.get(field)
+        with patch.object(infra, "frappe", frappe_mock), \
+             patch.object(infra, "auto_assign_core", return_value=[]) as core:
+            infra.run_auto_assign()
+        return core.call_args[1]
+
+    def test_bc_asigna_contado_siempre(self):
+        self.assertTrue(self._run("BC")["cash_always_assign"])
+
+    def test_gp_conserva_regla_de_contado(self):
+        self.assertFalse(self._run("GP")["cash_always_assign"])

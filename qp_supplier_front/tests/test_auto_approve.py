@@ -94,8 +94,21 @@ class TestGetAnalysisCandidates(_WithData, unittest.TestCase):
         self._ctx(frappe_mock)
         infra.get_analysis_candidates()
         filters = frappe_mock.get_all.call_args[1]["filters"]
-        self.assertEqual(filters["nvfac_ueve"], ["is", "not set"])
+        self.assertNotIn("nvfac_ueve", filters)
         self.assertEqual(filters["nvfac_esta"], ["in", ("E", "V", "T")])
+
+    def test_incluye_ueve_intermedio_y_excluye_final(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            _doc(name="D1", nvfac_ueve=None),
+            _doc(name="D2", nvfac_ueve="030"),
+            _doc(name="D3", nvfac_ueve="032"),
+            _doc(name="D4", nvfac_ueve="031"),
+            _doc(name="D5", nvfac_ueve="033"),
+        ]
+        self._ctx(frappe_mock)
+        docs = infra.get_analysis_candidates()
+        self.assertEqual([d["name"] for d in docs], ["D1", "D2", "D3"])
 
     def test_get_analysis_candidates_incluye_nvfac_conv(self):
         frappe_mock = MagicMock()
@@ -152,6 +165,36 @@ class TestPromoteEligibleToV(_WithData, unittest.TestCase):
         promoted = infra.promote_eligible_to_v()
         self.assertEqual(promoted, [])
 
+    def test_no_promueve_contado_con_oc_y_recibos_en_bc(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            _doc(name="DOC1", nvfac_esta="E", nvfac_conv="1"),
+        ]
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "po_exists", return_value=True),
+            patch.object(infra, "po_supplier_match", return_value=True),
+            patch.object(infra, "receipt_bank", return_value=_bank(50000)),
+        ])
+        promoted = infra.promote_eligible_to_v(backend="BC")
+        self.assertEqual(promoted, [])
+        frappe_mock.db.set_value.assert_not_called()
+
+    def test_promueve_contado_en_gp(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            _doc(name="DOC1", nvfac_esta="E", nvfac_conv="1"),
+        ]
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "po_exists", return_value=True),
+            patch.object(infra, "po_supplier_match", return_value=True),
+            patch.object(infra, "receipt_bank", return_value=_bank(50000)),
+            patch.object(infra, "_resolve_rule", return_value=None),
+            patch.object(infra, "is_service_supplier_doc", return_value=False),
+            patch.object(infra, "resolve_supplier_rule", return_value=None),
+        ])
+        promoted = infra.promote_eligible_to_v(backend="GP")
+        self.assertEqual(promoted, ["DOC1"])
+
     def test_no_promueve_contado_sin_oc_ni_recibos(self):
         frappe_mock = MagicMock()
         frappe_mock.get_all.return_value = [
@@ -200,8 +243,39 @@ class TestGetVDocNames(_WithData, unittest.TestCase):
         names = infra.get_v_doc_names()
         filters = frappe_mock.get_all.call_args[1]["filters"]
         self.assertEqual(filters["nvfac_esta"], "V")
-        self.assertEqual(filters["nvfac_ueve"], ["is", "not set"])
+        self.assertNotIn("nvfac_ueve", filters)
         self.assertEqual(names, ["DOC1"])
+
+    def test_excluye_ueve_final(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            {"name": "D1", "nvfac_nume": "D1", "nvfac_ueve": None},
+            {"name": "D2", "nvfac_nume": "D2", "nvfac_ueve": "030"},
+            {"name": "D3", "nvfac_nume": "D3", "nvfac_ueve": "033"},
+        ]
+        self._ctx(frappe_mock)
+        self.assertEqual(infra.get_v_doc_names(), ["D1", "D2"])
+
+
+    def test_excluye_contado_en_bc(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            {"name": "D1", "nvfac_nume": "D1", "nvfac_ueve": None,
+             "nvfac_conv": "1"},
+            {"name": "D2", "nvfac_nume": "D2", "nvfac_ueve": None,
+             "nvfac_conv": "2"},
+        ]
+        self._ctx(frappe_mock)
+        self.assertEqual(infra.get_v_doc_names(backend="BC"), ["D2"])
+
+    def test_incluye_contado_en_gp(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            {"name": "D1", "nvfac_nume": "D1", "nvfac_ueve": None,
+             "nvfac_conv": "1"},
+        ]
+        self._ctx(frappe_mock)
+        self.assertEqual(infra.get_v_doc_names(backend="GP"), ["D1"])
 
 
 class TestRunAutoApprove(_WithData, unittest.TestCase):
@@ -336,6 +410,19 @@ class TestApproveBatchJob(_WithData, unittest.TestCase):
             "qp_SP_DocumentDetail", "DOC1", "nvfac_esta", "E"
         )
         frappe_mock.db.commit.assert_called()
+
+    def test_excluye_contado_en_bc(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            {"name": "DOC1", "nvfac_esta": "V", "nvfac_ueve": None,
+             "nvfac_conv": "1"},
+        ]
+        self._ctx(frappe_mock, extra=[
+            patch.object(infra, "approve_documents_core", return_value={}),
+        ])
+        result = infra.approve_batch_job(["DOC1"])
+        self.assertEqual(result["approved"], [])
+        infra.approve_documents_core.assert_not_called()
 
 
 class TestApproveBatchJobDedup(_WithData, unittest.TestCase):

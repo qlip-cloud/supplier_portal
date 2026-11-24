@@ -27,6 +27,9 @@ from qp_supplier_front.uses_cases.documenteme.conversion import (
 from qp_supplier_front.uses_cases.documenteme.home_delivery import (
     find_delivery_type,
 )
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    is_pending_ueve,
+)
 
 
 def _memory_timeline(store):
@@ -154,7 +157,7 @@ def run_reject(store, doc_names=None):
 
     for name in (doc_names or []):
         doc = store.get("qp_SP_DocumentDetail", name) or {}
-        if not doc or doc.get("nvfac_ueve"):
+        if not doc or not is_pending_ueve(doc.get("nvfac_ueve")):
             continue
         if doc.get("nvfac_nume") in claimed:
             continue
@@ -221,9 +224,19 @@ def _send_sequence(store, doc_name, company_tax_id,
     from qp_supplier_front.uses_cases.documenteme.event_notifier import (
         _is_error,
     )
+    from qp_supplier_front.uses_cases.documenteme.event_retry import (
+        sequence_for,
+    )
+    from qp_supplier_front.uses_cases.documenteme.notification_state import (
+        start_code,
+    )
 
     doc = store.get("qp_SP_DocumentDetail", doc_name) or {}
-    for event_code in ("030", "032", "031"):
+    start = start_code("R", doc.get("nvfac_ueve"))
+    if start is None:
+        return False
+    sequence = sequence_for("R")
+    for event_code in sequence[sequence.index(start):]:
         payload = _payload(doc, event_code, company_tax_id)
         try:
             response, status = event_http_fn(payload, url, headers, method)

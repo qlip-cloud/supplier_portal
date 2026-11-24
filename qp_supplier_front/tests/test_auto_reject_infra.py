@@ -252,8 +252,21 @@ class TestGetCandidates(unittest.TestCase):
 
         self.assertEqual(len(candidates), 1)
         filters = frappe_mock.get_all.call_args[1]["filters"]
-        self.assertEqual(filters["nvfac_ueve"], ["is", "not set"])
+        self.assertNotIn("nvfac_ueve", filters)
         self.assertEqual(filters["nvfac_esta"], ["in", ["E", "PR"]])
+
+    def test_incluye_ueve_intermedio_y_excluye_final(self):
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = [
+            _doc(name="D1", nvfac_ueve=None),
+            _doc(name="D2", nvfac_ueve="030"),
+            _doc(name="D3", nvfac_ueve="032"),
+            _doc(name="D4", nvfac_ueve="031"),
+            _doc(name="D5", nvfac_ueve="033"),
+        ]
+        with patch.object(infra, "frappe", frappe_mock):
+            candidates = infra.get_candidates()
+        self.assertEqual([d["name"] for d in candidates], ["D1", "D2", "D3"])
 
 
 class TestRunAutoReject(unittest.TestCase):

@@ -328,6 +328,11 @@ $(document).ready(function () {
             icon: "person_add",
             color: "#004D90",
             title: "Asignaci\u00f3n manual"
+        },
+        documenteme: {
+            icon: "cloud_sync",
+            color: "#6c757d",
+            title: "Documenteme"
         }
     };
 

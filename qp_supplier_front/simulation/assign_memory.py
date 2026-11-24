@@ -18,6 +18,9 @@ from qp_supplier_front.uses_cases.documenteme.auto_assign import (
     is_inventariable_oc_type,
     resolve_assignee_emails,
 )
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    is_pending_ueve,
+)
 
 
 def _sync_line(store, doc):
@@ -36,7 +39,6 @@ def _has_assigned_users(store, sync_line):
 
 def _candidates(store, doc_names=None):
     filters = {
-        "nvfac_ueve": ["is", "not set"],
         "nvfac_esta": ["not in", ["PSA", "BCC", "PA", "PR", "A", "R"]],
     }
     if doc_names:
@@ -46,8 +48,8 @@ def _candidates(store, doc_names=None):
         "qp_SP_DocumentDetail",
         filters=filters,
         fields=["name", "nvfac_nume", "nvpro_ndoc", "nvfac_orde", "nvfac_totp",
-                "nvfac_stot", "nvfac_esta", "nvfac_conv", "nvtip_docu",
-                "document_sync_line"],
+                "nvfac_stot", "nvfac_esta", "nvfac_ueve", "nvfac_conv",
+                "nvtip_docu", "document_sync_line"],
     )
 
     # Seleccion manual en curso (recibos reclamados): se excluye del flujo
@@ -56,6 +58,8 @@ def _candidates(store, doc_names=None):
 
     candidates = []
     for doc in docs:
+        if not is_pending_ueve(doc.get("nvfac_ueve")):
+            continue
         if doc.get("nvfac_nume") in claimed:
             continue
         sync_line = _sync_line(store, doc)
@@ -217,17 +221,18 @@ def _add_assignees(store, sync_line_name, users):
 def run_auto_assign(store, doc_names=None):
     """Asignacion automatica del escenario sobre el store de la sesion.
 
-    La regla de rechazo activa (MemoryMasterSetupSource) decide el contado:
-    si la viola (ej. no_po sin OC) se asigna via catch-all; si no hay regla
-    (None) el contado no se asigna (aprueba). El flag
-    `assign_invoices_without_po` habilita la cola de credito sin OC.
+    En backend BC el contado se asigna SIEMPRE (su aprobacion automatica esta
+    deshabilitada temporalmente): con OC usa el grupo de la OC, sin OC usa la
+    fila catch-all de tipo Contado. En GP se mantiene la regla de rechazo.
+    El flag `assign_invoices_without_po` habilita la cola de credito sin OC.
     """
     from qp_supplier_front.simulation.master_setup_source import (
         MemoryMasterSetupSource,
     )
 
-    assign_without_po = MemoryMasterSetupSource(
-        store).assign_without_po_enabled()
+    source = MemoryMasterSetupSource(store)
+    assign_without_po = source.assign_without_po_enabled()
+    backend = source.documenteme_backend() or "BC"
 
     return auto_assign_core(
         candidates_fn=lambda names=None: _candidates(store, names),
@@ -252,6 +257,7 @@ def run_auto_assign(store, doc_names=None):
         ),
         assign_without_po=assign_without_po,
         mark_pending_oc_fn=lambda name: memory_mark_pending_oc(store, name),
+        cash_always_assign=(backend != "GP"),
     )
 
 

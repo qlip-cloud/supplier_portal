@@ -42,20 +42,23 @@ def _invoice_names_for_order(order):
     from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
         parse_purchase_orders,
     )
+    from qp_supplier_front.uses_cases.documenteme.notification_state import (
+        is_pending_ueve,
+    )
 
     rows = frappe.get_all(
         "qp_SP_DocumentDetail",
         filters={
             "nvfac_esta": ["in", ["E", "T", "V"]],
-            "nvfac_ueve": ["is", "not set"],
             "nvfac_orde": ["like", "%{0}%".format(order)],
         },
-        fields=["name", "nvfac_orde"],
+        fields=["name", "nvfac_orde", "nvfac_ueve"],
     )
     return [
         row.get("name")
         for row in (rows or [])
-        if order in parse_purchase_orders(row.get("nvfac_orde"))
+        if is_pending_ueve(row.get("nvfac_ueve"))
+        and order in parse_purchase_orders(row.get("nvfac_orde"))
     ]
 
 

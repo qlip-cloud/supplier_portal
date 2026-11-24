@@ -36,13 +36,35 @@ class TestSyncLogAndLines(unittest.TestCase):
             {"Result": 1, "Description": "boom"}, 500)
         self.assertEqual(self.store.get("qp_SP_DocumentSyncLog", name)["error_message"], "boom")
 
-    def test_create_sync_lines_dedupe_y_salta_ueve(self):
+    def test_create_sync_lines_registra_todos_los_ueve(self):
         mem.memory_create_sync_lines(
             self.store, "LOG-1",
             [{"Nvfac_nume": "F1", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": ""},
-             {"Nvfac_nume": "F2", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": "031"}])
-        self.assertTrue(self.store.exists("qp_SP_DocumentSyncLine", "999999999:F1"))
-        self.assertFalse(self.store.exists("qp_SP_DocumentSyncLine", "999999999:F2"))
+             {"Nvfac_nume": "F2", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": "030"},
+             {"Nvfac_nume": "F3", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": "032"},
+             {"Nvfac_nume": "F4", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": "031"},
+             {"Nvfac_nume": "F5", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": "033"}])
+        for nume in ("F1", "F2", "F3", "F4", "F5"):
+            self.assertTrue(self.store.exists(
+                "qp_SP_DocumentSyncLine", "999999999:" + nume), nume)
+        self.assertEqual(
+            self.store.get_value(
+                "qp_SP_DocumentSyncLine", "999999999:F2", "nvfac_ueve"),
+            "030")
+
+    def test_resync_no_reinicia_linea_completada(self):
+        mem.memory_create_sync_lines(
+            self.store, "LOG-1",
+            [{"Nvfac_nume": "F1", "Nvpro_ndoc": SIM_NIT, "Nvfac_ueve": ""}])
+        mem.memory_mark_line_completed(self.store, "999999999:F1")
+        mem.memory_create_sync_lines(
+            self.store, "LOG-2",
+            [{"Nvfac_nume": "F1", "Nvpro_ndoc": SIM_NIT,
+              "Nvfac_ueve": "030"}])
+        self.assertEqual(
+            self.store.get_value(
+                "qp_SP_DocumentSyncLine", "999999999:F1", "is_completed"),
+            1)
 
     def test_get_uncompleted_lines_solo_sin_completar(self):
         mem.memory_create_sync_lines(
@@ -118,6 +140,27 @@ class TestCreateDocumentDetail(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["file_name"], "f.xml")
 
+    def test_reescritura_conflicto_final_conserva_estado_y_alerta(self):
+        mem.memory_create_document_detail(
+            self.store, "999999999:SIM-FAC-0001", _DetailFixture.data(), [])
+        self.store.set_value(
+            "qp_SP_DocumentDetail", "999999999:SIM-FAC-0001",
+            "nvfac_esta", "A")
+        self.store.set_value(
+            "qp_SP_DocumentDetail", "999999999:SIM-FAC-0001",
+            "nvfac_ueve", "033")
+        data2 = _DetailFixture.data()
+        data2["Nvfac_esta"] = "E"
+        data2["Nvfac_ueve"] = "031"
+        mem.memory_create_document_detail(
+            self.store, "999999999:SIM-FAC-0001", data2, [])
+        stored = self.store.get("qp_SP_DocumentDetail", "999999999:SIM-FAC-0001")
+        self.assertEqual(stored["nvfac_esta"], "A")
+        self.assertEqual(stored["nvfac_ueve"], "033")
+        alerts = self.store.query(
+            "qp_SP_Alert", filters={"parent": "999999999:SIM-FAC-0001"})
+        self.assertEqual(len(alerts), 1)
+
     def test_reescritura_actualiza_sin_duplicar_childs(self):
         mem.memory_create_document_detail(
             self.store, "999999999:SIM-FAC-0001", _DetailFixture.data(), [])
@@ -130,6 +173,98 @@ class TestCreateDocumentDetail(unittest.TestCase):
         self.assertEqual(
             len(self.store.query("qp_SP_DetailLine",
                                  filters={"parent": "999999999:SIM-FAC-0001"})), 1)
+
+
+class TestReconcileCompletedLine(unittest.TestCase):
+
+    def setUp(self):
+        self.store = MemoryStore()
+        mem.memory_create_sync_lines(
+            self.store, "LOG-1",
+            [{"Nvfac_nume": "F1", "Nvpro_ndoc": SIM_NIT,
+              "Nvfac_esta": "E", "Nvfac_ueve": ""}])
+        mem.memory_mark_line_completed(self.store, "999999999:F1")
+        mem.memory_create_document_detail(
+            self.store, "999999999:F1",
+            {"Nvfac_nume": "F1", "Nvpro_ndoc": SIM_NIT, "Nvfac_esta": "E"},
+            [])
+
+    def _sync(self, state, ueve):
+        mem.memory_create_sync_lines(
+            self.store, "LOG-2",
+            [{"Nvfac_nume": "F1", "Nvpro_ndoc": SIM_NIT,
+              "Nvfac_esta": state, "Nvfac_ueve": ueve}])
+
+    def _detail(self):
+        return self.store.get("qp_SP_DocumentDetail", "999999999:F1")
+
+    def _origin_entries(self):
+        return [
+            row for row in self.store.query(
+                "qp_SP_TimelineEntry",
+                filters={"parent": "999999999:F1"},
+            )
+            if row.get("entry_by") == "Documenteme"
+        ]
+
+    def test_actualiza_ueve_intermedio_sin_recargar_detalle(self):
+        self._sync("E", "030")
+        detail = self._detail()
+        self.assertEqual(detail["nvfac_ueve"], "030")
+        self.assertEqual(detail["nvfac_esta"], "E")
+        self.assertEqual(len(self._origin_entries()), 1)
+
+    def test_origen_final_actualiza_estado(self):
+        self._sync("E", "033")
+        detail = self._detail()
+        self.assertEqual(detail["nvfac_esta"], "A")
+        self.assertEqual(detail["nvfac_ueve"], "033")
+
+    def test_no_degrada_final_local(self):
+        mem.memory_update_document(
+            self.store, "999999999:F1",
+            {"nvfac_esta": "A", "nvfac_ueve": "033"})
+        self._sync("E", "032")
+        detail = self._detail()
+        self.assertEqual(detail["nvfac_esta"], "A")
+        self.assertEqual(detail["nvfac_ueve"], "033")
+
+    def test_sin_cambios_no_duplica_historial(self):
+        self._sync("E", "030")
+        self._sync("E", "030")
+        self.assertEqual(len(self._origin_entries()), 1)
+
+    def test_conflicto_de_finales_conserva_local_y_alerta(self):
+        mem.memory_update_document(
+            self.store, "999999999:F1",
+            {"nvfac_esta": "A", "nvfac_ueve": "033"})
+        self._sync("E", "031")
+        detail = self._detail()
+        self.assertEqual(detail["nvfac_esta"], "A")
+        self.assertEqual(detail["nvfac_ueve"], "033")
+        alerts = self.store.query(
+            "qp_SP_Alert", filters={"parent": "999999999:F1"})
+        self.assertEqual(len(alerts), 1)
+        self.assertEqual(alerts[0]["alert_type"], "ErrorUrgente")
+
+    def test_conflicto_de_finales_no_duplica_alerta(self):
+        mem.memory_update_document(
+            self.store, "999999999:F1",
+            {"nvfac_esta": "A", "nvfac_ueve": "033"})
+        self._sync("E", "031")
+        self._sync("E", "031")
+        alerts = self.store.query(
+            "qp_SP_Alert", filters={"parent": "999999999:F1"})
+        self.assertEqual(len(alerts), 1)
+
+    def test_conflicto_inverso_conserva_rechazado(self):
+        mem.memory_update_document(
+            self.store, "999999999:F1",
+            {"nvfac_esta": "R", "nvfac_ueve": "031"})
+        self._sync("E", "033")
+        detail = self._detail()
+        self.assertEqual(detail["nvfac_esta"], "R")
+        self.assertEqual(detail["nvfac_ueve"], "031")
 
 
 class TestDocumentOps(unittest.TestCase):
@@ -202,11 +337,11 @@ class TestCount(unittest.TestCase):
 
 class TestCreditConfirmation(unittest.TestCase):
 
-    def _seed_credit(self, store):
+    def _seed_credit(self, store, ueve=""):
         store.insert("qp_SP_DocumentDetail", {
             "name": "999999999:F1", "nvfac_nume": "F1",
             "nvpro_ndoc": SIM_NIT, "nvfac_cont": "12345",
-            "nvfac_esta": "PA", "nvfac_ueve": "", "nvfac_conv": "2",
+            "nvfac_esta": "PA", "nvfac_ueve": ueve, "nvfac_conv": "2",
         })
 
     def test_confirmacion_credito_llega_a_aprobado(self):
@@ -246,6 +381,42 @@ class TestCreditConfirmation(unittest.TestCase):
         self.assertFalse(ok)
         doc = store.get("qp_SP_DocumentDetail", "999999999:F1")
         self.assertEqual(doc["nvfac_esta"], "PA")
+        alerts = store.query("qp_SP_Alert",
+                             filters={"parent": "999999999:F1"})
+        self.assertEqual(len(alerts), 1)
+
+    def test_confirmacion_arranca_desde_ueve_de_origen(self):
+        from unittest.mock import patch
+
+        from qp_supplier_front.resources.documenteme import runtime
+
+        store = MemoryStore()
+        self._seed_credit(store, ueve="032")
+        with patch.object(runtime, "is_simulation_enabled", return_value=True):
+            ok = mem.memory_run_credit_confirmation(store, "999999999:F1")
+        self.assertTrue(ok)
+        doc = store.get("qp_SP_DocumentDetail", "999999999:F1")
+        self.assertEqual(doc["nvfac_esta"], "A")
+        self.assertEqual(doc["nvfac_ueve"], "033")
+        events = store.query("qp_SP_EventLog",
+                             filters={"parent": "999999999:F1"})
+        self.assertEqual([e["event_code"] for e in events], ["033"])
+
+    def test_confirmacion_con_origen_final_no_emite_eventos(self):
+        from unittest.mock import patch
+
+        from qp_supplier_front.resources.documenteme import runtime
+
+        store = MemoryStore()
+        self._seed_credit(store, ueve="033")
+        with patch.object(runtime, "is_simulation_enabled", return_value=True):
+            ok = mem.memory_run_credit_confirmation(store, "999999999:F1")
+        self.assertFalse(ok)
+        doc = store.get("qp_SP_DocumentDetail", "999999999:F1")
+        self.assertEqual(doc["nvfac_esta"], "PA")
+        events = store.query("qp_SP_EventLog",
+                             filters={"parent": "999999999:F1"})
+        self.assertEqual(events, [])
         alerts = store.query("qp_SP_Alert",
                              filters={"parent": "999999999:F1"})
         self.assertEqual(len(alerts), 1)
@@ -305,7 +476,9 @@ class TestNcSinReferencia(unittest.TestCase):
         self._create_nc(estado="V")
         row = self.store.get("qp_SP_DocumentDetail", name)
         self.assertEqual(row["qp_ref_invoice"], "F-REF")
-        self.assertNotEqual(row["nvfac_esta"], "SR")
+        # SR es un estado local avanzado (igual que en el flujo real): la
+        # promocion a V la hace la asignacion de referencia, no el re-sync.
+        self.assertEqual(row["nvfac_esta"], "SR")
 
 
 if __name__ == "__main__":

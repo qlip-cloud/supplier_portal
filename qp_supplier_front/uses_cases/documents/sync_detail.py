@@ -6,6 +6,15 @@ from qp_supplier_front.services.document_sync import (
 )
 
 
+def _log(log_fn, message):
+    if not log_fn:
+        return
+    try:
+        log_fn(message)
+    except Exception:
+        pass
+
+
 def sync_detail(
     get_uncompleted_lines_fn,
     send_request_fn,
@@ -15,17 +24,28 @@ def sync_detail(
     commit_fn,
     get_company_tax_id_fn=None,
     heartbeat_fn=None,
+    log_fn=None,
 ):
     lines = get_uncompleted_lines_fn()
+    total = len(lines)
+
+    _log(log_fn, "sync_detail: inicio, {} factura(s) pendiente(s)".format(total))
 
     created_names = []
 
-    for line in lines:
+    for position, line in enumerate(lines, start=1):
         if heartbeat_fn:
             heartbeat_fn()
         nvpro_ndoc = line.get("nvpro_ndoc")
         nvfac_esta = line.get("nvfac_esta")
         nvfac_nume = line.get("nvfac_nume")
+
+        _log(
+            log_fn,
+            "sync_detail: procesando {}/{} factura={} proveedor={}".format(
+                position, total, nvfac_nume, nvpro_ndoc
+            ),
+        )
 
         nvemp_nnit = nvpro_ndoc
         if get_company_tax_id_fn:
@@ -57,12 +77,31 @@ def sync_detail(
 
             mark_line_completed_fn(line["name"])
 
+            _log(
+                log_fn,
+                "sync_detail: OK {}/{} factura={}".format(
+                    position, total, nvfac_nume
+                ),
+            )
+
         else:
             error_msg = get_response_description(response) or str(response)
             log_sync_attempt_fn(
                 line["name"], "Error", error_msg, response
             )
 
+            _log(
+                log_fn,
+                "sync_detail: ERROR {}/{} factura={} -> {}".format(
+                    position, total, nvfac_nume, error_msg
+                ),
+            )
+
     commit_fn()
+
+    _log(
+        log_fn,
+        "sync_detail: fin, {} creada(s) de {}".format(len(created_names), total),
+    )
 
     return created_names

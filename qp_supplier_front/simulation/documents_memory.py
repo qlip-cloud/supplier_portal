@@ -13,6 +13,13 @@ import json
 from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
     parse_purchase_orders,
 )
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    final_state,
+    is_final_conflict,
+    normalize,
+    resolve_state,
+    resolve_ueve,
+)
 
 LINE_FIELDS = [
     "nvfac_cont", "nvtip_docu", "nvfac_nume", "nvfac_cufe", "nvpro_nomb",
@@ -103,16 +110,91 @@ def memory_create_sync_log(store, supplier_id, tax_id, endpoint_code,
 
 def memory_create_sync_lines(store, log_name, ldocuments):
     for doc_data in (ldocuments or []):
-        if doc_data.get("Nvfac_ueve"):
-            continue
-        nvfac_nume = doc_data.get("Nvfac_nume")
-        name = _sync_line_name(doc_data.get("Nvpro_ndoc"), nvfac_nume)
+        name = _sync_line_name(
+            doc_data.get("Nvpro_ndoc"), doc_data.get("Nvfac_nume")
+        )
+        fields = _set_line_fields(log_name, doc_data)
         if store.exists("qp_SP_DocumentSyncLine", name):
-            store.update("qp_SP_DocumentSyncLine", name,
-                         _set_line_fields(log_name, doc_data))
+            previous = store.get("qp_SP_DocumentSyncLine", name) or {}
+            # Igual que el flujo real: una linea ya completada no reinicia su
+            # detalle; la re-sincronizacion solo reconcilia estado/ueve.
+            fields["is_completed"] = previous.get("is_completed") or 0
+            store.update("qp_SP_DocumentSyncLine", name, fields)
+            if fields["is_completed"]:
+                _memory_reconcile_detail(store, doc_data)
         else:
-            store.insert("qp_SP_DocumentSyncLine",
-                         _set_line_fields(log_name, doc_data), name=name)
+            store.insert("qp_SP_DocumentSyncLine", fields, name=name)
+
+
+def _memory_reconcile_detail(store, doc_data):
+    """Espejo de services/document_sync.reconcile_detail_from_line."""
+    name = _sync_line_name(
+        doc_data.get("Nvpro_ndoc"), doc_data.get("Nvfac_nume")
+    )
+    if not store.exists("qp_SP_DocumentDetail", name):
+        return None
+
+    current = store.get("qp_SP_DocumentDetail", name) or {}
+    old_state = current.get("nvfac_esta")
+    old_ueve = current.get("nvfac_ueve")
+    origin_state = doc_data.get("Nvfac_esta")
+    origin_ueve = doc_data.get("Nvfac_ueve")
+    if is_final_conflict(old_state, old_ueve, origin_state, origin_ueve):
+        _memory_record_final_conflict(
+            store, name, old_state, old_ueve, origin_state, origin_ueve
+        )
+        return None
+    new_state = resolve_state(old_state, origin_state, origin_ueve)
+    new_ueve = resolve_ueve(old_ueve, origin_ueve)
+    state_changed = (new_state or "") != (old_state or "")
+    ueve_changed = normalize(new_ueve) != normalize(old_ueve)
+    if not state_changed and not ueve_changed:
+        return None
+
+    store.update("qp_SP_DocumentDetail", name, {
+        "nvfac_esta": new_state,
+        "nvfac_ueve": new_ueve,
+    })
+    if normalize(new_ueve) or state_changed:
+        _memory_timeline(store).add_documenteme_entry(
+            name,
+            code=new_ueve,
+            previous_state=old_state,
+            current_state=new_state,
+        )
+    return name
+
+
+def _memory_record_final_conflict(store, name, local_state, local_ueve,
+                                  origin_state, origin_ueve):
+    """Espejo de services/document_sync._record_final_conflict."""
+    local = final_state(local_state, local_ueve)
+    origin = final_state(origin_state, origin_ueve)
+    message = (
+        "Documenteme reporta un estado final distinto ({0}) al estado final "
+        "local ({1}). No se sobrescribe; revisar manualmente."
+    ).format(origin or "-", local or "-")
+    existing = store.query(
+        "qp_SP_Alert",
+        filters={
+            "parent": name,
+            "status": "Abierta",
+            "alert_message": message,
+        },
+        limit=1,
+    )
+    if existing:
+        return None
+    now = _now_str()
+    store.insert("qp_SP_Alert", {
+        "parent": name,
+        "alert_message": message,
+        "alert_type": "ErrorUrgente",
+        "status": "Abierta",
+        "alert_date": now,
+        "creation": now,
+    })
+    return None
 
 
 def memory_get_uncompleted_lines(store):
@@ -298,26 +380,66 @@ def memory_create_document_detail(store, sync_line_name, document_data,
     nvpro_ndoc = document_data.get("Nvpro_ndoc")
     name = _sync_line_name(nvpro_ndoc, nvfac_nume)
 
+    previous = store.get("qp_SP_DocumentDetail", name) or {}
     doc = _set_detail_fields(sync_line_name, document_data)
     doc["name"] = name
+    # El detalle real conserva estos campos (no vienen en el payload); en
+    # memoria se reinyectan desde el registro previo para no perderlos.
+    for field in ("qp_ref_invoice", "qp_ref_date_start", "qp_ref_date_end"):
+        if not doc.get(field) and previous.get(field):
+            doc[field] = previous.get(field)
+    conflict = is_final_conflict(
+        previous.get("nvfac_esta"), previous.get("nvfac_ueve"),
+        document_data.get("Nvfac_esta"), document_data.get("Nvfac_ueve"),
+    )
+    doc["nvfac_esta"] = previous.get("nvfac_esta") if conflict else resolve_state(
+        previous.get("nvfac_esta"),
+        document_data.get("Nvfac_esta"),
+        document_data.get("Nvfac_ueve"),
+    )
+    doc["nvfac_ueve"] = previous.get("nvfac_ueve") if conflict else resolve_ueve(
+        previous.get("nvfac_ueve"), doc.get("nvfac_ueve")
+    )
     _apply_manual_po(store, doc, name)
     _memory_apply_nc_sync_fields(store, doc, attached_list)
     if store.exists("qp_SP_DocumentDetail", name):
-        previous = store.get("qp_SP_DocumentDetail", name) or {}
         old_state = previous.get("nvfac_esta")
+        old_ueve = previous.get("nvfac_ueve")
         new_state = doc.get("nvfac_esta")
+        new_ueve = doc.get("nvfac_ueve")
         for child_doctype in ("qp_SP_DetailLine", "qp_SP_DetailLineTax",
                               "qp_SP_DocumentAttach", "qp_SP_AllowanceCharge"):
             for child in store.query(child_doctype, filters={"parent": name}):
                 store.delete(child_doctype, child["name"])
         store.update("qp_SP_DocumentDetail", name, doc)
-        if (old_state or "") != (new_state or ""):
+        if conflict:
+            _memory_record_final_conflict(
+                store, name, old_state, old_ueve,
+                document_data.get("Nvfac_esta"),
+                document_data.get("Nvfac_ueve"),
+            )
+        state_changed = (old_state or "") != (new_state or "")
+        if state_changed:
             _memory_timeline(store).set_state(
                 name, new_state, old_state=old_state
+            )
+        if normalize(new_ueve) != normalize(old_ueve) and normalize(new_ueve):
+            _memory_timeline(store).add_documenteme_entry(
+                name,
+                code=new_ueve,
+                previous_state=old_state,
+                current_state=new_state,
             )
     else:
         store.insert("qp_SP_DocumentDetail", doc, name=name)
         _memory_timeline(store).record_creation(name)
+        if normalize(doc.get("nvfac_ueve")):
+            _memory_timeline(store).add_documenteme_entry(
+                name,
+                code=doc.get("nvfac_ueve"),
+                previous_state=None,
+                current_state=doc.get("nvfac_esta"),
+            )
 
     _build_detail_lines(store, name, document_data.get("Detalle"))
     _build_attached_files(store, name, attached_list)
@@ -763,7 +885,28 @@ def memory_run_credit_confirmation(store, doc_name):
 
     doc = store.get("qp_SP_DocumentDetail", doc_name) or {}
 
-    for event_code in ("030", "032", "033"):
+    from qp_supplier_front.uses_cases.documenteme.event_retry import (
+        sequence_for,
+    )
+    from qp_supplier_front.uses_cases.documenteme.notification_state import (
+        start_code,
+    )
+
+    start = start_code("A", doc.get("nvfac_ueve"))
+    if start is None:
+        now = _now_str()
+        store.insert("qp_SP_Alert", {
+            "parent": doc_name,
+            "alert_message": ("No se programo la notificacion: documenteme ya "
+                              "reporta un evento final para la factura."),
+            "alert_type": "ErrorUrgente",
+            "status": "Abierta",
+            "alert_date": now,
+            "creation": now,
+        })
+        return False
+    sequence = sequence_for("A")
+    for event_code in sequence[sequence.index(start):]:
         payload = {
             "Nvemp_nnit": company_tax_id,
             "Nvpro_ndoc": doc.get("nvpro_ndoc"),

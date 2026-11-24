@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 
 from qp_supplier_front.uses_cases.documenteme.timeline import (
     build_comment_entry,
+    build_documenteme_entry,
     build_state_entry,
 )
 
@@ -110,6 +111,16 @@ class TestRealTimelineAdapter(unittest.TestCase):
         entry = self.adapter.record_creation("D1")
         self.assertEqual(entry["type"], "creacion")
         self.assertEqual(entry["new_state"], "E")
+
+    def test_add_documenteme_entry(self):
+        entry = self.adapter.add_documenteme_entry(
+            "D1", code="030", previous_state="E", current_state="E"
+        )
+        self.assertEqual(entry["type"], "documenteme")
+        self.assertEqual(entry["entry_by"], "Documenteme")
+        self.assertIn("030", entry["message"])
+        self.assertIn("Registrado", entry["message"])
+        self.assertTrue(self.frappe.db.sql.called)
 
     def test_get_solo_filas_timeline(self):
         self.frappe.get_all.return_value = []
@@ -314,3 +325,25 @@ class TestAddUserAssignment(unittest.TestCase):
         self.assertEqual(entry["entry_by"], "Admin Name")
         self.assertEqual(entry["entry_date"], entry["entry_date"])
         self.assertTrue(self.frappe.db.sql.called)
+
+
+class TestDocumentemeEntry(unittest.TestCase):
+
+    def test_evento_sin_cambio_de_estado(self):
+        entry = build_documenteme_entry(
+            "030", "E", "E", "Documenteme", "2026-01-01 00:00:00")
+        self.assertEqual(entry["type"], "documenteme")
+        self.assertIn("evento 030", entry["message"])
+        self.assertIn("Registrado", entry["message"])
+        self.assertNotIn("Cambio de estado", entry["message"])
+
+    def test_evento_con_cambio_de_estado(self):
+        entry = build_documenteme_entry(
+            "033", "E", "A", "Documenteme", "2026-01-01 00:00:00")
+        self.assertIn("Aprobado", entry["message"])
+        self.assertIn("Cambio de estado", entry["message"])
+
+    def test_sin_codigo_reporta_estado(self):
+        entry = build_documenteme_entry(
+            "", "E", "A", "Documenteme", "2026-01-01 00:00:00")
+        self.assertIn("estado Aprobado", entry["message"])

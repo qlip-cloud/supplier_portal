@@ -4,12 +4,15 @@ timeline.py (uses_cases - documenteme)
 ======================================
 Nucleo puro del timeline de facturas documenteme: creacion de entradas
 (creacion, cambio de estado, comentario) y ordenamiento descendente. Sin
-frappe, sin base: recibe los valores por parametro. Los eventos documenteme
-(030/032/031/033) NO forman parte del timeline.
+frappe, sin base: recibe los valores por parametro. Los event_logs de
+documenteme (030/032/031/033) NO forman parte del timeline; si se registra
+una entrada de origen "documenteme" cuando una sincronizacion trae un
+nvfac_ueve (o un estado final) para dejar constancia de que no fue una
+peticion nuestra.
 
 Cada entrada es un dict:
     {
-        "type": "creacion" | "estado" | "comentario",
+        "type": "creacion" | "estado" | "comentario" | "documenteme",
         "message": str,
         "old_state": str|None,
         "new_state": str|None,
@@ -23,6 +26,7 @@ ENTRY_STATE = "estado"
 ENTRY_COMMENT = "comentario"
 ENTRY_ASSIGNMENT = "asignacion"
 ENTRY_USER_ASSIGNMENT = "asignacion_usuario"
+ENTRY_DOCUMENTEME = "documenteme"
 
 CREATION_MESSAGE = "Factura registrada en el sistema"
 
@@ -116,6 +120,46 @@ def user_assignment_message(new_labels, previous_labels):
         return "Asignados: {0}.".format(assigned)
     return "Asignados: {0}. Asignados previos: {1}.".format(
         assigned, ", ".join(previous))
+
+
+def build_documenteme_entry(code, previous_state, current_state, user, now):
+    """Entrada de historial que registra un dato traido por la sincronizacion.
+
+    Deja constancia de que el `nvfac_ueve` (o el estado final) lo reporto
+    documenteme y no fue una peticion nuestra. Si la reconciliacion cambio el
+    estado local, el mensaje incluye la transicion.
+    """
+    from qp_supplier_front.uses_cases.documenteme.event_notifier import (
+        DOCUMENTEME_EVENT_STATES,
+    )
+
+    code = (code or "").strip()
+    event_state = DOCUMENTEME_EVENT_STATES.get(code)
+    label = (
+        state_label(current_state)
+        or state_label(event_state)
+        or (current_state or "")
+    )
+    if code:
+        message = "Documenteme reportó el evento {0} ({1}) al sincronizar.".format(
+            code, label
+        )
+    else:
+        message = "Documenteme reportó el estado {0} al sincronizar.".format(
+            label or "-"
+        )
+    if (previous_state or "") != (current_state or ""):
+        message += " Cambio de estado: {0} -> {1}.".format(
+            state_label(previous_state), state_label(current_state)
+        )
+    return {
+        "type": ENTRY_DOCUMENTEME,
+        "message": message,
+        "old_state": None,
+        "new_state": None,
+        "entry_by": user or "Documenteme",
+        "entry_date": now or "",
+    }
 
 
 def build_user_assignment_entry(message, user, now):
