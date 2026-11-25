@@ -266,6 +266,39 @@ class TestBeforeSaveHook(unittest.TestCase):
         doc.append.assert_not_called()
 
 
+class TestCanSendToBc(unittest.TestCase):
+
+    def setUp(self):
+        self.frappe, self.utils = _make_frappe()
+        self.patcher = patch.dict(
+            sys.modules,
+            {"frappe": self.frappe, "frappe.utils": self.utils},
+        )
+        self.patcher.start()
+        from qp_supplier_front.resources.documenteme import timeline as tl_module
+        self.tl_module = tl_module
+
+    def tearDown(self):
+        self.patcher.stop()
+
+    def _can(self, backend, state):
+        with patch.object(
+            self.tl_module, "get_sync_backend", return_value=backend
+        ), patch.object(self.tl_module, "_doc_state", return_value=state):
+            return self.tl_module._can_send_to_bc(None, "D1")
+
+    def test_estados_habilitados(self):
+        for state in ("E", "V", "SO"):
+            self.assertTrue(self._can("BC", state), state)
+
+    def test_estados_deshabilitados(self):
+        for state in ("BCC", "PA", "A", "R", "SR", "PSA", "PR"):
+            self.assertFalse(self._can("BC", state), state)
+
+    def test_backend_gp_deshabilitado(self):
+        self.assertFalse(self._can("GP", "E"))
+
+
 if __name__ == "__main__":
     unittest.main()
 

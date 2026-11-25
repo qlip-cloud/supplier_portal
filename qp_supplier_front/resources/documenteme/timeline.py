@@ -41,9 +41,9 @@ DOCUMENT_EVENT_LOG = "qp_SP_EventLog"
 DOCUMENT_ALERT = "qp_SP_Alert"
 
 # Estados en los que la factura aun puede enviarse a BC: mientras esta
-# registrada/lista para registro. Al crearse en BC (BCC y posteriores) el
-# check "Enviar a BC" deja de mostrarse.
-BC_COMMENT_STATES = ("E", "V")
+# registrada/lista para registro o sin OC asignada (SO). Al crearse en BC (BCC
+# y posteriores) el check "Enviar a BC" deja de mostrarse.
+BC_COMMENT_STATES = ("E", "V", "SO")
 
 
 def _as_bool(value):
@@ -191,7 +191,7 @@ def set_bc_comment(doc_name, entry_name, flag):
     """Marca/desmarca un comentario para incluirlo en el payload BC.
 
     Solo aplica con backend BC y mientras la factura no haya sido creada en BC
-    (estados E/V). Solo un comentario puede estar marcado a la vez.
+    (estados E/V/SO). Solo un comentario puede estar marcado a la vez.
     """
     try:
         if not doc_name or not entry_name:
@@ -230,8 +230,8 @@ def set_comment_attachment(doc_name, entry_name, attachment_file_id=None,
 
     Permite adjuntar/cambiar un archivo a un comentario aunque no este marcado
     "Enviar a BC". Solo aplica con backend BC y mientras la factura no haya
-    sido creada en BC (estados E/V). Con los tres parametros vacios se quita el
-    adjunto.
+    sido creada en BC (estados E/V/SO). Con los tres parametros vacios se quita
+    el adjunto.
     """
     try:
         if not doc_name or not entry_name:
