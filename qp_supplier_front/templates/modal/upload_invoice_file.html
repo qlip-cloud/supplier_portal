@@ -1,0 +1,81 @@
+<style>
+    #upload_invoice_file_modal .modal-title { color: #004D90; }
+    #upload_invoice_file_modal .dm-file-hint { color: #8a9099; font-size: 12px; }
+    #upload_invoice_file_modal .dm-file-picker {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    #upload_invoice_file_modal .dm-file-picker .btn {
+        color: #004D90;
+        border-color: #004D90;
+        background: #fff;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    #upload_invoice_file_modal .dm-file-picker .btn:hover {
+        background: #e3f2fd;
+    }
+    #upload_invoice_file_modal .dm-file-name {
+        color: #444;
+        font-size: 12px;
+        word-break: break-all;
+    }
+    #upload_invoice_file_modal .dm-file-clear {
+        color: #dc3545;
+        font-size: 12px;
+        text-decoration: none;
+        display: none;
+    }
+    #upload_invoice_file_modal .dm-current-files {
+        max-height: 180px;
+        overflow-y: auto;
+        border: 1px solid #e3e6ea;
+        border-radius: 4px;
+        padding: 6px 8px;
+    }
+</style>
+<div class="modal fade" id="upload_invoice_file_modal" tabindex="-1" aria-labelledby="upload_invoice_file_modal_label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="upload_invoice_file_modal_label">Cargar documento</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="upload-invoice-file-context" style="font-size:13px;color:#333;margin-bottom:10px"></div>
+                <div class="form-group">
+                    <label for="upload_invoice_file_trigger">Archivo</label>
+                    <div class="dm-file-picker">
+                        <button type="button" class="btn btn-default btn-sm" id="upload_invoice_file_trigger">
+                            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">attach_file</span>
+                            Seleccionar archivo
+                        </button>
+                        <span id="upload_invoice_file_name" class="dm-file-name"></span>
+                        <a href="#" id="upload_invoice_file_clear" class="dm-file-clear">quitar</a>
+                        <input type="file" id="upload_invoice_file_input" style="display:none">
+                    </div>
+                    <span class="dm-file-hint">Formatos sugeridos: PDF, PNG o JPG.</span>
+                </div>
+                <div id="upload_invoice_file_error" class="text-danger" style="display:none;font-size:12px"></div>
+                <div id="upload_invoice_file_current_wrapper" style="display:none;margin-top:10px">
+                    <h6 style="font-size:13px;color:#004D90;margin-bottom:4px">Archivos actuales</h6>
+                    <div id="upload_invoice_file_current" class="dm-current-files"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default btn-sm btn-modal-close" data-dismiss="modal">
+                    <span class="hidden-xs">Cancelar</span>
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" id="upload_invoice_file_submit" disabled>
+                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle">upload</span>
+                    Cargar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
