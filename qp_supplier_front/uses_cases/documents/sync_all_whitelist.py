@@ -134,6 +134,8 @@ def _sync_documents(nvfac_esta=None, nvfac_fini=None, nvfac_ffin=None,
             get_company_tax_id_fn=persist["get_log_company_tax_id"],
             heartbeat_fn=heartbeat_fn,
             log_fn=log_sync_progress,
+            detail_exists_fn=persist.get("detail_exists"),
+            mark_arrived_final_fn=persist.get("mark_arrived_final"),
         )
     else:
         log_sync_progress("sync_documents: descarga bloqueada (fetch_blocked)")

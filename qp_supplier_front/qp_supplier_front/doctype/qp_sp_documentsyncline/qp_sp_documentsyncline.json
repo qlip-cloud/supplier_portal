@@ -35,6 +35,7 @@
   "nvfac_vicu",
   "nvfac_vadv",
   "is_completed",
+  "arrived_final",
   "assigned_to",
   "assigned_users",
   "sync_attempts"
@@ -200,6 +201,14 @@
    "label": "Is Completed"
   },
   {
+   "description": "La factura llego ya en estado final (A/R) desde Documenteme. No se descarga su detalle porque el API de Documenteme no lo expone en estados finales; la linea se conserva solo con los datos del listado.",
+   "fieldname": "arrived_final",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Arrived Final From Documenteme",
+   "read_only": 1
+  },
+  {
    "fieldname": "assigned_to",
    "fieldtype": "Link",
    "label": "Assigned To",
@@ -221,7 +230,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-11-25 17:52:00.000000",
+ "modified": "2026-11-26 20:45:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DocumentSyncLine",

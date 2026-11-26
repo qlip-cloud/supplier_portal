@@ -686,3 +686,22 @@ def mark_line_completed(line_name):
     line = frappe.get_doc("qp_SP_DocumentSyncLine", line_name)
     line.is_completed = 1
     line.save(ignore_permissions=True)
+
+
+def detail_exists(nvfac_nume, nvpro_ndoc=None):
+    """True si la factura ya tiene un qp_SP_DocumentDetail."""
+    return bool(_get_existing_detail_name(nvfac_nume, nvpro_ndoc))
+
+
+def mark_arrived_final(line_name):
+    """Marca la linea como 'llego final' y la cierra sin descargar detalle.
+
+    Documenteme solo expone el detalle de facturas en estados no finales; una
+    factura que aparece por primera vez ya en A/R nunca se podra descargar.
+    Se conserva la linea (datos del listado) y se evita el reintento perpetuo.
+    """
+    import frappe
+    line = frappe.get_doc("qp_SP_DocumentSyncLine", line_name)
+    line.arrived_final = 1
+    line.is_completed = 1
+    line.save(ignore_permissions=True)
