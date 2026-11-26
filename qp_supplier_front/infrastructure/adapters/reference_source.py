@@ -46,6 +46,41 @@ class RealReferenceSource(object):
             fields=["item_code", "uom", "qty", "qp_unit_cost", "qp_extd_cost"],
         )
 
+    def po_items_many(self, purchase_orders):
+        """Items de varias OC en una sola consulta: {oc: [items]}."""
+        frappe = _frappe()
+        orders = [order for order in (purchase_orders or []) if order]
+        grouped = {}
+        if not orders:
+            return grouped
+        items = frappe.get_all(
+            "Purchase Order Item",
+            filters={
+                "parent": ["in", orders],
+                "parenttype": "Purchase Order",
+            },
+            fields=["parent", "item_code", "uom", "qty", "qp_unit_cost",
+                    "qp_extd_cost"],
+        ) or []
+        for item in items:
+            grouped.setdefault(item.get("parent"), []).append(item)
+        return grouped
+
+    def po_belongs_to_supplier_many(self, purchase_orders, tax_id):
+        """OC (de la lista) que existen y pertenecen al proveedor, en 1 consulta."""
+        frappe = _frappe()
+        orders = [order for order in (purchase_orders or []) if order]
+        if not orders:
+            return []
+        supplier = self.supplier_by_tax_id(tax_id)
+        if not supplier:
+            return []
+        return frappe.get_all(
+            "Purchase Order",
+            filters={"name": ["in", orders], "supplier": supplier},
+            pluck="name",
+        ) or []
+
     def po_belongs_to_supplier(self, purchase_order, tax_id):
         """True si la OC existe y pertenece al proveedor de la factura (tax_id).
 
@@ -81,6 +116,25 @@ class RealReferenceSource(object):
             fields=["name", "supplier_delivery_note", "posting_date", "total"],
         )
 
+    def receipts_for_many(self, purchase_orders, qp_invoice=None):
+        """Recibos de varias OC en una sola consulta, anotando su OC."""
+        frappe = _frappe()
+        orders = [order for order in (purchase_orders or []) if order]
+        if not orders:
+            return []
+        filters = {"qp_supplier_oc": ["in", orders]}
+        if qp_invoice is not None:
+            filters["qp_invoice"] = qp_invoice
+        receipts = frappe.get_all(
+            "Purchase Receipt",
+            filters=filters,
+            fields=["name", "supplier_delivery_note", "posting_date", "total",
+                    "qp_supplier_oc"],
+        ) or []
+        for receipt in receipts:
+            receipt["oc"] = receipt.get("qp_supplier_oc")
+        return receipts
+
     def receipt_bank_for(self, purchase_order):
         from qp_supplier_front.infrastructure.adapters import (
             documenteme_http_adapter,
@@ -95,6 +149,14 @@ class RealReferenceSource(object):
         )
 
         return get_bank_for_invoice(purchase_order, invoice_number)
+
+    def bank_for_invoice_many(self, purchase_orders, invoice_number):
+        """Banco visible de varias OC en una sola consulta."""
+        from qp_supplier_front.infrastructure.adapters.receipt_claim_adapter import (
+            get_bank_for_orders,
+        )
+
+        return get_bank_for_orders(purchase_orders, invoice_number)
 
     def has_claimed_receipts(self, invoice_number):
         from qp_supplier_front.infrastructure.adapters.receipt_claim_adapter import (

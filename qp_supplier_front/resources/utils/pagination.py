@@ -90,7 +90,7 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
                     doc["assigned_to_name"] = "Asignado a:\n" + "\n".join("- " + name for name in names)
                 else:
                     doc["assigned_to_name"] = None
-                enrich_document_detail(doc)
+                enrich_document_detail(doc, include_products=None)
                 doc["auto_approve_processing"] = bool(
                     doc.get("nvfac_esta") == "V"
                     and is_processing(doc.get("name"))

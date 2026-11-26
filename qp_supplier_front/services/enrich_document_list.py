@@ -38,29 +38,35 @@ def _data_api(data, name):
     return getattr(data, name)
 
 
-def enrich_document_list(documents, doctype, data=None, references=None):
+def enrich_document_list(documents, doctype, data=None, references=None,
+                         include_products=None):
     """Enriquece cada documento de la lista con la informacion de contexto.
 
     Con data (facade) lee de ahi (memoria en simulacion); sin data usa frappe.
     references es el adaptador de referencias de compras (Purchase Order /
     Purchase Receipt) inyectado; si es None se resuelve desde data o el real.
+    include_products=None decide por limites inline; True fuerza el detalle
+    completo (modal).
     """
     for doc in documents:
-        _enrich_doc(doc, doctype, data, references)
+        _enrich_doc(doc, doctype, data, references, include_products)
     return documents
 
 
-def _enrich_doc(doc, doctype, data=None, references=None):
+def _enrich_doc(doc, doctype, data=None, references=None,
+                include_products=None):
     _enrich_detail_lines(doc, doctype, data)
     _enrich_allowance_charges(doc, doctype, data)
     _enrich_attached_files(doc, doctype, data)
     _enrich_assignment(doc, data)
     if data is not None:
-        enrich_document_detail(doc, data=data, references=references)
+        enrich_document_detail(doc, data=data, references=references,
+                               include_products=include_products)
     elif references is not None:
-        enrich_document_detail(doc, references=references)
+        enrich_document_detail(doc, references=references,
+                               include_products=include_products)
     else:
-        enrich_document_detail(doc)
+        enrich_document_detail(doc, include_products=include_products)
 
 
 def _enrich_detail_lines(doc, doctype, data=None):

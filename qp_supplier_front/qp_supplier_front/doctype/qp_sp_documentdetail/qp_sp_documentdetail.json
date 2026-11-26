@@ -218,14 +218,15 @@
    "label": "Nvfac Rfec"
   },
   {
+   "description": "OC(s) del origen; puede traer varias separadas por coma.",
    "fieldname": "nvfac_orde",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "Nvfac Orde"
   },
   {
    "description": "OC(s) indicadas manualmente por el usuario cuando la factura lleg\u00f3 sin OC. Se refleja en nvfac_orde.",
    "fieldname": "qp_manual_purchase_order",
-   "fieldtype": "Data",
+   "fieldtype": "Small Text",
    "label": "OC asignada manualmente",
    "read_only": 1
   },
@@ -422,7 +423,7 @@
   ],
   "index_web_pages_for_search": 1,
   "links": [],
-   "modified": "2026-11-17 10:00:00.000000",
+   "modified": "2026-11-25 17:14:04.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DocumentDetail",

@@ -17,14 +17,23 @@ from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
     parse_purchase_orders,
 )
 
+# Limites de render inline. Por encima de cualquiera de los dos la fila muestra
+# un resumen y el detalle completo se abre en un modal (ver row.html).
+INLINE_OC_LIMIT = 3
+INLINE_RECEIPT_LIMIT = 10
 
-def enrich_document_detail(document, data=None, references=None):
+
+def enrich_document_detail(document, data=None, references=None,
+                           include_products=None):
     """Enriquece el detalle de un documento con referencias inyectadas.
 
     - data: facade de datos (None en modo real; en memoria en modo simulador).
     - references: adaptador de referencias de compras (Purchase Order /
       Purchase Receipt). Si es None se resuelve desde data.references o, sin
       data, se usa la implementacion real (frappe).
+    - include_products: None decide automaticamente segun los limites inline
+      (camino del listado). True fuerza el detalle completo (modal). False
+      fuerza solo el resumen.
     """
     document["factura_interna"] = ""
     purchase_order_number = document.get("nvfac_orde") or ""
@@ -46,22 +55,80 @@ def enrich_document_detail(document, data=None, references=None):
     _enrich_factura_interna(document, data)
 
     refs = _resolve_references(data, references)
-    valid_orders = [
-        order for order in parse_purchase_orders(purchase_order_number)
-        if _po_belongs_to_invoice(refs, document, order)
-    ]
+    valid_orders = _valid_orders(refs, document, purchase_order_number)
+    limited = _resolve_detail_limited(refs, valid_orders, include_products)
+    document["detail_limited"] = limited
     if valid_orders:
         _enrich_purchase_orders(
-            document, purchase_order_number, valid_orders, references, data)
+            document, purchase_order_number, valid_orders, references, data,
+            include_products=not limited)
         _enrich_purchase_receipts(
-            document, purchase_order_number, valid_orders, references, data)
+            document, purchase_order_number, valid_orders, references, data,
+            include_products=not limited)
         _enrich_receipt_bank(
             document, purchase_order_number, valid_orders, references, data)
         _enrich_receipts_detail(
-            document, purchase_order_number, valid_orders, references, data)
-        _enrich_price_mismatch(document, references, data)
+            document, purchase_order_number, valid_orders, references, data,
+            include_products=not limited)
+        if not limited:
+            _enrich_price_mismatch(document, references, data)
         _update_status_if_fully_paid(
             document, data, references=references, purchase_orders=valid_orders)
+    _enrich_detail_totals(document)
+
+
+def _valid_orders(refs, document, purchase_order_number):
+    """OC de la factura que existen y pertenecen al proveedor.
+
+    Con muchas OC usa el metodo batch del adaptador (1 consulta) cuando esta
+    disponible; si no, cae al chequeo por OC (comportamiento historico).
+    """
+    orders = parse_purchase_orders(purchase_order_number)
+    if not orders:
+        return []
+    if len(orders) > INLINE_OC_LIMIT:
+        many = getattr(refs, "po_belongs_to_supplier_many", None)
+        if many is not None:
+            valid = set(many(orders, document.get("nvpro_ndoc")) or [])
+            return [order for order in orders if order in valid]
+    return [
+        order for order in orders
+        if _po_belongs_to_invoice(refs, document, order)
+    ]
+
+
+def _resolve_detail_limited(refs, orders, include_products):
+    """True si la fila debe mostrar resumen en vez del detalle inline."""
+    if include_products is True:
+        return False
+    if include_products is False:
+        return True
+    if len(orders) > INLINE_OC_LIMIT:
+        return True
+    return len(_receipts_by_order(refs, orders)) > INLINE_RECEIPT_LIMIT
+
+
+def _enrich_detail_totals(document):
+    """Totales livianos para el resumen de la fila (sin productos).
+
+    "Libres" son los recibos que esta factura puede reclamar (no reclamados
+    por nadie); los reclamados por otra factura no suman en ninguno de los dos
+    grupos porque no son accionables desde esta factura.
+    """
+    detail = document.get("recepciones_detalle") or []
+    claimed = [row for row in detail if row.get("claimed_by_me")]
+    free = [
+        row for row in detail
+        if not row.get("claimed_by_me") and row.get("selectable")
+    ]
+    document["orders_total"] = len(document.get("ordenes_compra") or [])
+    document["receipts_total"] = len(detail)
+    document["receipts_claimed_count"] = len(claimed)
+    document["receipts_free_count"] = len(free)
+    document["receipts_claimed_total"] = sum(
+        float(row.get("monto") or 0) for row in claimed)
+    document["receipts_free_total"] = sum(
+        float(row.get("monto") or 0) for row in free)
 
 
 def _resolve_references(data, references):
@@ -227,12 +294,13 @@ def _po_belongs_to_invoice(refs, document, purchase_order_number):
 
 
 def _enrich_purchase_orders(document, purchase_order_number, valid_orders=None,
-                            references=None, data=None):
+                            references=None, data=None, include_products=True):
     """OC validas de la factura (una o varias) y sus productos.
 
     `ordenes_compra` conserva la lista de numeros; `ordenes_compra_detalle`
     agrupa los productos por OC para la tabla del front. Los productos
-    combinados alimentan la comparacion de precios.
+    combinados alimentan la comparacion de precios. Con include_products=False
+    (modo resumen) no se consultan productos: solo queda el numero de OC.
     """
     refs = _resolve_references(data, references)
     orders = (
@@ -242,14 +310,26 @@ def _enrich_purchase_orders(document, purchase_order_number, valid_orders=None,
 
     detail = []
     combined = []
-    for order in orders:
-        products = build_po_products(refs.po_items(order))
-        combined += products
-        detail.append({"numero": order, "productos": products})
+    if include_products:
+        items_by_order = _po_items_by_order(refs, orders)
+        for order in orders:
+            products = build_po_products(items_by_order.get(order) or [])
+            combined += products
+            detail.append({"numero": order, "productos": products})
+    else:
+        detail = [{"numero": order, "productos": []} for order in orders]
 
     document["ordenes_compra"] = orders
     document["ordenes_compra_detalle"] = detail
     document["productos_orden_compra"] = combined
+
+
+def _po_items_by_order(refs, orders):
+    """Items de OC agrupados por orden; usa el batch si hay muchas OC."""
+    many = getattr(refs, "po_items_many", None)
+    if many is not None and len(orders) > INLINE_OC_LIMIT:
+        return many(orders) or {}
+    return dict((order, refs.po_items(order)) for order in orders)
 
 
 def build_po_products(items):
@@ -360,7 +440,7 @@ def _enrich_price_mismatch(document, references=None, data=None):
 
 
 def _enrich_purchase_receipts(document, purchase_order_number, valid_orders=None,
-                              references=None, data=None):
+                              references=None, data=None, include_products=True):
     refs = _resolve_references(data, references)
     orders = (
         list(valid_orders) if valid_orders is not None
@@ -393,12 +473,20 @@ def _enrich_purchase_receipts(document, purchase_order_number, valid_orders=None
         for order in orders
     ]
 
-    items = refs.receipt_items_for(receipt_names)
-    document["productos_recepcion"] = build_receipt_products(items)
+    if include_products:
+        items = refs.receipt_items_for(receipt_names)
+        document["productos_recepcion"] = build_receipt_products(items)
 
 
 def _receipts_by_order(refs, orders, qp_invoice=None):
-    """Recibos de varias OC, sin duplicar y anotando la OC de cada uno."""
+    """Recibos de varias OC, sin duplicar y anotando la OC de cada uno.
+
+    Con muchas OC usa el batch del adaptador (1 consulta) si esta disponible;
+    si no, mantiene el recorrido por OC.
+    """
+    many = getattr(refs, "receipts_for_many", None)
+    if many is not None and len(orders or []) > INLINE_OC_LIMIT:
+        return many(orders, qp_invoice=qp_invoice) or []
     receipts = []
     seen = set()
     for order in (orders or []):
@@ -465,6 +553,23 @@ def _enrich_receipt_bank(document, purchase_order_number, valid_orders=None,
         ]
         return
 
+    bank = _bank_for_invoice_rows(refs, orders, invoice_number)
+    document["banco_recepciones"] = bank
+
+
+def _bank_for_invoice_rows(refs, orders, invoice_number):
+    """Banco visible de la factura (pool de todas las OC).
+
+    Con muchas OC usa el batch del adaptador (1 consulta) si esta disponible.
+    """
+    many = getattr(refs, "bank_for_invoice_many", None)
+    if many is not None and len(orders or []) > INLINE_OC_LIMIT:
+        rows = []
+        for receipt in (many(orders, invoice_number) or []):
+            row = dict(receipt)
+            row["oc"] = row.get("oc") or ""
+            rows.append(row)
+        return rows
     bank = []
     seen = set()
     for order in orders:
@@ -476,11 +581,11 @@ def _enrich_receipt_bank(document, purchase_order_number, valid_orders=None,
             row = dict(receipt)
             row["oc"] = order
             bank.append(row)
-    document["banco_recepciones"] = bank
+    return bank
 
 
 def _enrich_receipts_detail(document, purchase_order_number, valid_orders=None,
-                            references=None, data=None):
+                            references=None, data=None, include_products=True):
     """Detalle unificado por recepcion: cabecera + productos agrupados.
 
     En estados definitivos se muestran solo los recibos reclamados por la
@@ -512,13 +617,13 @@ def _enrich_receipts_detail(document, purchase_order_number, valid_orders=None,
         document["recepciones_detalle_por_oc"] = []
         return
 
-    names = [row.get("name") for row in rows]
-    items = refs.receipt_items_for(names)
-    products = build_receipt_products(items)
-
     products_by_receipt = {}
-    for item, product in zip(items, products):
-        products_by_receipt.setdefault(item.get("parent"), []).append(product)
+    if include_products:
+        names = [row.get("name") for row in rows]
+        items = refs.receipt_items_for(names)
+        products = build_receipt_products(items)
+        for item, product in zip(items, products):
+            products_by_receipt.setdefault(item.get("parent"), []).append(product)
 
     detail = []
     for row in rows:
@@ -572,15 +677,20 @@ def _update_status_if_fully_paid(document, data=None, references=None,
     if not orders:
         return
 
-    bank = []
-    seen = set()
-    for order in orders:
-        for receipt in (refs.receipt_bank_for(order) or []):
-            name = receipt.get("name")
-            if name in seen:
-                continue
-            seen.add(name)
-            bank.append(receipt)
+    if len(orders) > INLINE_OC_LIMIT:
+        # El adaptador resuelve varias OC en una sola consulta cuando recibe
+        # el listado completo (real: "oc IN (...)").
+        bank = list(refs.receipt_bank_for(", ".join(orders)) or [])
+    else:
+        bank = []
+        seen = set()
+        for order in orders:
+            for receipt in (refs.receipt_bank_for(order) or []):
+                name = receipt.get("name")
+                if name in seen:
+                    continue
+                seen.add(name)
+                bank.append(receipt)
 
     # Seleccion manual en curso: la factura queda a la espera de que el
     # usuario complete y aplique; el flujo automatico no la promueve a "V".
