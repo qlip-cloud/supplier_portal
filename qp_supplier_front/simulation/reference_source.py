@@ -40,6 +40,32 @@ class MemoryReferenceSource(object):
             fields=["item_code", "uom", "qty", "qp_unit_cost", "qp_extd_cost"],
         )
 
+    def po_items_many(self, purchase_orders):
+        store = self._store
+        orders = [order for order in (purchase_orders or []) if order]
+        grouped = {}
+        if not orders:
+            return grouped
+        items = store.query(
+            "qp_SP_PurchaseOrderItem",
+            filters={
+                "parent": ["in", orders],
+                "parenttype": "Purchase Order",
+            },
+            fields=["parent", "item_code", "uom", "qty", "qp_unit_cost",
+                    "qp_extd_cost"],
+        )
+        for item in items:
+            grouped.setdefault(item.get("parent"), []).append(item)
+        return grouped
+
+    def po_belongs_to_supplier_many(self, purchase_orders, tax_id):
+        return [
+            order for order in (purchase_orders or [])
+            if references_memory.memory_po_belongs_to_supplier(
+                self._store, order, tax_id)
+        ]
+
     def receipts_for(self, purchase_order, qp_invoice=None):
         store = self._store
         if not purchase_order:
@@ -53,6 +79,24 @@ class MemoryReferenceSource(object):
             fields=["name", "supplier_delivery_note", "posting_date", "total"],
         )
 
+    def receipts_for_many(self, purchase_orders, qp_invoice=None):
+        store = self._store
+        orders = [order for order in (purchase_orders or []) if order]
+        if not orders:
+            return []
+        filters = {"qp_supplier_oc": ["in", orders]}
+        if qp_invoice is not None:
+            filters["qp_invoice"] = qp_invoice
+        receipts = store.query(
+            "qp_SP_PurchaseReceipt",
+            filters=filters,
+            fields=["name", "supplier_delivery_note", "posting_date", "total",
+                    "qp_supplier_oc"],
+        )
+        for receipt in receipts:
+            receipt["oc"] = receipt.get("qp_supplier_oc")
+        return receipts
+
     def receipt_bank_for(self, purchase_order):
         return references_memory.memory_get_receipt_bank(
             self._store, purchase_order)
@@ -60,6 +104,15 @@ class MemoryReferenceSource(object):
     def bank_for_invoice(self, purchase_order, invoice_number):
         return references_memory.memory_get_receipt_bank_for_invoice(
             self._store, purchase_order, invoice_number)
+
+    def bank_for_invoice_many(self, purchase_orders, invoice_number):
+        rows = []
+        for order in (purchase_orders or []):
+            for row in references_memory.memory_get_receipt_bank_for_invoice(
+                    self._store, order, invoice_number):
+                row["oc"] = order
+                rows.append(row)
+        return rows
 
     def has_claimed_receipts(self, invoice_number):
         return references_memory.memory_has_claimed_receipts(

@@ -275,7 +275,8 @@ class TestEnrichDocumentList(unittest.TestCase):
         ) as mock_detail:
             with patch.dict(sys.modules, {"frappe": frappe_mock}):
                 enrich_document_list([document], "qp_SP_DocumentDetail")
-            mock_detail.assert_called_once_with(document)
+            mock_detail.assert_called_once_with(
+                document, include_products=None)
 
 
 if __name__ == "__main__":

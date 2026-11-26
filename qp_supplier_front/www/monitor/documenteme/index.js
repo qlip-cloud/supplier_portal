@@ -1506,10 +1506,22 @@ $(document).ready(function () {
                     overlayEl.onclick = savedOnClick;
                     overlayEl.style.display = "none";
                 }
-                frappe.msgprint(response.msg);
+                // El aviso de exito va como alerta flotante (sin modal ni
+                // backdrop): un msgprint abierto junto al modal de detalle
+                // dejaba su backdrop por debajo y el modal se seguia viendo.
                 if (response.status === 200) {
+                    $("#invoice_detail_modal").modal("hide");
+                    // Vacia el modal antes de refrescar para no duplicar ids
+                    // (receipt-products-*) si la fila vuelve a mostrar el banco.
+                    $("#invoice-detail-body").empty();
                     refreshInvoiceRow(docName);
+                    frappe.show_alert({
+                        message: response.msg,
+                        indicator: "green"
+                    }, 7);
+                    return;
                 }
+                frappe.msgprint(response.msg);
             });
         }, function () {
             // Cancelar: la seleccion queda intacta.
@@ -1922,6 +1934,84 @@ $(document).ready(function () {
 
     $("#reference-po-assign").on("click", function () {
         submitRefPoAssign(false);
+    });
+
+    // =====================================================================
+    // Detalle completo (muchas OC / recepciones) en modal con pestanas.
+    // La fila muestra solo un resumen y este modal trae el detalle completo
+    // con el banco de recepciones seleccionable.
+    // =====================================================================
+    var invoiceDetailTab = "orders";
+
+    function switchInvoiceDetailTab(tab) {
+        invoiceDetailTab = tab === "receipts" ? "receipts" : "orders";
+        $(".invoice-detail-tab").removeClass("active").each(function () {
+            if ($(this).attr("data-tab") === invoiceDetailTab) {
+                $(this).addClass("active");
+            }
+        });
+        $(".invoice-detail-pane").each(function () {
+            $(this).toggle($(this).attr("data-pane") === invoiceDetailTab);
+        });
+        filterInvoiceDetailPane();
+    }
+
+    function filterInvoiceDetailPane() {
+        var query = String($("#invoice-detail-search").val() || "").trim().toLowerCase();
+        var $pane = $('.invoice-detail-pane[data-pane="' + invoiceDetailTab + '"]');
+        $pane.find(".oc-products-group, .receipt-item").each(function () {
+            var haystack = String($(this).attr("data-search") || "");
+            $(this).toggle(!query || haystack.indexOf(query) !== -1);
+        });
+    }
+
+    function loadInvoiceDetail(docName, tab, invoiceNumber) {
+        $("#invoice-detail-body").html(
+            '<div style="color:#8a9099;font-size:13px;text-align:center;padding:24px">Cargando...</div>'
+        );
+        $("#invoice-detail-subtitle").text(
+            invoiceNumber ? ("Factura " + invoiceNumber) : ""
+        );
+        $("#invoice-detail-search").val("");
+        switchInvoiceDetailTab(tab);
+        $("#invoice_detail_modal").modal("show");
+
+        petition_get_data({ doc_name: docName, tab: tab || "orders" },
+            "qp_supplier_front.resources.documenteme.invoice_detail.get_detail",
+            function (response) {
+                if (!response || response.status !== 200 || !response.data) {
+                    $("#invoice-detail-body").html(
+                        '<div style="color:#dc3545;font-size:13px;text-align:center;padding:24px">' +
+                        escapeHtml((response && response.msg) || "No se pudo cargar el detalle") +
+                        '</div>'
+                    );
+                    return;
+                }
+                $("#invoice-detail-body").html(response.data);
+                switchInvoiceDetailTab(tab);
+                initReceiptBanks();
+            }
+        );
+    }
+
+    $(document).on("click", ".btn-invoice-detail", function (event) {
+        event.stopPropagation();
+        loadInvoiceDetail(
+            $(this).attr("data-name"),
+            $(this).attr("data-tab"),
+            $(this).attr("data-invoice")
+        );
+    });
+
+    $(document).on("click", ".invoice-detail-tab", function (event) {
+        event.preventDefault();
+        switchInvoiceDetailTab($(this).attr("data-tab"));
+    });
+
+    $(document).on("input", "#invoice-detail-search", filterInvoiceDetailPane);
+
+    $(document).on("hidden.bs.modal", "#invoice_detail_modal", function () {
+        $("#invoice-detail-body").empty();
     });
 
     // =====================================================================

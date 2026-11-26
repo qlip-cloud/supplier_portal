@@ -73,6 +73,44 @@ def get_bank_for_invoice(purchase_order_number, invoice_number,
     return rows
 
 
+def get_bank_for_orders(purchase_orders, invoice_number, frappe_module=None):
+    """Banco visible de varias OC en una sola consulta (pool compartido).
+
+    Misma semantica que get_bank_for_invoice (no reclamados + reclamados por
+    esta factura), pero recibe la lista de OC y agrega la OC de cada recibo.
+    """
+    if frappe_module is None:
+        import frappe as frappe_module
+
+    orders = [order for order in (purchase_orders or []) if order]
+    if not orders or not invoice_number:
+        return []
+
+    receipts = frappe_module.get_all(
+        "Purchase Receipt",
+        filters={"qp_supplier_oc": ["in", orders]},
+        fields=["name", "total", "total_qty", "posting_date", "qp_invoice",
+                "qp_supplier_oc"],
+    ) or []
+
+    rows = []
+    for receipt in receipts:
+        owner = receipt.get("qp_invoice")
+        if owner and owner != invoice_number:
+            continue
+        rows.append({
+            "name": receipt.get("name"),
+            "amount": receipt.get("total") or 0,
+            "date": receipt.get("posting_date"),
+            "qp_invoice": owner,
+            "claimed_by_me": owner == invoice_number,
+            "selectable": True,
+            "unit_value": _unit_value(receipt),
+            "oc": receipt.get("qp_supplier_oc") or "",
+        })
+    return rows
+
+
 def _unit_value(receipt):
     """Valor unitario promedio (total / total_qty) o None si no hay cantidad."""
     try:

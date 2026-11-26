@@ -1,4 +1,10 @@
 import frappe
+
+# La pagina inyecta index.js en el HTML (colocated js). En sitios con
+# developer_mode=0 Frappe cachea el page_context en Redis, incluido ese JS, y
+# los cambios no llegan hasta un clear-cache. no_cache evita esa cache.
+no_cache = 1
+
 from qp_supplier_front.services.pagination import get_paginated_filtered
 from qp_supplier_front.services.get_data import has_recent_news, get_has_dispatch_permission
 from qp_supplier_front.services.role_resolver import get_active_role
