@@ -1,0 +1,17 @@
+{% set row = detail %}
+<div class="invoice-detail-pane" data-pane="orders"{% if tab != "orders" %} style="display:none"{% endif %}>
+    <div class="invoice-detail-pane-head">{{ row.orders_total }} orden(es) de compra</div>
+    {% include "qp_supplier_front/templates/list/documenteme_sales_invoices/_oc_groups.html" %}
+</div>
+<div class="invoice-detail-pane" data-pane="receipts"{% if tab != "receipts" %} style="display:none"{% endif %}>
+    <div class="invoice-detail-pane-head">
+        {{ row.receipts_total }} recepción(es) &middot;
+        Libres {{ row.receipts_free_count }} &middot;
+        Reclamadas {{ row.receipts_claimed_count }}
+    </div>
+    {% if row.recepciones_detalle %}
+    {% include "qp_supplier_front/templates/list/documenteme_sales_invoices/_receipt_bank.html" %}
+    {% else %}
+    <div style="color:#8a9099;font-size:12px">Sin datos</div>
+    {% endif %}
+</div>

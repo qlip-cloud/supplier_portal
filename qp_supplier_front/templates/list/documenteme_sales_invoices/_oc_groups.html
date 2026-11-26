@@ -1,0 +1,72 @@
+{% if row.ordenes_compra_detalle %}
+    {% for oc in row.ordenes_compra_detalle %}
+    <div class="oc-products-group" data-search="{{ (oc.numero or '') | lower }}" style="margin-bottom:10px">
+        <div class="oc-group-title" style="color:#004D90;font-size:12px;font-weight:bold;margin:4px 0">OC: {{ oc.numero }}</div>
+        {% if oc.productos %}
+        <table class="table inner-table">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>UDM</th>
+                    <th>Cantidad</th>
+                    <th>Valor unitario</th>
+                    <th style="text-align:center !important">Valor total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in oc.productos %}
+                <tr{% if p.precio_difiere %} data-precio-grupo="{{ p.precio_grupo }}"{% endif %}>
+                    <td>{{ p.codigo }}</td>
+                    <td>{{ p.udm }}</td>
+                    <td>{{ p.cantidad }}</td>
+                    <td>
+                        <div style="display:flex;align-items:center;width:100%">
+                            {% if p.precio_difiere %}
+                            <span class="material-symbols-outlined price-mismatch-icon" style="font-size:12px;color:#dc3545;line-height:1;margin:0;cursor:help" data-precio-grupo="{{ p.precio_grupo }}" title="El precio unitario difiere de la factura">info</span>
+                            {% endif %}
+                            <span style="margin-left:auto;text-align:right;white-space:nowrap">{{ frappe.utils.fmt_money(p.valor_unitario, currency="COP") }}</span>
+                        </div>
+                    </td>
+                    <td style="text-align:right !important">{{ frappe.utils.fmt_money(p.valor_total, currency="COP") }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="color:#8a9099;font-size:12px">Sin datos</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% elif row.productos_orden_compra %}
+<table class="table inner-table">
+    <thead>
+        <tr>
+            <th>Código</th>
+            <th>UDM</th>
+            <th>Cantidad</th>
+            <th>Valor unitario</th>
+            <th style="text-align:center !important">Valor total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in row.productos_orden_compra %}
+        <tr{% if p.precio_difiere %} data-precio-grupo="{{ p.precio_grupo }}"{% endif %}>
+            <td>{{ p.codigo }}</td>
+            <td>{{ p.udm }}</td>
+            <td>{{ p.cantidad }}</td>
+            <td>
+                <div style="display:flex;align-items:center;width:100%">
+                    {% if p.precio_difiere %}
+                    <span class="material-symbols-outlined price-mismatch-icon" style="font-size:12px;color:#dc3545;line-height:1;margin:0;cursor:help" data-precio-grupo="{{ p.precio_grupo }}" title="El precio unitario difiere de la factura">info</span>
+                    {% endif %}
+                    <span style="margin-left:auto;text-align:right;white-space:nowrap">{{ frappe.utils.fmt_money(p.valor_unitario, currency="COP") }}</span>
+                </div>
+            </td>
+            <td style="text-align:right !important">{{ frappe.utils.fmt_money(p.valor_total, currency="COP") }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div style="color:#8a9099;font-size:12px">Sin datos</div>
+{% endif %}
