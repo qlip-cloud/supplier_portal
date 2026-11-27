@@ -143,12 +143,16 @@ def get_purchase_order_candidates(doc_name, search=None, start=None, end=None,
             return
 
         declared = parse_purchase_orders(doc.get("nvfac_orde"))
+        # OC agregadas manualmente por el usuario: el modal las preselecciona
+        # para que al reabrirlo se puedan agregar mas sin perder las previas.
+        manual = parse_purchase_orders(doc.get("qp_manual_purchase_order"))
 
         supplier = get_supplier_by_tax_id(doc.get("nvpro_ndoc"))
         if not supplier:
             response(200, "ok", {
                 "orders": [],
                 "declared_purchase_orders": declared,
+                "manual_purchase_orders": manual,
             })
             return
 
@@ -198,6 +202,7 @@ def get_purchase_order_candidates(doc_name, search=None, start=None, end=None,
         response(200, "ok", {
             "orders": orders,
             "declared_purchase_orders": declared,
+            "manual_purchase_orders": manual,
         })
 
     except Exception as error:

@@ -63,6 +63,7 @@ def _row(limited):
         "has_unread_conversation": False, "alert_severity": "ninguno",
         "notification_tooltip": "", "alert_tooltip": "", "non_xml_count": 0,
         "assigned_to_name": None, "qp_ref_invoice": None,
+        "qp_manual_purchase_order": "",
         "hide_unselected_recibos": False,
         "detail_lines": [{
             "nvpro_codi": "SH1", "nvuni_desc": "UN", "nvdet_tcan": 1,
@@ -93,12 +94,12 @@ def _row(limited):
 
 class TestDetailTemplates(unittest.TestCase):
 
-    def _render_row(self, limited):
+    def _render_row(self, limited, row=None):
         template = _env().get_template(
             "qp_supplier_front/templates/list/documenteme_sales_invoices/"
             "row.html")
         return template.render(
-            row=_row(limited),
+            row=row or _row(limited),
             frappe=_Frappe(),
             documenteme_backend="BC",
             can_super_approve=True,
@@ -111,8 +112,21 @@ class TestDetailTemplates(unittest.TestCase):
         self.assertIn("detail-summary", html)
         self.assertIn("btn-invoice-detail", html)
         self.assertIn("+2", html)
+        self.assertNotIn("btn-control-purchase-order", html)
         self.assertNotIn("receipt-bank", html)
         self.assertNotIn("oc-products-group", html)
+
+    def test_detalle_con_oc_manual_muestra_boton_asignar(self):
+        row = _row(True)
+        row["nvfac_esta"] = "E"
+        row["qp_manual_purchase_order"] = ", ".join(row["ordenes_compra"])
+        html = self._render_row(True, row=row)
+        self.assertIn("btn-control-purchase-order", html)
+        self.assertIn("Asignar Orden", html)
+        self.assertIn("Agregar orden de compra", html)
+        self.assertIn("OC001, OC002, OC003", html)
+        self.assertIn("+2", html)
+        self.assertNotIn("oc-count", html)
 
     def test_fila_inline_mantiene_banco_y_productos(self):
         html = self._render_row(False)

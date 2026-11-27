@@ -32,6 +32,8 @@
     "T": ""
 } -%}
 
+{%- set can_add_po = row.nvfac_conv != "1" and row.nvtip_docu != "C" and row.nvfac_esta in ["E", "SO"] and (row.qp_manual_purchase_order or not row.ordenes_compra) -%}
+
 <tr class="card-header" data-row="{{ row.name }}" data-toggle="collapse" data-target="#detail-{{ row.name.replace(':', '_') }}" aria-expanded="false">
     <td class="text-center">
         <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()" {% if row.nvfac_esta in ["A", "R", "BCC", "PA", "PR", "SR"] or row.auto_approve_processing or (row.nvfac_esta == "PSA" and not can_super_approve) %}disabled{% endif %}>
@@ -101,7 +103,14 @@
     <td colspan="14">
         <div class="row">
             <div class="col-lg-4">
-                <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0 0 4px 0">Productos Factura</h5>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 4px 0">
+                    <h5 style="color:#004D90;font-size:14px;font-weight:bold;margin:0">Productos Factura</h5>
+                    {% if can_add_po %}
+                    <button type="button" class="btn btn-primary btn-sm btn-control-purchase-order" data-name="{{ row.name }}" title="{{ 'Agregar orden de compra' if row.ordenes_compra else 'Asignar orden de compra' }}" style="padding:2px 8px;font-size:11px;line-height:1.2">
+                        Asignar Orden
+                    </button>
+                    {% endif %}
+                </div>
                 <div style="color:#8a9099;font-size:12px;margin-bottom:8px">
                     Fecha Vencimiento: {{ frappe.utils.formatdate(row.nvfac_venc, "dd-MM-yyyy") if row.nvfac_venc else "-" }}
                     {% if row.nvfac_conv == "1" %}

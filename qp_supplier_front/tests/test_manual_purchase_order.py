@@ -174,6 +174,24 @@ class TestGetCandidates(unittest.TestCase):
         data = response_mock.call_args[0][2]
         self.assertEqual(data["declared_purchase_orders"], ["OC REP 28996"])
 
+    def test_devuelve_oc_manual_para_preseleccionar(self):
+        """El modal preselecciona las OC agregadas a mano para sumar mas."""
+        frappe_mock = MagicMock()
+        frappe_mock.get_all.return_value = []
+        response_mock = MagicMock()
+
+        with patch.object(module, "frappe", frappe_mock), \
+             patch.object(module, "response", response_mock), \
+             patch.object(module, "_has_permission", return_value=True), \
+             patch.object(module, "_get_doc", return_value=_doc(
+                 nvfac_orde="OC-MANUAL", qp_manual_purchase_order="OC-MANUAL")), \
+             patch.object(module, "_validate_scope", return_value=""), \
+             patch.object(module, "get_supplier_by_tax_id", return_value="SUP"):
+            module.get_purchase_order_candidates("SUP:FC1")
+
+        data = response_mock.call_args[0][2]
+        self.assertEqual(data["manual_purchase_orders"], ["OC-MANUAL"])
+
     def test_incluye_ordenes_en_borrador(self):
         """Las POs sincronizadas sin submitir tambien son candidatas."""
         frappe_mock = MagicMock()
