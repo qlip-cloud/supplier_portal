@@ -22,9 +22,11 @@ for _module_name in ("frappe", "frappe.utils", "frappe.model", "frappe.model.doc
     sys.modules[_module_name] = MagicMock()
 
 from qp_supplier_front.uses_cases.documenteme.stale_status_alert import (  # noqa: E402
+    ALERT_STATES,
     ANALYSIS_STATES,
     build_alert_message,
     cutoff_datetime,
+    is_alertable,
     is_analysis,
     is_older_than,
     parse_creation,
@@ -49,6 +51,18 @@ class TestPureCore(unittest.TestCase):
 
     def test_estados_fuera_de_analisis(self):
         for state in ("A", "R", "BCC", "PA", "PR"):
+            self.assertFalse(is_analysis(state))
+
+    def test_alert_states_incluyen_analisis_y_sin_oc(self):
+        for state in ("E", "V", "T", "SO", "SR"):
+            self.assertTrue(is_alertable(state))
+
+    def test_alert_states_excluyen_estados_finales(self):
+        for state in ("A", "R", "BCC", "PA", "PR", "PSA"):
+            self.assertFalse(is_alertable(state))
+
+    def test_so_y_sr_no_son_estado_de_analisis(self):
+        for state in ("SO", "SR"):
             self.assertFalse(is_analysis(state))
 
     def test_parse_creation_acepta_datetime(self):
@@ -106,6 +120,21 @@ class TestPureCore(unittest.TestCase):
         for state in ("A", "R", "BCC", "PA", "PR"):
             doc = _doc(nvfac_esta=state, creation=now - timedelta(days=10))
             self.assertFalse(should_alert(doc, now))
+
+    def test_should_alert_estado_SO_antiguo(self):
+        now = datetime(2026, 8, 20, 10, 0, 0)
+        doc = _doc(nvfac_esta="SO", creation=now - timedelta(hours=50))
+        self.assertTrue(should_alert(doc, now))
+
+    def test_should_alert_estado_SR_antiguo(self):
+        now = datetime(2026, 8, 20, 10, 0, 0)
+        doc = _doc(nvfac_esta="SR", creation=now - timedelta(hours=50))
+        self.assertTrue(should_alert(doc, now))
+
+    def test_should_alert_estado_SO_reciente_no_alerta(self):
+        now = datetime(2026, 8, 20, 10, 0, 0)
+        doc = _doc(nvfac_esta="SO", creation=now - timedelta(hours=2))
+        self.assertFalse(should_alert(doc, now))
 
     def test_should_alert_sin_creation_no_alerta(self):
         now = datetime(2026, 8, 20, 10, 0, 0)
@@ -199,6 +228,30 @@ class TestGenerateStaleStatusAlerts(unittest.TestCase):
         self.assertEqual(inserted, [])
         insert_mock.assert_not_called()
 
+    def test_inserta_alerta_para_sin_oc_vieja(self):
+        now = datetime(2026, 8, 20, 10, 0, 0)
+        frappe_mock = self._frappe_mock(
+            documents=[_candidate(nvfac_esta="SO", creation=now - timedelta(hours=50))]
+        )
+        with patch.object(stale_infra, "frappe", frappe_mock), \
+                patch.object(stale_infra, "insert_alert") as insert_mock:
+            inserted = stale_infra.generate_stale_status_alerts(now=now)
+
+        self.assertEqual(inserted, ["DOC1"])
+        insert_mock.assert_called_once()
+
+    def test_inserta_alerta_para_sin_referencia_vieja(self):
+        now = datetime(2026, 8, 20, 10, 0, 0)
+        frappe_mock = self._frappe_mock(
+            documents=[_candidate(nvfac_esta="SR", creation=now - timedelta(hours=50))]
+        )
+        with patch.object(stale_infra, "frappe", frappe_mock), \
+                patch.object(stale_infra, "insert_alert") as insert_mock:
+            inserted = stale_infra.generate_stale_status_alerts(now=now)
+
+        self.assertEqual(inserted, ["DOC1"])
+        insert_mock.assert_called_once()
+
     def test_no_duplica_cuando_ya_existe_alerta_abierta(self):
         now = datetime(2026, 8, 20, 10, 0, 0)
         frappe_mock = self._frappe_mock(
@@ -223,7 +276,7 @@ class TestGenerateStaleStatusAlerts(unittest.TestCase):
         call_kwargs = frappe_mock.get_all.call_args[1]
         self.assertEqual(
             call_kwargs["filters"]["nvfac_esta"],
-            ["in", list(ANALYSIS_STATES)],
+            ["in", list(ALERT_STATES)],
         )
         self.assertIn("nvfac_esta", call_kwargs["fields"])
         self.assertIn("creation", call_kwargs["fields"])

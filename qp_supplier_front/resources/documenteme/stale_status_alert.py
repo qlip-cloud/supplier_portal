@@ -5,10 +5,11 @@ stale_status_alert.py (documenteme) — infraestructura
 Genera la alerta de estatus no definitivo (>48h) sobre las facturas de
 documenteme durante la sincronizacion automatica.
 
-Escanea qp_SP_DocumentDetail en estados de analisis ("E", "V", "T") cuya
-fecha `creation` supera el umbral (48 horas) e inserta una alerta Abierta
-en la child table qp_SP_Alert (reusa _alerts.insert_alert). Es idempotente:
-no reinserta si ya existe una alerta abierta con el mismo mensaje.
+Escanea qp_SP_DocumentDetail en estados pendientes de atencion ("E", "V",
+"T", "SO", "SR") cuya fecha `creation` supera el umbral (48 horas) e inserta
+una alerta Abierta en la child table qp_SP_Alert (reusa
+_alerts.insert_alert). Es idempotente: no reinserta si ya existe una alerta
+abierta con el mismo mensaje.
 
 La alerta se resuelve de forma automatica cuando la factura se aprueba o
 se rechaza (resolve_open_alerts en _approve_base / auto_reject /
@@ -18,7 +19,7 @@ auto_approve_confirmation).
 import frappe
 
 from qp_supplier_front.uses_cases.documenteme.stale_status_alert import (
-    ANALYSIS_STATES,
+    ALERT_STATES,
     build_alert_message,
     cutoff_datetime,
     should_alert,
@@ -27,13 +28,13 @@ from qp_supplier_front.resources.documenteme._alerts import insert_alert
 
 
 def generate_stale_status_alerts(threshold_hours=48, now=None):
-    """Inserta la alerta en toda factura sin estatus definitivo > umbral.
+    """Inserta la alerta en toda factura pendiente > umbral.
 
     Retorna la lista de nombres de documentos a los que se inserto alerta.
     """
     now = now or _make_now()
     filters = {
-        "nvfac_esta": ["in", list(ANALYSIS_STATES)],
+        "nvfac_esta": ["in", list(ALERT_STATES)],
         "creation": ["<=", cutoff_datetime(now, threshold_hours)],
     }
     documents = frappe.get_all(

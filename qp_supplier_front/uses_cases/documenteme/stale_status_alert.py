@@ -4,8 +4,10 @@ stale_status_alert.py (documenteme)
 ===================================
 Nucleo puro de la alerta por estatus no definitivo (>48h).
 
-Detecta facturas que permanecen en estados de analisis ("E", "V", "T")
-durante mas de 48 horas desde su creacion (ingreso al sistema via sync).
+Detecta facturas que permanecen pendientes de atencion durante mas de 48
+horas desde su creacion (ingreso al sistema via sync). Cubre los estados de
+analisis ("E", "V", "T") y los estados que exigen gestion manual: facturas
+sin OC valida ("SO") y notas credito sin referencia ("SR").
 Sirve a resources/documenteme/stale_status_alert.py, que persiste la
 alerta en la child table qp_SP_Alert.
 
@@ -16,6 +18,10 @@ from datetime import datetime, timedelta
 
 ANALYSIS_STATES = ("E", "V", "T")
 
+# Estados que disparan la alerta de 48h: analisis + pendientes de gestion
+# manual (SO = Sin OC, SR = Sin Referencia).
+ALERT_STATES = ANALYSIS_STATES + ("SO", "SR")
+
 DEFAULT_THRESHOLD_HOURS = 48
 
 _CREATION_FORMATS = ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S")
@@ -24,6 +30,11 @@ _CREATION_FORMATS = ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S")
 def is_analysis(status):
     """True si el estatus no es definitivo ni en gestion (analisis)."""
     return status in ANALYSIS_STATES
+
+
+def is_alertable(status):
+    """True si el estatus sigue pendiente de atencion (alerta de 48h)."""
+    return status in ALERT_STATES
 
 
 def parse_creation(value):
@@ -49,8 +60,8 @@ def is_older_than(creation, now, threshold_hours=DEFAULT_THRESHOLD_HOURS):
 
 
 def should_alert(document, now, threshold_hours=DEFAULT_THRESHOLD_HOURS):
-    """True si la factura esta en analisis y lleva mas del umbral de horas."""
-    if not is_analysis(document.get("nvfac_esta")):
+    """True si la factura sigue pendiente y lleva mas del umbral de horas."""
+    if not is_alertable(document.get("nvfac_esta")):
         return False
     return is_older_than(document.get("creation"), now, threshold_hours)
 
