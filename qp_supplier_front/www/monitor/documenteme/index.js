@@ -1707,6 +1707,7 @@ $(document).ready(function () {
     // =====================================================================
     var refPoDocName = null;
     var refPoSelected = {};
+    var refPoPreselected = false;
     window.__refPoOrders = [];
 
     function refreshRefPoCount() {
@@ -1730,6 +1731,18 @@ $(document).ready(function () {
             $(this).find(".ref-po-check").prop("checked", selected);
         });
         refreshRefPoCount();
+    }
+
+    // Preselecciona las OC que la factura ya tiene agregadas manualmente para
+    // que al reabrir el modal se sumen nuevas ordenes sin reemplazar las
+    // existentes. Solo corre una vez por apertura: respeta lo que el usuario
+    // destilda al cambiar los filtros.
+    function preselectRefPo(orders) {
+        (orders || []).forEach(function (name) {
+            if (name) {
+                refPoSelected[name] = true;
+            }
+        });
     }
 
     function renderRefPoDeclared(orders) {
@@ -1825,6 +1838,10 @@ $(document).ready(function () {
                 }
                 var data = response.data || {};
                 window.__refPoOrders = data.orders || [];
+                if (!refPoPreselected) {
+                    preselectRefPo(data.manual_purchase_orders || []);
+                    refPoPreselected = true;
+                }
                 renderRefPoDeclared(data.declared_purchase_orders || []);
                 renderRefPoCandidates(window.__refPoOrders);
             }
@@ -1925,6 +1942,7 @@ $(document).ready(function () {
         event.stopPropagation();
         refPoDocName = $(this).data("name");
         refPoSelected = {};
+        refPoPreselected = false;
         $("#reference-po-start").val("");
         $("#reference-po-end").val("");
         $("#reference-po-search").val("");
