@@ -79,6 +79,8 @@ def _real_bundle():
             "create_document_detail": document_sync.create_document_detail,
             "log_sync_attempt": document_sync.log_sync_attempt,
             "mark_line_completed": document_sync.mark_line_completed,
+            "detail_exists": document_sync.detail_exists,
+            "mark_arrived_final": document_sync.mark_arrived_final,
         },
     }
 
@@ -190,6 +192,9 @@ def _simulated_bundle():
                 documents_memory.memory_log_sync_attempt),
             "mark_line_completed": _bind(
                 documents_memory.memory_mark_line_completed),
+            "detail_exists": _bind(documents_memory.memory_detail_exists),
+            "mark_arrived_final": _bind(
+                documents_memory.memory_mark_arrived_final),
         },
         "_simulation_store": store,
     }

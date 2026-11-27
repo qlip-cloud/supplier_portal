@@ -225,6 +225,20 @@ def memory_mark_line_completed(store, line_name):
     store.set_value("qp_SP_DocumentSyncLine", line_name, "is_completed", 1)
 
 
+def memory_detail_exists(store, nvfac_nume, nvpro_ndoc=None):
+    if not nvfac_nume:
+        return False
+    filters = {"nvfac_nume": nvfac_nume}
+    if nvpro_ndoc:
+        filters["nvpro_ndoc"] = nvpro_ndoc
+    return bool(store.query("qp_SP_DocumentDetail", filters=filters, limit=1))
+
+
+def memory_mark_arrived_final(store, line_name):
+    store.set_value("qp_SP_DocumentSyncLine", line_name, "arrived_final", 1)
+    store.set_value("qp_SP_DocumentSyncLine", line_name, "is_completed", 1)
+
+
 def _set_detail_fields(sync_line_name, document_data):
     row = {"document_sync_line": sync_line_name}
     for field in DETAIL_FIELDS:

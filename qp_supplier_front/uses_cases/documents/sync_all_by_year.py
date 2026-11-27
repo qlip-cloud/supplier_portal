@@ -10,6 +10,8 @@ from qp_supplier_front.services.document_sync import (
     get_log_company_tax_id,
     log_sync_attempt,
     mark_line_completed,
+    detail_exists,
+    mark_arrived_final,
 )
 from qp_supplier_front.uses_cases.documents.sync_by_supplier import (
     sync_by_supplier,
@@ -97,6 +99,8 @@ def sync_all_by_year(year, tax_id=None):
                     get_company_tax_id_fn=get_log_company_tax_id,
                     heartbeat_fn=lambda: sync_lock.heartbeat(
                         DOCUMENTS_LOCK_DOMAIN, token),
+                    detail_exists_fn=detail_exists,
+                    mark_arrived_final_fn=mark_arrived_final,
                 ) or [])
             except Exception as chunk_error:
                 frappe.db.rollback()

@@ -40,6 +40,10 @@ from qp_supplier_front.uses_cases.documenteme.event_retry import (
     resolve_pending_code,
     send_was_successful,
 )
+from qp_supplier_front.uses_cases.documenteme.timeline_origin import (
+    automatic_timeline,
+    system_job,
+)
 from qp_supplier_front.uses_cases.documenteme.notification_state import (
     start_code,
 )
@@ -215,6 +219,8 @@ def schedule_event(doc_name, http_fn=None, lock_token=None, enqueue_fn=None,
     )
 
 
+@system_job
+@automatic_timeline
 def run_documenteme_event(doc_name, http_fn=None, lock_token=None):
     """Envia UN evento y deja programado el siguiente. Libera el worker.
 
@@ -321,6 +327,7 @@ def _send(http_fn, payload, url, headers, method):
         return {"errorInterno": str(error)}, 500
 
 
+@automatic_timeline
 def _apply_outcome(doc, intent, code, response, status, config):
     """Actualiza el estado del documento tras UN envio y programa el siguiente."""
     success = send_was_successful(response, status)

@@ -18,8 +18,15 @@ Cada entrada es un dict:
         "new_state": str|None,
         "entry_by": str,
         "entry_date": str "YYYY-MM-DD HH:MM:SS",
+        "origin": "manual" | "automatic"  (solo estado/asignacion),
     }
 """
+
+from qp_supplier_front.uses_cases.documenteme.timeline_origin import (
+    ORIGIN_MANUAL,
+    actor_label,
+    current_origin,
+)
 
 ENTRY_CREATION = "creacion"
 ENTRY_STATE = "estado"
@@ -62,7 +69,8 @@ def build_creation_entry(state, user, now):
     }
 
 
-def build_state_entry(old_state, new_state, user, now):
+def build_state_entry(old_state, new_state, user, now, origin=None):
+    origin = origin or current_origin()
     return {
         "type": ENTRY_STATE,
         "message": "Cambio de estado: {0} -> {1}".format(
@@ -70,8 +78,9 @@ def build_state_entry(old_state, new_state, user, now):
         ),
         "old_state": old_state or None,
         "new_state": new_state or None,
-        "entry_by": user or "",
+        "entry_by": actor_label(user, origin),
         "entry_date": now or "",
+        "origin": origin or ORIGIN_MANUAL,
     }
 
 
@@ -90,19 +99,21 @@ def build_comment_entry(comment, user, now, attachment_file_id="",
     }
 
 
-def build_assignment_entry(message, user, now):
+def build_assignment_entry(message, user, now, origin=None):
     """Entrada de historial (no comentario) para eventos del flujo.
 
     Se muestra en el "Historial" del modal de alertas sin abrir una alerta:
     no pinta el icono ni aparece en la conversacion.
     """
+    origin = origin or current_origin()
     return {
         "type": ENTRY_ASSIGNMENT,
         "message": message or "",
         "old_state": None,
         "new_state": None,
-        "entry_by": user or "",
+        "entry_by": actor_label(user, origin),
         "entry_date": now or "",
+        "origin": origin or ORIGIN_MANUAL,
     }
 
 
@@ -162,15 +173,17 @@ def build_documenteme_entry(code, previous_state, current_state, user, now):
     }
 
 
-def build_user_assignment_entry(message, user, now):
-    """Entrada de historial (no comentario) de una asignacion manual."""
+def build_user_assignment_entry(message, user, now, origin=None):
+    """Entrada de historial (no comentario) de una asignacion de usuarios."""
+    origin = origin or current_origin()
     return {
         "type": ENTRY_USER_ASSIGNMENT,
         "message": message or "",
         "old_state": None,
         "new_state": None,
-        "entry_by": user or "",
+        "entry_by": actor_label(user, origin),
         "entry_date": now or "",
+        "origin": origin or ORIGIN_MANUAL,
     }
 
 

@@ -7,6 +7,8 @@ from qp_supplier_front.services.document_sync import (
     log_sync_attempt,
     log_sync_progress,
     mark_line_completed,
+    detail_exists,
+    mark_arrived_final,
 )
 from qp_authorization.use_case.basic.authorize import send_request_status
 
@@ -23,6 +25,8 @@ def sync_detail_whitelist():
             commit_fn=lambda: frappe.db.commit(),
             get_company_tax_id_fn=get_log_company_tax_id,
             log_fn=log_sync_progress,
+            detail_exists_fn=detail_exists,
+            mark_arrived_final_fn=mark_arrived_final,
         )
         return {"success": True}
     except Exception:
