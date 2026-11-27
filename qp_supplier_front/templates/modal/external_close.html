@@ -1,0 +1,64 @@
+{% if can_external_close %}
+<div class="modal fade" id="external_status_modal" tabindex="-1" aria-labelledby="external_status_label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="external_status_label">Cerrar factura</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="external-close-info">
+                    <p style="margin-bottom:6px">
+                        Factura <strong id="external-close-invoice">-</strong>
+                        <span id="external-close-supplier"></span>
+                    </p>
+                    <p style="margin-bottom:12px">
+                        Total: <strong id="external-close-total">-</strong>
+                    </p>
+                    <div class="alert alert-warning" style="font-size:12px">
+                        Esta acción cierra la factura <strong>sin crearla en BC</strong>
+                        y <strong>sin notificar a documenteme</strong>. La factura
+                        quedará bloqueada: no cambia de estado ni se sincroniza.
+                    </div>
+                </div>
+                <div id="external-reopen-info" style="display:none;">
+                    <p style="margin-bottom:6px">
+                        Factura <strong id="external-reopen-invoice">-</strong>
+                    </p>
+                    <div style="font-size:12px;color:#495057;margin-bottom:12px">
+                        <div>Cerrada por: <span id="external-reopen-by">-</span></div>
+                        <div>Fecha de cierre: <span id="external-reopen-at">-</span></div>
+                        <div>Estado previo: <span id="external-reopen-prev">-</span></div>
+                        <div>Motivo del cierre: <span id="external-reopen-reason">-</span></div>
+                    </div>
+                    <div class="alert alert-warning" style="font-size:12px">
+                        La reapertura es una excepción administrativa. La factura
+                        volverá a su estado previo y el flujo normal podrá
+                        procesarla otra vez.
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="external_status_motive">Indique el motivo *</label>
+                    <textarea class="form-control" id="external_status_motive" rows="3"></textarea>
+                </div>
+                <div class="form-group" id="external-close-confirm-group">
+                    <label style="font-weight:normal">
+                        <input type="checkbox" id="external_status_confirm">
+                        Entiendo que no se creará en BC ni se notificará a documenteme.
+                    </label>
+                </div>
+                <input type="hidden" id="external_status_doc">
+                <input type="hidden" id="external_status_mode">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default btn-sm btn-modal-close" data-dismiss="modal">
+                    <span class="hidden-xs">Cerrar</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-warning" disabled id="confirm-external-status">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}

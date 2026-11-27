@@ -9,6 +9,9 @@ from qp_supplier_front.services.documenteme_access import (
 )
 from qp_supplier_front.services.user_display import resolve_user_display_name
 from qp_supplier_front.uses_cases.documenteme.assign import assign_documents
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    is_locked,
+)
 from qp_supplier_front.uses_cases.documenteme.timeline import (
     user_assignment_message,
 )
@@ -151,7 +154,13 @@ def assign(doc_names, users=None, user=None):
             return
 
         doc_sync_lines = {}
+        locked = []
         for doc_name in doc_names_list:
+            state = frappe.db.get_value(
+                "qp_SP_DocumentDetail", doc_name, "nvfac_esta")
+            if is_locked(state):
+                locked.append(doc_name)
+                continue
             sync_line = frappe.db.get_value(
                 "qp_SP_DocumentDetail",
                 doc_name,
@@ -159,6 +168,14 @@ def assign(doc_names, users=None, user=None):
             )
             if sync_line:
                 doc_sync_lines[doc_name] = sync_line
+
+        if locked:
+            response(
+                400,
+                "Las facturas finalizadas externamente no se pueden reasignar",
+                {"blocked": locked},
+            )
+            return
 
         if not doc_sync_lines:
             response(400, "No se encontraron lineas de sincronizacion para los documentos seleccionados")

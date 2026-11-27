@@ -29,7 +29,7 @@ from qp_supplier_front.uses_cases.documenteme.receipt_bank import (
 )
 
 # Estados en los que la factura ya no permite aplicar/desmarcar recibos.
-DEFINITIVE_STATES = ("BCC", "PA", "PR", "A", "R")
+DEFINITIVE_STATES = ("BCC", "PA", "PR", "A", "R", "FE")
 
 
 def _to_float(value):

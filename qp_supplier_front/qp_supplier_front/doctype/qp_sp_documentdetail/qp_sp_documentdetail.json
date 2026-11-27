@@ -35,6 +35,10 @@
     "qp_manual_purchase_order",
     "qp_manual_po_assigned_by",
     "qp_manual_po_assigned_at",
+    "qp_external_previous_state",
+    "qp_external_close_reason",
+    "qp_external_closed_by",
+    "qp_external_closed_at",
     "nvfac_rece",
     "nvfac_refe",
     "qp_ref_invoice",
@@ -244,6 +248,31 @@
    "read_only": 1
   },
   {
+   "fieldname": "qp_external_previous_state",
+   "fieldtype": "Data",
+   "label": "Estado previo al cierre externo",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qp_external_close_reason",
+   "fieldtype": "Small Text",
+   "label": "Motivo del cierre externo",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qp_external_closed_by",
+   "fieldtype": "Link",
+   "label": "Cerrada externamente por",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qp_external_closed_at",
+   "fieldtype": "Datetime",
+   "label": "Cerrada externamente el",
+   "read_only": 1
+  },
+  {
    "fieldname": "nvfac_rece",
    "fieldtype": "Data",
    "label": "Nvfac Rece"
@@ -423,7 +452,7 @@
   ],
   "index_web_pages_for_search": 1,
   "links": [],
-   "modified": "2026-11-25 17:14:04.000000",
+   "modified": "2026-11-27 16:30:00.000000",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_DocumentDetail",

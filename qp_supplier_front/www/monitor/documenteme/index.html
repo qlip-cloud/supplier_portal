@@ -57,6 +57,7 @@
                                 <option value="PSA">Por Autorización</option>
                                 <option value="SR">Sin referencia</option>
                                 <option value="SO">Sin OC</option>
+                                <option value="FE">Cerrada</option>
                             </select>
                         </div>
                     </div>
@@ -98,7 +99,7 @@
                         <th class="text-center">IVA</th>
                         <th class="text-center">Total</th>
                         <th class="text-center">Estado</th>
-                        <th class="text-center"></th>
+                        <th class="text-right"></th>
                     </tr>
                 </thead>
                 <tbody id="accordion" data-key="{{ key }}" data-doctype="{{ doctype }}" data-doctype_detail=""
@@ -121,6 +122,7 @@
 </div>
 
 {% include "qp_supplier_front/templates/modal/motive.html" %}
+{% include "qp_supplier_front/templates/modal/external_close.html" %}
 {% include "qp_supplier_front/templates/modal/assign.html" %}
 {% include "qp_supplier_front/templates/modal/timeline.html" %}
 {% include "qp_supplier_front/templates/modal/notifications.html" %}

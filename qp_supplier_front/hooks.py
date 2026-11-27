@@ -128,6 +128,7 @@ doc_events = {
         "after_insert": "qp_supplier_front.resources.collection_accounts.collection_accounts.on_collection_account_insert"
     },
     "qp_SP_DocumentDetail": {
+        "validate": "qp_supplier_front.resources.documenteme.immutability.validate",
         "before_save": "qp_supplier_front.resources.documenteme.timeline.on_document_before_save"
     }
 }

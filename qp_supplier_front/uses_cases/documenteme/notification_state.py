@@ -33,6 +33,16 @@ FINAL_STATE_BY_CODE = {
 # intermedio. El re-sync solo los toca si el origen es final.
 ADVANCED_STATES = ("SO", "SR", "PSA", "BCC", "PA", "A", "R")
 
+# Estados terminales que no admiten ninguna interaccion: ni cambio de estado
+# (salvo la reapertura break-glass), ni reconciliacion de sync, ni historial,
+# ni alertas. `FE` = Cerrada (finalizada fuera del sistema).
+IMMUTABLE_STATES = ("FE",)
+
+
+def is_locked(state):
+    """True si el estado local es terminal e inmutable (FE)."""
+    return (state or "") in IMMUTABLE_STATES
+
 
 def normalize(value):
     """Normaliza un ueve a string sin espacios (None/vacio -> "")."""
@@ -80,7 +90,12 @@ def is_final_conflict(current_state, current_ueve, origin_state, origin_ueve):
     Es el unico caso en que la reconciliacion NO debe sobrescribir: p. ej. un
     local Aprobado (033) contra un origen Rechazado (031). El llamador debe
     conservar el estado local y dejar una alerta para revision manual.
+
+    Un estado local bloqueado (FE) no interactua con el origen: no hay
+    conflicto que alertar.
     """
+    if is_locked(current_state):
+        return False
     local = final_state(current_state, current_ueve)
     origin = final_state(origin_state, origin_ueve)
     return bool(local and origin and local != origin)
@@ -98,6 +113,8 @@ def resolve_state(current_state, origin_state, origin_ueve,
     origin_state:  Nvfac_esta que devuelve documenteme.
     origin_ueve:   Nvfac_ueve que devuelve documenteme.
     """
+    if is_locked(current_state):
+        return current_state
     code = normalize(origin_ueve)
     if code in FINAL_STATE_BY_CODE:
         return FINAL_STATE_BY_CODE[code]
@@ -110,13 +127,18 @@ def resolve_state(current_state, origin_state, origin_ueve,
     return origin_state
 
 
-def resolve_ueve(current_ueve, origin_ueve):
+def resolve_ueve(current_ueve, origin_ueve, current_state=None):
     """Resuelve el `nvfac_ueve` local priorizando el origen.
 
     Un ueve final local (031/033) nunca baja a un valor intermedio porque
     representa una notificacion propia ya confirmada; cualquier otro caso
     toma el valor de documenteme (incluido vacio).
+
+    Si el estado local esta bloqueado (FE) no se toca el ueve: la factura no
+    se sincroniza.
     """
+    if is_locked(current_state):
+        return normalize(current_ueve)
     if is_final(current_ueve) and not is_final(origin_ueve):
         return normalize(current_ueve)
     return origin_ueve

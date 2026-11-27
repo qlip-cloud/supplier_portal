@@ -11,6 +11,7 @@ from qp_supplier_front.services.documenteme_access import (
     get_assigned_sync_line_names,
     can_super_approve_current_user,
     can_reassign_documenteme,
+    can_see_all_documenteme,
     is_sede_documenteme,
 )
 from qp_supplier_front.services.flow_config import get_sync_backend
@@ -103,6 +104,7 @@ def render_pagination(page, key, doctype, supplier_id, doctype_detail, order_by,
                     key: pagination, "doctype_detail":doctype_detail, "key": key, "doctype": doctype,
                     "is_sede_documenteme": is_sede_documenteme(frappe.get_roles()),
                     "can_reassign": can_reassign_documenteme(frappe.get_roles()),
+                    "can_external_close": can_see_all_documenteme(frappe.get_roles()),
                     "documenteme_backend": get_sync_backend(),
                     "can_super_approve": can_super_approve
                 })
@@ -151,6 +153,7 @@ def render_row(doc_name):
                 "documenteme_backend": get_sync_backend(),
                 "is_sede_documenteme": is_sede_documenteme(frappe.get_roles()),
                 "can_reassign": can_reassign_documenteme(frappe.get_roles()),
+                "can_external_close": can_see_all_documenteme(frappe.get_roles()),
             },
         )
         response(200, "", html)

@@ -50,6 +50,7 @@ STATE_LABELS = {
     "PSA": "Por Autorización",
     "SR": "Sin referencia",
     "SO": "Sin OC",
+    "FE": "Cerrada",
     "T": "",
 }
 

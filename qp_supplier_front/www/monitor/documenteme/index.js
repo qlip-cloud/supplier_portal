@@ -360,10 +360,14 @@ $(document).ready(function () {
         event.stopPropagation();
         var name = $(this).data("name");
         var nvfacNume = $(this).data("nvfac-nume");
+        var locked = String($(this).data("locked")) === "1";
         petition_get_data({ doc_name: name }, URL_ATTACHMENT_STATUS, function (response) {
             if (response && response.status === 200 && response.data) {
                 if (response.data.has_downloadable) {
                     openInvoiceDownload(name, nvfacNume);
+                } else if (locked) {
+                    frappe.msgprint(
+                        "La factura está cerrada y no admite adjuntos");
                 } else {
                     openUploadAttachmentModal(
                         name, nvfacNume, response.data.attachments || []);
@@ -484,6 +488,7 @@ $(document).ready(function () {
         "PR": "En proceso de rechazo",
         "PSA": "Por Autorización",
         "SR": "Sin referencia",
+        "FE": "Cerrada",
         "T": ""
     };
 
@@ -1087,6 +1092,105 @@ $(document).ready(function () {
             doc_names: JSON.stringify(doc_names),
             motive: motive,
             is_invoice_error: JSON.stringify(is_invoice_error)
+        }, url, callresponse);
+    });
+
+    // =====================================================================
+    // Cierre / reapertura externa (FE) — solo administradores
+    // =====================================================================
+    function syncExternalConfirmState() {
+        var mode = $("#external_status_mode").val();
+        var motive = $("#external_status_motive").val().trim();
+        var ok = motive !== "";
+        if (mode === "close") {
+            ok = ok && $("#external_status_confirm").is(":checked");
+        }
+        $("#confirm-external-status").prop("disabled", !ok);
+    }
+
+    $("#external_status_motive").on("input", syncExternalConfirmState);
+    $("#external_status_confirm").on("change", syncExternalConfirmState);
+
+    $(document).on("click", ".btn-control-external-close", function (event) {
+        event.stopPropagation();
+        var $btn = $(this);
+        $("#external_status_mode").val("close");
+        $("#external_status_doc").val($btn.data("name"));
+        $("#external_status_label").text("Cerrar factura");
+        $("#confirm-external-status").text("Cerrar");
+        $("#external-close-info").show();
+        $("#external-reopen-info").hide();
+        $("#external-close-confirm-group").show();
+        $("#external_status_confirm").prop("checked", false);
+        $("#external_status_motive").val("");
+        $("#external-close-invoice").text($btn.data("invoice") || "-");
+        var supplier = $btn.data("supplier");
+        $("#external-close-supplier").text(supplier ? " \u2014 " + supplier : "");
+        var total = $btn.data("total");
+        $("#external-close-total").text(total ? fmtMoney(total) : "-");
+        $("#confirm-external-status").prop("disabled", true);
+        $("#external_status_modal").modal("show");
+    });
+
+    $(document).on("click", ".btn-control-external-status", function (event) {
+        event.stopPropagation();
+        var $btn = $(this);
+        $("#external_status_mode").val("reopen");
+        $("#external_status_doc").val($btn.data("name"));
+        $("#external_status_label").text("Factura cerrada");
+        $("#confirm-external-status").text("Reabrir");
+        $("#external-close-info").hide();
+        $("#external-reopen-info").show();
+        $("#external-close-confirm-group").hide();
+        $("#external_status_confirm").prop("checked", false);
+        $("#external_status_motive").val("");
+        $("#external-reopen-invoice").text($btn.data("invoice") || "-");
+        $("#external-reopen-by").text($btn.data("by") || "-");
+        $("#external-reopen-at").text(
+            formatTimelineDate($btn.data("at")) || "-");
+        $("#external-reopen-prev").text(
+            timelineStateLabel($btn.data("prev")) || "-");
+        $("#external-reopen-reason").text($btn.data("reason") || "-");
+        $("#confirm-external-status").prop("disabled", true);
+        $("#external_status_modal").modal("show");
+    });
+
+    $("#confirm-external-status").on("click", function () {
+        var mode = $("#external_status_mode").val();
+        var docName = $("#external_status_doc").val();
+        var motive = $("#external_status_motive").val().trim();
+        if (!docName || !motive) {
+            return;
+        }
+
+        $("#confirm-external-status").prop("disabled", true);
+        $("#external_status_modal").modal("hide");
+
+        var overlayEl = document.getElementById("overlay");
+        var savedOnClick = overlayEl ? overlayEl.onclick : null;
+        if (overlayEl) {
+            overlayEl.onclick = null;
+            overlayEl.style.display = "block";
+        }
+
+        var url = mode === "close"
+            ? "qp_supplier_front.resources.documenteme.finalize_external.finalize_external"
+            : "qp_supplier_front.resources.documenteme.finalize_external.reopen_external";
+
+        callresponse = (response) => {
+            if (overlayEl) {
+                overlayEl.onclick = savedOnClick;
+                overlayEl.style.display = "none";
+            }
+            frappe.msgprint(response.msg);
+            if (response.status === 200) {
+                refreshInvoiceRow(docName);
+            }
+        };
+
+        petition_get_data({
+            doc_name: docName,
+            motive: motive
         }, url, callresponse);
     });
 

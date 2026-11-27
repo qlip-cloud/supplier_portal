@@ -106,7 +106,7 @@ def get_candidates(doc_names=None):
     )
 
     filters = {
-        "nvfac_esta": ["not in", ["PSA", "BCC", "PA", "PR", "A", "R", "SR"]],
+        "nvfac_esta": ["not in", ["PSA", "BCC", "PA", "PR", "A", "R", "SR", "FE"]],
     }
     if doc_names:
         filters["name"] = ["in", list(doc_names)]

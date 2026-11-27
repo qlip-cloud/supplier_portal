@@ -12,6 +12,7 @@ from qp_supplier_front.services.enrich_document_list import enrich_document_list
 from qp_supplier_front.services.auto_approve_state import is_processing
 from qp_supplier_front.services.documenteme_access import (
     can_reassign_documenteme,
+    can_see_all_documenteme,
     get_assigned_sync_lines_filters,
     get_assigned_sync_line_names,
     is_configured_super_approver,
@@ -53,6 +54,9 @@ def get_context(context):
     context.is_administrator = frappe.session.user == "Administrator"
     context.is_sede_documenteme = is_sede_documenteme(user_roles)
     context.can_reassign = can_reassign_documenteme(user_roles)
+    # Cerrar/reabrir externamente: solo Administrador Documenteme y
+    # Administrator (Administrador Sede/Compras quedan fuera).
+    context.can_external_close = can_see_all_documenteme(user_roles)
     context.documenteme_backend = get_sync_backend()
 
     bundle = runtime.resolve()

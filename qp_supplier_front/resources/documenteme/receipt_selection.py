@@ -21,6 +21,7 @@ from qp_supplier_front.resources.response import handler as response
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILON
 from qp_supplier_front.uses_cases.documenteme.receipt_selection import (
     classify_selection,
+    is_definitive,
     select_claim_release,
     sum_selected,
     validate_apply,
@@ -113,6 +114,16 @@ def apply(doc_name, receipt_names=None):
         doc = _resolve_doc(doc_name, data)
         if not doc:
             response(404, "Factura no encontrada")
+            return
+
+        # FE (y cualquier definitivo) no admite ni aplicar ni liberar recibos.
+        if is_definitive(doc.get("nvfac_esta")):
+            response(
+                400,
+                "La factura está en un estado definitivo ({}); no se puede "
+                "aplicar ni desmarcar recibos".format(
+                    doc.get("nvfac_esta") or ""),
+            )
             return
 
         bank = components["receipt_bank_for_invoice_fn"](

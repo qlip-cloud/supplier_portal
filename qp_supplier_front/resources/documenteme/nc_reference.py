@@ -27,6 +27,9 @@ from qp_supplier_front.resources.documenteme._approve_base import (
     is_service_supplier_doc,
 )
 from qp_supplier_front.resources.response import handler as response
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    is_locked,
+)
 
 
 def _get_period_from_files(doc_name):
@@ -257,6 +260,12 @@ def assign_reference(doc_name, invoice_number, approve="false"):
         invoice_number = str(invoice_number or "")
 
         doc = frappe.get_doc("qp_SP_DocumentDetail", doc_name)
+        if is_locked(doc.get("nvfac_esta")):
+            response(
+                400,
+                "La factura está cerrada y no admite cambios",
+            )
+            return
         if (doc.get("nvtip_docu") or "") != "C":
             response(400, "El documento no es una nota de credito")
             return

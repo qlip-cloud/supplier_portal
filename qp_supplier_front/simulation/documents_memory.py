@@ -16,6 +16,7 @@ from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
 from qp_supplier_front.uses_cases.documenteme.notification_state import (
     final_state,
     is_final_conflict,
+    is_locked,
     normalize,
     resolve_state,
     resolve_ueve,
@@ -137,6 +138,8 @@ def _memory_reconcile_detail(store, doc_data):
     current = store.get("qp_SP_DocumentDetail", name) or {}
     old_state = current.get("nvfac_esta")
     old_ueve = current.get("nvfac_ueve")
+    if is_locked(old_state):
+        return None
     origin_state = doc_data.get("Nvfac_esta")
     origin_ueve = doc_data.get("Nvfac_ueve")
     if is_final_conflict(old_state, old_ueve, origin_state, origin_ueve):
@@ -145,7 +148,7 @@ def _memory_reconcile_detail(store, doc_data):
         )
         return None
     new_state = resolve_state(old_state, origin_state, origin_ueve)
-    new_ueve = resolve_ueve(old_ueve, origin_ueve)
+    new_ueve = resolve_ueve(old_ueve, origin_ueve, current_state=old_state)
     state_changed = (new_state or "") != (old_state or "")
     ueve_changed = normalize(new_ueve) != normalize(old_ueve)
     if not state_changed and not ueve_changed:
@@ -317,6 +320,8 @@ def _memory_apply_nc_sync_fields(store, doc, attached_list):
         doc["qp_ref_date_end"] = end
 
     current = doc.get("nvfac_esta") or "T"
+    if is_locked(current):
+        return doc
     if current in ("SR", "PSA", "BCC", "PA", "A", "R"):
         return doc
     if document_reference:
@@ -395,6 +400,8 @@ def memory_create_document_detail(store, sync_line_name, document_data,
     name = _sync_line_name(nvpro_ndoc, nvfac_nume)
 
     previous = store.get("qp_SP_DocumentDetail", name) or {}
+    if is_locked(previous.get("nvfac_esta")):
+        return previous
     doc = _set_detail_fields(sync_line_name, document_data)
     doc["name"] = name
     # El detalle real conserva estos campos (no vienen en el payload); en

@@ -2,6 +2,7 @@ from qp_supplier_front.uses_cases.documenteme.notification_state import (
     ADVANCED_STATES,
     final_state,
     is_final_conflict,
+    is_locked,
     normalize,
     resolve_state,
     resolve_ueve,
@@ -170,6 +171,11 @@ def reconcile_detail_from_line(doc_data):
     old_state = current.get("nvfac_esta")
     old_ueve = current.get("nvfac_ueve")
 
+    # FE (Cerrada) es terminal: el sync no la toca en absoluto
+    # (ni estado, ni ueve, ni historial, ni alertas).
+    if is_locked(old_state):
+        return None
+
     origin_state = doc_data.get("Nvfac_esta")
     origin_ueve = doc_data.get("Nvfac_ueve")
     if is_final_conflict(old_state, old_ueve, origin_state, origin_ueve):
@@ -179,7 +185,7 @@ def reconcile_detail_from_line(doc_data):
         return None
 
     new_state = resolve_state(old_state, origin_state, origin_ueve)
-    new_ueve = resolve_ueve(old_ueve, origin_ueve)
+    new_ueve = resolve_ueve(old_ueve, origin_ueve, current_state=old_state)
 
     state_changed = (new_state or "") != (old_state or "")
     ueve_changed = normalize(new_ueve) != normalize(old_ueve)
@@ -419,7 +425,7 @@ def _set_document_detail_fields(doc, document_data):
     doc.nvfac_viva = document_data.get("Nvfac_viva")
     doc.nvpro_ufac = convert_to_mariadb_datetime(document_data.get("Nvpro_ufac"))
     doc.nvfac_ueve = current_ueve if conflict else resolve_ueve(
-        current_ueve, origin_ueve
+        current_ueve, origin_ueve, current_state=current_state
     )
     doc.nvfac_stot = document_data.get("Nvfac_stot")
     doc.nvfac_vinc = document_data.get("Nvfac_vinc")
@@ -470,6 +476,8 @@ def _resolve_nc_detail_state(detail):
     if (detail.get("nvtip_docu") or "") != "C":
         return detail.get("nvfac_esta")
     current = detail.get("nvfac_esta") or "T"
+    if is_locked(current):
+        return current
     if current in ADVANCED_STATES:
         return current
     if detail.get("qp_ref_invoice"):
@@ -558,6 +566,9 @@ def create_document_detail(document_sync_line_name, document_data, attached_list
         detail = frappe.get_doc("qp_SP_DocumentDetail", detail_name)
         previous_state = detail.get("nvfac_esta")
         previous_ueve = detail.get("nvfac_ueve")
+        # FE: no se re-descarga ni se re-puebla nada de la factura.
+        if is_locked(previous_state):
+            return detail
         detail = _set_document_detail_fields(detail, document_data)
         detail.document_sync_line = document_sync_line_name
         _apply_nc_sync_fields(detail, attached_list)

@@ -31,6 +31,9 @@ from qp_supplier_front.uses_cases.documenteme.attachments import (
     has_downloadable,
     plan_attachment,
 )
+from qp_supplier_front.uses_cases.documenteme.notification_state import (
+    is_locked,
+)
 
 DOCUMENT_DETAIL = "qp_SP_DocumentDetail"
 ATTACH_DOCTYPE = "qp_SP_DocumentAttach"
@@ -68,6 +71,12 @@ def _can_access(doc_name, data=None):
 
 def _detail_exists(doc_name):
     return bool(frappe.db.exists(DOCUMENT_DETAIL, doc_name))
+
+
+def _detail_state(doc_name, data=None):
+    if data is not None:
+        return data.get_value(DOCUMENT_DETAIL, doc_name, "nvfac_esta") or ""
+    return frappe.db.get_value(DOCUMENT_DETAIL, doc_name, "nvfac_esta") or ""
 
 
 
@@ -204,6 +213,13 @@ def add_attachment(doc_name, file_id=None, file_url=None, file_name=None):
                 return None
         elif not _detail_exists(doc_name) or not _can_access(doc_name):
             response(403, "No tiene acceso a la factura")
+            return None
+
+        if is_locked(_detail_state(doc_name, data)):
+            response(
+                400,
+                "La factura está cerrada y no admite adjuntos",
+            )
             return None
 
         file_doc = _resolve_file(file_id, file_url, file_name)

@@ -15,6 +15,7 @@
     "PSA": "status-progress",
     "SR": "status-open",
     "SO": "status-open",
+    "FE": "status-default",
     "T": "status-default"
 } -%}
 
@@ -29,6 +30,7 @@
     "PSA": "Por Autorización",
     "SR": "Sin referencia",
     "SO": "Sin OC",
+    "FE": "Cerrada",
     "T": ""
 } -%}
 
@@ -36,7 +38,7 @@
 
 <tr class="card-header" data-row="{{ row.name }}" data-toggle="collapse" data-target="#detail-{{ row.name.replace(':', '_') }}" aria-expanded="false">
     <td class="text-center">
-        <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()" {% if row.nvfac_esta in ["A", "R", "BCC", "PA", "PR", "SR"] or row.auto_approve_processing or (row.nvfac_esta == "PSA" and not can_super_approve) %}disabled{% endif %}>
+        <input type="checkbox" name="seleccion" value="{{ row.name }}" onclick="event.stopPropagation()" {% if row.nvfac_esta in ["A", "R", "BCC", "PA", "PR", "SR", "FE"] or row.auto_approve_processing or (row.nvfac_esta == "PSA" and not can_super_approve) %}disabled{% endif %}>
     </td>
     <td>{{ row.nvpro_ndoc }}</td>
     <td>{{ row.nvpro_nomb or "" }}</td>
@@ -82,20 +84,43 @@
             <span class="status-badge {{ status_class.get(row.nvfac_esta, 'status-default') }}">{{ estado_labels.get(row.nvfac_esta, "") }}</span>
         {% endif %}
     </td>
-    <td class="text-center" style="white-space:nowrap">
+    <td class="text-right" style="white-space:nowrap">
         <button type="button" class="btn-control-timeline" style="color:{{ '#004D90' if row.has_unread_conversation else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="Observaciones" data-name="{{ row.name }}">
             <span class="material-symbols-outlined" style="font-size:22px">comment</span>
         </button>
         <button type="button" class="btn-control-alert" style="color:{{ '#dc3545' if row.alert_severity == 'urgente' else ('#ff8c00' if row.alert_severity == 'alerta' else '#6c757d') }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ row.notification_tooltip or row.alert_tooltip or 'Alerta' }}" data-name="{{ row.name }}">
             <span class="material-symbols-outlined" style="font-size:22px">warning</span>
         </button>
-        <button type="button" class="btn-control-download" style="color:{{ '#28a745' if row.non_xml_count > 0 else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{% if row.non_xml_count > 0 %}Descargar documentos{% else %}Cargar documento{% endif %}" data-name="{{ row.name }}" data-nvfac-nume="{{ row.nvfac_nume }}">
+        <button type="button" class="btn-control-download" style="color:{{ '#28a745' if row.non_xml_count > 0 else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{% if row.non_xml_count > 0 %}Descargar documentos{% else %}Cargar documento{% endif %}" data-name="{{ row.name }}" data-nvfac-nume="{{ row.nvfac_nume }}" data-locked="{{ 1 if row.nvfac_esta == 'FE' else 0 }}">
             <span class="material-symbols-outlined" style="font-size:22px">download</span>
         </button>
-        {% if can_reassign %}
+        {% if can_reassign and row.nvfac_esta != "FE" %}
         <button type="button" class="btn-control-assign" style="color:{{ '#007bff' if row.assigned_to_name else '#6c757d' }};border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle" title="{{ row.assigned_to_name or 'Asignado a' }}" data-name="{{ row.name }}">
             <span class="material-symbols-outlined" style="font-size:22px">assignment_ind</span>
         </button>
+        {% endif %}
+        {% if can_external_close %}
+            {% if row.nvfac_esta == "FE" %}
+            <button type="button" class="btn-control-external-status" style="color:#28a745;border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle"
+                title="Cerrada (reabrir)"
+                data-name="{{ row.name }}"
+                data-invoice="{{ row.nvfac_nume }}"
+                data-reason="{{ (row.qp_external_close_reason or '') | e }}"
+                data-by="{{ (row.qp_external_closed_by or '') | e }}"
+                data-at="{{ (row.qp_external_closed_at or '') | e }}"
+                data-prev="{{ (row.qp_external_previous_state or '') | e }}">
+                <span class="material-symbols-outlined" style="font-size:22px">lock_open</span>
+            </button>
+            {% elif row.nvfac_esta in ["E", "V", "T", "SO", "SR", "PSA"] %}
+            <button type="button" class="btn-control-external-close" style="color:#dc3545;border:0;background:none;padding:6px 8px;cursor:pointer;vertical-align:middle"
+                title="Cerrar factura"
+                data-name="{{ row.name }}"
+                data-invoice="{{ row.nvfac_nume }}"
+                data-supplier="{{ (row.nvpro_nomb or '') | e }}"
+                data-total="{{ row.nvfac_stot or 0 }}">
+                <span class="material-symbols-outlined" style="font-size:22px">lock</span>
+            </button>
+            {% endif %}
         {% endif %}
         </td>
 </tr>

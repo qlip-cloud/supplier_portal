@@ -517,7 +517,7 @@ def build_receipt_products(items):
     return products
 
 
-DEFINITIVE_VIEW_STATES = ("BCC", "PA", "PR", "A", "R")
+DEFINITIVE_VIEW_STATES = ("BCC", "PA", "PR", "A", "R", "FE")
 
 
 def _enrich_receipt_bank(document, purchase_order_number, valid_orders=None,
@@ -675,7 +675,7 @@ def _update_status_if_fully_paid(document, data=None, references=None,
         else parse_purchase_orders(document.get("nvfac_orde"))
     )
 
-    if document.get("nvfac_esta") in ("A", "R", "V", "PSA", "BCC", "PA", "PR"):
+    if document.get("nvfac_esta") in ("A", "R", "V", "PSA", "BCC", "PA", "PR", "FE"):
         return
 
     if not orders:
