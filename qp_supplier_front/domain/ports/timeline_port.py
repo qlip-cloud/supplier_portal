@@ -22,7 +22,9 @@ Metodos (doc_name = name del qp_SP_DocumentDetail):
         cambio de estado y comentarios), ordenada DESC por fecha (mas reciente
         primero). No incluye los event_logs de documenteme (030/032/031/033).
         Formato de entry en uses_cases/documenteme/timeline.py (dict con
-        type/message/old_state/new_state/entry_by/entry_date).
+        type/message/old_state/new_state/entry_by/entry_date/origin).
+        `origin` ("manual" | "automatic") distingue una accion de una persona
+        de una accion del sistema; en automatico `entry_by` es "Sistema".
 
     add_comment(doc_name, comment, user=None, now=None,
                 attachment_file_id="", attachment_file_url="",
@@ -35,13 +37,17 @@ Metodos (doc_name = name del qp_SP_DocumentDetail):
         guardados en la fila.
 
     set_state(doc_name, new_state, extra_fields=None, user=None, now=None,
-              old_state=None) -> entry|None
+              old_state=None, origin=None) -> entry|None
         Aplica el cambio de estado (atomico) y registra la entrada "estado".
         extra_fields permite fijar campos adicionales en el mismo save (p. ej.
         {"qp_is_event_completed": 1}). old_state permite indicar el estado
         previo cuando el origen ya lo actualizo (re-sync); si no se pasa, el
-        adaptador lo lee antes de escribir. Retorna None (no-op) si el estado
-        no cambia.
+        adaptador lo lee antes de escribir. `origin` permite marcar la
+        transicion como automatica ("automatic" -> entry_by "Sistema") cuando
+        la dispara un job del sistema (aprobacion/rechazo/asignacion
+        automaticos, boton Actualizar, confirmacion externa); sin `origin` se
+        usa el origen vigente del hilo (manual por defecto). Retorna None
+        (no-op) si el estado no cambia.
 
     record_creation(doc_name, user=None, now=None) -> entry
         Registra la entrada de creacion del documento (primera sincronizacion).

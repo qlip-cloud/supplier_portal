@@ -86,11 +86,11 @@ def _insert_row(parent_name, entry, frappe=None):
         """
         INSERT INTO `tabqp_SP_TimelineEntry`
         (name, parent, parentfield, parenttype, idx, entry_type, message,
-         old_state, new_state, entry_by, entry_date, send_to_bc,
+         old_state, new_state, entry_by, entry_date, origin, send_to_bc,
          attachment_file_id, attachment_file_url, attachment_file_name,
          creation, modified, modified_by, owner)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s)
+                %s, %s, %s, %s, %s)
         """,
         (
             row_name,
@@ -104,6 +104,7 @@ def _insert_row(parent_name, entry, frappe=None):
             entry.get("new_state") or None,
             entry["entry_by"],
             now,
+            entry.get("origin") or "",
             1 if entry.get("send_to_bc") else 0,
             entry.get("attachment_file_id") or None,
             entry.get("attachment_file_url") or None,
@@ -171,7 +172,7 @@ class RealTimelineAdapter(object):
             filters={"parent": doc_name, "parenttype": DOCUMENT_DETAIL},
             fields=[
                 "entry_type", "message", "old_state", "new_state",
-                "entry_by", "entry_date",
+                "entry_by", "entry_date", "origin",
             ],
         )
 
@@ -183,6 +184,7 @@ class RealTimelineAdapter(object):
                 "new_state": row.get("new_state") or None,
                 "entry_by": row.get("entry_by") or "",
                 "entry_date": row.get("entry_date") or "",
+                "origin": row.get("origin") or "",
             }
             for row in timeline_rows
         ]
@@ -200,25 +202,30 @@ class RealTimelineAdapter(object):
         entry["name"] = _insert_row(doc_name, entry, self._frappe)
         return entry
 
-    def add_assignment(self, doc_name, message, user=None, now=None):
+    def add_assignment(self, doc_name, message, user=None, now=None,
+                       origin=None):
         """Entrada de historial (no comentario) para eventos del flujo.
 
         No inserta alerta y no aparece en la conversacion; se muestra en el
         historial del modal de alertas.
         """
         entry = build_assignment_entry(
-            message, _user_name(user, self._frappe), _now_str(now)
+            message, _user_name(user, self._frappe), _now_str(now),
+            origin=origin,
         )
         entry["name"] = _insert_row(doc_name, entry, self._frappe)
         return entry
 
-    def add_user_assignment(self, doc_name, message, user=None, now=None):
-        """Entrada de historial de una asignacion manual de usuarios.
+    def add_user_assignment(self, doc_name, message, user=None, now=None,
+                            origin=None):
+        """Entrada de historial de una asignacion de usuarios.
 
-        El `entry_by` registra quien hizo la asignacion o reasignacion.
+        El `entry_by` registra quien hizo la asignacion manual; en automatico
+        el builder lo reemplaza por el autor del sistema.
         """
         entry = build_user_assignment_entry(
-            message, _user_name(user, self._frappe), _now_str(now)
+            message, _user_name(user, self._frappe), _now_str(now),
+            origin=origin,
         )
         entry["name"] = _insert_row(doc_name, entry, self._frappe)
         return entry
@@ -237,7 +244,7 @@ class RealTimelineAdapter(object):
         return entry
 
     def set_state(self, doc_name, new_state, extra_fields=None, user=None, now=None,
-                  old_state=None):
+                  old_state=None, origin=None):
         frappe = self._frappe
 
         if old_state is None:
@@ -248,7 +255,8 @@ class RealTimelineAdapter(object):
         if extra_fields:
             frappe.db.set_value(DOCUMENT_DETAIL, doc_name, extra_fields)
         entry = build_state_entry(
-            old_state, new_state, _user_name(user, frappe), _now_str(now)
+            old_state, new_state, _user_name(user, frappe), _now_str(now),
+            origin=origin,
         )
         _insert_row(doc_name, entry, frappe)
         return entry

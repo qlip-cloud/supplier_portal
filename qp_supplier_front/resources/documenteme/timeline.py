@@ -35,6 +35,9 @@ from qp_supplier_front.uses_cases.documenteme.timeline import (
     build_creation_entry,
     build_state_entry,
 )
+from qp_supplier_front.uses_cases.documenteme.timeline_origin import (
+    current_origin,
+)
 
 DOCUMENT_DETAIL = "qp_SP_DocumentDetail"
 DOCUMENT_EVENT_LOG = "qp_SP_EventLog"
@@ -161,7 +164,12 @@ def on_document_before_save(doc, method):
     old_state = previous.get("nvfac_esta")
     new_state = doc.get("nvfac_esta")
     if (old_state or "") != (new_state or ""):
-        doc.append("timeline", build_state_entry(old_state, new_state, user, now))
+        doc.append(
+            "timeline",
+            build_state_entry(
+                old_state, new_state, user, now, origin=current_origin()
+            ),
+        )
 
 
 @frappe.whitelist()

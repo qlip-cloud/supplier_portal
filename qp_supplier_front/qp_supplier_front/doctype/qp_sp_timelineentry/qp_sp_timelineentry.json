@@ -10,12 +10,13 @@
   "old_state",
   "new_state",
   "entry_by",
-   "entry_date",
-   "send_to_bc",
-   "attachment_file_id",
-   "attachment_file_url",
-   "attachment_file_name"
-  ],
+  "entry_date",
+  "origin",
+  "send_to_bc",
+  "attachment_file_id",
+  "attachment_file_url",
+  "attachment_file_name"
+ ],
  "fields": [
   {
    "fieldname": "entry_type",
@@ -52,6 +53,13 @@
    "label": "Fecha"
   },
   {
+   "fieldname": "origin",
+   "fieldtype": "Data",
+   "label": "Origen",
+   "read_only": 1,
+   "description": "manual = accion de una persona; automatic = accion del sistema (aprobacion/rechazo/asignacion automaticos, incluido el boton Actualizar)."
+  },
+  {
    "default": "0",
    "description": "Marcado por el usuario para incluir el comentario en la key Comentarios del payload BC.",
    "fieldname": "send_to_bc",
@@ -74,11 +82,11 @@
    "fieldtype": "Data",
    "label": "Nombre del adjunto"
   }
-  ],
+ ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-10-19 21:30:00",
+ "modified": "2026-11-26 17:02:00",
  "modified_by": "Administrator",
  "module": "Qp Supplier Front",
  "name": "qp_SP_TimelineEntry",

@@ -31,8 +31,15 @@ from qp_supplier_front.uses_cases.documenteme.no_purchase_order import (
 from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
     parse_purchase_orders,
 )
+from qp_supplier_front.uses_cases.documenteme.timeline_origin import (
+    ORIGIN_AUTOMATIC,
+    automatic_timeline,
+    system_job,
+)
 
 
+@system_job
+@automatic_timeline
 def run_auto_assign(doc_names=None):
     from qp_supplier_front.infrastructure.adapters.master_setup_source import (
         RealMasterSetupSource,
@@ -78,6 +85,7 @@ def _cash_always_assign(backend):
 
 
 @frappe.whitelist()
+@automatic_timeline
 def auto_assign():
     try:
         assigned = run_auto_assign()
@@ -356,6 +364,40 @@ def add_assignees(sync_line_name, users):
         return
 
     line.save()
+    _record_automatic_assignment(sync_line_name, users)
+
+
+def _record_automatic_assignment(sync_line_name, users):
+    """Deja constancia en el historial de una asignacion automatica.
+
+    El historial registra el evento como automatico (autor "Sistema"), nunca
+    como el usuario que disparo el refresco. Solo se escribe cuando
+    `add_assignees` agrego usuarios nuevos (idempotente en cada refresco).
+    """
+    try:
+        from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
+            RealTimelineAdapter,
+        )
+        from qp_supplier_front.resources.documenteme.assign import _display_names
+        from qp_supplier_front.uses_cases.documenteme.timeline import (
+            user_assignment_message,
+        )
+
+        message = user_assignment_message(_display_names(users), [])
+        timeline = RealTimelineAdapter(frappe_module=frappe)
+        doc_names = frappe.get_all(
+            "qp_SP_DocumentDetail",
+            filters={"document_sync_line": sync_line_name},
+            pluck="name",
+        )
+        for doc_name in (doc_names or []):
+            timeline.add_user_assignment(
+                doc_name, message, origin=ORIGIN_AUTOMATIC)
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "documenteme auto assign historial",
+        )
 
 
 def mark_pending_oc(detail_name):

@@ -42,6 +42,10 @@ from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
 from qp_supplier_front.uses_cases.documenteme.reject_retry import (
     REJECT_PENDING_STATES,
 )
+from qp_supplier_front.uses_cases.documenteme.timeline_origin import (
+    automatic_timeline,
+    system_job,
+)
 
 REJECT_JOB_METHOD = "qp_supplier_front.resources.documenteme.auto_reject.reject_batch_job"
 
@@ -63,6 +67,8 @@ def get_reject_config(master_setup=None):
     return _master_setup_source(master_setup).reject_config()
 
 
+@system_job
+@automatic_timeline
 def run_auto_reject(http_fn=None, enqueue=True, doc_names=None):
     from qp_supplier_front.resources.documenteme._approve_base import (
         make_delivery_order_predicate,
@@ -287,6 +293,8 @@ def receipt_for_po(purchase_order_number):
 # =========================================================================
 # Rechazo: programacion de eventos (un evento por job)
 # =========================================================================
+@system_job
+@automatic_timeline
 def reject_batch_job(rejects, http_fn=None):
     """Compatibilidad: programa UN evento por factura (sin sleeps).
 

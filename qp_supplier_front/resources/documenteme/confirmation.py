@@ -28,6 +28,9 @@ from qp_supplier_front.uses_cases.documenteme.approve_confirmation import (
     process_confirmation,
 )
 from qp_supplier_front.uses_cases.documenteme.conversion import is_cash_invoice
+from qp_supplier_front.uses_cases.documenteme.timeline_origin import (
+    automatic_timeline,
+)
 
 PURCHASE_INVOICE = "qp_SP_PurchaseInvoice"
 PURCHASE_INVOICE_BC = "qp_SP_PurchaseInvoiceBC"
@@ -72,6 +75,7 @@ def set_confirmation_id(doc, confirmation_id):
     )
 
 
+@automatic_timeline
 def mark_pending_approval(doc):
     from qp_supplier_front.infrastructure.adapters.timeline_adapter import (
         RealTimelineAdapter,
@@ -79,6 +83,7 @@ def mark_pending_approval(doc):
     RealTimelineAdapter(frappe_module=frappe).set_state(doc["name"], "PA")
 
 
+@automatic_timeline
 def enqueue_approve(doc):
     detail = frappe.db.get_value(
         DOCUMENT_DETAIL, doc["name"], ["nvfac_conv"], as_dict=True
@@ -103,6 +108,7 @@ def _commit():
 # =========================================================================
 # Hook del doctype (disparo por PUT estandar de Frappe sobre el nuevo doctype)
 # =========================================================================
+@automatic_timeline
 def on_purchase_invoice_bc_update(doc, method):
     """Dispara el flujo de aprobacion cuando el confirmation_id se carga.
 

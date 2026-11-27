@@ -51,6 +51,31 @@ class TestPureCore(unittest.TestCase):
         self.assertEqual(entry["message"],
                          "Cambio de estado: Registrado -> En proceso de rechazo")
 
+    def test_build_state_entry_manual_por_defecto(self):
+        entry = build_state_entry("E", "V", "Admin", "2026-09-01 11:00:00")
+        self.assertEqual(entry["origin"], "manual")
+        self.assertEqual(entry["entry_by"], "Admin")
+
+    def test_build_state_entry_automatico_usa_sistema(self):
+        entry = build_state_entry(
+            "E", "V", "Ruth", "2026-09-01 11:00:00", origin="automatic")
+        self.assertEqual(entry["origin"], "automatic")
+        self.assertEqual(entry["entry_by"], "Sistema")
+
+    def test_timeline_origin_context(self):
+        from qp_supplier_front.uses_cases.documenteme.timeline_origin import (
+            ORIGIN_AUTOMATIC,
+            current_origin,
+            timeline_origin,
+        )
+
+        self.assertEqual(current_origin(), "manual")
+        with timeline_origin(ORIGIN_AUTOMATIC):
+            self.assertEqual(current_origin(), "automatic")
+            entry = build_state_entry("E", "V", "Ruth", "2026-09-01 11:00:00")
+            self.assertEqual(entry["entry_by"], "Sistema")
+        self.assertEqual(current_origin(), "manual")
+
     def test_build_comment_entry(self):
         entry = build_comment_entry("Revisar monto", "Admin", "2026-09-01 12:00:00")
         self.assertEqual(entry["type"], "comentario")
@@ -122,6 +147,15 @@ class TestMemoryTimelineAdapter(unittest.TestCase):
         _seed_doc(self.store, estado="BCC")
         entry = self.adapter.set_state("D1", "A", old_state="E")
         self.assertEqual(entry["old_state"], "E")
+
+    def test_set_state_automatico_registra_sistema(self):
+        _seed_doc(self.store, estado="E")
+        entry = self.adapter.set_state("D1", "V", origin="automatic")
+        self.assertEqual(entry["origin"], "automatic")
+        self.assertEqual(entry["entry_by"], "Sistema")
+        rows = self.adapter.get("D1")
+        self.assertEqual(rows[0]["origin"], "automatic")
+        self.assertEqual(rows[0]["entry_by"], "Sistema")
 
     def test_record_creation(self):
         _seed_doc(self.store, estado="E")

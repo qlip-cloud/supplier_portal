@@ -255,6 +255,19 @@ class TestBeforeSaveHook(unittest.TestCase):
         self.assertEqual(args[0], "timeline")
         self.assertEqual(args[1], build_state_entry("E", "V", "Admin Name", args[1]["entry_date"]))
 
+    def test_cambio_estado_automatico_usa_sistema(self):
+        from qp_supplier_front.uses_cases.documenteme.timeline_origin import (
+            ORIGIN_AUTOMATIC,
+            timeline_origin,
+        )
+
+        doc = _make_doc(self.frappe, new=False, old_state="V", new_state="BCC")
+        with timeline_origin(ORIGIN_AUTOMATIC):
+            self.tl_module.on_document_before_save(doc, None)
+        entry = doc.append.call_args[0][1]
+        self.assertEqual(entry["origin"], "automatic")
+        self.assertEqual(entry["entry_by"], "Sistema")
+
     def test_sin_cambio_estado_no_agrega(self):
         doc = _make_doc(self.frappe, new=False, old_state="V", new_state="V")
         self.tl_module.on_document_before_save(doc, None)

@@ -16,6 +16,9 @@ sin data usa el real.
 from qp_supplier_front.uses_cases.documenteme.purchase_orders import (
     parse_purchase_orders,
 )
+from qp_supplier_front.uses_cases.documenteme.timeline_origin import (
+    automatic_timeline,
+)
 
 # Limites de render inline. Por encima de cualquiera de los dos la fila muestra
 # un resumen y el detalle completo se abre en un modal (ver row.html).
@@ -652,6 +655,7 @@ def _enrich_receipts_detail(document, purchase_order_number, valid_orders=None,
     ]
 
 
+@automatic_timeline
 def _update_status_if_fully_paid(document, data=None, references=None,
                                  purchase_orders=None):
     """Marca en "V" una factura cubierta por una combinacion exacta de
