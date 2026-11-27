@@ -93,6 +93,15 @@ doctype_js = {
 # 	"ToDo": "custom_app.overrides.CustomToDo"
 # }
 
+# Registrar a archivo (services/inbound_api_log.py) los requests de API que
+# fallan al insertar Purchase Order / Purchase Receipt. El doc_event
+# after_insert solo cubre los inserts exitosos; estos controllers capturan la
+# excepcion de _validate_links y demas errores del insert.
+override_doctype_class = {
+    "Purchase Order": "qp_supplier_front.overrides.purchase_order.QpPurchaseOrder",
+    "Purchase Receipt": "qp_supplier_front.overrides.purchase_receipt.QpPurchaseReceipt"
+}
+
 # Document Events
 # ---------------
 # Hook on document methods and events
@@ -102,11 +111,15 @@ doc_events = {
         "before_insert": "qp_supplier_front.uses_cases.sales_order.set_name"
     },
     "Purchase Order": {
-        "before_insert": "qp_supplier_front.uses_cases.purchase_order.set_name"
+        "before_insert": "qp_supplier_front.uses_cases.purchase_order.set_name",
+        "after_insert": "qp_supplier_front.services.inbound_api_log.log_inbound_api_request"
     },
     "Purchase Receipt": {
         "before_insert": "qp_supplier_front.uses_cases.receipts.set_name",
-        "after_insert": "qp_supplier_front.resources.documenteme.receipt_trigger.on_receipt_created"
+        "after_insert": [
+            "qp_supplier_front.resources.documenteme.receipt_trigger.on_receipt_created",
+            "qp_supplier_front.services.inbound_api_log.log_inbound_api_request"
+        ]
     },
     "qp_SP_PurchaseInvoiceBC": {
         "on_update": "qp_supplier_front.resources.documenteme.confirmation.on_purchase_invoice_bc_update"
