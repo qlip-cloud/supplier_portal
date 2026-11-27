@@ -48,6 +48,10 @@ from qp_supplier_front.uses_cases.documenteme.notification_state import (
     is_pending_ueve,
 )
 from qp_supplier_front.uses_cases.documenteme.receipt_bank import DEFAULT_EPSILON
+from qp_supplier_front.uses_cases.documenteme.timeline_origin import (
+    automatic_timeline,
+    system_job,
+)
 from qp_supplier_front.services.auto_approve_state import (
     clear_processing,
     mark_processing,
@@ -420,6 +424,8 @@ def get_analysis_candidates(doc_names=None):
     return [doc for doc in pending if doc.get("nvfac_nume") not in claimed]
 
 
+@system_job
+@automatic_timeline
 def promote_eligible_to_v(doc_names=None, backend=None):
     """Fase analisis: promueve a "V" solo facturas con combinacion real.
 
@@ -540,6 +546,8 @@ def get_v_doc_names(doc_names=None, backend=None):
     return [name for name in names if name not in claimed_positions]
 
 
+@system_job
+@automatic_timeline
 def run_auto_approve(enqueue=True, doc_names=None, force=False):
     data = _data()
     if not is_auto_approve_enabled():
@@ -596,10 +604,13 @@ def run_auto_approve(enqueue=True, doc_names=None, force=False):
     }
 
 
+@automatic_timeline
 def auto_approve_now(doc_names=None):
     return run_auto_approve(enqueue=False, doc_names=doc_names)
 
 
+@system_job
+@automatic_timeline
 def approve_batch_job(doc_names, job_id=None):
     started_at = time.time()
     data = _data()

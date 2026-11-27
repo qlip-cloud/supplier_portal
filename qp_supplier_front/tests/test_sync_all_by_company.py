@@ -374,8 +374,88 @@ class TestSyncDetailCompanyTaxId(unittest.TestCase):
         self.assertEqual(names, [])
 
 
-class TestRunAutoRejectSync(unittest.TestCase):
+class TestSyncDetailFinalOrigin(unittest.TestCase):
+    """Una factura que llega ya final (A/R) no debe consultar el detalle."""
 
+    def _line(self, state):
+        return {
+            "name": "830005677:BG24309",
+            "document_sync_log": "LOG-1",
+            "nvpro_ndoc": "830005677",
+            "nvfac_esta": state,
+            "nvfac_nume": "BG24309",
+        }
+
+    def test_final_sin_detalle_no_consulta_y_marca_llegada_final(self):
+        sent = []
+        arrived = []
+        attempts = []
+        marked = []
+        sync_detail(
+            get_uncompleted_lines_fn=lambda: [self._line("A")],
+            send_request_fn=lambda **kw: sent.append(kw) or ({"Result": 0}, 200),
+            create_document_detail_fn=lambda *a: None,
+            log_sync_attempt_fn=lambda *a: attempts.append(a),
+            mark_line_completed_fn=lambda name: marked.append(name),
+            commit_fn=lambda: None,
+            detail_exists_fn=lambda nume, ndoc: False,
+            mark_arrived_final_fn=lambda name: arrived.append(name),
+        )
+        self.assertEqual(sent, [])
+        self.assertEqual(arrived, ["830005677:BG24309"])
+        self.assertEqual(marked, [])
+        self.assertEqual(attempts[0][1], "Skipped")
+
+    def test_final_rechazada_sin_detalle_tampoco_consulta(self):
+        sent = []
+        arrived = []
+        sync_detail(
+            get_uncompleted_lines_fn=lambda: [self._line("R")],
+            send_request_fn=lambda **kw: sent.append(kw) or ({"Result": 0}, 200),
+            create_document_detail_fn=lambda *a: None,
+            log_sync_attempt_fn=lambda *a: None,
+            mark_line_completed_fn=lambda name: None,
+            commit_fn=lambda: None,
+            detail_exists_fn=lambda nume, ndoc: False,
+            mark_arrived_final_fn=lambda name: arrived.append(name),
+        )
+        self.assertEqual(sent, [])
+        self.assertEqual(arrived, ["830005677:BG24309"])
+
+    def test_final_con_detalle_existente_marca_completado_sin_consultar(self):
+        sent = []
+        arrived = []
+        marked = []
+        sync_detail(
+            get_uncompleted_lines_fn=lambda: [self._line("A")],
+            send_request_fn=lambda **kw: sent.append(kw) or ({"Result": 0}, 200),
+            create_document_detail_fn=lambda *a: None,
+            log_sync_attempt_fn=lambda *a: None,
+            mark_line_completed_fn=lambda name: marked.append(name),
+            commit_fn=lambda: None,
+            detail_exists_fn=lambda nume, ndoc: True,
+            mark_arrived_final_fn=lambda name: arrived.append(name),
+        )
+        self.assertEqual(sent, [])
+        self.assertEqual(marked, ["830005677:BG24309"])
+        self.assertEqual(arrived, [])
+
+    def test_estado_no_final_si_consulta_detalle(self):
+        sent = []
+        sync_detail(
+            get_uncompleted_lines_fn=lambda: [self._line("E")],
+            send_request_fn=lambda **kw: sent.append(kw) or ({"Result": 0}, 200),
+            create_document_detail_fn=lambda *a: None,
+            log_sync_attempt_fn=lambda *a: None,
+            mark_line_completed_fn=lambda name: None,
+            commit_fn=lambda: None,
+            detail_exists_fn=lambda nume, ndoc: False,
+            mark_arrived_final_fn=lambda name: None,
+        )
+        self.assertEqual(len(sent), 1)
+
+
+class TestRunAutoRejectSync(unittest.TestCase):
     def setUp(self):
         self.frappe_mock = MagicMock()
         self.patch = patch.object(arrej, "frappe", self.frappe_mock)

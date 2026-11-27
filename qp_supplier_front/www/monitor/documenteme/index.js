@@ -597,6 +597,17 @@ $(document).ready(function () {
         };
         var color = meta.color || "#6c757d";
         var isComment = entry.type === "comentario";
+        var isAutomatic = entry.origin === "automatic";
+        var isManual = entry.origin === "manual";
+        var title = meta.title || "Historial";
+        // Las asignaciones y los cambios de estado se muestran segun su
+        // origen: el flujo automatico no debe aparecer como una accion
+        // manual del usuario que disparo el "Actualizar".
+        if (entry.type === "asignacion_usuario" || entry.type === "asignacion") {
+            title = isAutomatic ? "Asignaci\u00f3n autom\u00e1tica" : "Asignaci\u00f3n manual";
+        } else if (entry.type === "estado") {
+            title = isAutomatic ? "Cambio de estado autom\u00e1tico" : (isManual ? "Cambio de estado manual" : "Cambio de estado");
+        }
         var message = entry.message || "";
         if (entry.type === "estado") {
             message = "Cambio de estado: " + escapeHtml(timelineStateLabel(entry.old_state)) +
@@ -609,7 +620,13 @@ $(document).ready(function () {
         // demas entradas (creacion/estado).
         var titleLine = isComment
             ? escapeHtml(entry.entry_by || "") + " &middot; " + formatTimelineDate(entry.entry_date)
-            : escapeHtml(meta.title || "");
+            : escapeHtml(title);
+        var originBadge = "";
+        if (!isComment && (isAutomatic || isManual)) {
+            originBadge = "<span style=\"display:inline-block;margin-left:6px;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:normal;color:#fff;background-color:" +
+                (isAutomatic ? "#6c757d" : "#004D90") + "\">" +
+                (isAutomatic ? "Autom\u00e1tico" : "Manual") + "</span>";
+        }
         // Check "Enviar a BC" (solo comentarios y solo si la factura aun puede
         // enviarse a BC). Marca el comentario que viajara en el payload BC.
         var bcCheck = "";
@@ -632,7 +649,7 @@ $(document).ready(function () {
             "<span class=\"material-symbols-outlined\" style=\"color:" + color + "\">" + meta.icon + "</span>" +
             "</span>" +
             "<div style=\"font-size:13px\">" +
-            "<div style=\"color:#333;font-weight:bold;font-size:12px;margin-bottom:2px\">" + titleLine + bcCheck + "</div>" +
+            "<div style=\"color:#333;font-weight:bold;font-size:12px;margin-bottom:2px\">" + titleLine + originBadge + bcCheck + "</div>" +
             "<div style=\"color:#444;white-space:pre-wrap;word-break:break-word\">" + message + "</div>" +
             attachControls +
             footer +

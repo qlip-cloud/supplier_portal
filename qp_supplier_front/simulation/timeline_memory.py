@@ -51,6 +51,7 @@ class MemoryTimelineAdapter(object):
                 "new_state": row.get("new_state") or None,
                 "entry_by": row.get("entry_by") or "",
                 "entry_date": row.get("entry_date") or "",
+                "origin": row.get("origin") or "",
             }
             for row in timeline_rows
         ]
@@ -78,7 +79,7 @@ class MemoryTimelineAdapter(object):
         return entry
 
     def set_state(self, doc_name, new_state, extra_fields=None, user=None, now=None,
-                  old_state=None):
+                  old_state=None, origin=None):
         if old_state is None:
             old_state = self._store.get_value(
                 DOCUMENT_DETAIL, doc_name, "nvfac_esta"
@@ -89,7 +90,8 @@ class MemoryTimelineAdapter(object):
         for key, value in (extra_fields or {}).items():
             self._store.set_value(DOCUMENT_DETAIL, doc_name, key, value)
         entry = build_state_entry(
-            old_state, new_state, user or "Administrator", _now_str(now)
+            old_state, new_state, user or "Administrator", _now_str(now),
+            origin=origin,
         )
         self._insert(doc_name, entry)
         return entry
@@ -245,6 +247,7 @@ class MemoryTimelineAdapter(object):
             "new_state": entry.get("new_state") or None,
             "entry_by": entry["entry_by"],
             "entry_date": entry["entry_date"] or _now_str(),
+            "origin": entry.get("origin") or "",
             "send_to_bc": 1 if entry.get("send_to_bc") else 0,
             "attachment_file_id": entry.get("attachment_file_id") or "",
             "attachment_file_url": entry.get("attachment_file_url") or "",
